@@ -332,3 +332,82 @@ async def logout():
     by removing the token. This endpoint is here for consistency.
     """
     return {"message": "Successfully logged out"}
+
+
+# 사전등록할 이메일 목록
+PREREGISTER_EMAILS = [
+    "ckmyun@gmail.com", "hugucoaching@gmail.com", "viproject@naver.com",
+    "huhcloud@gmail.com", "bizkcoach@gmail.com", "ja.catherine.min@gmail.com",
+    "hchoe1105@gmail.com", "laontreecoach@gmail.com", "ajoucoach@gmail.com",
+    "plan7696@gmail.com", "loginheaven@gmail.com", "ros2468@gmail.com",
+    "coach7179@gmail.com", "kbc0810@gmail.com", "sowon2017@naver.com",
+    "0917coolturtle@gmail.com", "goodtime.yjk@gmail.com", "jhlilackim@gmail.com",
+    "ruthpark3360@gmail.com", "pcm8257@gmail.com", "lupincoach@gmail.com",
+    "comata3219@gmail.com", "jws0217@gmail.com", "jwchun.mail@gmail.com",
+    "tsha0805@gmail.com", "hwangdonghee@gmail.com", "snc103911@gmail.com",
+    "withdrchoiclinic@gmail.com",
+]
+
+
+@router.post("/preregister")
+async def preregister_users(
+    secret_key: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    사전등록 사용자 생성 API
+    - secret_key 파라미터로 보안 처리
+    - 공통 비밀번호: pmstest1
+    - 역할: PROJECT_MANAGER, VERIFIER, COACH
+    """
+    # 간단한 보안 체크
+    if secret_key != "coachdb2024!":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid secret key"
+        )
+
+    password = "pmstest1"
+    roles = json.dumps(["PROJECT_MANAGER", "VERIFIER", "COACH"])
+    hashed_password = get_password_hash(password)
+
+    created_count = 0
+    updated_count = 0
+    results = []
+
+    for email in PREREGISTER_EMAILS:
+        # 기존 사용자 확인
+        result = await db.execute(select(User).where(User.email == email))
+        existing_user = result.scalar_one_or_none()
+
+        if existing_user:
+            # 기존 사용자가 있으면 비밀번호와 역할만 업데이트
+            existing_user.hashed_password = hashed_password
+            existing_user.roles = roles
+            updated_count += 1
+            results.append({"email": email, "action": "updated"})
+        else:
+            # 새 사용자 생성
+            new_user = User(
+                email=email,
+                name="",  # 빈 이름 - 프로필 미완성 상태
+                hashed_password=hashed_password,
+                address="미입력",  # 필수 필드이므로 임시값
+                roles=roles,
+                status=UserStatus.ACTIVE,
+            )
+            db.add(new_user)
+            created_count += 1
+            results.append({"email": email, "action": "created"})
+
+    await db.commit()
+
+    return {
+        "message": "Preregistration completed",
+        "created": created_count,
+        "updated": updated_count,
+        "total": created_count + updated_count,
+        "password": password,
+        "roles": ["PROJECT_MANAGER", "VERIFIER", "COACH"],
+        "details": results
+    }
