@@ -1,0 +1,115 @@
+import { useState } from 'react'
+import { useNavigate, Link } from 'react-router-dom'
+import { Form, Input, Button, Card, message, Typography } from 'antd'
+import { UserOutlined, LockOutlined } from '@ant-design/icons'
+import authService from '../services/authService'
+import { useAuthStore } from '../stores/authStore'
+
+const { Title } = Typography
+
+export default function LoginPage() {
+  const [loading, setLoading] = useState(false)
+  const navigate = useNavigate()
+  const { login } = useAuthStore()
+
+  const onFinish = async (values: { email: string; password: string }) => {
+    setLoading(true)
+    try {
+      const response = await authService.login(values)
+      console.log('로그인 응답:', response)
+      login(response.user, response.access_token, response.refresh_token)
+
+      // 토큰 저장 확인
+      console.log('저장된 access_token:', localStorage.getItem('access_token'))
+      console.log('저장된 refresh_token:', localStorage.getItem('refresh_token'))
+
+      message.success('로그인 성공!')
+
+      // 역할별로 다른 페이지로 이동
+      const userRoles = JSON.parse(response.user.roles) as string[]
+      console.log('사용자 역할:', userRoles)
+
+      // 관리자 역할 (SUPER_ADMIN, PROJECT_MANAGER 또는 레거시 admin)
+      if (userRoles.includes('SUPER_ADMIN') || userRoles.includes('admin')) {
+        navigate('/admin/dashboard')
+      } else if (userRoles.includes('PROJECT_MANAGER')) {
+        navigate('/admin/dashboard')
+      } else if (userRoles.includes('VERIFIER') || userRoles.includes('REVIEWER') || userRoles.includes('staff')) {
+        navigate('/admin/dashboard')
+      } else if (userRoles.includes('COACH') || userRoles.includes('coach')) {
+        navigate('/coach/dashboard')
+      } else {
+        navigate('/')
+      }
+    } catch (error: any) {
+      console.error('로그인 에러:', error)
+      message.error(error.response?.data?.detail || '로그인에 실패했습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <Card className="w-full max-w-md">
+        <div className="text-center mb-6">
+          <Title level={2} className="text-blue-600 mb-1">PPMS</Title>
+          <p className="text-gray-500 text-sm">Project & coach Profile Management System</p>
+        </div>
+        <Title level={4} className="text-center mb-6">
+          로그인
+        </Title>
+
+        <Form
+          name="login"
+          onFinish={onFinish}
+          layout="vertical"
+          size="large"
+        >
+          <Form.Item
+            name="email"
+            rules={[
+              { required: true, message: '이메일을 입력해주세요!' },
+              { type: 'email', message: '올바른 이메일 형식이 아닙니다!' }
+            ]}
+          >
+            <Input
+              prefix={<UserOutlined />}
+              placeholder="이메일"
+              autoComplete="email"
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="password"
+            rules={[{ required: true, message: '비밀번호를 입력해주세요!' }]}
+          >
+            <Input.Password
+              prefix={<LockOutlined />}
+              placeholder="비밀번호"
+              autoComplete="current-password"
+            />
+          </Form.Item>
+
+          <Form.Item>
+            <Button
+              type="primary"
+              htmlType="submit"
+              className="w-full"
+              loading={loading}
+            >
+              로그인
+            </Button>
+          </Form.Item>
+
+          <div className="text-center">
+            <span className="text-gray-600">계정이 없으신가요? </span>
+            <Link to="/register" className="text-blue-600 hover:text-blue-800">
+              회원가입
+            </Link>
+          </div>
+        </Form>
+      </Card>
+    </div>
+  )
+}

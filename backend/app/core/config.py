@@ -1,0 +1,67 @@
+from pydantic_settings import BaseSettings
+from typing import Optional
+import os
+
+
+class Settings(BaseSettings):
+    """Application settings and configuration"""
+
+    # Application
+    APP_NAME: str = "Coach Competency Database Service"
+    APP_VERSION: str = "1.0.0"
+    DEBUG: bool = True
+
+    # Database
+    DATABASE_URL: str = "postgresql+asyncpg://coachdb:coachdb123@localhost:5432/coachdb"
+    DATABASE_ECHO: bool = False
+
+    # Redis
+    REDIS_URL: str = "redis://localhost:6379/0"
+
+    # JWT Authentication
+    SECRET_KEY: str = "your-secret-key-change-in-production-min-32-chars-long"
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
+    # CORS
+    BACKEND_CORS_ORIGINS: list = ["http://localhost:3000", "http://localhost:5173"]
+
+    # File Storage
+    FILE_STORAGE_TYPE: str = "local"  # "local", "s3", or "minio"
+    FILE_STORAGE_PATH: str = "./uploads"
+    FILE_MAX_SIZE_MB: int = 10
+    FILE_ALLOWED_TYPES: list = [".pdf", ".jpg", ".jpeg", ".png"]
+
+    # AWS S3 (if using S3)
+    AWS_ACCESS_KEY_ID: Optional[str] = None
+    AWS_SECRET_ACCESS_KEY: Optional[str] = None
+    AWS_S3_BUCKET: Optional[str] = None
+    AWS_REGION: Optional[str] = "us-east-1"
+
+    # MinIO (if using MinIO)
+    MINIO_ENDPOINT: Optional[str] = "localhost:9000"
+    MINIO_ACCESS_KEY: Optional[str] = "minioadmin"
+    MINIO_SECRET_KEY: Optional[str] = "minioadmin"
+    MINIO_BUCKET: Optional[str] = "coach-competency"
+    MINIO_SECURE: bool = False
+
+    # File Retention
+    FILE_RETENTION_YEARS: int = 5
+
+    # Review Lock Settings
+    REVIEW_LOCK_EXPIRE_MINUTES: int = 30
+
+    # Auto-save Settings
+    AUTO_SAVE_INTERVAL_SECONDS: int = 30
+
+    # Pagination
+    DEFAULT_PAGE_SIZE: int = 20
+    MAX_PAGE_SIZE: int = 100
+
+    class Config:
+        env_file = ".env"
+        case_sensitive = True
+
+
+settings = Settings()

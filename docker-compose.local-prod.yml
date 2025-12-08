@@ -1,0 +1,79 @@
+version: '3.8'
+
+# Local production test (no SSL)
+# Usage: docker-compose -f docker-compose.local-prod.yml up --build
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: coachdb-postgres-local-prod
+    environment:
+      POSTGRES_DB: coachdb
+      POSTGRES_USER: coachdb
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-coachdb123}
+    volumes:
+      - postgres_local_prod:/var/lib/postgresql/data
+    restart: always
+    networks:
+      - coachdb-local-prod
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U coachdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: coachdb-backend-local-prod
+    environment:
+      DATABASE_URL: postgresql+asyncpg://coachdb:${DB_PASSWORD:-coachdb123}@postgres:5432/coachdb
+      SECRET_KEY: ${SECRET_KEY:-1d63fe490106c0351dd52a3473bf26d0e458ba0f3f356f968ebe642c2d997249}
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 60
+      CORS_ORIGINS: '["http://localhost"]'
+      ENVIRONMENT: production
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: always
+    networks:
+      - coachdb-local-prod
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        VITE_API_BASE_URL: http://localhost/api
+    container_name: coachdb-frontend-local-prod
+    restart: always
+    networks:
+      - coachdb-local-prod
+
+  nginx:
+    image: nginx:alpine
+    container_name: coachdb-nginx-local-prod
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.local-prod.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/logs:/var/log/nginx
+    depends_on:
+      - backend
+      - frontend
+    restart: always
+    networks:
+      - coachdb-local-prod
+
+volumes:
+  postgres_local_prod:
+    driver: local
+
+networks:
+  coachdb-local-prod:
+    driver: bridge

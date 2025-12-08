@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    /* Only override the strict linting rules for pilot deployment */
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
+  }
+}

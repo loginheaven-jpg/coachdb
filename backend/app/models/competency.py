@@ -1,0 +1,183 @@
+from sqlalchemy import Column, Integer, BigInteger, String, Text, Enum, Boolean, Numeric, DateTime, ForeignKey, func
+from sqlalchemy.orm import relationship
+import enum
+
+from app.core.database import Base
+
+
+class CompetencyCategory(str, enum.Enum):
+    BASIC = "BASIC"              # 기본정보 (평가 대상 아님)
+    DETAIL = "DETAIL"            # 세부정보 (모든 과제 활용)
+    ADDON = "ADDON"              # 추가역량 (과제별 동적)
+    EDUCATION = "EDUCATION"      # 교육이력
+    COACHING = "COACHING"        # 코칭 분야별 이력
+    # Legacy categories (deprecated)
+    INFO = "INFO"                # Deprecated: use BASIC
+    EVALUATION = "EVALUATION"    # Deprecated: use DETAIL
+    OTHER = "OTHER"              # Deprecated: use ADDON
+
+
+class InputType(str, enum.Enum):
+    TEXT = "text"
+    SELECT = "select"
+    NUMBER = "number"
+    FILE = "file"
+
+
+class ItemTemplate(str, enum.Enum):
+    """역량 항목 템플릿 유형"""
+    TEXT = "text"                      # 단일 텍스트 입력
+    NUMBER = "number"                  # 단일 숫자 입력
+    SELECT = "select"                  # 단일 선택
+    MULTISELECT = "multiselect"        # 다중 선택
+    FILE = "file"                      # 단일 파일
+    TEXT_FILE = "text_file"            # 텍스트 + 파일 (자격증/경험 형태, 복수 가능)
+    DEGREE = "degree"                  # 학위 (선택 + 텍스트 + 파일)
+    COACHING_HISTORY = "coaching_history"  # 코칭 분야 이력 + 증빙
+
+
+class MatchingType(str, enum.Enum):
+    EXACT = "exact"
+    CONTAINS = "contains"
+    RANGE = "range"
+
+
+class ProofRequiredLevel(str, enum.Enum):
+    NOT_REQUIRED = "not_required"  # 증빙 불필요
+    OPTIONAL = "optional"           # 증빙 선택 (제출 가능하나 보류 표시)
+    REQUIRED = "required"           # 증빙 필수 (임시저장만 가능)
+
+
+class VerificationStatus(str, enum.Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    SUPPLEMENTED = "supplemented"
+
+
+class CompetencyItem(Base):
+    """Master data - all possible competency items"""
+
+    __tablename__ = "competency_items"
+
+    item_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    item_name = Column(String(200), nullable=False)
+    item_code = Column(String(100), nullable=False, unique=True, index=True)
+    category = Column(Enum(CompetencyCategory), nullable=False)
+    input_type = Column(Enum(InputType), nullable=False)  # Deprecated: use template
+    is_active = Column(Boolean, nullable=False, default=True)
+
+    # Template system (new)
+    template = Column(Enum(ItemTemplate), nullable=True)  # Template type
+    template_config = Column(Text, nullable=True)  # JSON configuration for template
+    is_repeatable = Column(Boolean, nullable=False, default=False)  # Allows multiple entries
+    max_entries = Column(Integer, nullable=True)  # Max entries if repeatable (null = unlimited)
+    description = Column(Text, nullable=True)  # 설문 입력 안내 문구
+
+    # Custom question support
+    is_custom = Column(Boolean, nullable=False, default=False)  # True for custom questions
+    created_by = Column(Integer, ForeignKey("users.user_id"), nullable=True)  # Creator for custom questions
+
+    # Relationships
+    project_items = relationship("ProjectItem", back_populates="competency_item")
+    coach_competencies = relationship("CoachCompetency", back_populates="competency_item")
+    fields = relationship("CompetencyItemField", back_populates="item", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<CompetencyItem(item_id={self.item_id}, code={self.item_code}, name={self.item_name})>"
+
+
+class CompetencyItemField(Base):
+    """Template-based fields for competency items"""
+
+    __tablename__ = "competency_item_fields"
+
+    field_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    item_id = Column(Integer, ForeignKey("competency_items.item_id", ondelete="CASCADE"), nullable=False)
+    field_name = Column(String(100), nullable=False)  # e.g., "degree_level", "major", "proof"
+    field_label = Column(String(200), nullable=False)  # e.g., "학위", "전공명", "증빙업로드"
+    field_type = Column(String(50), nullable=False)  # "text", "select", "multiselect", "number", "file"
+    field_options = Column(Text, nullable=True)  # JSON array for select/multiselect options
+    is_required = Column(Boolean, nullable=False, default=True)
+    display_order = Column(Integer, nullable=False, default=0)
+    placeholder = Column(String(200), nullable=True)  # Input hint
+
+    # Relationships
+    item = relationship("CompetencyItem", back_populates="fields")
+
+    def __repr__(self):
+        return f"<CompetencyItemField(field_id={self.field_id}, item_id={self.item_id}, field_name={self.field_name})>"
+
+
+class ProjectItem(Base):
+    """Project-specific configuration - which items are used in each project"""
+
+    __tablename__ = "project_items"
+
+    project_item_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    project_id = Column(Integer, ForeignKey("projects.project_id", ondelete="CASCADE"), nullable=False)
+    item_id = Column(Integer, ForeignKey("competency_items.item_id"), nullable=False)
+    is_required = Column(Boolean, nullable=False, default=False)
+    proof_required_level = Column(Enum(ProofRequiredLevel), nullable=False, default=ProofRequiredLevel.NOT_REQUIRED)
+    max_score = Column(Numeric(5, 2), nullable=True)  # Max score for this item in this project
+    display_order = Column(Integer, nullable=False, default=0)
+
+    # Relationships
+    project = relationship("Project", back_populates="project_items")
+    competency_item = relationship("CompetencyItem", back_populates="project_items")
+    scoring_criteria = relationship("ScoringCriteria", back_populates="project_item", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<ProjectItem(project_item_id={self.project_item_id}, project_id={self.project_id}, item_id={self.item_id})>"
+
+
+class ScoringCriteria(Base):
+    """Scoring rules for project items"""
+
+    __tablename__ = "scoring_criteria"
+
+    criteria_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    project_item_id = Column(Integer, ForeignKey("project_items.project_item_id", ondelete="CASCADE"), nullable=False)
+    matching_type = Column(Enum(MatchingType), nullable=False)
+    expected_value = Column(Text, nullable=False)  # Value to match (e.g., "KSC", "1500", etc.)
+    score = Column(Numeric(5, 2), nullable=False)  # Points awarded for this match
+
+    # Relationships
+    project_item = relationship("ProjectItem", back_populates="scoring_criteria")
+
+    def __repr__(self):
+        return f"<ScoringCriteria(criteria_id={self.criteria_id}, expected_value={self.expected_value}, score={self.score})>"
+
+
+class CoachCompetency(Base):
+    """Central wallet - coach competencies (reusable across projects)"""
+
+    __tablename__ = "coach_competencies"
+
+    competency_id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
+    user_id = Column(BigInteger, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False, index=True)
+    item_id = Column(Integer, ForeignKey("competency_items.item_id"), nullable=False)
+    value = Column(Text, nullable=True)
+    file_id = Column(BigInteger, ForeignKey("files.file_id"), nullable=True)
+    verification_status = Column(Enum(VerificationStatus), nullable=False, default=VerificationStatus.PENDING)
+    verified_by = Column(BigInteger, ForeignKey("users.user_id"), nullable=True)
+    verified_at = Column(DateTime(timezone=True), nullable=True)
+    rejection_reason = Column(Text, nullable=True)  # NEW: reason for supplement request
+    is_anonymized = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+
+    # 전역 검증 관련 필드 (다중 Verifier 컨펌 시스템)
+    is_globally_verified = Column(Boolean, nullable=False, default=False)  # 전역 검증 완료 여부
+    globally_verified_at = Column(DateTime(timezone=True), nullable=True)  # 전역 검증 완료 시각
+
+    # Relationships
+    user = relationship("User", back_populates="competencies", foreign_keys=[user_id])
+    competency_item = relationship("CompetencyItem", back_populates="coach_competencies")
+    file = relationship("File", foreign_keys=[file_id])
+    verifier = relationship("User", foreign_keys=[verified_by])
+    application_data = relationship("ApplicationData", back_populates="linked_competency")
+    verification_records = relationship("VerificationRecord", back_populates="competency", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<CoachCompetency(competency_id={self.competency_id}, user_id={self.user_id}, item_id={self.item_id}, status={self.verification_status})>"

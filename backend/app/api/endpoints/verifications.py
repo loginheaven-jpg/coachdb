@@ -1,0 +1,411 @@
+"""
+증빙확인(Verification) API 엔드포인트
+- Verifier가 코치의 증빙을 컨펌/취소
+- 관리자가 증빙 검증 상태 리셋
+- 다중 컨펌 시스템 (N명 이상 컨펌 시 전역 확정)
+"""
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select, func, and_
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+from typing import List, Optional
+from datetime import datetime, timezone
+
+from app.core.database import get_db
+from app.core.security import get_current_user, require_roles
+from app.models import (
+    User, UserRole, CoachCompetency, CompetencyItem,
+    VerificationRecord, SystemConfig, ConfigKeys
+)
+from app.schemas.verification import (
+    VerificationRecordResponse,
+    CompetencyVerificationStatus,
+    VerificationConfirmRequest,
+    VerificationResetRequest,
+    PendingVerificationItem
+)
+
+router = APIRouter(prefix="/verifications", tags=["Verifications"])
+
+
+async def get_required_verifier_count(db: AsyncSession) -> int:
+    """시스템 설정에서 필요한 Verifier 수 조회"""
+    result = await db.execute(
+        select(SystemConfig).where(SystemConfig.key == ConfigKeys.REQUIRED_VERIFIER_COUNT)
+    )
+    config = result.scalar_one_or_none()
+    if config:
+        try:
+            return int(config.value)
+        except ValueError:
+            return 2
+    return 2  # 기본값
+
+
+async def check_and_update_global_verification(
+    db: AsyncSession,
+    competency_id: int,
+    required_count: int
+) -> bool:
+    """
+    유효한 컨펌 수를 확인하고 필요 시 전역 검증 상태 업데이트
+    Returns: True if globally verified, False otherwise
+    """
+    # 유효한 컨펌 수 계산
+    count_result = await db.execute(
+        select(func.count(VerificationRecord.record_id))
+        .where(
+            and_(
+                VerificationRecord.competency_id == competency_id,
+                VerificationRecord.is_valid == True
+            )
+        )
+    )
+    valid_count = count_result.scalar() or 0
+
+    # CoachCompetency 조회
+    result = await db.execute(
+        select(CoachCompetency).where(CoachCompetency.competency_id == competency_id)
+    )
+    competency = result.scalar_one_or_none()
+
+    if not competency:
+        return False
+
+    # 전역 검증 상태 업데이트
+    if valid_count >= required_count and not competency.is_globally_verified:
+        competency.is_globally_verified = True
+        competency.globally_verified_at = datetime.now(timezone.utc)
+        await db.commit()
+        return True
+    elif valid_count < required_count and competency.is_globally_verified:
+        # 컨펌 수가 부족해지면 전역 검증 해제
+        competency.is_globally_verified = False
+        competency.globally_verified_at = None
+        await db.commit()
+        return False
+
+    return competency.is_globally_verified
+
+
+@router.get("/pending", response_model=List[PendingVerificationItem])
+async def get_pending_verifications(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles([UserRole.VERIFIER, UserRole.PROJECT_MANAGER, UserRole.SUPER_ADMIN]))
+):
+    """
+    검증 대기 중인 증빙 목록 조회
+    - 아직 전역 검증되지 않은 증빙들
+    - 현재 사용자의 컨펌 여부 포함
+    """
+    required_count = await get_required_verifier_count(db)
+
+    # 전역 검증되지 않은 CoachCompetency 조회 (값이나 파일이 있는 것만)
+    query = (
+        select(CoachCompetency)
+        .join(CompetencyItem, CoachCompetency.item_id == CompetencyItem.item_id)
+        .join(User, CoachCompetency.user_id == User.user_id)
+        .options(
+            selectinload(CoachCompetency.item),
+            selectinload(CoachCompetency.user),
+            selectinload(CoachCompetency.verification_records)
+        )
+        .where(
+            and_(
+                CoachCompetency.is_globally_verified == False,
+                # 값이나 파일이 있는 증빙만
+                (CoachCompetency.value.isnot(None)) | (CoachCompetency.file_id.isnot(None))
+            )
+        )
+        .order_by(CoachCompetency.updated_at.desc())
+    )
+
+    result = await db.execute(query)
+    competencies = result.scalars().all()
+
+    items = []
+    for comp in competencies:
+        # 유효한 컨펌 수 계산
+        valid_records = [r for r in comp.verification_records if r.is_valid]
+        verification_count = len(valid_records)
+
+        # 현재 사용자의 컨펌 기록 확인
+        my_record = next(
+            (r for r in valid_records if r.verifier_id == current_user.user_id),
+            None
+        )
+
+        my_verification = None
+        if my_record:
+            # verifier 이름 조회
+            verifier_result = await db.execute(
+                select(User.name).where(User.user_id == my_record.verifier_id)
+            )
+            verifier_name = verifier_result.scalar_one_or_none()
+
+            my_verification = VerificationRecordResponse(
+                record_id=my_record.record_id,
+                competency_id=my_record.competency_id,
+                verifier_id=my_record.verifier_id,
+                verifier_name=verifier_name,
+                verified_at=my_record.verified_at,
+                is_valid=my_record.is_valid
+            )
+
+        items.append(PendingVerificationItem(
+            competency_id=comp.competency_id,
+            user_id=comp.user_id,
+            user_name=comp.user.name if comp.user else "Unknown",
+            user_email=comp.user.email if comp.user else "",
+            item_id=comp.item_id,
+            item_name=comp.item.name if comp.item else "Unknown",
+            item_code=comp.item.code if comp.item else "",
+            value=comp.value,
+            file_id=comp.file_id,
+            created_at=comp.created_at or datetime.now(timezone.utc),
+            verification_count=verification_count,
+            required_count=required_count,
+            my_verification=my_verification
+        ))
+
+    return items
+
+
+@router.get("/{competency_id}", response_model=CompetencyVerificationStatus)
+async def get_verification_status(
+    competency_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """특정 증빙의 검증 상태 조회"""
+    required_count = await get_required_verifier_count(db)
+
+    # CoachCompetency 조회
+    result = await db.execute(
+        select(CoachCompetency)
+        .options(
+            selectinload(CoachCompetency.item),
+            selectinload(CoachCompetency.user),
+            selectinload(CoachCompetency.verification_records)
+        )
+        .where(CoachCompetency.competency_id == competency_id)
+    )
+    competency = result.scalar_one_or_none()
+
+    if not competency:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="증빙을 찾을 수 없습니다"
+        )
+
+    # 유효한 검증 기록만 조회
+    valid_records = [r for r in competency.verification_records if r.is_valid]
+
+    # verifier 이름 조회
+    records_with_names = []
+    for record in valid_records:
+        verifier_result = await db.execute(
+            select(User.name).where(User.user_id == record.verifier_id)
+        )
+        verifier_name = verifier_result.scalar_one_or_none()
+
+        records_with_names.append(VerificationRecordResponse(
+            record_id=record.record_id,
+            competency_id=record.competency_id,
+            verifier_id=record.verifier_id,
+            verifier_name=verifier_name,
+            verified_at=record.verified_at,
+            is_valid=record.is_valid
+        ))
+
+    return CompetencyVerificationStatus(
+        competency_id=competency.competency_id,
+        user_id=competency.user_id,
+        user_name=competency.user.name if competency.user else None,
+        item_id=competency.item_id,
+        item_name=competency.item.name if competency.item else None,
+        value=competency.value,
+        file_id=competency.file_id,
+        is_globally_verified=competency.is_globally_verified,
+        globally_verified_at=competency.globally_verified_at,
+        verification_count=len(valid_records),
+        required_count=required_count,
+        records=records_with_names
+    )
+
+
+@router.post("/confirm", response_model=VerificationRecordResponse)
+async def confirm_verification(
+    request: VerificationConfirmRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles([UserRole.VERIFIER, UserRole.PROJECT_MANAGER, UserRole.SUPER_ADMIN]))
+):
+    """
+    증빙 컨펌
+    - Verifier가 증빙의 진위를 확인하고 컨펌
+    - 필요 수 이상 컨펌되면 자동으로 전역 검증 완료
+    """
+    competency_id = request.competency_id
+
+    # CoachCompetency 존재 확인
+    result = await db.execute(
+        select(CoachCompetency).where(CoachCompetency.competency_id == competency_id)
+    )
+    competency = result.scalar_one_or_none()
+
+    if not competency:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="증빙을 찾을 수 없습니다"
+        )
+
+    # 이미 전역 검증 완료된 경우
+    if competency.is_globally_verified:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="이미 검증 완료된 증빙입니다"
+        )
+
+    # 기존 유효한 컨펌 기록 확인
+    existing_result = await db.execute(
+        select(VerificationRecord).where(
+            and_(
+                VerificationRecord.competency_id == competency_id,
+                VerificationRecord.verifier_id == current_user.user_id,
+                VerificationRecord.is_valid == True
+            )
+        )
+    )
+    existing_record = existing_result.scalar_one_or_none()
+
+    if existing_record:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="이미 컨펌한 증빙입니다"
+        )
+
+    # 새 컨펌 기록 생성
+    new_record = VerificationRecord(
+        competency_id=competency_id,
+        verifier_id=current_user.user_id,
+        verified_at=datetime.now(timezone.utc),
+        is_valid=True
+    )
+    db.add(new_record)
+    await db.commit()
+    await db.refresh(new_record)
+
+    # 전역 검증 상태 확인 및 업데이트
+    required_count = await get_required_verifier_count(db)
+    await check_and_update_global_verification(db, competency_id, required_count)
+
+    return VerificationRecordResponse(
+        record_id=new_record.record_id,
+        competency_id=new_record.competency_id,
+        verifier_id=new_record.verifier_id,
+        verifier_name=current_user.name,
+        verified_at=new_record.verified_at,
+        is_valid=new_record.is_valid
+    )
+
+
+@router.delete("/{record_id}")
+async def cancel_verification(
+    record_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles([UserRole.VERIFIER, UserRole.PROJECT_MANAGER, UserRole.SUPER_ADMIN]))
+):
+    """
+    본인의 컨펌 취소
+    - 본인이 한 컨펌만 취소 가능
+    """
+    result = await db.execute(
+        select(VerificationRecord).where(VerificationRecord.record_id == record_id)
+    )
+    record = result.scalar_one_or_none()
+
+    if not record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="컨펌 기록을 찾을 수 없습니다"
+        )
+
+    # 본인 컨펌인지 확인 (SUPER_ADMIN은 예외)
+    user_roles = current_user.roles if isinstance(current_user.roles, list) else [current_user.roles]
+    is_super_admin = UserRole.SUPER_ADMIN in user_roles or UserRole.SUPER_ADMIN.value in user_roles
+
+    if record.verifier_id != current_user.user_id and not is_super_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="본인의 컨펌만 취소할 수 있습니다"
+        )
+
+    # 이미 무효화된 기록인지 확인
+    if not record.is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="이미 취소된 컨펌입니다"
+        )
+
+    competency_id = record.competency_id
+
+    # 컨펌 무효화
+    record.is_valid = False
+    await db.commit()
+
+    # 전역 검증 상태 재확인
+    required_count = await get_required_verifier_count(db)
+    await check_and_update_global_verification(db, competency_id, required_count)
+
+    return {"message": "컨펌이 취소되었습니다"}
+
+
+@router.post("/{competency_id}/reset")
+async def reset_verification(
+    competency_id: int,
+    request: VerificationResetRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles([UserRole.PROJECT_MANAGER, UserRole.SUPER_ADMIN]))
+):
+    """
+    증빙 검증 상태 리셋
+    - 관리자/PM만 가능
+    - 모든 컨펌 기록 무효화 + 전역 검증 해제
+    """
+    # CoachCompetency 조회
+    result = await db.execute(
+        select(CoachCompetency).where(CoachCompetency.competency_id == competency_id)
+    )
+    competency = result.scalar_one_or_none()
+
+    if not competency:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="증빙을 찾을 수 없습니다"
+        )
+
+    # 모든 유효한 컨펌 기록 무효화
+    records_result = await db.execute(
+        select(VerificationRecord).where(
+            and_(
+                VerificationRecord.competency_id == competency_id,
+                VerificationRecord.is_valid == True
+            )
+        )
+    )
+    records = records_result.scalars().all()
+
+    for record in records:
+        record.is_valid = False
+
+    # 전역 검증 상태 해제
+    competency.is_globally_verified = False
+    competency.globally_verified_at = None
+
+    await db.commit()
+
+    return {
+        "message": "증빙 검증이 리셋되었습니다",
+        "invalidated_count": len(records),
+        "reason": request.reason
+    }
