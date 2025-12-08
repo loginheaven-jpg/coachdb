@@ -24,5 +24,5 @@ RUN mkdir -p /app/uploads
 # Expose port (Railway uses PORT env variable)
 EXPOSE 8080
 
-# Run the application with migrations
-CMD alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}
+# Run the application with migrations (shell form for variable expansion)
+CMD ["/bin/sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}"]
