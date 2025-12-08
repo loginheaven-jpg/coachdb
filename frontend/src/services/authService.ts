@@ -54,6 +54,7 @@ export interface AuthResponse {
   refresh_token: string
   token_type: string
   pending_roles?: string[]  // Roles awaiting admin approval
+  profile_complete: boolean  // False if required profile fields (name) are missing
 }
 
 export interface TokenResponse {

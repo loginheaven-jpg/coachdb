@@ -104,3 +104,4 @@ class UserWithToken(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     pending_roles: Optional[List[str]] = None  # Roles awaiting admin approval
+    profile_complete: bool = True  # False if required profile fields (name) are missing

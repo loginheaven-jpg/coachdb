@@ -120,10 +120,14 @@ async def register(
     access_token = create_access_token(token_data)
     refresh_token = create_refresh_token(token_data)
 
+    # Check if profile is complete (name is required)
+    profile_complete = bool(new_user.name and new_user.name.strip())
+
     response = UserWithToken(
         user=UserResponse.from_orm(new_user),
         access_token=access_token,
-        refresh_token=refresh_token
+        refresh_token=refresh_token,
+        profile_complete=profile_complete
     )
 
     # Add pending_roles info to response if any
@@ -166,10 +170,14 @@ async def login(
     access_token = create_access_token(token_data)
     refresh_token = create_refresh_token(token_data)
 
+    # Check if profile is complete (name is required)
+    profile_complete = bool(user.name and user.name.strip())
+
     return UserWithToken(
         user=UserResponse.from_orm(user),
         access_token=access_token,
-        refresh_token=refresh_token
+        refresh_token=refresh_token,
+        profile_complete=profile_complete
     )
 
 

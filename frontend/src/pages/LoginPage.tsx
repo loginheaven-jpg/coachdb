@@ -25,6 +25,13 @@ export default function LoginPage() {
 
       message.success('로그인 성공!')
 
+      // 프로필 미완성 시 프로필 수정 페이지로 이동
+      if (!response.profile_complete) {
+        message.info('프로필 정보를 완성해주세요.')
+        navigate('/profile/edit?required=true')
+        return
+      }
+
       // 역할별로 다른 페이지로 이동
       const userRoles = JSON.parse(response.user.roles) as string[]
       console.log('사용자 역할:', userRoles)

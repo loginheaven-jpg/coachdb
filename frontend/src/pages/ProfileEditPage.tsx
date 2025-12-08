@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Form, Input, Button, Card, message, Typography, Select, InputNumber, Checkbox } from 'antd'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Form, Input, Button, Card, message, Typography, Select, InputNumber, Checkbox, Alert } from 'antd'
 import { UserOutlined, MailOutlined, PhoneOutlined, HomeOutlined, ArrowLeftOutlined, LockOutlined } from '@ant-design/icons'
 import { useAuthStore } from '../stores/authStore'
 import authService, { UserUpdateData } from '../services/authService'
@@ -24,7 +24,31 @@ export default function ProfileEditPage() {
   const [form] = Form.useForm()
   const [passwordForm] = Form.useForm()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { user } = useAuthStore()
+
+  // required 모드: 프로필 미완성 시 강제 이동된 경우
+  const isRequiredMode = searchParams.get('required') === 'true'
+
+  // 역할에 따라 적절한 대시보드로 이동
+  const navigateToDashboard = () => {
+    if (!user) {
+      navigate('/')
+      return
+    }
+    const userRoles = JSON.parse(user.roles) as string[]
+    if (userRoles.includes('SUPER_ADMIN') || userRoles.includes('admin')) {
+      navigate('/admin/dashboard')
+    } else if (userRoles.includes('PROJECT_MANAGER')) {
+      navigate('/admin/dashboard')
+    } else if (userRoles.includes('VERIFIER') || userRoles.includes('REVIEWER') || userRoles.includes('staff')) {
+      navigate('/admin/dashboard')
+    } else if (userRoles.includes('COACH') || userRoles.includes('coach')) {
+      navigate('/coach/dashboard')
+    } else {
+      navigate('/')
+    }
+  }
 
   useEffect(() => {
     if (user) {
@@ -69,7 +93,7 @@ export default function ProfileEditPage() {
       useAuthStore.getState().setUser(updatedUser as any)
 
       message.success('프로필이 업데이트되었습니다!')
-      navigate('/coach/dashboard')
+      navigateToDashboard()
     } catch (error: any) {
       message.error(error.response?.data?.detail || '프로필 업데이트에 실패했습니다.')
     } finally {
@@ -93,22 +117,36 @@ export default function ProfileEditPage() {
   return (
     <div className="min-h-screen bg-gray-100 py-8">
       <div className="max-w-4xl mx-auto px-4">
-        <Button
-          icon={<ArrowLeftOutlined />}
-          onClick={() => navigate('/coach/dashboard')}
-          className="mb-4"
-        >
-          대시보드로 돌아가기
-        </Button>
+        {!isRequiredMode && (
+          <Button
+            icon={<ArrowLeftOutlined />}
+            onClick={navigateToDashboard}
+            className="mb-4"
+          >
+            대시보드로 돌아가기
+          </Button>
+        )}
 
         <Card>
+          {isRequiredMode && (
+            <Alert
+              message="프로필 정보 입력 필요"
+              description="서비스 이용을 위해 기본 정보를 입력해주세요. 새 비밀번호도 설정하실 수 있습니다."
+              type="info"
+              showIcon
+              className="mb-6"
+            />
+          )}
+
           <div className="flex justify-between items-start mb-6">
             <div className="flex-1">
               <Title level={2} className="text-center mb-2">
-                기본정보 수정
+                {isRequiredMode ? '프로필 정보 입력' : '기본정보 수정'}
               </Title>
               <Text className="block text-center text-gray-600">
-                회원가입 시 입력한 기본정보를 수정할 수 있습니다
+                {isRequiredMode
+                  ? '아래 필수 정보를 입력하고 저장해주세요'
+                  : '회원가입 시 입력한 기본정보를 수정할 수 있습니다'}
               </Text>
             </div>
             {user?.updated_at && (
@@ -243,18 +281,20 @@ export default function ProfileEditPage() {
             </Form.Item>
 
             <div className="flex gap-4">
-              <Button
-                type="default"
-                onClick={() => navigate('/coach/dashboard')}
-                className="flex-1"
-                size="large"
-              >
-                취소
-              </Button>
+              {!isRequiredMode && (
+                <Button
+                  type="default"
+                  onClick={navigateToDashboard}
+                  className="flex-1"
+                  size="large"
+                >
+                  취소
+                </Button>
+              )}
               <Button
                 type="primary"
                 htmlType="submit"
-                className="flex-1"
+                className={isRequiredMode ? "w-full" : "flex-1"}
                 loading={loading}
                 size="large"
               >
