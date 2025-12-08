@@ -11,8 +11,16 @@ class Settings(BaseSettings):
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = True
 
-    # Database
+    # Database - Railway provides postgresql://, we need postgresql+asyncpg://
     DATABASE_URL: str = "postgresql+asyncpg://coachdb:coachdb123@localhost:5432/coachdb"
+
+    @property
+    def async_database_url(self) -> str:
+        """Convert standard postgresql:// to postgresql+asyncpg:// for async support"""
+        url = self.DATABASE_URL
+        if url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return url
     DATABASE_ECHO: bool = False
 
     # Redis
@@ -24,8 +32,9 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    # CORS
-    BACKEND_CORS_ORIGINS: list = ["http://localhost:3000", "http://localhost:5173"]
+    # CORS - Allow all origins for Railway deployment
+    CORS_ORIGINS: str = '["*"]'  # Can be overridden via env variable
+    BACKEND_CORS_ORIGINS: list = ["*"]  # Default to allow all
 
     # File Storage
     FILE_STORAGE_TYPE: str = "local"  # "local", "s3", or "minio"
