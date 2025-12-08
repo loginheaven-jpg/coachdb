@@ -21,8 +21,12 @@ COPY . .
 # Create uploads directory
 RUN mkdir -p /app/uploads
 
+# Copy and make startup script executable
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
 # Expose port (Railway uses PORT env variable)
 EXPOSE 8080
 
-# Run the application with migrations (shell form for variable expansion)
-CMD ["/bin/sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}"]
+# Run the application
+CMD ["/app/start.sh"]
