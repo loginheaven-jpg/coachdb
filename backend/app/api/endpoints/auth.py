@@ -349,6 +349,30 @@ PREREGISTER_EMAILS = [
 ]
 
 
+@router.post("/set-admin")
+async def set_admin_user(
+    secret_key: str,
+    email: str,
+    password: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """특정 사용자를 관리자로 설정하고 비밀번호 변경"""
+    if secret_key != "coachdb2024!":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid secret key")
+
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    user.hashed_password = get_password_hash(password)
+    user.roles = json.dumps(["SUPER_ADMIN", "PROJECT_MANAGER", "VERIFIER", "COACH"])
+    await db.commit()
+
+    return {"message": f"Admin set for {email}", "roles": ["SUPER_ADMIN", "PROJECT_MANAGER", "VERIFIER", "COACH"]}
+
+
 @router.post("/preregister")
 async def preregister_users(
     secret_key: str,
