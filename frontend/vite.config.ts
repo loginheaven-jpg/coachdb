@@ -19,6 +19,7 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    allowedHosts: ['coacdbfront-production.up.railway.app', '.railway.app'],
     proxy: {
       '/api': {
         target: 'http://backend:8000',
