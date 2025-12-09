@@ -2,8 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import json
+from datetime import datetime, timedelta
+from jose import jwt, JWTError
 
 from app.core.database import get_db
+from app.core.config import settings
+from app.core.email import send_password_reset_email
 from app.core.security import (
     get_password_hash,
     verify_password,
@@ -332,6 +336,97 @@ async def logout():
     by removing the token. This endpoint is here for consistency.
     """
     return {"message": "Successfully logged out"}
+
+
+def create_password_reset_token(user_id: int) -> str:
+    """Create a password reset JWT token"""
+    expire = datetime.utcnow() + timedelta(hours=settings.PASSWORD_RESET_TOKEN_EXPIRE_HOURS)
+    to_encode = {
+        "sub": str(user_id),
+        "exp": expire,
+        "type": "password_reset"
+    }
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
+def verify_password_reset_token(token: str) -> int:
+    """Verify password reset token and return user_id"""
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        if payload.get("type") != "password_reset":
+            raise ValueError("Invalid token type")
+        user_id = int(payload.get("sub"))
+        return user_id
+    except JWTError:
+        raise ValueError("Invalid or expired token")
+
+
+@router.post("/forgot-password")
+async def forgot_password(
+    email: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Request password reset email.
+    Always returns success to prevent email enumeration.
+    """
+    # Find user by email
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+
+    if user and user.status == UserStatus.ACTIVE:
+        # Generate reset token
+        reset_token = create_password_reset_token(user.user_id)
+
+        # Send email (async but we don't wait for it)
+        await send_password_reset_email(email, reset_token, user.name if user.name else None)
+
+    # Always return success to prevent email enumeration
+    return {
+        "message": "비밀번호 재설정 이메일이 발송되었습니다. 이메일을 확인해주세요.",
+        "detail": "If the email exists in our system, a reset link has been sent."
+    }
+
+
+@router.post("/reset-password")
+async def reset_password(
+    token: str,
+    new_password: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Reset password using the reset token from email.
+    """
+    try:
+        user_id = verify_password_reset_token(token)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="유효하지 않거나 만료된 토큰입니다."
+        )
+
+    # Find user
+    result = await db.execute(select(User).where(User.user_id == user_id))
+    user = result.scalar_one_or_none()
+
+    if not user or user.status != UserStatus.ACTIVE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="사용자를 찾을 수 없습니다."
+        )
+
+    # Validate password length
+    if len(new_password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="비밀번호는 8자 이상이어야 합니다."
+        )
+
+    # Update password
+    user.hashed_password = get_password_hash(new_password)
+    await db.commit()
+
+    return {"message": "비밀번호가 성공적으로 변경되었습니다."}
 
 
 # 사전등록할 이메일 목록

@@ -115,6 +115,12 @@ export default function LoginPage() {
               회원가입
             </Link>
           </div>
+
+          <div className="text-center mt-3">
+            <Link to="/forgot-password" className="text-gray-500 hover:text-gray-700 text-sm">
+              비밀번호를 잊어버리셨나요? 이메일 리셋
+            </Link>
+          </div>
         </Form>
       </Card>
     </div>

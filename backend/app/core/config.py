@@ -68,6 +68,18 @@ class Settings(BaseSettings):
     DEFAULT_PAGE_SIZE: int = 20
     MAX_PAGE_SIZE: int = 100
 
+    # Email Settings (for password reset)
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USER: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    SMTP_FROM_EMAIL: str = "noreply@coachdb.com"
+    SMTP_FROM_NAME: str = "CoachDB"
+
+    # Password Reset
+    PASSWORD_RESET_TOKEN_EXPIRE_HOURS: int = 24
+    FRONTEND_URL: str = "http://localhost:5173"
+
     class Config:
         env_file = ".env"
         case_sensitive = True
