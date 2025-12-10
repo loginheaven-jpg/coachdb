@@ -302,7 +302,13 @@ async def list_projects(
     - Others: Can see all projects (for application purposes)
     """
     import json
-    user_roles = json.loads(current_user.roles)
+    import traceback
+    try:
+        user_roles = json.loads(current_user.roles)
+    except Exception as e:
+        print(f"[ERROR] list_projects - parsing roles: {e}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Error parsing roles: {str(e)}")
 
     # Build query
     query = select(Project)
@@ -333,33 +339,46 @@ async def list_projects(
     # Apply pagination
     query = query.order_by(Project.created_at.desc()).offset(skip).limit(limit)
 
-    result = await db.execute(query)
-    projects = result.scalars().all()
+    try:
+        result = await db.execute(query)
+        projects = result.scalars().all()
+        print(f"[DEBUG] Found {len(projects)} projects")
+    except Exception as e:
+        import traceback
+        print(f"[ERROR] list_projects - executing query: {e}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Database query error: {str(e)}")
 
     # Build response with application counts
     response_list = []
     for project in projects:
-        # Count applications
-        count_result = await db.execute(
-            select(func.count(Application.application_id)).where(
-                Application.project_id == project.project_id
+        try:
+            # Count applications
+            count_result = await db.execute(
+                select(func.count(Application.application_id)).where(
+                    Application.project_id == project.project_id
+                )
             )
-        )
-        application_count = count_result.scalar()
+            application_count = count_result.scalar()
 
-        response_item = ProjectListResponse(
-            project_id=project.project_id,
-            project_name=project.project_name,
-            recruitment_start_date=project.recruitment_start_date,
-            recruitment_end_date=project.recruitment_end_date,
-            project_start_date=project.project_start_date,
-            project_end_date=project.project_end_date,
-            status=project.status,
-            max_participants=project.max_participants,
-            application_count=application_count,
-            created_at=project.created_at
-        )
-        response_list.append(response_item)
+            response_item = ProjectListResponse(
+                project_id=project.project_id,
+                project_name=project.project_name,
+                recruitment_start_date=project.recruitment_start_date,
+                recruitment_end_date=project.recruitment_end_date,
+                project_start_date=project.project_start_date,
+                project_end_date=project.project_end_date,
+                status=project.status,
+                max_participants=project.max_participants,
+                application_count=application_count,
+                created_at=project.created_at
+            )
+            response_list.append(response_item)
+        except Exception as e:
+            import traceback
+            print(f"[ERROR] list_projects - building response for project {project.project_id}: {e}")
+            print(traceback.format_exc())
+            raise HTTPException(status_code=500, detail=f"Error building response: {str(e)}")
 
     return response_list
 
