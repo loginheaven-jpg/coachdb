@@ -1,7 +1,26 @@
 import axios, { AxiosInstance, AxiosError } from 'axios'
 
-// Determine API base URL - use direct backend URL for better reliability
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+// Determine API base URL based on environment
+function getApiBaseUrl(): string {
+  // Check for explicit environment variable first
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL
+  }
+
+  // Auto-detect based on current hostname
+  const hostname = window.location.hostname
+
+  // Railway production frontend
+  if (hostname.includes('railway.app')) {
+    return 'https://coachdbbackend-production.up.railway.app'
+  }
+
+  // Local development
+  return 'http://localhost:8000'
+}
+
+const API_BASE_URL = getApiBaseUrl()
+console.log('[API] Using base URL:', API_BASE_URL)
 
 // Create axios instance
 export const api: AxiosInstance = axios.create({

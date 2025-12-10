@@ -51,7 +51,8 @@
       "Bash(git commit:*)",
       "Bash(git branch:*)",
       "Bash(git push:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(git reset:*)"
     ],
     "deny": [],
     "ask": []
