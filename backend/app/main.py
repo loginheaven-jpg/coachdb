@@ -78,49 +78,6 @@ async def health_check():
     }
 
 
-@app.get("/api/debug/projects-table")
-async def debug_projects_table():
-    """Debug endpoint to check projects table structure"""
-    from sqlalchemy import text
-    from app.core.database import AsyncSessionLocal
-
-    try:
-        async with AsyncSessionLocal() as session:
-            # Get column info for projects table
-            result = await session.execute(text("""
-                SELECT column_name, data_type, is_nullable
-                FROM information_schema.columns
-                WHERE table_name = 'projects'
-                ORDER BY ordinal_position
-            """))
-            columns = [{"name": row[0], "type": row[1], "nullable": row[2]} for row in result.fetchall()]
-
-            # Get project count
-            count_result = await session.execute(text("SELECT COUNT(*) FROM projects"))
-            count = count_result.scalar()
-
-            # Try to fetch first project
-            project_result = await session.execute(text("SELECT * FROM projects LIMIT 1"))
-            project = project_result.fetchone()
-            project_data = None
-            if project:
-                project_data = {columns[i]["name"]: str(v) if v is not None else None for i, v in enumerate(project)}
-
-            return {
-                "status": "ok",
-                "columns": columns,
-                "project_count": count,
-                "sample_project": project_data
-            }
-    except Exception as e:
-        import traceback
-        return {
-            "status": "error",
-            "error": str(e),
-            "traceback": traceback.format_exc()
-        }
-
-
 # Import and include routers
 from app.api.endpoints import auth, competencies, files, education, applications, projects, certifications, notifications, admin, verifications
 
