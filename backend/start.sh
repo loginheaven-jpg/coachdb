@@ -53,6 +53,24 @@ if DATABASE_URL:
             except Exception as e:
                 print(f"[WARN] competency_items.{col_name}: {e}")
 
+        # Add missing enum values to competencycategory
+        enum_values = ['ADDON', 'EDUCATION', 'COACHING', 'OTHER']
+        for val in enum_values:
+            try:
+                cur.execute(f"ALTER TYPE competencycategory ADD VALUE IF NOT EXISTS '{val}'")
+                print(f"[OK] enum competencycategory.{val} ensured")
+            except Exception as e:
+                print(f"[WARN] enum competencycategory.{val}: {e}")
+
+        # Add missing enum values to itemtemplate
+        template_values = ['text', 'number', 'select', 'multiselect', 'file', 'text_file', 'degree', 'coaching_history']
+        for val in template_values:
+            try:
+                cur.execute(f"ALTER TYPE itemtemplate ADD VALUE IF NOT EXISTS '{val}'")
+                print(f"[OK] enum itemtemplate.{val} ensured")
+            except Exception as e:
+                print(f"[WARN] enum itemtemplate.{val}: {e}")
+
         cur.close()
         conn.close()
         print("[OK] Database columns fixed")
