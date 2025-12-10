@@ -478,3 +478,239 @@ async def init_default_configs(db: AsyncSession):
             db.add(config)
 
     await db.commit()
+
+
+# ============================================================================
+# Seed Competency Items Endpoint
+# ============================================================================
+@router.post("/seed-competency-items")
+async def seed_competency_items(
+    secret_key: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Seed default competency items (requires secret key)"""
+    if secret_key != "coachdb2024!":
+        raise HTTPException(status_code=403, detail="Invalid secret key")
+
+    from app.models.competency import (
+        CompetencyItem, CompetencyItemField,
+        CompetencyCategory, InputType, ItemTemplate
+    )
+
+    items_data = [
+        # 학력
+        {
+            "item_name": "코칭/상담/심리 관련 최종학력",
+            "item_code": "EDU_COACHING_FINAL",
+            "category": CompetencyCategory.ADDON,
+            "template": ItemTemplate.DEGREE,
+            "template_config": json.dumps({"degree_options": ["박사", "석사", "학사", "없음"]}),
+            "is_repeatable": False,
+            "fields": [
+                {"field_name": "degree_level", "field_label": "학위", "field_type": "select",
+                 "field_options": json.dumps(["박사", "석사", "학사", "없음"]), "is_required": True, "display_order": 1},
+                {"field_name": "major", "field_label": "전공명", "field_type": "text", "is_required": True, "display_order": 2},
+                {"field_name": "proof", "field_label": "증빙 업로드", "field_type": "file", "is_required": True, "display_order": 3}
+            ]
+        },
+        {
+            "item_name": "기타분야 관련 최종학력",
+            "item_code": "EDU_OTHER_FINAL",
+            "category": CompetencyCategory.ADDON,
+            "template": ItemTemplate.DEGREE,
+            "template_config": json.dumps({"degree_options": ["박사", "석사", "학사", "없음"]}),
+            "is_repeatable": False,
+            "fields": [
+                {"field_name": "degree_level", "field_label": "학위", "field_type": "select",
+                 "field_options": json.dumps(["박사", "석사", "학사", "없음"]), "is_required": True, "display_order": 1},
+                {"field_name": "major", "field_label": "전공명", "field_type": "text", "is_required": True, "display_order": 2},
+                {"field_name": "proof", "field_label": "증빙 업로드", "field_type": "file", "is_required": True, "display_order": 3}
+            ]
+        },
+        # 자격증
+        {
+            "item_name": "KCA 코칭관련 자격증",
+            "item_code": "CERT_KCA",
+            "category": CompetencyCategory.ADDON,
+            "template": ItemTemplate.TEXT_FILE,
+            "is_repeatable": True,
+            "fields": [
+                {"field_name": "cert_name", "field_label": "자격증 명칭", "field_type": "text", "is_required": True, "display_order": 1},
+                {"field_name": "cert_file", "field_label": "자격증 업로드", "field_type": "file", "is_required": True, "display_order": 2}
+            ]
+        },
+        {
+            "item_name": "상담,심리치료관련 자격",
+            "item_code": "CERT_COUNSELING",
+            "category": CompetencyCategory.ADDON,
+            "template": ItemTemplate.TEXT_FILE,
+            "is_repeatable": True,
+            "fields": [
+                {"field_name": "cert_name", "field_label": "자격증 명칭", "field_type": "text", "is_required": True, "display_order": 1},
+                {"field_name": "cert_file", "field_label": "자격증 업로드", "field_type": "file", "is_required": True, "display_order": 2}
+            ]
+        },
+        {
+            "item_name": "멘토링/수퍼비전 경험",
+            "item_code": "EXP_MENTORING",
+            "category": CompetencyCategory.ADDON,
+            "template": ItemTemplate.TEXT_FILE,
+            "is_repeatable": True,
+            "fields": [
+                {"field_name": "experience", "field_label": "경험 내용", "field_type": "text", "is_required": True, "display_order": 1},
+                {"field_name": "proof", "field_label": "증빙 업로드", "field_type": "file", "is_required": True, "display_order": 2}
+            ]
+        },
+        # 경력
+        {
+            "item_name": "총 코칭 경력",
+            "item_code": "EXP_COACHING_YEARS",
+            "category": CompetencyCategory.ADDON,
+            "template": ItemTemplate.NUMBER,
+            "is_repeatable": False,
+            "fields": [
+                {"field_name": "years", "field_label": "경력 (년)", "field_type": "number", "is_required": True, "display_order": 1}
+            ]
+        },
+        {
+            "item_name": "누적 코칭 시간",
+            "item_code": "EXP_COACHING_HOURS",
+            "category": CompetencyCategory.ADDON,
+            "template": ItemTemplate.NUMBER,
+            "is_repeatable": False,
+            "fields": [
+                {"field_name": "hours", "field_label": "시간", "field_type": "number", "is_required": True, "display_order": 1}
+            ]
+        },
+        # 코칭 분야별 이력
+        {
+            "item_name": "비즈니스코칭 이력",
+            "item_code": "COACHING_BUSINESS",
+            "category": CompetencyCategory.ADDON,
+            "template": ItemTemplate.COACHING_HISTORY,
+            "is_repeatable": False,
+            "fields": [
+                {"field_name": "history", "field_label": "이력", "field_type": "text", "is_required": True, "display_order": 1},
+                {"field_name": "proof", "field_label": "증빙 업로드", "field_type": "file", "is_required": False, "display_order": 2}
+            ]
+        },
+        {
+            "item_name": "커리어코칭 이력",
+            "item_code": "COACHING_CAREER",
+            "category": CompetencyCategory.ADDON,
+            "template": ItemTemplate.COACHING_HISTORY,
+            "is_repeatable": False,
+            "fields": [
+                {"field_name": "history", "field_label": "이력", "field_type": "text", "is_required": True, "display_order": 1},
+                {"field_name": "proof", "field_label": "증빙 업로드", "field_type": "file", "is_required": False, "display_order": 2}
+            ]
+        },
+        {
+            "item_name": "청소년코칭 이력",
+            "item_code": "COACHING_YOUTH",
+            "category": CompetencyCategory.ADDON,
+            "template": ItemTemplate.COACHING_HISTORY,
+            "is_repeatable": False,
+            "fields": [
+                {"field_name": "history", "field_label": "이력", "field_type": "text", "is_required": True, "display_order": 1},
+                {"field_name": "proof", "field_label": "증빙 업로드", "field_type": "file", "is_required": False, "display_order": 2}
+            ]
+        },
+        {
+            "item_name": "청년코칭 이력",
+            "item_code": "COACHING_YOUNG_ADULT",
+            "category": CompetencyCategory.ADDON,
+            "template": ItemTemplate.COACHING_HISTORY,
+            "is_repeatable": False,
+            "fields": [
+                {"field_name": "history", "field_label": "이력", "field_type": "text", "is_required": True, "display_order": 1},
+                {"field_name": "proof", "field_label": "증빙 업로드", "field_type": "file", "is_required": False, "display_order": 2}
+            ]
+        },
+        {
+            "item_name": "가족코칭 이력",
+            "item_code": "COACHING_FAMILY",
+            "category": CompetencyCategory.ADDON,
+            "template": ItemTemplate.COACHING_HISTORY,
+            "is_repeatable": False,
+            "fields": [
+                {"field_name": "history", "field_label": "이력", "field_type": "text", "is_required": True, "display_order": 1},
+                {"field_name": "proof", "field_label": "증빙 업로드", "field_type": "file", "is_required": False, "display_order": 2}
+            ]
+        },
+        {
+            "item_name": "라이프코칭 이력",
+            "item_code": "COACHING_LIFE",
+            "category": CompetencyCategory.ADDON,
+            "template": ItemTemplate.COACHING_HISTORY,
+            "is_repeatable": False,
+            "fields": [
+                {"field_name": "history", "field_label": "이력", "field_type": "text", "is_required": True, "display_order": 1},
+                {"field_name": "proof", "field_label": "증빙 업로드", "field_type": "file", "is_required": False, "display_order": 2}
+            ]
+        },
+        # 기타
+        {
+            "item_name": "전문 분야",
+            "item_code": "SPECIALTY",
+            "category": CompetencyCategory.ADDON,
+            "template": ItemTemplate.TEXT,
+            "is_repeatable": False,
+            "fields": [
+                {"field_name": "value", "field_label": "전문 분야", "field_type": "text", "is_required": True, "display_order": 1}
+            ]
+        }
+    ]
+
+    created_count = 0
+    skipped_count = 0
+
+    for item_data in items_data:
+        # Check if already exists
+        result = await db.execute(
+            select(CompetencyItem).where(CompetencyItem.item_code == item_data["item_code"])
+        )
+        existing = result.scalar_one_or_none()
+        if existing:
+            skipped_count += 1
+            continue
+
+        fields_data = item_data.pop("fields", [])
+
+        item = CompetencyItem(
+            item_name=item_data["item_name"],
+            item_code=item_data["item_code"],
+            category=item_data["category"],
+            input_type=InputType.TEXT,  # Deprecated but required
+            is_active=True,
+            template=item_data.get("template"),
+            template_config=item_data.get("template_config"),
+            is_repeatable=item_data.get("is_repeatable", False),
+            max_entries=item_data.get("max_entries"),
+            is_custom=False
+        )
+        db.add(item)
+        await db.flush()
+
+        for field_data in fields_data:
+            field = CompetencyItemField(
+                item_id=item.item_id,
+                field_name=field_data["field_name"],
+                field_label=field_data["field_label"],
+                field_type=field_data["field_type"],
+                field_options=field_data.get("field_options"),
+                is_required=field_data.get("is_required", True),
+                display_order=field_data["display_order"],
+                placeholder=field_data.get("placeholder")
+            )
+            db.add(field)
+
+        created_count += 1
+
+    await db.commit()
+
+    return {
+        "message": "Seed completed",
+        "created": created_count,
+        "skipped": skipped_count
+    }
