@@ -30,6 +30,7 @@ if DATABASE_URL:
             ('overall_feedback', 'TEXT'),
             ('project_start_date', 'DATE'),
             ('project_end_date', 'DATE'),
+            ('project_manager_id', 'BIGINT'),
         ]
 
         for col_name, col_type in columns_to_add:
