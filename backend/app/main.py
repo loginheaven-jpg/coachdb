@@ -28,10 +28,28 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Configure CORS
+# Configure CORS - dynamically filter origins
+def get_cors_origins():
+    """Get CORS origins, filtering out '*' and ensuring Railway frontend is included"""
+    origins = list(settings.BACKEND_CORS_ORIGINS)
+    # Remove wildcard - not allowed with allow_credentials=True
+    origins = [o for o in origins if o != "*"]
+    # Always include Railway frontend domains
+    required_origins = [
+        "https://coacdbfront-production.up.railway.app",
+        "https://coachdbfrontend-production.up.railway.app",
+        "http://localhost:5173",
+        "http://localhost:3000",
+    ]
+    for origin in required_origins:
+        if origin not in origins:
+            origins.append(origin)
+    print(f"[CORS] Allowed origins: {origins}")
+    return origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.BACKEND_CORS_ORIGINS,
+    allow_origins=get_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
