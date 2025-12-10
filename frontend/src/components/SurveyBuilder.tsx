@@ -110,13 +110,18 @@ export default function SurveyBuilder({ projectId, visible, onClose, onSave }: S
       // Load existing project items
       const existingItems = await projectService.getProjectItems(projectId)
 
-      // Initialize selections - DB에 저장된 항목만 '포함'으로 설정
+      // Initialize selections
+      // - DB에 저장된 항목: 저장된 상태 유지
+      // - 새 항목: 기타 그룹(OTHER_CODES, 커스텀)은 불포함, 나머지는 포함
+      const OTHER_CODES = ['ADDON_INTRO', 'ADDON_SPECIALTY']
       const newSelections = new Map<number, ItemSelection>()
       items.forEach(item => {
         const existing = existingItems.find(pi => pi.item_id === item.item_id)
+        const isOtherGroup = OTHER_CODES.includes(item.item_code) || item.is_custom
+        const defaultIncluded = existing ? true : !isOtherGroup  // 기타 그룹은 기본 불포함
         newSelections.set(item.item_id, {
           item,
-          included: !!existing,  // DB에 있는 항목만 포함
+          included: existing ? true : defaultIncluded,
           is_required: existing?.is_required ?? true,  // 기본값: 필수
           score: existing?.max_score ?? null,
           proof_required_level: existing?.proof_required_level || ProofRequiredLevel.NOT_REQUIRED
