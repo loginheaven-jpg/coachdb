@@ -466,16 +466,26 @@ async def delete_wrong_users(
     if secret_key != "coachdb2024!":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid secret key")
 
-    deleted_count = 0
+    from sqlalchemy import delete
+    deleted_emails = []
+    errors = []
+
     for email in WRONG_EMAILS_TO_DELETE:
-        result = await db.execute(select(User).where(User.email == email))
-        user = result.scalar_one_or_none()
-        if user:
-            await db.delete(user)
-            deleted_count += 1
+        try:
+            result = await db.execute(
+                delete(User).where(User.email == email)
+            )
+            if result.rowcount > 0:
+                deleted_emails.append(email)
+        except Exception as e:
+            errors.append({"email": email, "error": str(e)})
 
     await db.commit()
-    return {"message": f"Deleted {deleted_count} wrong users"}
+    return {
+        "message": f"Deleted {len(deleted_emails)} wrong users",
+        "deleted": deleted_emails,
+        "errors": errors
+    }
 
 
 @router.post("/set-admin")
