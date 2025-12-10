@@ -431,6 +431,19 @@ async def reset_password(
 
 # 사전등록할 이메일 목록
 PREREGISTER_EMAILS = [
+    "ckmyun@gmail.com", "hugucoaching@gmail.com", "viproject@naver.com",
+    "huhcloud@gmail.com", "bizkcoach@gmail.com", "ja.catherine.min@gmail.com",
+    "hchoe1105@gmail.com", "laontreecoach@gmail.com", "ajoucoach@gmail.com",
+    "plan7696@gmail.com", "ros2468@gmail.com", "coach7179@gmail.com",
+    "kbc0810@gmail.com", "sowon2017@naver.com", "0917coolturtle@gmail.com",
+    "goodtime.yjk@gmail.com", "jhlilackim@gmail.com", "ruthpark3360@gmail.com",
+    "pcm8257@gmail.com", "lupincoach@gmail.com", "comata3219@gmail.com",
+    "jws0217@gmail.com", "jwchun.mail@gmail.com", "tsha0805@gmail.com",
+    "hwangdonghee@gmail.com", "snc103911@gmail.com", "withdrchoiclinic@gmail.com",
+]
+
+# 삭제할 잘못 등록된 이메일 목록
+WRONG_EMAILS_TO_DELETE = [
     "alswl5875@gmail.com", "wooyeon1113@naver.com", "ksr4401@naver.com",
     "mjkim033@naver.com", "ksy3265@hanmail.net", "eunsukim@hanmail.net",
     "kjhrd89@naver.com", "jeniekim10@naver.com", "haing0219@naver.com",
@@ -442,6 +455,27 @@ PREREGISTER_EMAILS = [
     "js0305@hanmail.net", "gpdud5001@naver.com", "hanjaeyoon@naver.com",
     "gina3052@naver.com",
 ]
+
+
+@router.delete("/delete-wrong-users")
+async def delete_wrong_users(
+    secret_key: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """잘못 등록된 사용자 삭제"""
+    if secret_key != "coachdb2024!":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid secret key")
+
+    deleted_count = 0
+    for email in WRONG_EMAILS_TO_DELETE:
+        result = await db.execute(select(User).where(User.email == email))
+        user = result.scalar_one_or_none()
+        if user:
+            await db.delete(user)
+            deleted_count += 1
+
+    await db.commit()
+    return {"message": f"Deleted {deleted_count} wrong users"}
 
 
 @router.post("/set-admin")
