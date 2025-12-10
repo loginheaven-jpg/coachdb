@@ -62,8 +62,9 @@ if DATABASE_URL:
             except Exception as e:
                 print(f"[WARN] enum competencycategory.{val}: {e}")
 
-        # Add missing enum values to itemtemplate
-        template_values = ['text', 'number', 'select', 'multiselect', 'file', 'text_file', 'degree', 'coaching_history']
+        # Add missing enum values to itemtemplate (both upper and lowercase for safety)
+        template_values = ['TEXT', 'NUMBER', 'SELECT', 'MULTISELECT', 'FILE', 'TEXT_FILE', 'DEGREE', 'COACHING_HISTORY',
+                          'text', 'number', 'select', 'multiselect', 'file', 'text_file', 'degree', 'coaching_history']
         for val in template_values:
             try:
                 cur.execute(f"ALTER TYPE itemtemplate ADD VALUE IF NOT EXISTS '{val}'")
