@@ -79,27 +79,6 @@ async def health_check():
     }
 
 
-@app.get("/api/debug/table-columns/{table_name}")
-async def debug_table_columns(table_name: str):
-    """Debug endpoint to check table structure"""
-    from sqlalchemy import text
-    from app.core.database import AsyncSessionLocal
-
-    try:
-        async with AsyncSessionLocal() as session:
-            result = await session.execute(text(f"""
-                SELECT column_name, data_type, is_nullable
-                FROM information_schema.columns
-                WHERE table_name = :table_name
-                ORDER BY ordinal_position
-            """), {"table_name": table_name})
-            columns = [{"name": row[0], "type": row[1], "nullable": row[2]} for row in result.fetchall()]
-            return {"status": "ok", "table": table_name, "columns": columns}
-    except Exception as e:
-        import traceback
-        return {"status": "error", "error": str(e), "traceback": traceback.format_exc()}
-
-
 # Import and include routers
 from app.api.endpoints import auth, competencies, files, education, applications, projects, certifications, notifications, admin, verifications
 
