@@ -25,6 +25,9 @@ if DATABASE_URL:
             ('support_program_name', 'VARCHAR(200)'),
             ('project_achievements', 'TEXT'),
             ('project_special_notes', 'TEXT'),
+            ('actual_start_date', 'DATE'),
+            ('actual_end_date', 'DATE'),
+            ('overall_feedback', 'TEXT'),
         ]
 
         for col_name, col_type in columns_to_add:
