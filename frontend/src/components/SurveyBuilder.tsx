@@ -169,8 +169,7 @@ export default function SurveyBuilder({ projectId, visible, onClose, onSave }: S
     if (CERT_CODES.includes(itemCode)) return 2           // 자격증
     if (EDUCATION_CODES.includes(itemCode)) return 3      // 학력
     if (COMPETENCY_HISTORY_CODES.includes(itemCode)) return 4  // 역량 이력
-    if (OTHER_CODES.includes(itemCode)) return 5          // 기타
-    if (isCustom) return 6                                 // 커스텀 질문
+    if (OTHER_CODES.includes(itemCode) || isCustom) return 5   // 기타 (커스텀 포함)
     return 4                                               // 역량 이력 (기타 표준 항목)
   }
 
@@ -195,10 +194,8 @@ export default function SurveyBuilder({ projectId, visible, onClose, onSave }: S
         grouped['학력'].push(selection)
       } else if (COMPETENCY_HISTORY_CODES.includes(code)) {
         grouped['역량 이력'].push(selection)
-      } else if (OTHER_CODES.includes(code)) {
-        grouped['기타'].push(selection)  // 기타 표준 항목
-      } else if (selection.item.is_custom) {
-        grouped['커스텀 질문'].push(selection)  // 커스텀 항목
+      } else if (OTHER_CODES.includes(code) || selection.item.is_custom) {
+        grouped['기타'].push(selection)  // 기타 표준 항목 + 커스텀 항목
       } else {
         grouped['역량 이력'].push(selection)  // 나머지 표준 항목
       }
