@@ -492,10 +492,13 @@ async def seed_competency_items(
     if secret_key != "coachdb2024!":
         raise HTTPException(status_code=403, detail="Invalid secret key")
 
-    from app.models.competency import (
-        CompetencyItem, CompetencyItemField,
-        CompetencyCategory, InputType, ItemTemplate
-    )
+    try:
+        from app.models.competency import (
+            CompetencyItem, CompetencyItemField,
+            CompetencyCategory, InputType, ItemTemplate
+        )
+    except Exception as e:
+        return {"error": f"Import failed: {str(e)}"}
 
     items_data = [
         # 학력
@@ -665,49 +668,53 @@ async def seed_competency_items(
     created_count = 0
     skipped_count = 0
 
-    for item_data in items_data:
-        # Check if already exists
-        result = await db.execute(
-            select(CompetencyItem).where(CompetencyItem.item_code == item_data["item_code"])
-        )
-        existing = result.scalar_one_or_none()
-        if existing:
-            skipped_count += 1
-            continue
-
-        fields_data = item_data.pop("fields", [])
-
-        item = CompetencyItem(
-            item_name=item_data["item_name"],
-            item_code=item_data["item_code"],
-            category=item_data["category"],
-            input_type=InputType.TEXT,  # Deprecated but required
-            is_active=True,
-            template=item_data.get("template"),
-            template_config=item_data.get("template_config"),
-            is_repeatable=item_data.get("is_repeatable", False),
-            max_entries=item_data.get("max_entries"),
-            is_custom=False
-        )
-        db.add(item)
-        await db.flush()
-
-        for field_data in fields_data:
-            field = CompetencyItemField(
-                item_id=item.item_id,
-                field_name=field_data["field_name"],
-                field_label=field_data["field_label"],
-                field_type=field_data["field_type"],
-                field_options=field_data.get("field_options"),
-                is_required=field_data.get("is_required", True),
-                display_order=field_data["display_order"],
-                placeholder=field_data.get("placeholder")
+    try:
+        for item_data in items_data:
+            # Check if already exists
+            result = await db.execute(
+                select(CompetencyItem).where(CompetencyItem.item_code == item_data["item_code"])
             )
-            db.add(field)
+            existing = result.scalar_one_or_none()
+            if existing:
+                skipped_count += 1
+                continue
 
-        created_count += 1
+            fields_data = item_data.pop("fields", [])
 
-    await db.commit()
+            item = CompetencyItem(
+                item_name=item_data["item_name"],
+                item_code=item_data["item_code"],
+                category=item_data["category"],
+                input_type=InputType.TEXT,  # Deprecated but required
+                is_active=True,
+                template=item_data.get("template"),
+                template_config=item_data.get("template_config"),
+                is_repeatable=item_data.get("is_repeatable", False),
+                max_entries=item_data.get("max_entries"),
+                is_custom=False
+            )
+            db.add(item)
+            await db.flush()
+
+            for field_data in fields_data:
+                field = CompetencyItemField(
+                    item_id=item.item_id,
+                    field_name=field_data["field_name"],
+                    field_label=field_data["field_label"],
+                    field_type=field_data["field_type"],
+                    field_options=field_data.get("field_options"),
+                    is_required=field_data.get("is_required", True),
+                    display_order=field_data["display_order"],
+                    placeholder=field_data.get("placeholder")
+                )
+                db.add(field)
+
+            created_count += 1
+
+        await db.commit()
+    except Exception as e:
+        import traceback
+        return {"error": f"Seed failed: {str(e)}", "traceback": traceback.format_exc()}
 
     return {
         "message": "Seed completed",
