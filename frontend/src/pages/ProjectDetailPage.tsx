@@ -370,37 +370,33 @@ export default function ProjectDetailPage() {
             </div>
           </div>
 
-          <Descriptions bordered column={2}>
-            <Descriptions.Item label="과제 설명" span={2}>
-              {project.description || '-'}
+          <Descriptions bordered column={1} labelStyle={{ width: 120, whiteSpace: 'nowrap' }}>
+            <Descriptions.Item label="과제 설명">
+              <div style={{ whiteSpace: 'pre-wrap' }}>{project.description || '-'}</div>
             </Descriptions.Item>
-            <Descriptions.Item label="모집 시작일">
-              {dayjs(project.recruitment_start_date).format('YYYY-MM-DD')}
+            <Descriptions.Item label="모집 기간">
+              {dayjs(project.recruitment_start_date).format('YYYY-MM-DD')} ~ {dayjs(project.recruitment_end_date).format('YYYY-MM-DD')}
             </Descriptions.Item>
-            <Descriptions.Item label="모집 종료일">
-              {dayjs(project.recruitment_end_date).format('YYYY-MM-DD')}
+            <Descriptions.Item label="과제 기간">
+              {project.project_start_date && project.project_end_date
+                ? `${dayjs(project.project_start_date).format('YYYY-MM-DD')} ~ ${dayjs(project.project_end_date).format('YYYY-MM-DD')}`
+                : project.project_start_date
+                  ? `${dayjs(project.project_start_date).format('YYYY-MM-DD')} ~ 미정`
+                  : '미정'}
             </Descriptions.Item>
-            <Descriptions.Item label="과제 시작일 (예정)">
-              {project.project_start_date ? dayjs(project.project_start_date).format('YYYY-MM-DD') : '미정'}
+            <Descriptions.Item label="실제 기간">
+              {project.actual_start_date && project.actual_end_date
+                ? `${dayjs(project.actual_start_date).format('YYYY-MM-DD')} ~ ${dayjs(project.actual_end_date).format('YYYY-MM-DD')}`
+                : project.actual_start_date
+                  ? `${dayjs(project.actual_start_date).format('YYYY-MM-DD')} ~ 진행중`
+                  : '-'}
             </Descriptions.Item>
-            <Descriptions.Item label="과제 종료일 (예정)">
-              {project.project_end_date ? dayjs(project.project_end_date).format('YYYY-MM-DD') : '미정'}
-            </Descriptions.Item>
-            <Descriptions.Item label="실제 시작일">
-              {project.actual_start_date ? dayjs(project.actual_start_date).format('YYYY-MM-DD') : '-'}
-            </Descriptions.Item>
-            <Descriptions.Item label="실제 종료일">
-              {project.actual_end_date ? dayjs(project.actual_end_date).format('YYYY-MM-DD') : '-'}
-            </Descriptions.Item>
-            <Descriptions.Item label="최대 참여 인원">
-              {project.max_participants}명
-            </Descriptions.Item>
-            <Descriptions.Item label="현재 참여 인원">
-              {project.current_participants || 0}명
+            <Descriptions.Item label="모집 인원">
+              최대 {project.max_participants}명 / 현재 {project.current_participants || 0}명
             </Descriptions.Item>
             {project.overall_feedback && (
-              <Descriptions.Item label="과제 총평" span={2}>
-                {project.overall_feedback}
+              <Descriptions.Item label="과제 총평">
+                <div style={{ whiteSpace: 'pre-wrap' }}>{project.overall_feedback}</div>
               </Descriptions.Item>
             )}
           </Descriptions>
