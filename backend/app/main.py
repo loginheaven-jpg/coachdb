@@ -82,10 +82,10 @@ async def health_check():
 async def debug_projects_table():
     """Debug endpoint to check projects table structure"""
     from sqlalchemy import text
-    from app.core.database import async_session_maker
+    from app.core.database import AsyncSessionLocal
 
     try:
-        async with async_session_maker() as session:
+        async with AsyncSessionLocal() as session:
             # Get column info for projects table
             result = await session.execute(text("""
                 SELECT column_name, data_type, is_nullable
