@@ -36,6 +36,7 @@ def get_cors_origins():
     origins = [o for o in origins if o != "*"]
     # Always include Railway frontend domains
     required_origins = [
+        "https://copms.up.railway.app",
         "https://coacdbfront-production.up.railway.app",
         "https://coachdbfrontend-production.up.railway.app",
         "http://localhost:5173",
