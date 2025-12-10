@@ -33,14 +33,14 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # CORS - Allow specific origins for Railway deployment
-    CORS_ORIGINS: str = '["*"]'  # Can be overridden via env variable
+    # NOTE: Cannot use "*" with allow_credentials=True per CORS spec
+    CORS_ORIGINS: str = '[]'  # Can be overridden via env variable
     BACKEND_CORS_ORIGINS: list = [
         "http://localhost:5173",
         "http://localhost:3000",
         "http://127.0.0.1:5173",
         "https://coacdbfront-production.up.railway.app",
-        "https://coachdbfrontend-production.up.railway.app",
-        "*"
+        "https://coachdbfrontend-production.up.railway.app"
     ]
 
     # File Storage
