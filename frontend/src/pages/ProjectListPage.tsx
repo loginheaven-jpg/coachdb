@@ -30,6 +30,7 @@ const { Title, Text } = Typography
 export default function ProjectListPage() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
+  const [testProjectLoading, setTestProjectLoading] = useState(false)
   const [projects, setProjects] = useState<ProjectListItem[]>([])
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | undefined>()
 
@@ -47,6 +48,20 @@ export default function ProjectListPage() {
       message.error('과제 목록을 불러오는데 실패했습니다.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleCreateTestProject = async () => {
+    setTestProjectLoading(true)
+    try {
+      const project = await projectService.createTestProject()
+      message.success(`테스트 과제가 생성되었습니다: ${project.project_name}`)
+      loadProjects()
+    } catch (error: any) {
+      console.error('테스트 과제 생성 실패:', error)
+      message.error('테스트 과제 생성에 실패했습니다.')
+    } finally {
+      setTestProjectLoading(false)
     }
   }
 
@@ -161,14 +176,25 @@ export default function ProjectListPage() {
           >
             대시보드로 돌아가기
           </Button>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => navigate('/admin/projects/create')}
-            size="large"
-          >
-            새 과제 생성
-          </Button>
+          <Space direction="vertical" align="end">
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => navigate('/admin/projects/create')}
+              size="large"
+            >
+              새 과제 생성
+            </Button>
+            <Button
+              type="text"
+              icon={<PlusOutlined />}
+              onClick={handleCreateTestProject}
+              loading={testProjectLoading}
+              style={{ color: '#999', fontSize: '12px' }}
+            >
+              테스트과제 생성
+            </Button>
+          </Space>
         </div>
 
         <Row gutter={[16, 16]} className="mb-6">

@@ -298,6 +298,15 @@ const projectService = {
   },
 
   /**
+   * Create a test project with realistic content
+   * Recruitment period: 2 weeks from today
+   */
+  async createTestProject(): Promise<Project> {
+    const response = await api.post('/projects/create-test')
+    return response.data
+  },
+
+  /**
    * Get list of projects with optional filters
    */
   async listProjects(params?: {

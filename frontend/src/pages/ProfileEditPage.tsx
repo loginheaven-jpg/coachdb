@@ -231,7 +231,6 @@ export default function ProfileEditPage() {
                 <Select placeholder="성별 선택">
                   <Option value="남성">남성</Option>
                   <Option value="여성">여성</Option>
-                  <Option value="기타">기타</Option>
                 </Select>
               </Form.Item>
 

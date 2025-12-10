@@ -39,6 +39,181 @@ router = APIRouter(prefix="/projects", tags=["projects"])
 
 
 # ============================================================================
+# Test Project Creation
+# ============================================================================
+@router.post("/create-test", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
+async def create_test_project(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER"]))
+):
+    """
+    Create a test project with realistic content
+
+    **Required roles**: SUPER_ADMIN, PROJECT_MANAGER
+
+    Creates a project with:
+    - 2-week recruitment period starting from today
+    - Realistic project name and description
+    - Status set to 'recruiting'
+    """
+    from datetime import datetime, timedelta
+    import random
+
+    # Test project templates with realistic content
+    test_projects = [
+        {
+            "name": "2025년 상반기 청년 취업 지원 코칭 프로그램",
+            "description": """■ 사업 개요
+본 프로그램은 취업 준비 중인 청년들의 역량 강화와 성공적인 취업을 지원하기 위한 전문 코칭 사업입니다.
+
+■ 코칭 대상
+- 만 19세~34세 취업 준비 청년
+- 구직활동 중인 미취업자
+
+■ 코칭 내용
+1. 자기이해 및 강점 발견
+2. 진로 탐색 및 목표 설정
+3. 이력서/자기소개서 작성 지도
+4. 면접 스킬 향상
+
+■ 코칭 기간
+- 1인당 총 8회기 (회기당 60분)
+- 격주 1회 진행
+
+■ 참여 조건
+- KAC 이상 코칭 자격 보유
+- 취업/진로 코칭 경험 1년 이상""",
+            "max_participants": 30
+        },
+        {
+            "name": "리더십 역량 강화 그룹 코칭 프로젝트",
+            "description": """■ 프로젝트 목적
+조직 내 중간관리자의 리더십 역량 개발을 위한 그룹 코칭 프로그램입니다.
+
+■ 주요 내용
+1. 셀프 리더십 및 자기관리
+2. 팀 빌딩과 협업 스킬
+3. 효과적인 피드백 기법
+4. 갈등 관리 및 문제 해결
+
+■ 진행 방식
+- 그룹 코칭 (5~8명 구성)
+- 월 2회, 총 6개월 과정
+- 온/오프라인 병행
+
+■ 코치 자격 요건
+- KPC 또는 PCC 이상 자격 보유자
+- 기업 코칭 경험 3년 이상
+- 그룹 코칭 퍼실리테이션 경험 필수""",
+            "max_participants": 15
+        },
+        {
+            "name": "경력 단절 여성 재취업 지원 코칭",
+            "description": """■ 프로그램 소개
+출산, 육아 등으로 경력이 단절된 여성들의 성공적인 재취업을 돕는 맞춤형 코칭 프로그램입니다.
+
+■ 참여 대상
+- 경력 단절 후 재취업을 희망하는 여성
+- 경력 단절 기간 1년 이상
+
+■ 코칭 프로세스
+1회차: 경력 분석 및 자기 탐색
+2회차: 재취업 목표 설정
+3회차: 역량 진단 및 보완 계획
+4회차: 취업 전략 수립
+5회차: 실행 계획 및 동기 강화
+6회차: 성과 점검 및 마무리
+
+■ 코치 요건
+- 여성 코치 우대
+- 진로/취업 코칭 전문성 보유
+- 공감 능력 및 섬세한 코칭 스타일""",
+            "max_participants": 25
+        },
+        {
+            "name": "스타트업 대표 성장 코칭 프로그램",
+            "description": """■ 프로그램 개요
+초기 스타트업 대표들의 비즈니스 성장과 리더십 개발을 지원하는 1:1 전문 코칭입니다.
+
+■ 코칭 영역
+- 비전 수립 및 전략 개발
+- 의사결정 및 문제해결
+- 팀 구축 및 인재 관리
+- 스트레스 관리 및 워라밸
+
+■ 대상
+- 창업 3년 이내 스타트업 대표
+- 팀 규모 5~30인 기업
+
+■ 코칭 일정
+- 격주 1회, 회차당 90분
+- 총 12회 진행
+
+■ 코치 자격
+- 비즈니스 코칭 경력 5년 이상
+- 경영/창업 관련 실무 경험 보유
+- KPC 또는 PCC 이상""",
+            "max_participants": 10
+        },
+        {
+            "name": "청소년 진로탐색 그룹 코칭",
+            "description": """■ 프로그램 목적
+중·고등학생들의 자기 이해와 미래 진로 탐색을 돕는 그룹 코칭 프로그램입니다.
+
+■ 대상
+- 중학교 2학년 ~ 고등학교 2학년
+- 진로 고민이 있는 학생
+
+■ 주요 활동
+1. 강점 발견 워크숍
+2. 다양한 직업 세계 탐색
+3. 진로 로드맵 작성
+4. 학습 동기 부여
+
+■ 운영 방식
+- 학교 단위 8~12명 그룹
+- 주 1회, 8주 과정
+- 학교 방과 후 시간 활용
+
+■ 코치 요건
+- 청소년 코칭 경험 보유
+- 아동청소년 상담 관련 자격 우대
+- 학교 현장 경험 우대""",
+            "max_participants": 20
+        }
+    ]
+
+    # Select random template
+    template = random.choice(test_projects)
+
+    # Set dates
+    today = datetime.now().date()
+    recruitment_end = today + timedelta(days=14)
+    project_start = recruitment_end + timedelta(days=7)
+    project_end = project_start + timedelta(days=90)
+
+    # Create project
+    new_project = Project(
+        project_name=template["name"],
+        description=template["description"],
+        recruitment_start_date=today,
+        recruitment_end_date=recruitment_end,
+        project_start_date=project_start,
+        project_end_date=project_end,
+        max_participants=template["max_participants"],
+        status=ProjectStatus.RECRUITING,
+        project_manager_id=current_user.user_id,
+        created_by=current_user.user_id
+    )
+
+    db.add(new_project)
+    await db.commit()
+    await db.refresh(new_project)
+
+    return new_project
+
+
+# ============================================================================
 # Helper Functions
 # ============================================================================
 async def get_project_or_404(project_id: int, db: AsyncSession) -> Project:

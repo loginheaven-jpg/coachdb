@@ -32,9 +32,16 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    # CORS - Allow all origins for Railway deployment
+    # CORS - Allow specific origins for Railway deployment
     CORS_ORIGINS: str = '["*"]'  # Can be overridden via env variable
-    BACKEND_CORS_ORIGINS: list = ["*"]  # Default to allow all
+    BACKEND_CORS_ORIGINS: list = [
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:5173",
+        "https://coacdbfront-production.up.railway.app",
+        "https://coachdbfrontend-production.up.railway.app",
+        "*"
+    ]
 
     # File Storage
     FILE_STORAGE_TYPE: str = "local"  # "local", "s3", or "minio"
