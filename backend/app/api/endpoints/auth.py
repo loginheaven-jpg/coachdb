@@ -431,16 +431,16 @@ async def reset_password(
 
 # 사전등록할 이메일 목록
 PREREGISTER_EMAILS = [
-    "ckmyun@gmail.com", "hugucoaching@gmail.com", "viproject@naver.com",
-    "huhcloud@gmail.com", "bizkcoach@gmail.com", "ja.catherine.min@gmail.com",
-    "hchoe1105@gmail.com", "laontreecoach@gmail.com", "ajoucoach@gmail.com",
-    "plan7696@gmail.com", "loginheaven@gmail.com", "ros2468@gmail.com",
-    "coach7179@gmail.com", "kbc0810@gmail.com", "sowon2017@naver.com",
-    "0917coolturtle@gmail.com", "goodtime.yjk@gmail.com", "jhlilackim@gmail.com",
-    "ruthpark3360@gmail.com", "pcm8257@gmail.com", "lupincoach@gmail.com",
-    "comata3219@gmail.com", "jws0217@gmail.com", "jwchun.mail@gmail.com",
-    "tsha0805@gmail.com", "hwangdonghee@gmail.com", "snc103911@gmail.com",
-    "withdrchoiclinic@gmail.com",
+    "alswl5875@gmail.com", "wooyeon1113@naver.com", "ksr4401@naver.com",
+    "mjkim033@naver.com", "ksy3265@hanmail.net", "eunsukim@hanmail.net",
+    "kjhrd89@naver.com", "jeniekim10@naver.com", "haing0219@naver.com",
+    "hyunsuk5@kakao.com", "nanacoach@naver.com", "sungaee@naver.com",
+    "sunhee1117@nate.com", "sunacoach@naver.com", "etoffe2020@naver.com",
+    "jungeun4570@daum.net", "ojy0915@gmail.com", "leedaun@naver.com",
+    "soylee629@naver.com", "skywing2u@naver.com", "hyoje1012@naver.com",
+    "nangcho7@naver.com", "jny0623@hanmail.net", "joyuncl@gmail.com",
+    "js0305@hanmail.net", "gpdud5001@naver.com", "hanjaeyoon@naver.com",
+    "gina3052@naver.com",
 ]
 
 
