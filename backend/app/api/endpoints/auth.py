@@ -495,21 +495,36 @@ async def set_admin_user(
     password: str,
     db: AsyncSession = Depends(get_db)
 ):
-    """특정 사용자를 관리자로 설정하고 비밀번호 변경"""
+    """특정 사용자를 관리자로 설정 (없으면 생성)"""
     if secret_key != "coachdb2024!":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid secret key")
 
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
 
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    hashed_pw = get_password_hash(password)
+    admin_roles = json.dumps(["SUPER_ADMIN", "PROJECT_MANAGER", "VERIFIER", "COACH"])
 
-    user.hashed_password = get_password_hash(password)
-    user.roles = json.dumps(["SUPER_ADMIN", "PROJECT_MANAGER", "VERIFIER", "COACH"])
+    if not user:
+        # Create new super admin user
+        user = User(
+            email=email,
+            name="관리자",
+            hashed_password=hashed_pw,
+            address="관리자",
+            roles=admin_roles,
+            status=UserStatus.ACTIVE,
+        )
+        db.add(user)
+        await db.commit()
+        return {"message": f"Admin CREATED for {email}", "roles": ["SUPER_ADMIN", "PROJECT_MANAGER", "VERIFIER", "COACH"]}
+
+    # Update existing user
+    user.hashed_password = hashed_pw
+    user.roles = admin_roles
     await db.commit()
 
-    return {"message": f"Admin set for {email}", "roles": ["SUPER_ADMIN", "PROJECT_MANAGER", "VERIFIER", "COACH"]}
+    return {"message": f"Admin UPDATED for {email}", "roles": ["SUPER_ADMIN", "PROJECT_MANAGER", "VERIFIER", "COACH"]}
 
 
 @router.post("/preregister")
