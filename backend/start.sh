@@ -36,9 +36,22 @@ if DATABASE_URL:
         for col_name, col_type in columns_to_add:
             try:
                 cur.execute(f"ALTER TABLE projects ADD COLUMN IF NOT EXISTS {col_name} {col_type}")
-                print(f"[OK] Column {col_name} ensured")
+                print(f"[OK] projects.{col_name} ensured")
             except Exception as e:
-                print(f"[WARN] Column {col_name}: {e}")
+                print(f"[WARN] projects.{col_name}: {e}")
+
+        # Add missing columns to competency_items table
+        competency_columns = [
+            ('description', 'TEXT'),
+            ('is_custom', 'BOOLEAN DEFAULT FALSE'),
+            ('created_by', 'INTEGER'),
+        ]
+        for col_name, col_type in competency_columns:
+            try:
+                cur.execute(f"ALTER TABLE competency_items ADD COLUMN IF NOT EXISTS {col_name} {col_type}")
+                print(f"[OK] competency_items.{col_name} ensured")
+            except Exception as e:
+                print(f"[WARN] competency_items.{col_name}: {e}")
 
         cur.close()
         conn.close()
