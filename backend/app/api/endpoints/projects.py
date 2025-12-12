@@ -44,19 +44,23 @@ router = APIRouter(prefix="/projects", tags=["projects"])
 @router.post("/create-test", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
 async def create_test_project(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER"]))
+    current_user: User = Depends(require_role(["SUPER_ADMIN"]))  # SUPER_ADMIN만 허용
 ):
     """
-    Create a test project with realistic content
+    Create a test project with realistic content and survey items
 
-    **Required roles**: SUPER_ADMIN, PROJECT_MANAGER
+    **Required roles**: SUPER_ADMIN only
 
     Creates a project with:
     - 2-week recruitment period starting from today
     - Realistic project name and description
-    - Status set to 'recruiting'
+    - Default survey items (100 points total)
+    - Status set to 'ready' (정식저장 완료)
     """
     from datetime import datetime, timedelta
+    from decimal import Decimal
+    from app.schemas.project import calculate_display_status
+    from app.models.competency import ProofRequiredLevel
     import random
 
     # Test project templates with realistic content
@@ -192,7 +196,7 @@ async def create_test_project(
     project_start = recruitment_end + timedelta(days=7)
     project_end = project_start + timedelta(days=90)
 
-    # Create project
+    # Create project with READY status (정식저장 완료)
     new_project = Project(
         project_name=template["name"],
         description=template["description"],
@@ -201,7 +205,7 @@ async def create_test_project(
         project_start_date=project_start,
         project_end_date=project_end,
         max_participants=template["max_participants"],
-        status=ProjectStatus.RECRUITING,
+        status=ProjectStatus.READY,  # 정식저장 완료 상태
         project_manager_id=current_user.user_id,
         created_by=current_user.user_id
     )
@@ -210,7 +214,69 @@ async def create_test_project(
     await db.commit()
     await db.refresh(new_project)
 
-    return new_project
+    # Add default survey items (인적사항 + 평가항목 100점)
+    # 기본 설문항목 정의
+    default_items_config = [
+        # 인적사항 (배점 없음)
+        {"item_code": "BASIC_NAME", "max_score": None, "is_required": True, "proof_required_level": ProofRequiredLevel.NOT_REQUIRED},
+        {"item_code": "BASIC_PHONE", "max_score": None, "is_required": True, "proof_required_level": ProofRequiredLevel.NOT_REQUIRED},
+        # 평가항목 (배점 있음, 합계 100점)
+        {"item_code": "EDU_DEGREE", "max_score": Decimal("20"), "is_required": True, "proof_required_level": ProofRequiredLevel.REQUIRED},
+        {"item_code": "ADDON_CERT_COACH", "max_score": Decimal("30"), "is_required": True, "proof_required_level": ProofRequiredLevel.REQUIRED},
+        {"item_code": "ADDON_COACHING_HISTORY", "max_score": Decimal("30"), "is_required": True, "proof_required_level": ProofRequiredLevel.OPTIONAL},
+        {"item_code": "ADDON_INTRO", "max_score": Decimal("20"), "is_required": True, "proof_required_level": ProofRequiredLevel.NOT_REQUIRED},
+    ]
+
+    display_order = 1
+    for item_config in default_items_config:
+        # CompetencyItem 조회
+        result = await db.execute(
+            select(CompetencyItem).where(CompetencyItem.item_code == item_config["item_code"])
+        )
+        competency_item = result.scalar_one_or_none()
+
+        if competency_item:
+            project_item = ProjectItem(
+                project_id=new_project.project_id,
+                item_id=competency_item.item_id,
+                is_required=item_config["is_required"],
+                proof_required_level=item_config["proof_required_level"],
+                max_score=item_config["max_score"],
+                display_order=display_order
+            )
+            db.add(project_item)
+            display_order += 1
+
+    await db.commit()
+    await db.refresh(new_project)
+
+    # display_status 계산
+    display_status = calculate_display_status(
+        new_project.status,
+        new_project.recruitment_start_date,
+        new_project.recruitment_end_date
+    )
+
+    return ProjectResponse(
+        project_id=new_project.project_id,
+        project_name=new_project.project_name,
+        description=new_project.description,
+        support_program_name=new_project.support_program_name,
+        recruitment_start_date=new_project.recruitment_start_date,
+        recruitment_end_date=new_project.recruitment_end_date,
+        project_start_date=new_project.project_start_date,
+        project_end_date=new_project.project_end_date,
+        max_participants=new_project.max_participants,
+        project_manager_id=new_project.project_manager_id,
+        status=new_project.status,
+        display_status=display_status,
+        actual_start_date=new_project.actual_start_date,
+        actual_end_date=new_project.actual_end_date,
+        overall_feedback=new_project.overall_feedback,
+        created_by=new_project.created_by,
+        created_at=new_project.created_at,
+        updated_at=new_project.updated_at
+    )
 
 
 # ============================================================================
@@ -302,6 +368,7 @@ async def list_projects(
     - Others: Can see all projects (for application purposes)
     """
     import json
+    from app.schemas.project import calculate_display_status
     user_roles = json.loads(current_user.roles)
 
     # Build query
@@ -311,17 +378,18 @@ async def list_projects(
     if "SUPER_ADMIN" not in user_roles:
         # Non-admins can only see recruiting, reviewing, and completed projects
         # Or projects they manage
+        # READY 상태도 포함 (날짜 계산으로 모집중 여부 판단)
         if "PROJECT_MANAGER" in user_roles:
             query = query.where(
                 or_(
-                    Project.status.in_([ProjectStatus.RECRUITING, ProjectStatus.REVIEWING, ProjectStatus.COMPLETED]),
+                    Project.status.in_([ProjectStatus.READY, ProjectStatus.RECRUITING, ProjectStatus.REVIEWING, ProjectStatus.COMPLETED]),
                     Project.project_manager_id == current_user.user_id,
                     Project.created_by == current_user.user_id
                 )
             )
         else:
             query = query.where(
-                Project.status.in_([ProjectStatus.RECRUITING, ProjectStatus.REVIEWING, ProjectStatus.COMPLETED])
+                Project.status.in_([ProjectStatus.READY, ProjectStatus.RECRUITING, ProjectStatus.REVIEWING, ProjectStatus.COMPLETED])
             )
 
     # Apply additional filters
@@ -347,6 +415,13 @@ async def list_projects(
         )
         application_count = count_result.scalar()
 
+        # display_status 계산
+        display_status = calculate_display_status(
+            project.status,
+            project.recruitment_start_date,
+            project.recruitment_end_date
+        )
+
         response_item = ProjectListResponse(
             project_id=project.project_id,
             project_name=project.project_name,
@@ -355,6 +430,7 @@ async def list_projects(
             project_start_date=project.project_start_date,
             project_end_date=project.project_end_date,
             status=project.status,
+            display_status=display_status,
             max_participants=project.max_participants,
             application_count=application_count,
             created_at=project.created_at
@@ -375,6 +451,8 @@ async def get_project(
 
     **Permissions**: All authenticated users can view projects
     """
+    from app.schemas.project import calculate_display_status
+
     project = await get_project_or_404(project_id, db)
 
     # Get creator info
@@ -407,6 +485,13 @@ async def get_project(
     )
     selected_count = selected_count_result.scalar()
 
+    # Calculate display_status
+    display_status = calculate_display_status(
+        project.status,
+        project.recruitment_start_date,
+        project.recruitment_end_date
+    )
+
     # Build response
     response = ProjectDetailResponse(
         project_id=project.project_id,
@@ -420,6 +505,7 @@ async def get_project(
         actual_end_date=project.actual_end_date,
         overall_feedback=project.overall_feedback,
         status=project.status,
+        display_status=display_status,
         max_participants=project.max_participants,
         project_manager_id=project.project_manager_id,
         created_by=project.created_by,
@@ -454,6 +540,8 @@ async def update_project(
 
     **Required roles**: SUPER_ADMIN, PROJECT_MANAGER (only for their own projects)
     """
+    from app.schemas.project import calculate_display_status
+
     project = await get_project_or_404(project_id, db)
     check_project_manager_permission(project, current_user)
 
@@ -465,7 +553,33 @@ async def update_project(
     await db.commit()
     await db.refresh(project)
 
-    return project
+    # Calculate display_status
+    display_status = calculate_display_status(
+        project.status,
+        project.recruitment_start_date,
+        project.recruitment_end_date
+    )
+
+    return ProjectResponse(
+        project_id=project.project_id,
+        project_name=project.project_name,
+        description=project.description,
+        support_program_name=project.support_program_name,
+        recruitment_start_date=project.recruitment_start_date,
+        recruitment_end_date=project.recruitment_end_date,
+        project_start_date=project.project_start_date,
+        project_end_date=project.project_end_date,
+        max_participants=project.max_participants,
+        project_manager_id=project.project_manager_id,
+        status=project.status,
+        display_status=display_status,
+        actual_start_date=project.actual_start_date,
+        actual_end_date=project.actual_end_date,
+        overall_feedback=project.overall_feedback,
+        created_by=project.created_by,
+        created_at=project.created_at,
+        updated_at=project.updated_at
+    )
 
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -1213,4 +1327,102 @@ async def validate_project_score(
         total_score=total_score,
         missing_score=missing_score,
         message=message
+    )
+
+
+@router.post("/{project_id}/finalize", response_model=ProjectResponse)
+async def finalize_project(
+    project_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER"]))
+):
+    """
+    정식저장 - 모든 조건 검증 후 ready 상태로 전환
+
+    **Required roles**: SUPER_ADMIN, PROJECT_MANAGER (only for their own projects)
+
+    조건:
+    1. 과제 기간 입력 완료 (project_start_date, project_end_date)
+    2. 설문 점수 100점
+    """
+    from app.schemas.project import calculate_display_status
+
+    project = await get_project_or_404(project_id, db)
+    check_project_manager_permission(project, current_user)
+
+    # 1. 과제 기간 검증
+    if not project.project_start_date or not project.project_end_date:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="과제 기간을 입력해주세요. (시작일, 종료일 모두 필요)"
+        )
+
+    # 2. 점수 검증
+    # Get all project items with scores
+    project_items_result = await db.execute(
+        select(ProjectItem)
+        .where(
+            ProjectItem.project_id == project_id,
+            ProjectItem.max_score.isnot(None)
+        )
+    )
+    project_items = project_items_result.scalars().all()
+
+    # Get all custom questions that are evaluation items
+    custom_questions_result = await db.execute(
+        select(CustomQuestion)
+        .where(
+            CustomQuestion.project_id == project_id,
+            CustomQuestion.is_evaluation_item == True,
+            CustomQuestion.max_score.isnot(None)
+        )
+    )
+    custom_questions = custom_questions_result.scalars().all()
+
+    # Calculate total score
+    total_score = Decimal(0)
+    for item in project_items:
+        if item.max_score:
+            total_score += item.max_score
+    for question in custom_questions:
+        if question.max_score:
+            total_score += question.max_score
+
+    if total_score != Decimal(100):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"설문 점수가 100점이 아닙니다. 현재: {total_score}점"
+        )
+
+    # 3. 상태를 ready로 변경
+    project.status = ProjectStatus.READY
+    await db.commit()
+    await db.refresh(project)
+
+    # display_status 계산
+    display_status = calculate_display_status(
+        project.status,
+        project.recruitment_start_date,
+        project.recruitment_end_date
+    )
+
+    return ProjectResponse(
+        project_id=project.project_id,
+        project_name=project.project_name,
+        description=project.description,
+        support_program_name=project.support_program_name,
+        recruitment_start_date=project.recruitment_start_date,
+        recruitment_end_date=project.recruitment_end_date,
+        project_start_date=project.project_start_date,
+        project_end_date=project.project_end_date,
+        max_participants=project.max_participants,
+        project_manager_id=project.project_manager_id,
+        status=project.status,
+        display_status=display_status,
+        actual_start_date=project.actual_start_date,
+        actual_end_date=project.actual_end_date,
+        overall_feedback=project.overall_feedback,
+        created_by=project.created_by,
+        created_at=project.created_at,
+        updated_at=project.updated_at
     )

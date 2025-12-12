@@ -7,6 +7,31 @@ from app.models.competency import ProofRequiredLevel
 from app.schemas.competency import ProjectItemCreate
 
 
+def calculate_display_status(
+    status: ProjectStatus,
+    recruitment_start_date: date,
+    recruitment_end_date: date
+) -> str:
+    """
+    DB 상태와 날짜를 기반으로 표시용 상태를 계산합니다.
+
+    - draft → "draft" (초안)
+    - ready + 오늘 < 모집시작일 → "pending" (모집대기)
+    - ready + 모집시작일 ≤ 오늘 ≤ 모집종료일 → "recruiting" (모집중)
+    - ready + 오늘 > 모집종료일 → "recruiting_ended" (모집종료)
+    - 그 외 → DB 상태 그대로
+    """
+    if status == ProjectStatus.READY:
+        today = date.today()
+        if today < recruitment_start_date:
+            return "pending"  # 모집대기
+        elif today <= recruitment_end_date:
+            return "recruiting"  # 모집중
+        else:
+            return "recruiting_ended"  # 모집종료 (심사중으로 전환 필요)
+    return status.value
+
+
 # ============================================================================
 # User Basic Info
 # ============================================================================
@@ -91,6 +116,7 @@ class ProjectResponse(ProjectBase):
     """Basic project response schema"""
     project_id: int
     status: ProjectStatus
+    display_status: Optional[str] = None  # 표시용 상태 (모집대기/모집중 등)
     actual_start_date: Optional[date] = None
     actual_end_date: Optional[date] = None
     overall_feedback: Optional[str] = None
@@ -122,6 +148,7 @@ class ProjectListResponse(BaseModel):
     project_start_date: Optional[date] = None
     project_end_date: Optional[date] = None
     status: ProjectStatus
+    display_status: Optional[str] = None  # 표시용 상태 (모집대기/모집중 등)
     max_participants: int
     application_count: Optional[int] = None
     created_at: datetime

@@ -193,29 +193,35 @@ export default function ProjectDetailPage() {
     })
   }
 
-  const getStatusConfig = (status: ProjectStatus): { color: string; text: string; icon?: string } => {
+  // display_status를 사용하여 상태 표시
+  const getStatusConfig = (displayStatus: string | undefined): { color: string; text: string } => {
     const statusMap: Record<string, { color: string; text: string }> = {
-      draft: { color: 'default', text: '준비중' },
-      recruiting: { color: 'blue', text: '접수중' },
+      draft: { color: 'default', text: '초안' },
+      pending: { color: 'gold', text: '모집대기' },
+      ready: { color: 'gold', text: '모집대기' },  // fallback
+      recruiting: { color: 'blue', text: '모집중' },
+      recruiting_ended: { color: 'purple', text: '모집종료' },
       reviewing: { color: 'orange', text: '심사중' },
-      in_progress: { color: 'green', text: '과제진행중' },
-      evaluating: { color: 'purple', text: '과제평가중' },
-      completed: { color: 'cyan', text: '완료' },
+      in_progress: { color: 'cyan', text: '과제진행중' },
+      evaluating: { color: 'geekblue', text: '과제평가중' },
+      completed: { color: 'green', text: '완료' },
       closed: { color: 'default', text: '종료' }
     }
-    return statusMap[status] || { color: 'default', text: status }
+    return statusMap[displayStatus || 'draft'] || { color: 'default', text: displayStatus || 'unknown' }
   }
 
-  const getStatusTag = (status: ProjectStatus) => {
-    const config = getStatusConfig(status)
+  const getStatusTag = () => {
+    const displayStatus = project?.display_status || project?.status
+    const config = getStatusConfig(displayStatus)
     return <Tag color={config.color}>{config.text}</Tag>
   }
 
-  // 상태 전환 가능 목록
+  // 상태 전환 가능 목록 (draft는 정식저장 버튼으로 처리)
   const getNextStatuses = (currentStatus: ProjectStatus): ProjectStatus[] => {
     const transitions: Record<string, ProjectStatus[]> = {
-      draft: [ProjectStatus.RECRUITING],
-      recruiting: [ProjectStatus.REVIEWING],
+      draft: [],  // draft는 정식저장 버튼으로 처리
+      ready: [ProjectStatus.REVIEWING],  // ready(모집중)에서 심사중으로
+      recruiting: [ProjectStatus.REVIEWING],  // legacy 호환
       reviewing: [ProjectStatus.IN_PROGRESS],
       in_progress: [ProjectStatus.EVALUATING],
       evaluating: [ProjectStatus.CLOSED],
@@ -338,11 +344,11 @@ export default function ProjectDetailPage() {
                 </Space>
               </div>
               <div className="flex items-center gap-3">
-                {/* 상태 Badge */}
-                <Tag color={getStatusConfig(project.status).color} style={{ fontSize: 16, padding: '4px 12px' }}>
-                  {getStatusConfig(project.status).text}
+                {/* 상태 Badge - display_status 사용 */}
+                <Tag color={getStatusConfig(project.display_status || project.status).color} style={{ fontSize: 16, padding: '4px 12px' }}>
+                  {getStatusConfig(project.display_status || project.status).text}
                 </Tag>
-                {/* 상태 변경 버튼 */}
+                {/* 상태 변경 버튼 (draft 제외 - 정식저장 버튼으로 처리) */}
                 {getNextStatuses(project.status).length > 0 && (
                   <Dropdown
                     menu={{

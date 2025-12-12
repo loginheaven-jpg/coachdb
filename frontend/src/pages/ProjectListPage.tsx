@@ -22,17 +22,22 @@ import {
   UserOutlined,
   CheckCircleOutlined
 } from '@ant-design/icons'
-import projectService, { ProjectListItem, ProjectStatus } from '../services/projectService'
+import projectService, { ProjectListItem, ProjectStatus, DisplayStatus } from '../services/projectService'
+import { useAuthStore } from '../stores/authStore'
 import dayjs from 'dayjs'
 
 const { Title, Text } = Typography
 
 export default function ProjectListPage() {
   const navigate = useNavigate()
+  const { user } = useAuthStore()
   const [loading, setLoading] = useState(false)
   const [testProjectLoading, setTestProjectLoading] = useState(false)
   const [projects, setProjects] = useState<ProjectListItem[]>([])
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | undefined>()
+
+  // 수퍼어드민 (loginheaven@gmail.com) 여부 확인
+  const isSuperAdmin = user?.email === 'loginheaven@gmail.com'
 
   useEffect(() => {
     loadProjects()
@@ -65,15 +70,23 @@ export default function ProjectListPage() {
     }
   }
 
-  const getStatusTag = (status: ProjectStatus) => {
-    const statusMap: Record<ProjectStatus, { color: string; text: string }> = {
+  // display_status를 사용하여 상태 표시
+  const getStatusTag = (displayStatus: string | undefined, status: ProjectStatus) => {
+    const statusMap: Record<string, { color: string; text: string }> = {
       draft: { color: 'default', text: '초안' },
+      pending: { color: 'gold', text: '모집대기' },
+      ready: { color: 'gold', text: '모집대기' },  // fallback
       recruiting: { color: 'blue', text: '모집중' },
+      recruiting_ended: { color: 'purple', text: '모집종료' },
       reviewing: { color: 'orange', text: '심사중' },
+      in_progress: { color: 'cyan', text: '과제진행중' },
+      evaluating: { color: 'geekblue', text: '과제평가중' },
       completed: { color: 'green', text: '완료' },
-      closed: { color: 'red', text: '종료' }
+      closed: { color: 'default', text: '종료' }
     }
-    const config = statusMap[status]
+    // display_status가 있으면 우선 사용, 없으면 status 사용
+    const key = displayStatus || status
+    const config = statusMap[key] || { color: 'default', text: key }
     return <Tag color={config.color}>{config.text}</Tag>
   }
 
@@ -123,7 +136,7 @@ export default function ProjectListPage() {
       dataIndex: 'status',
       key: 'status',
       width: '10%',
-      render: (status: ProjectStatus) => getStatusTag(status),
+      render: (_: ProjectStatus, record: ProjectListItem) => getStatusTag(record.display_status, record.status),
     },
     {
       title: '정원',
@@ -185,15 +198,18 @@ export default function ProjectListPage() {
             >
               새 과제 생성
             </Button>
-            <Button
-              type="text"
-              icon={<PlusOutlined />}
-              onClick={handleCreateTestProject}
-              loading={testProjectLoading}
-              style={{ color: '#999', fontSize: '12px' }}
-            >
-              테스트과제 생성
-            </Button>
+            {/* 수퍼어드민만 테스트과제 생성 버튼 표시 */}
+            {isSuperAdmin && (
+              <Button
+                type="text"
+                icon={<PlusOutlined />}
+                onClick={handleCreateTestProject}
+                loading={testProjectLoading}
+                style={{ color: '#999', fontSize: '12px' }}
+              >
+                테스트과제 생성
+              </Button>
+            )}
           </Space>
         </div>
 

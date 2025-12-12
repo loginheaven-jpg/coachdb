@@ -4,14 +4,18 @@ import api from './api'
 // Enums
 // ============================================================================
 export enum ProjectStatus {
-  DRAFT = 'draft',              // 준비중
-  RECRUITING = 'recruiting',    // 접수중
+  DRAFT = 'draft',              // 초안 (임시저장, 비공개)
+  READY = 'ready',              // 정식저장 완료 (모집대기/모집중은 날짜로 계산)
+  RECRUITING = 'recruiting',    // 접수중 (legacy)
   REVIEWING = 'reviewing',      // 심사중
   IN_PROGRESS = 'in_progress',  // 과제진행중
   EVALUATING = 'evaluating',    // 과제평가중
   COMPLETED = 'completed',      // (레거시)
   CLOSED = 'closed'             // 종료
 }
+
+// 표시용 상태 (display_status)
+export type DisplayStatus = 'draft' | 'pending' | 'recruiting' | 'recruiting_ended' | 'reviewing' | 'in_progress' | 'evaluating' | 'closed'
 
 export enum CoachRole {
   LEADER = 'leader',
@@ -85,6 +89,7 @@ export interface ProjectUpdate {
 export interface Project extends ProjectBase {
   project_id: number
   status: ProjectStatus
+  display_status?: DisplayStatus  // 표시용 상태 (서버에서 계산)
   actual_start_date: string | null
   actual_end_date: string | null
   overall_feedback: string | null
@@ -108,6 +113,7 @@ export interface ProjectListItem {
   project_start_date: string | null
   project_end_date: string | null
   status: ProjectStatus
+  display_status?: DisplayStatus  // 표시용 상태 (서버에서 계산)
   max_participants: number
   application_count: number | null
   created_at: string
@@ -452,6 +458,15 @@ const projectService = {
    */
   async validateProjectScore(projectId: number): Promise<ScoreValidation> {
     const response = await api.post(`/projects/${projectId}/validate-score`)
+    return response.data
+  },
+
+  /**
+   * 정식저장 - 모든 조건 검증 후 ready 상태로 전환
+   * 조건: 과제기간 입력 완료 + 설문 100점
+   */
+  async finalizeProject(projectId: number): Promise<Project> {
+    const response = await api.post(`/projects/${projectId}/finalize`)
     return response.data
   },
 

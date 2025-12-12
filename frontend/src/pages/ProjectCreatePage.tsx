@@ -9,12 +9,11 @@ import {
   InputNumber,
   Button,
   message,
-  Select,
-  Space
+  Space,
+  Alert
 } from 'antd'
 import { ArrowLeftOutlined, SaveOutlined } from '@ant-design/icons'
 import projectService, { ProjectCreate, ProjectStatus } from '../services/projectService'
-import dayjs, { Dayjs } from 'dayjs'
 
 const { Title, Text } = Typography
 const { TextArea } = Input
@@ -38,7 +37,7 @@ export default function ProjectCreatePage() {
         project_end_date: values.project_period ? values.project_period[1].format('YYYY-MM-DD') : null,
         max_participants: values.max_participants,
         project_manager_id: values.project_manager_id || null,
-        status: values.status || 'draft'
+        status: ProjectStatus.DRAFT  // 항상 초안으로 생성
       }
 
       const createdProject = await projectService.createProject(projectData)
@@ -77,7 +76,6 @@ export default function ProjectCreatePage() {
             layout="vertical"
             onFinish={handleSubmit}
             initialValues={{
-              status: 'draft',
               max_participants: 20
             }}
           >
@@ -160,19 +158,17 @@ export default function ProjectCreatePage() {
               />
             </Form.Item>
 
-            <Form.Item
-              name="status"
-              label="과제 상태"
-              rules={[{ required: true }]}
-            >
-              <Select size="large">
-                <Select.Option value="draft">초안</Select.Option>
-                <Select.Option value="recruiting">모집중</Select.Option>
-                <Select.Option value="reviewing">심사중</Select.Option>
-                <Select.Option value="completed">완료</Select.Option>
-                <Select.Option value="closed">종료</Select.Option>
-              </Select>
-            </Form.Item>
+            <Alert
+              type="info"
+              className="mb-6"
+              message="과제 생성 후 다음 단계"
+              description={
+                <ol className="mt-2 list-decimal pl-4">
+                  <li>과제 상세 페이지에서 설문 구성 (배점 100점 필요)</li>
+                  <li>과제 기간 입력 후 '정식저장'하면 모집시작일에 자동 공개</li>
+                </ol>
+              }
+            />
 
             <Form.Item className="mb-0">
               <Space className="w-full justify-end">
@@ -189,7 +185,7 @@ export default function ProjectCreatePage() {
                   loading={loading}
                   icon={<SaveOutlined />}
                 >
-                  과제 생성
+                  과제 생성 (초안)
                 </Button>
               </Space>
             </Form.Item>

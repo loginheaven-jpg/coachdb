@@ -10,10 +10,12 @@ import {
   Button,
   message,
   Select,
-  Space
+  Space,
+  Alert,
+  Divider
 } from 'antd'
-import { ArrowLeftOutlined, SaveOutlined } from '@ant-design/icons'
-import projectService, { ProjectDetail, ProjectUpdate } from '../services/projectService'
+import { ArrowLeftOutlined, SaveOutlined, CheckCircleOutlined, WarningOutlined } from '@ant-design/icons'
+import projectService, { ProjectDetail, ProjectUpdate, ProjectStatus, ScoreValidation } from '../services/projectService'
 import dayjs from 'dayjs'
 
 const { Title, Text } = Typography
@@ -25,13 +27,29 @@ export default function ProjectEditPage() {
   const { projectId } = useParams<{ projectId: string }>()
   const [form] = Form.useForm()
   const [loading, setLoading] = useState(false)
+  const [finalizeLoading, setFinalizeLoading] = useState(false)
   const [project, setProject] = useState<ProjectDetail | null>(null)
+  const [scoreValidation, setScoreValidation] = useState<ScoreValidation | null>(null)
+
+  // Watch project_period for reactive condition display
+  const projectPeriod = Form.useWatch('project_period', form)
 
   useEffect(() => {
     if (projectId) {
       loadProject()
+      loadScoreValidation()
     }
   }, [projectId])
+
+  const loadScoreValidation = async () => {
+    if (!projectId) return
+    try {
+      const validation = await projectService.validateProjectScore(parseInt(projectId))
+      setScoreValidation(validation)
+    } catch (error) {
+      console.error('점수 검증 실패:', error)
+    }
+  }
 
   const loadProject = async () => {
     if (!projectId) return
@@ -66,34 +84,66 @@ export default function ProjectEditPage() {
     }
   }
 
-  const handleSubmit = async (values: any) => {
-    if (!projectId) return
-    setLoading(true)
-    try {
-      const updateData: ProjectUpdate = {
-        project_name: values.project_name,
-        description: values.description || null,
-        recruitment_start_date: values.recruitment_period[0].format('YYYY-MM-DD'),
-        recruitment_end_date: values.recruitment_period[1].format('YYYY-MM-DD'),
-        project_start_date: values.project_period ? values.project_period[0].format('YYYY-MM-DD') : null,
-        project_end_date: values.project_period ? values.project_period[1].format('YYYY-MM-DD') : null,
-        actual_start_date: values.actual_period ? values.actual_period[0].format('YYYY-MM-DD') : null,
-        actual_end_date: values.actual_period ? values.actual_period[1].format('YYYY-MM-DD') : null,
-        max_participants: values.max_participants,
-        project_manager_id: values.project_manager_id || null,
-        status: values.status,
-        overall_feedback: values.overall_feedback || null
-      }
+  // 폼 데이터를 ProjectUpdate로 변환
+  const getUpdateData = (values: any): ProjectUpdate => ({
+    project_name: values.project_name,
+    description: values.description || null,
+    recruitment_start_date: values.recruitment_period[0].format('YYYY-MM-DD'),
+    recruitment_end_date: values.recruitment_period[1].format('YYYY-MM-DD'),
+    project_start_date: values.project_period ? values.project_period[0].format('YYYY-MM-DD') : null,
+    project_end_date: values.project_period ? values.project_period[1].format('YYYY-MM-DD') : null,
+    actual_start_date: values.actual_period ? values.actual_period[0].format('YYYY-MM-DD') : null,
+    actual_end_date: values.actual_period ? values.actual_period[1].format('YYYY-MM-DD') : null,
+    max_participants: values.max_participants,
+    project_manager_id: values.project_manager_id || null,
+    overall_feedback: values.overall_feedback || null
+  })
 
+  // 임시저장 - draft 상태 유지/전환
+  const handleTempSave = async () => {
+    if (!projectId) return
+    try {
+      const values = await form.validateFields()
+      setLoading(true)
+      const updateData = getUpdateData(values)
+      updateData.status = ProjectStatus.DRAFT  // 초안 상태로 설정
       await projectService.updateProject(parseInt(projectId), updateData)
-      message.success('과제가 수정되었습니다.')
-      navigate(`/admin/projects/${projectId}`)
+      message.success('임시저장 되었습니다.')
+      loadProject()
     } catch (error: any) {
-      console.error('과제 수정 실패:', error)
-      message.error(error.response?.data?.detail || '과제 수정에 실패했습니다.')
+      console.error('임시저장 실패:', error)
+      message.error(error.response?.data?.detail || '저장에 실패했습니다.')
     } finally {
       setLoading(false)
     }
+  }
+
+  // 정식저장 - 조건 검증 후 ready 상태로 전환
+  const handleFinalize = async () => {
+    if (!projectId) return
+    try {
+      const values = await form.validateFields()
+      setFinalizeLoading(true)
+
+      // 먼저 기본 정보 저장
+      const updateData = getUpdateData(values)
+      await projectService.updateProject(parseInt(projectId), updateData)
+
+      // finalize API 호출 (100점 검증 + ready 상태 전환)
+      await projectService.finalizeProject(parseInt(projectId))
+      message.success('정식저장 되었습니다. 모집시작일에 자동으로 공개됩니다.')
+      navigate(`/admin/projects/${projectId}`)
+    } catch (error: any) {
+      console.error('정식저장 실패:', error)
+      message.error(error.response?.data?.detail || '정식저장에 실패했습니다.')
+    } finally {
+      setFinalizeLoading(false)
+    }
+  }
+
+  // 기존 handleSubmit은 임시저장으로 변경
+  const handleSubmit = async (values: any) => {
+    handleTempSave()
   }
 
   if (!project) {
@@ -212,12 +262,14 @@ export default function ProjectEditPage() {
               name="status"
               label="과제 상태"
               rules={[{ required: true }]}
+              help="상태 변경은 임시저장/정식저장 버튼을 사용해주세요. 직접 변경 시 ready 상태는 설문 100점이 필요합니다."
             >
               <Select size="large">
                 <Select.Option value="draft">초안</Select.Option>
-                <Select.Option value="recruiting">모집중</Select.Option>
+                <Select.Option value="ready">모집개시 (정식저장)</Select.Option>
                 <Select.Option value="reviewing">심사중</Select.Option>
-                <Select.Option value="completed">완료</Select.Option>
+                <Select.Option value="in_progress">과제진행중</Select.Option>
+                <Select.Option value="evaluating">과제평가중</Select.Option>
                 <Select.Option value="closed">종료</Select.Option>
               </Select>
             </Form.Item>
@@ -233,6 +285,46 @@ export default function ProjectEditPage() {
               />
             </Form.Item>
 
+            <Divider />
+
+            {/* 정식저장 조건 표시 */}
+            <div className="mb-6">
+              <Title level={5}>정식저장 조건</Title>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  {projectPeriod ? (
+                    <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                  ) : (
+                    <WarningOutlined style={{ color: '#faad14' }} />
+                  )}
+                  <Text>과제 기간 입력: {projectPeriod ? '완료' : '미입력'}</Text>
+                </div>
+                <div className="flex items-center gap-2">
+                  {scoreValidation?.is_valid ? (
+                    <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                  ) : (
+                    <WarningOutlined style={{ color: '#faad14' }} />
+                  )}
+                  <Text>설문 점수: {scoreValidation?.total_score || 0}/100점</Text>
+                </div>
+              </div>
+              {(!projectPeriod || !scoreValidation?.is_valid) && (
+                <Alert
+                  type="warning"
+                  className="mt-3"
+                  message="정식저장을 하려면 위 조건을 모두 충족해야 합니다."
+                  description={
+                    <ul className="mt-2 list-disc pl-4">
+                      {!projectPeriod && <li>과제 기간(예정)을 입력해주세요</li>}
+                      {!scoreValidation?.is_valid && (
+                        <li>설문 구성에서 배점을 100점으로 맞춰주세요 (현재: {scoreValidation?.total_score || 0}점)</li>
+                      )}
+                    </ul>
+                  }
+                />
+              )}
+            </div>
+
             <Form.Item className="mb-0">
               <Space className="w-full justify-end">
                 <Button
@@ -242,13 +334,20 @@ export default function ProjectEditPage() {
                   취소
                 </Button>
                 <Button
-                  type="primary"
-                  htmlType="submit"
                   size="large"
                   loading={loading}
-                  icon={<SaveOutlined />}
+                  onClick={handleTempSave}
                 >
-                  수정 완료
+                  임시저장 (초안)
+                </Button>
+                <Button
+                  type="primary"
+                  size="large"
+                  loading={finalizeLoading}
+                  onClick={handleFinalize}
+                  icon={<CheckCircleOutlined />}
+                >
+                  정식저장
                 </Button>
               </Space>
             </Form.Item>
