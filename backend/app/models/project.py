@@ -56,9 +56,9 @@ class Project(Base):
     # Relationships
     creator = relationship("User", back_populates="created_projects", foreign_keys=[created_by])
     project_manager = relationship("User", foreign_keys=[project_manager_id])
-    staff_assignments = relationship("ProjectStaff", back_populates="project")
-    project_items = relationship("ProjectItem", back_populates="project")
-    applications = relationship("Application", back_populates="project")
+    staff_assignments = relationship("ProjectStaff", back_populates="project", cascade="all, delete-orphan")
+    project_items = relationship("ProjectItem", back_populates="project", cascade="all, delete-orphan")
+    applications = relationship("Application", back_populates="project", cascade="all, delete-orphan")
     custom_questions = relationship("CustomQuestion", back_populates="project", cascade="all, delete-orphan")
     evaluations = relationship("CoachEvaluation", back_populates="project", cascade="all, delete-orphan")
 
