@@ -69,6 +69,7 @@ export default function ProjectDetailPage() {
   const [scoreValidation, setScoreValidation] = useState<ScoreValidation | null>(null)
   const [questionModalVisible, setQuestionModalVisible] = useState(false)
   const [surveyBuilderVisible, setSurveyBuilderVisible] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState(false)
   const [questionForm] = Form.useForm()
 
   useEffect(() => {
@@ -243,6 +244,35 @@ export default function ProjectDetailPage() {
     }
   }
 
+  const handleDelete = () => {
+    Modal.confirm({
+      title: '과제 삭제',
+      content: (
+        <div>
+          <p>정말 이 과제를 삭제하시겠습니까?</p>
+          <p className="text-red-500 mt-2">이 작업은 되돌릴 수 없으며, 모든 관련 데이터(지원서, 평가 등)가 함께 삭제됩니다.</p>
+        </div>
+      ),
+      okText: '삭제',
+      okType: 'danger',
+      cancelText: '취소',
+      onOk: async () => {
+        if (!projectId) return
+        setDeleteLoading(true)
+        try {
+          await projectService.deleteProject(parseInt(projectId))
+          message.success('과제가 삭제되었습니다.')
+          navigate('/admin/projects')
+        } catch (error: any) {
+          console.error('과제 삭제 실패:', error)
+          message.error(error.response?.data?.detail || '과제 삭제에 실패했습니다.')
+        } finally {
+          setDeleteLoading(false)
+        }
+      }
+    })
+  }
+
   const questionColumns = [
     {
       title: '순서',
@@ -323,13 +353,23 @@ export default function ProjectDetailPage() {
           >
             과제 목록으로 돌아가기
           </Button>
-          <Button
-            type="primary"
-            icon={<EditOutlined />}
-            onClick={() => navigate(`/admin/projects/${projectId}/edit`)}
-          >
-            과제 수정
-          </Button>
+          <Space>
+            <Button
+              type="primary"
+              icon={<EditOutlined />}
+              onClick={() => navigate(`/admin/projects/${projectId}/edit`)}
+            >
+              과제 수정
+            </Button>
+            <Button
+              danger
+              icon={<DeleteOutlined />}
+              onClick={handleDelete}
+              loading={deleteLoading}
+            >
+              삭제
+            </Button>
+          </Space>
         </div>
 
         <Card className="mb-4">

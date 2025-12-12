@@ -14,8 +14,9 @@ import {
   Alert,
   Divider
 } from 'antd'
-import { ArrowLeftOutlined, SaveOutlined, CheckCircleOutlined, WarningOutlined } from '@ant-design/icons'
+import { ArrowLeftOutlined, SaveOutlined, CheckCircleOutlined, WarningOutlined, UnorderedListOutlined } from '@ant-design/icons'
 import projectService, { ProjectDetail, ProjectUpdate, ProjectStatus, ScoreValidation } from '../services/projectService'
+import SurveyBuilder from '../components/SurveyBuilder'
 import dayjs from 'dayjs'
 
 const { Title, Text } = Typography
@@ -30,6 +31,7 @@ export default function ProjectEditPage() {
   const [finalizeLoading, setFinalizeLoading] = useState(false)
   const [project, setProject] = useState<ProjectDetail | null>(null)
   const [scoreValidation, setScoreValidation] = useState<ScoreValidation | null>(null)
+  const [surveyBuilderVisible, setSurveyBuilderVisible] = useState(false)
 
   // Watch project_period for reactive condition display
   const projectPeriod = Form.useWatch('project_period', form)
@@ -306,6 +308,13 @@ export default function ProjectEditPage() {
                     <WarningOutlined style={{ color: '#faad14' }} />
                   )}
                   <Text>설문 점수: {scoreValidation?.total_score || 0}/100점</Text>
+                  <Button
+                    type="link"
+                    icon={<UnorderedListOutlined />}
+                    onClick={() => setSurveyBuilderVisible(true)}
+                  >
+                    설문 구성
+                  </Button>
                 </div>
               </div>
               {(!projectPeriod || !scoreValidation?.is_valid) && (
@@ -353,6 +362,16 @@ export default function ProjectEditPage() {
             </Form.Item>
           </Form>
         </Card>
+
+        {/* 설문 구성 모달 */}
+        <SurveyBuilder
+          projectId={parseInt(projectId!)}
+          visible={surveyBuilderVisible}
+          onClose={() => setSurveyBuilderVisible(false)}
+          onSave={() => {
+            loadScoreValidation()
+          }}
+        />
       </div>
     </div>
   )
