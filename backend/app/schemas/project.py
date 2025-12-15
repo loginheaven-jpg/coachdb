@@ -9,8 +9,8 @@ from app.schemas.competency import ProjectItemCreate
 
 def calculate_display_status(
     status: ProjectStatus,
-    recruitment_start_date: date,
-    recruitment_end_date: date
+    recruitment_start_date: Optional[date],
+    recruitment_end_date: Optional[date]
 ) -> str:
     """
     DB 상태와 날짜를 기반으로 표시용 상태를 계산합니다.
@@ -22,6 +22,9 @@ def calculate_display_status(
     - 그 외 → DB 상태 그대로
     """
     if status == ProjectStatus.READY:
+        # 날짜가 없으면 기본 상태 반환
+        if not recruitment_start_date or not recruitment_end_date:
+            return status.value
         today = date.today()
         if today < recruitment_start_date:
             return "pending"  # 모집대기
