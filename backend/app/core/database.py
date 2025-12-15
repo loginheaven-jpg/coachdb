@@ -44,7 +44,34 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def init_db():
-    """Initialize database - create all tables"""
+    """Initialize database - run migrations and create all tables"""
+    import subprocess
+    import os
+
+    # Run alembic migrations
+    try:
+        # Get the backend directory (where alembic.ini is located)
+        backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        print(f"[DB] Running alembic migrations from {backend_dir}...")
+
+        result = subprocess.run(
+            ["alembic", "upgrade", "head"],
+            cwd=backend_dir,
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+
+        if result.returncode == 0:
+            print(f"[DB] Alembic migrations completed successfully")
+            if result.stdout:
+                print(f"[DB] Migration output: {result.stdout}")
+        else:
+            print(f"[DB] Alembic migration warning: {result.stderr}")
+    except Exception as e:
+        print(f"[DB] Alembic migration skipped or failed: {e}")
+
+    # Also ensure all tables exist (fallback)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
