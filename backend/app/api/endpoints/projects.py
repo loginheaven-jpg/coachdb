@@ -369,7 +369,12 @@ async def list_projects(
     """
     import json
     from app.schemas.project import calculate_display_status
-    user_roles = json.loads(current_user.roles)
+
+    # Safely parse user roles
+    try:
+        user_roles = json.loads(current_user.roles) if current_user.roles else []
+    except (json.JSONDecodeError, TypeError):
+        user_roles = []
 
     # Build query
     query = select(Project)
