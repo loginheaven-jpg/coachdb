@@ -116,6 +116,9 @@ export interface ProjectListItem {
   display_status?: DisplayStatus  // 표시용 상태 (서버에서 계산)
   max_participants: number
   application_count: number | null
+  current_participants: number | null  // 확정된 참여자 수
+  created_by: number  // 생성자 ID
+  project_manager_id: number | null  // 과제관리자 ID
   created_at: string
 }
 

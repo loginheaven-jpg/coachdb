@@ -123,18 +123,16 @@ function App() {
             </ProtectedRoute>
           }
         />
+        {/* Legacy coach projects route - redirect to unified page */}
         <Route
           path="/coach/projects"
-          element={
-            <ProtectedRoute allowedRoles={COACH_ROLES}>
-              <ProjectBrowsePage />
-            </ProtectedRoute>
-          }
+          element={<Navigate to="/projects" replace />}
         />
+        {/* Application route - accessible to all authenticated users */}
         <Route
           path="/coach/projects/:projectId/apply"
           element={
-            <ProtectedRoute allowedRoles={COACH_ROLES}>
+            <ProtectedRoute allowedRoles={ALL_ROLES}>
               <ApplicationSubmitPage />
             </ProtectedRoute>
           }
@@ -143,6 +141,16 @@ function App() {
         <Route
           path="/profile/detailed"
           element={<Navigate to="/coach/competencies" replace />}
+        />
+
+        {/* Unified Project List - accessible to all authenticated users */}
+        <Route
+          path="/projects"
+          element={
+            <ProtectedRoute allowedRoles={ALL_ROLES}>
+              <ProjectListPage />
+            </ProtectedRoute>
+          }
         />
 
         {/* Protected routes - Staff */}
@@ -164,13 +172,10 @@ function App() {
             </ProtectedRoute>
           }
         />
+        {/* Legacy admin projects route - redirect to unified page */}
         <Route
           path="/admin/projects"
-          element={
-            <ProtectedRoute allowedRoles={ADMIN_ROLES}>
-              <ProjectListPage />
-            </ProtectedRoute>
-          }
+          element={<Navigate to="/projects" replace />}
         />
         <Route
           path="/admin/projects/create"

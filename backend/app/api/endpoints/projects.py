@@ -423,6 +423,15 @@ async def list_projects(
             project.recruitment_end_date
         )
 
+        # Count confirmed participants (selected applications)
+        confirmed_result = await db.execute(
+            select(func.count(Application.application_id)).where(
+                Application.project_id == project.project_id,
+                Application.selection_result == "selected"
+            )
+        )
+        current_participants = confirmed_result.scalar() or 0
+
         response_item = ProjectListResponse(
             project_id=project.project_id,
             project_name=project.project_name,
@@ -434,6 +443,9 @@ async def list_projects(
             display_status=display_status,
             max_participants=project.max_participants,
             application_count=application_count,
+            current_participants=current_participants,
+            created_by=project.created_by,
+            project_manager_id=project.project_manager_id,
             created_at=project.created_at
         )
         response_list.append(response_item)

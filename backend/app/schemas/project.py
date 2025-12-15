@@ -154,6 +154,9 @@ class ProjectListResponse(BaseModel):
     display_status: Optional[str] = None  # 표시용 상태 (모집대기/모집중 등)
     max_participants: int
     application_count: Optional[int] = None
+    current_participants: Optional[int] = None  # 확정된 참여자 수
+    created_by: int  # 생성자 ID
+    project_manager_id: Optional[int] = None  # 과제관리자 ID
     created_at: datetime
 
     class Config:

@@ -20,13 +20,27 @@ import {
   EyeOutlined,
   FolderOpenOutlined,
   UserOutlined,
-  CheckCircleOutlined
+  CheckCircleOutlined,
+  FileTextOutlined
 } from '@ant-design/icons'
 import projectService, { ProjectListItem, ProjectStatus, DisplayStatus } from '../services/projectService'
+import applicationService, { ParticipationProject } from '../services/applicationService'
 import { useAuthStore } from '../stores/authStore'
 import dayjs from 'dayjs'
 
 const { Title, Text } = Typography
+
+// 관리자 역할 체크
+const isAdminRole = (roles: string[]): boolean => {
+  return roles.some(r => ['SUPER_ADMIN', 'PROJECT_MANAGER', 'admin'].includes(r))
+}
+
+// 과제 관리 권한 체크 (본인 생성 또는 PM 지정)
+const canManageProject = (project: ProjectListItem, userId: number | undefined, roles: string[]): boolean => {
+  if (!userId) return false
+  if (roles.includes('SUPER_ADMIN') || roles.includes('admin')) return true
+  return project.created_by === userId || project.project_manager_id === userId
+}
 
 export default function ProjectListPage() {
   const navigate = useNavigate()
@@ -34,20 +48,37 @@ export default function ProjectListPage() {
   const [loading, setLoading] = useState(false)
   const [testProjectLoading, setTestProjectLoading] = useState(false)
   const [projects, setProjects] = useState<ProjectListItem[]>([])
+  const [myApplications, setMyApplications] = useState<ParticipationProject[]>([])
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | undefined>()
 
+  // 사용자 역할 파싱
+  const userRoles: string[] = (() => {
+    try {
+      return user?.roles ? JSON.parse(user.roles) : []
+    } catch {
+      return []
+    }
+  })()
+
+  // 관리자 여부
+  const isAdmin = isAdminRole(userRoles)
   // 수퍼어드민 (loginheaven@gmail.com) 여부 확인
-  const isSuperAdmin = user?.email === 'loginheaven@gmail.com'
+  const isSuperAdmin = user?.email === 'loginheaven@gmail.com' || userRoles.includes('SUPER_ADMIN')
 
   useEffect(() => {
-    loadProjects()
+    loadData()
   }, [statusFilter])
 
-  const loadProjects = async () => {
+  const loadData = async () => {
     setLoading(true)
     try {
-      const data = await projectService.listProjects({ status: statusFilter })
-      setProjects(data)
+      // 과제 목록과 내 지원 목록을 병렬로 로드
+      const [projectsData, applicationsData] = await Promise.all([
+        projectService.listProjects({ status: statusFilter }),
+        applicationService.getMyApplications()
+      ])
+      setProjects(projectsData)
+      setMyApplications(applicationsData)
     } catch (error: any) {
       console.error('과제 목록 로드 실패:', error)
       message.error('과제 목록을 불러오는데 실패했습니다.')
@@ -61,7 +92,7 @@ export default function ProjectListPage() {
     try {
       const project = await projectService.createTestProject()
       message.success(`테스트 과제가 생성되었습니다: ${project.project_name}`)
-      loadProjects()
+      loadData()
     } catch (error: any) {
       console.error('테스트 과제 생성 실패:', error)
       message.error('테스트 과제 생성에 실패했습니다.')
@@ -70,12 +101,25 @@ export default function ProjectListPage() {
     }
   }
 
+  // 특정 과제에 대한 내 지원서 찾기
+  const getMyApplication = (projectId: number): ParticipationProject | undefined => {
+    return myApplications.find(app => app.project_id === projectId)
+  }
+
+  // 지원서 수정 가능 여부: 제출완료 상태 + 모집기간 내
+  const canEditApplication = (app: ParticipationProject, record: ProjectListItem): boolean => {
+    if (app.application_status !== 'submitted') return false
+    const now = dayjs()
+    const endDate = dayjs(record.recruitment_end_date).endOf('day')
+    return now.isBefore(endDate) || now.isSame(endDate, 'day')
+  }
+
   // display_status를 사용하여 상태 표시
   const getStatusTag = (displayStatus: string | undefined, status: ProjectStatus) => {
     const statusMap: Record<string, { color: string; text: string }> = {
       draft: { color: 'default', text: '초안' },
       pending: { color: 'gold', text: '모집대기' },
-      ready: { color: 'gold', text: '모집대기' },  // fallback
+      ready: { color: 'gold', text: '모집대기' },
       recruiting: { color: 'blue', text: '모집중' },
       recruiting_ended: { color: 'purple', text: '모집종료' },
       reviewing: { color: 'orange', text: '심사중' },
@@ -84,10 +128,14 @@ export default function ProjectListPage() {
       completed: { color: 'green', text: '완료' },
       closed: { color: 'default', text: '종료' }
     }
-    // display_status가 있으면 우선 사용, 없으면 status 사용
     const key = displayStatus || status
     const config = statusMap[key] || { color: 'default', text: key }
     return <Tag color={config.color}>{config.text}</Tag>
+  }
+
+  // 모집중인지 확인 (display_status 기준)
+  const isRecruiting = (record: ProjectListItem): boolean => {
+    return record.display_status === 'recruiting'
   }
 
   const columns = [
@@ -96,16 +144,22 @@ export default function ProjectListPage() {
       dataIndex: 'project_name',
       key: 'project_name',
       width: '25%',
-      render: (text: string, record: ProjectListItem) => (
-        <a onClick={() => navigate(`/admin/projects/${record.project_id}`)}>
-          {text}
-        </a>
-      ),
+      render: (text: string, record: ProjectListItem) => {
+        const canView = canManageProject(record, user?.user_id, userRoles)
+        if (canView) {
+          return (
+            <a onClick={() => navigate(`/admin/projects/${record.project_id}`)}>
+              {text}
+            </a>
+          )
+        }
+        return <span>{text}</span>
+      },
     },
     {
       title: '모집 기간',
       key: 'recruitment_period',
-      width: '20%',
+      width: '18%',
       render: (_: any, record: ProjectListItem) => (
         <div>
           <div>{dayjs(record.recruitment_start_date).format('YYYY-MM-DD')}</div>
@@ -117,7 +171,7 @@ export default function ProjectListPage() {
     {
       title: '과제 기간',
       key: 'project_period',
-      width: '20%',
+      width: '18%',
       render: (_: any, record: ProjectListItem) => {
         if (!record.project_start_date || !record.project_end_date) {
           return <Text type="secondary">미정</Text>
@@ -141,7 +195,7 @@ export default function ProjectListPage() {
     {
       title: '정원',
       key: 'participants',
-      width: '10%',
+      width: '8%',
       render: (_: any, record: ProjectListItem) => (
         <span>{record.current_participants || 0} / {record.max_participants}</span>
       ),
@@ -149,35 +203,79 @@ export default function ProjectListPage() {
     {
       title: '작업',
       key: 'actions',
-      width: '15%',
-      render: (_: any, record: ProjectListItem) => (
-        <Space>
-          <Button
-            type="link"
-            icon={<EyeOutlined />}
-            onClick={() => navigate(`/admin/projects/${record.project_id}`)}
-          >
-            상세
-          </Button>
-          <Button
-            type="link"
-            icon={<EditOutlined />}
-            onClick={() => navigate(`/admin/projects/${record.project_id}/edit`)}
-          >
-            수정
-          </Button>
-        </Space>
-      ),
+      width: '21%',
+      render: (_: any, record: ProjectListItem) => {
+        const existingApp = getMyApplication(record.project_id)
+        const canManage = canManageProject(record, user?.user_id, userRoles)
+        const recruiting = isRecruiting(record)
+
+        return (
+          <Space wrap>
+            {/* 지원/지원완료 버튼 */}
+            {existingApp ? (
+              <>
+                <Tag color="green" icon={<CheckCircleOutlined />}>
+                  지원완료
+                </Tag>
+                {canEditApplication(existingApp, record) && (
+                  <Button
+                    type="link"
+                    size="small"
+                    icon={<EditOutlined />}
+                    onClick={() => navigate(`/coach/projects/${record.project_id}/apply?applicationId=${existingApp.application_id}`)}
+                  >
+                    수정
+                  </Button>
+                )}
+              </>
+            ) : recruiting ? (
+              <Button
+                type="primary"
+                size="small"
+                icon={<FileTextOutlined />}
+                onClick={() => navigate(`/coach/projects/${record.project_id}/apply`)}
+              >
+                지원하기
+              </Button>
+            ) : null}
+
+            {/* 관리자 버튼들 */}
+            {canManage && (
+              <>
+                <Button
+                  type="link"
+                  size="small"
+                  icon={<EyeOutlined />}
+                  onClick={() => navigate(`/admin/projects/${record.project_id}`)}
+                >
+                  관리
+                </Button>
+                <Button
+                  type="link"
+                  size="small"
+                  icon={<EditOutlined />}
+                  onClick={() => navigate(`/admin/projects/${record.project_id}/edit`)}
+                >
+                  수정
+                </Button>
+              </>
+            )}
+          </Space>
+        )
+      },
     },
   ]
 
   // 통계 계산
   const stats = {
     total: projects.length,
-    recruiting: projects.filter(p => p.status === 'recruiting').length,
-    completed: projects.filter(p => p.status === 'completed').length,
+    recruiting: projects.filter(p => p.display_status === 'recruiting').length,
+    completed: projects.filter(p => p.status === 'completed' || p.status === 'closed').length,
     totalParticipants: projects.reduce((sum, p) => sum + (p.current_participants || 0), 0)
   }
+
+  // 대시보드 경로 결정
+  const dashboardPath = isAdmin ? '/admin/dashboard' : '/coach/dashboard'
 
   return (
     <div className="min-h-screen bg-gray-100 py-8">
@@ -185,32 +283,33 @@ export default function ProjectListPage() {
         <div className="flex justify-between items-center mb-4">
           <Button
             icon={<ArrowLeftOutlined />}
-            onClick={() => navigate('/admin/dashboard')}
+            onClick={() => navigate(dashboardPath)}
           >
             대시보드로 돌아가기
           </Button>
-          <Space direction="vertical" align="end">
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => navigate('/admin/projects/create')}
-              size="large"
-            >
-              새 과제 생성
-            </Button>
-            {/* 수퍼어드민만 테스트과제 생성 버튼 표시 */}
-            {isSuperAdmin && (
+          {isAdmin && (
+            <Space direction="vertical" align="end">
               <Button
-                type="text"
+                type="primary"
                 icon={<PlusOutlined />}
-                onClick={handleCreateTestProject}
-                loading={testProjectLoading}
-                style={{ color: '#999', fontSize: '12px' }}
+                onClick={() => navigate('/admin/projects/create')}
+                size="large"
               >
-                테스트과제 생성
+                새 과제 생성
               </Button>
-            )}
-          </Space>
+              {isSuperAdmin && (
+                <Button
+                  type="text"
+                  icon={<PlusOutlined />}
+                  onClick={handleCreateTestProject}
+                  loading={testProjectLoading}
+                  style={{ color: '#999', fontSize: '12px' }}
+                >
+                  테스트과제 생성
+                </Button>
+              )}
+            </Space>
+          )}
         </div>
 
         <Row gutter={[16, 16]} className="mb-6">
@@ -236,7 +335,7 @@ export default function ProjectListPage() {
           <Col xs={24} sm={12} md={6}>
             <Card>
               <Statistic
-                title="완료"
+                title="완료/종료"
                 value={stats.completed}
                 valueStyle={{ color: '#52c41a' }}
                 prefix={<CheckCircleOutlined />}
@@ -256,9 +355,12 @@ export default function ProjectListPage() {
 
         <Card>
           <div className="mb-6">
-            <Title level={2} className="mb-2">과제 관리</Title>
+            <Title level={2} className="mb-2">과제 목록</Title>
             <Text className="text-gray-600">
-              코칭 과제를 생성하고 관리할 수 있습니다.
+              {isAdmin
+                ? '코칭 과제를 생성하고 관리하거나, 모집중인 과제에 지원할 수 있습니다.'
+                : '참여를 원하는 과제를 선택하여 지원할 수 있습니다.'
+              }
             </Text>
           </div>
 
