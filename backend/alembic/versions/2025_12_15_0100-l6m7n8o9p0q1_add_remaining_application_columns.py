@@ -1,8 +1,8 @@
-"""Add motivation and applied_role to applications
+"""Add remaining application columns
 
-Revision ID: k5l6m7n8o9p0
-Revises: j4k5l6m7n8o9
-Create Date: 2025-12-15 00:00:00.000000
+Revision ID: l6m7n8o9p0q1
+Revises: k5l6m7n8o9p0
+Create Date: 2025-12-15 01:00:00.000000
 
 """
 from typing import Sequence, Union
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'k5l6m7n8o9p0'
-down_revision: Union[str, None] = 'j4k5l6m7n8o9'
+revision: str = 'l6m7n8o9p0q1'
+down_revision: Union[str, None] = 'k5l6m7n8o9p0'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -29,22 +29,7 @@ def column_exists(table_name, column_name):
 
 
 def upgrade() -> None:
-    conn = op.get_bind()
-
-    # Create coach_role enum type if it doesn't exist
-    result = conn.execute(sa.text("SELECT 1 FROM pg_type WHERE typname = 'coachrole'"))
-    if not result.fetchone():
-        coach_role_enum = sa.Enum('leader', 'participant', 'supervisor', name='coachrole')
-        coach_role_enum.create(conn, checkfirst=True)
-
     # Add missing columns to applications table (only if they don't exist)
-    if not column_exists('applications', 'motivation'):
-        op.add_column('applications', sa.Column('motivation', sa.Text(), nullable=True))
-
-    if not column_exists('applications', 'applied_role'):
-        op.add_column('applications', sa.Column('applied_role',
-            sa.Enum('leader', 'participant', 'supervisor', name='coachrole'), nullable=True))
-
     if not column_exists('applications', 'result_notified_at'):
         op.add_column('applications', sa.Column('result_notified_at',
             sa.DateTime(timezone=True), nullable=True))
@@ -59,8 +44,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_column('applications', 'participation_confirmed_at')
-    op.drop_column('applications', 'participation_confirmed')
-    op.drop_column('applications', 'result_notified_at')
-    op.drop_column('applications', 'applied_role')
-    op.drop_column('applications', 'motivation')
+    if column_exists('applications', 'participation_confirmed_at'):
+        op.drop_column('applications', 'participation_confirmed_at')
+    if column_exists('applications', 'participation_confirmed'):
+        op.drop_column('applications', 'participation_confirmed')
+    if column_exists('applications', 'result_notified_at'):
+        op.drop_column('applications', 'result_notified_at')
