@@ -7,6 +7,7 @@ import json
 
 from app.core.database import get_db
 from app.core.security import get_current_user, require_role
+from app.core.utils import get_user_roles
 from app.models.user import User, UserRole
 from app.models.system_config import SystemConfig, ConfigKeys
 from app.models.role_request import RoleRequest, RoleRequestStatus
@@ -143,10 +144,7 @@ async def list_users(
     # Filter and transform
     response_list = []
     for user in users:
-        try:
-            user_roles = json.loads(user.roles) if user.roles else []
-        except:
-            user_roles = []
+        user_roles = get_user_roles(user)
 
         # Apply role filter
         if role and role not in user_roles:
@@ -188,10 +186,7 @@ async def get_user(
             detail=f"User with id {user_id} not found"
         )
 
-    try:
-        user_roles = json.loads(user.roles) if user.roles else []
-    except:
-        user_roles = []
+    user_roles = get_user_roles(user)
 
     return UserDetailResponse(
         user_id=user.user_id,
@@ -353,10 +348,7 @@ async def approve_role_request(
         )
 
     # Add role to user
-    try:
-        current_roles = json.loads(user.roles) if user.roles else []
-    except:
-        current_roles = []
+    current_roles = get_user_roles(user)
 
     if role_request.requested_role not in current_roles:
         current_roles.append(role_request.requested_role)

@@ -119,7 +119,8 @@ async def register(
         await db.commit()
 
     # Generate tokens - use actual assigned roles
-    user_roles = json.loads(new_user.roles)
+    from app.core.utils import get_user_roles
+    user_roles = get_user_roles(new_user)
     token_data = {"sub": str(new_user.user_id), "roles": user_roles}
     access_token = create_access_token(token_data)
     refresh_token = create_refresh_token(token_data)
@@ -169,7 +170,8 @@ async def login(
         )
 
     # Generate tokens
-    user_roles = json.loads(user.roles)
+    from app.core.utils import get_user_roles
+    user_roles = get_user_roles(user)
     token_data = {"sub": str(user.user_id), "roles": user_roles}
     access_token = create_access_token(token_data)
     refresh_token = create_refresh_token(token_data)
@@ -224,7 +226,8 @@ async def refresh_token(
             )
 
         # Generate new tokens
-        user_roles = json.loads(user.roles)
+        from app.core.utils import get_user_roles
+        user_roles = get_user_roles(user)
         new_token_data = {"sub": str(user.user_id), "roles": user_roles}
         access_token = create_access_token(new_token_data)
         new_refresh_token = create_refresh_token(new_token_data)
@@ -316,14 +319,12 @@ async def get_staff_users(db: AsyncSession = Depends(get_db)):
     all_users = result.scalars().all()
 
     # Filter users with 'staff' role
+    from app.core.utils import get_user_roles
     staff_users = []
     for user in all_users:
-        try:
-            user_roles = json.loads(user.roles)
-            if 'staff' in user_roles:
-                staff_users.append(user)
-        except json.JSONDecodeError:
-            continue
+        user_roles = get_user_roles(user)
+        if 'staff' in user_roles:
+            staff_users.append(user)
 
     return [UserResponse.from_orm(user) for user in staff_users]
 

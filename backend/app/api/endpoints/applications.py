@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.utils import get_user_roles
 from app.models.user import User, UserRole
 from app.models.application import Application, ApplicationData
 from app.models.project import Project, ProjectStatus
@@ -207,8 +208,7 @@ async def get_application(
 
     # Check permission (user can only view their own applications)
     if application.user_id != current_user.user_id:
-        import json
-        user_roles = json.loads(current_user.roles)
+        user_roles = get_user_roles(current_user)
         if "SUPER_ADMIN" not in user_roles and "PROJECT_MANAGER" not in user_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -389,8 +389,7 @@ async def get_custom_answers(
 
     # Check permission
     if application.user_id != current_user.user_id:
-        import json
-        user_roles = json.loads(current_user.roles)
+        user_roles = get_user_roles(current_user)
         if "SUPER_ADMIN" not in user_roles and "PROJECT_MANAGER" not in user_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -548,8 +547,7 @@ async def get_application_data(
 
     # Check permission
     if application.user_id != current_user.user_id:
-        import json
-        user_roles = json.loads(current_user.roles)
+        user_roles = get_user_roles(current_user)
         if "SUPER_ADMIN" not in user_roles and "PROJECT_MANAGER" not in user_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

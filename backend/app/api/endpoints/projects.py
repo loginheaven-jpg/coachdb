@@ -296,8 +296,8 @@ async def get_project_or_404(project_id: int, db: AsyncSession) -> Project:
 
 def check_project_manager_permission(project: Project, current_user: User):
     """Check if user is project manager or super admin"""
-    import json
-    user_roles = json.loads(current_user.roles)
+    from app.core.utils import get_user_roles
+    user_roles = get_user_roles(current_user)
 
     # Super admin can access all projects
     if "SUPER_ADMIN" in user_roles:
@@ -367,14 +367,10 @@ async def list_projects(
     - PROJECT_MANAGER: Can see projects they manage or created
     - Others: Can see all projects (for application purposes)
     """
-    import json
+    from app.core.utils import get_user_roles
     from app.schemas.project import calculate_display_status
 
-    # Safely parse user roles
-    try:
-        user_roles = json.loads(current_user.roles) if current_user.roles else []
-    except (json.JSONDecodeError, TypeError):
-        user_roles = []
+    user_roles = get_user_roles(current_user)
 
     # Build query
     query = select(Project)

@@ -8,6 +8,7 @@ from datetime import datetime
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.utils import get_user_roles
 from app.models.user import User
 from app.models.competency import CoachCompetency, CompetencyItem, CompetencyItemField, VerificationStatus
 from app.models.verification import VerificationRecord
@@ -252,44 +253,29 @@ async def delete_competency(
 # ============================================================================
 def check_super_admin(user: User):
     """Check if user is SUPER_ADMIN"""
-    try:
-        roles = json.loads(user.roles)
-        if "SUPER_ADMIN" not in roles and "admin" not in roles:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only SUPER_ADMIN can access this endpoint"
-            )
-    except json.JSONDecodeError:
+    roles = get_user_roles(user)
+    if "SUPER_ADMIN" not in roles and "admin" not in roles:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Invalid user roles"
+            detail="Only SUPER_ADMIN can access this endpoint"
         )
 
 
 def check_custom_question_permission(user: User):
     """Check if user can create/manage custom questions (SUPER_ADMIN or PROJECT_MANAGER)"""
-    try:
-        roles = json.loads(user.roles)
-        allowed_roles = ["SUPER_ADMIN", "PROJECT_MANAGER", "admin"]
-        if not any(role in roles for role in allowed_roles):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only SUPER_ADMIN or PROJECT_MANAGER can manage custom questions"
-            )
-    except json.JSONDecodeError:
+    roles = get_user_roles(user)
+    allowed_roles = ["SUPER_ADMIN", "PROJECT_MANAGER", "admin"]
+    if not any(role in roles for role in allowed_roles):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Invalid user roles"
+            detail="Only SUPER_ADMIN or PROJECT_MANAGER can manage custom questions"
         )
 
 
 def is_super_admin(user: User) -> bool:
     """Check if user is SUPER_ADMIN (returns bool, doesn't raise)"""
-    try:
-        roles = json.loads(user.roles)
-        return "SUPER_ADMIN" in roles or "admin" in roles
-    except json.JSONDecodeError:
-        return False
+    roles = get_user_roles(user)
+    return "SUPER_ADMIN" in roles or "admin" in roles
 
 
 @router.post("/items", response_model=CompetencyItemResponse, status_code=status.HTTP_201_CREATED)

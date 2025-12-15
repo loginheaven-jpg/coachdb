@@ -12,6 +12,7 @@ from io import BytesIO
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.config import settings
+from app.core.utils import get_user_roles
 from app.models.user import User
 from app.models.file import File as FileModel, UploadPurpose
 from app.schemas.file import FileUploadResponse, FileInfo
@@ -172,8 +173,7 @@ async def download_file(
         select(UserModel).where(UserModel.user_id == current_user.user_id)
     )
     user = result.scalar_one()
-    import json
-    user_roles = json.loads(user.roles)
+    user_roles = get_user_roles(user)
 
     if db_file.uploaded_by != current_user.user_id and not any(role in ['staff', 'admin'] for role in user_roles):
         raise HTTPException(
@@ -292,8 +292,7 @@ async def delete_file(
             select(UserModel).where(UserModel.user_id == current_user.user_id)
         )
         user = result.scalar_one()
-        import json
-        user_roles = json.loads(user.roles)
+        user_roles = get_user_roles(user)
 
         if not any(role in ['staff', 'admin'] for role in user_roles):
             raise HTTPException(
