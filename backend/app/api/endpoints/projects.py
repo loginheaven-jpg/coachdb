@@ -606,11 +606,24 @@ async def delete_project(
 
     **Required roles**: SUPER_ADMIN, PROJECT_MANAGER (only for their own projects)
     """
-    project = await get_project_or_404(project_id, db)
-    check_project_manager_permission(project, current_user)
+    try:
+        project = await get_project_or_404(project_id, db)
+        check_project_manager_permission(project, current_user)
 
-    await db.delete(project)
-    await db.commit()
+        await db.delete(project)
+        await db.commit()
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        print(f"[DELETE PROJECT ERROR] project_id={project_id}, user_id={current_user.user_id}")
+        print(f"[DELETE PROJECT ERROR] Exception: {type(e).__name__}: {str(e)}")
+        print(f"[DELETE PROJECT ERROR] Traceback:\n{traceback.format_exc()}")
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete project: {str(e)}"
+        )
 
 
 # ============================================================================

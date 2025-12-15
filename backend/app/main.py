@@ -1,6 +1,8 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
+import traceback
 
 from app.core.config import settings
 from app.core.database import init_db, close_db
@@ -55,6 +57,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Global exception handler to ensure proper error responses
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Handle all unhandled exceptions"""
+    print(f"[GLOBAL ERROR] {request.method} {request.url}")
+    print(f"[GLOBAL ERROR] Exception: {type(exc).__name__}: {str(exc)}")
+    print(f"[GLOBAL ERROR] Traceback:\n{traceback.format_exc()}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Internal server error: {str(exc)}"}
+    )
 
 
 @app.get("/")
