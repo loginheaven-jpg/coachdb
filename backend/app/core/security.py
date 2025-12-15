@@ -105,10 +105,10 @@ def require_role(allowed_roles: list[str]):
     Dependency to check if user has required role.
     Usage: current_user = Depends(require_role(["admin", "staff"]))
     """
-    import json
+    from app.core.utils import get_user_roles
     async def role_checker(current_user = Depends(get_current_user)):
-        # Parse user's roles from JSON string
-        user_roles = json.loads(current_user.roles)
+        # Parse user's roles safely
+        user_roles = get_user_roles(current_user)
         # Check if user has any of the allowed roles
         if not any(role in allowed_roles for role in user_roles):
             raise HTTPException(
@@ -125,10 +125,10 @@ def require_roles(allowed_roles: list):
     Supports both UserRole enum and string values.
     Usage: current_user = Depends(require_roles([UserRole.ADMIN, UserRole.STAFF]))
     """
-    import json
+    from app.core.utils import get_user_roles
     async def role_checker(current_user = Depends(get_current_user)):
-        # Parse user's roles from JSON string
-        user_roles = json.loads(current_user.roles)
+        # Parse user's roles safely
+        user_roles = get_user_roles(current_user)
         # Convert allowed_roles to strings (handle both enums and strings)
         allowed_role_values = [r.value if hasattr(r, 'value') else r for r in allowed_roles]
         # Check if user has any of the allowed roles
