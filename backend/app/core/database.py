@@ -62,13 +62,33 @@ async def init_db():
 
         with sync_engine.connect() as conn:
             # Add missing projectstatus enum values
-            enum_values = ['READY', 'IN_PROGRESS', 'EVALUATING', 'CLOSED', 'DRAFT']
-            for value in enum_values:
+            projectstatus_values = ['READY', 'IN_PROGRESS', 'EVALUATING', 'CLOSED', 'DRAFT']
+            for value in projectstatus_values:
                 try:
                     conn.execute(text(f"ALTER TYPE projectstatus ADD VALUE IF NOT EXISTS '{value}'"))
                     print(f"[DB] Added enum value '{value}' to projectstatus")
                 except Exception as e:
-                    # Value might already exist, that's OK
+                    if "already exists" not in str(e).lower():
+                        print(f"[DB] Could not add enum value '{value}': {e}")
+
+            # Add missing proofrequiredlevel enum values
+            # SQLAlchemy sends uppercase enum names, so we need both cases
+            proof_values = ['NOT_REQUIRED', 'OPTIONAL', 'REQUIRED', 'not_required', 'optional', 'required']
+            for value in proof_values:
+                try:
+                    conn.execute(text(f"ALTER TYPE proofrequiredlevel ADD VALUE IF NOT EXISTS '{value}'"))
+                    print(f"[DB] Added enum value '{value}' to proofrequiredlevel")
+                except Exception as e:
+                    if "already exists" not in str(e).lower():
+                        print(f"[DB] Could not add enum value '{value}': {e}")
+
+            # Add missing matchingtype enum values
+            matching_values = ['EXACT', 'CONTAINS', 'RANGE', 'exact', 'contains', 'range']
+            for value in matching_values:
+                try:
+                    conn.execute(text(f"ALTER TYPE matchingtype ADD VALUE IF NOT EXISTS '{value}'"))
+                    print(f"[DB] Added enum value '{value}' to matchingtype")
+                except Exception as e:
                     if "already exists" not in str(e).lower():
                         print(f"[DB] Could not add enum value '{value}': {e}")
 
