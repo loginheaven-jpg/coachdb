@@ -23,15 +23,32 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Convert all RECRUITING status projects to DRAFT
-    # This ensures they must go through proper validation (finalize) to become READY
-    op.execute("""
-        UPDATE projects
-        SET status = 'DRAFT'
-        WHERE status = 'RECRUITING' OR status = 'recruiting'
-    """)
+    # RECRUITING was never a valid PostgreSQL enum value, so there can't be any data with it
+    # This migration is now a no-op since RECRUITING was only in Python code, not in DB
+    # If RECRUITING enum exists in some environments, we need to handle it safely
 
-    print("[MIGRATION] Converted all RECRUITING projects to DRAFT status")
+    conn = op.get_bind()
+
+    # Check if RECRUITING exists in the enum
+    result = conn.execute(sa.text("""
+        SELECT EXISTS (
+            SELECT 1 FROM pg_enum
+            WHERE enumlabel = 'RECRUITING'
+            AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'projectstatus')
+        )
+    """))
+    recruiting_exists = result.scalar()
+
+    if recruiting_exists:
+        # Only run update if RECRUITING enum value exists
+        conn.execute(sa.text("""
+            UPDATE projects
+            SET status = 'DRAFT'
+            WHERE status = 'RECRUITING'
+        """))
+        print("[MIGRATION] Converted all RECRUITING projects to DRAFT status")
+    else:
+        print("[MIGRATION] RECRUITING enum value does not exist, skipping conversion")
 
 
 def downgrade() -> None:

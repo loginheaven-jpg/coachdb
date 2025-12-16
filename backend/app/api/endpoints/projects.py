@@ -1177,84 +1177,114 @@ async def add_project_item(
 
     **Required roles**: SUPER_ADMIN, PROJECT_MANAGER
     """
-    # Check project and permission
-    project = await get_project_or_404(project_id, db)
-    check_project_manager_permission(project, current_user)
+    import traceback
 
-    # Check if competency item exists
-    competency_result = await db.execute(
-        select(CompetencyItem).where(CompetencyItem.item_id == item_data.item_id)
-    )
-    competency_item = competency_result.scalar_one_or_none()
-    if not competency_item:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Competency item with id {item_data.item_id} not found"
+    try:
+        print(f"[ADD-ITEM] Step 1: Checking project {project_id}")
+        # Check project and permission
+        project = await get_project_or_404(project_id, db)
+        check_project_manager_permission(project, current_user)
+        print(f"[ADD-ITEM] Step 1 OK: Project found, permission checked")
+
+        print(f"[ADD-ITEM] Step 2: Checking competency item {item_data.item_id}")
+        # Check if competency item exists
+        competency_result = await db.execute(
+            select(CompetencyItem).where(CompetencyItem.item_id == item_data.item_id)
         )
+        competency_item = competency_result.scalar_one_or_none()
+        if not competency_item:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Competency item with id {item_data.item_id} not found"
+            )
+        print(f"[ADD-ITEM] Step 2 OK: Competency item exists")
 
-    # Check if item already added to project
-    existing_result = await db.execute(
-        select(ProjectItem).where(
-            ProjectItem.project_id == project_id,
-            ProjectItem.item_id == item_data.item_id
+        print(f"[ADD-ITEM] Step 3: Checking for duplicate")
+        # Check if item already added to project
+        existing_result = await db.execute(
+            select(ProjectItem).where(
+                ProjectItem.project_id == project_id,
+                ProjectItem.item_id == item_data.item_id
+            )
         )
-    )
-    if existing_result.scalar_one_or_none():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="This item is already added to the project"
+        if existing_result.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This item is already added to the project"
+            )
+        print(f"[ADD-ITEM] Step 3 OK: No duplicate found")
+
+        print(f"[ADD-ITEM] Step 4: Creating ProjectItem")
+        print(f"[ADD-ITEM] Data: is_required={item_data.is_required}, proof_required_level={item_data.proof_required_level}, max_score={item_data.max_score}, display_order={item_data.display_order}")
+        # Create project item
+        new_item = ProjectItem(
+            project_id=project_id,
+            item_id=item_data.item_id,
+            is_required=item_data.is_required,
+            proof_required_level=item_data.proof_required_level,
+            max_score=item_data.max_score,
+            display_order=item_data.display_order
         )
+        db.add(new_item)
+        await db.flush()
+        print(f"[ADD-ITEM] Step 4 OK: ProjectItem created with id {new_item.project_item_id}")
 
-    # Create project item
-    new_item = ProjectItem(
-        project_id=project_id,
-        item_id=item_data.item_id,
-        is_required=item_data.is_required,
-        proof_required_level=item_data.proof_required_level,
-        max_score=item_data.max_score,
-        display_order=item_data.display_order
-    )
-    db.add(new_item)
-    await db.flush()
+        print(f"[ADD-ITEM] Step 5: Adding {len(item_data.scoring_criteria)} scoring criteria")
+        # Add scoring criteria
+        for i, criteria_data in enumerate(item_data.scoring_criteria):
+            print(f"[ADD-ITEM] Adding criteria {i+1}: type={criteria_data.matching_type}, value={criteria_data.expected_value}, score={criteria_data.score}")
+            criteria = ScoringCriteria(
+                project_item_id=new_item.project_item_id,
+                matching_type=criteria_data.matching_type,
+                expected_value=criteria_data.expected_value,
+                score=criteria_data.score
+            )
+            db.add(criteria)
+        print(f"[ADD-ITEM] Step 5 OK: Scoring criteria added")
 
-    # Add scoring criteria
-    for criteria_data in item_data.scoring_criteria:
-        criteria = ScoringCriteria(
+        print(f"[ADD-ITEM] Step 6: Committing to database")
+        await db.commit()
+        await db.refresh(new_item)
+        print(f"[ADD-ITEM] Step 6 OK: Committed")
+
+        print(f"[ADD-ITEM] Step 7: Building response")
+        # Load relationships for response (with fields for CompetencyItem)
+        from sqlalchemy.orm import selectinload
+        competency_result = await db.execute(
+            select(CompetencyItem)
+            .where(CompetencyItem.item_id == new_item.item_id)
+            .options(selectinload(CompetencyItem.fields))
+        )
+        competency_item = competency_result.scalar_one_or_none()
+
+        criteria_result = await db.execute(
+            select(ScoringCriteria).where(ScoringCriteria.project_item_id == new_item.project_item_id)
+        )
+        scoring_criteria = criteria_result.scalars().all()
+        print(f"[ADD-ITEM] Step 7 OK: Response built")
+
+        return ProjectItemResponse(
             project_item_id=new_item.project_item_id,
-            matching_type=criteria_data.matching_type,
-            expected_value=criteria_data.expected_value,
-            score=criteria_data.score
+            project_id=new_item.project_id,
+            item_id=new_item.item_id,
+            is_required=new_item.is_required,
+            proof_required_level=new_item.proof_required_level,
+            max_score=new_item.max_score,
+            display_order=new_item.display_order,
+            competency_item=competency_item,
+            scoring_criteria=scoring_criteria
         )
-        db.add(criteria)
 
-    await db.commit()
-    await db.refresh(new_item)
-
-    # Load relationships for response (with fields for CompetencyItem)
-    from sqlalchemy.orm import selectinload
-    competency_result = await db.execute(
-        select(CompetencyItem)
-        .where(CompetencyItem.item_id == new_item.item_id)
-        .options(selectinload(CompetencyItem.fields))
-    )
-    competency_item = competency_result.scalar_one_or_none()
-
-    criteria_result = await db.execute(
-        select(ScoringCriteria).where(ScoringCriteria.project_item_id == new_item.project_item_id)
-    )
-    scoring_criteria = criteria_result.scalars().all()
-
-    return ProjectItemResponse(
-        project_item_id=new_item.project_item_id,
-        project_id=new_item.project_id,
-        item_id=new_item.item_id,
-        is_required=new_item.is_required,
-        proof_required_level=new_item.proof_required_level,
-        max_score=new_item.max_score,
-        display_order=new_item.display_order,
-        competency_item=competency_item,
-        scoring_criteria=scoring_criteria
-    )
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ADD-ITEM ERROR] Exception: {str(e)}")
+        print(f"[ADD-ITEM ERROR] Traceback:\n{traceback.format_exc()}")
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to add project item: {str(e)}"
+        )
 
 
 @router.put("/{project_id}/items/{project_item_id}", response_model=ProjectItemResponse)
