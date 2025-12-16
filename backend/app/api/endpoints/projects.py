@@ -460,7 +460,7 @@ async def list_projects(
         print(f"[LIST PROJECTS ERROR] Exception: {type(e).__name__}: {str(e)}")
         print(f"[LIST PROJECTS ERROR] Traceback:\n{traceback.format_exc()}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail=f"Failed to list projects: {str(e)}"
         )
 
