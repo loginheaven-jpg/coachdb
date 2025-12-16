@@ -57,223 +57,147 @@ async def create_test_project(
     - Default survey items (100 points total)
     - Status set to 'ready' (정식저장 완료)
     """
+    import traceback
     from datetime import datetime, timedelta
     from decimal import Decimal
     from app.schemas.project import calculate_display_status
     from app.models.competency import ProofRequiredLevel
     import random
 
-    # Test project templates with realistic content
-    test_projects = [
-        {
-            "name": "2025년 상반기 청년 취업 지원 코칭 프로그램",
-            "description": """■ 사업 개요
-본 프로그램은 취업 준비 중인 청년들의 역량 강화와 성공적인 취업을 지원하기 위한 전문 코칭 사업입니다.
+    try:
+        # Test project templates with realistic content
+        test_projects = [
+            {
+                "name": "2025년 상반기 청년 취업 지원 코칭 프로그램",
+                "description": "본 프로그램은 취업 준비 중인 청년들의 역량 강화와 성공적인 취업을 지원하기 위한 전문 코칭 사업입니다. KAC 이상 코칭 자격 보유 및 취업/진로 코칭 경험 1년 이상인 코치를 모집합니다.",
+                "max_participants": 30
+            },
+            {
+                "name": "리더십 역량 강화 그룹 코칭 프로젝트",
+                "description": "조직 내 중간관리자의 리더십 역량 개발을 위한 그룹 코칭 프로그램입니다. KPC 또는 PCC 이상 자격 보유자, 기업 코칭 경험 3년 이상, 그룹 코칭 퍼실리테이션 경험 필수입니다.",
+                "max_participants": 15
+            },
+            {
+                "name": "경력 단절 여성 재취업 지원 코칭",
+                "description": "출산, 육아 등으로 경력이 단절된 여성들의 성공적인 재취업을 돕는 맞춤형 코칭 프로그램입니다. 진로/취업 코칭 전문성 보유 및 공감 능력이 뛰어난 코치를 모집합니다.",
+                "max_participants": 25
+            },
+            {
+                "name": "스타트업 대표 성장 코칭 프로그램",
+                "description": "초기 스타트업 대표들의 비즈니스 성장과 리더십 개발을 지원하는 1:1 전문 코칭입니다. 비즈니스 코칭 경력 5년 이상, 경영/창업 관련 실무 경험 보유자를 모집합니다.",
+                "max_participants": 10
+            },
+            {
+                "name": "청소년 진로탐색 그룹 코칭",
+                "description": "중고등학생들의 자기 이해와 미래 진로 탐색을 돕는 그룹 코칭 프로그램입니다. 청소년 코칭 경험 보유 및 아동청소년 상담 관련 자격 우대합니다.",
+                "max_participants": 20
+            }
+        ]
 
-■ 코칭 대상
-- 만 19세~34세 취업 준비 청년
-- 구직활동 중인 미취업자
+        # Select random template
+        template = random.choice(test_projects)
 
-■ 코칭 내용
-1. 자기이해 및 강점 발견
-2. 진로 탐색 및 목표 설정
-3. 이력서/자기소개서 작성 지도
-4. 면접 스킬 향상
+        # Set dates
+        today = datetime.now().date()
+        recruitment_end = today + timedelta(days=14)
+        project_start = recruitment_end + timedelta(days=7)
+        project_end = project_start + timedelta(days=90)
 
-■ 코칭 기간
-- 1인당 총 8회기 (회기당 60분)
-- 격주 1회 진행
-
-■ 참여 조건
-- KAC 이상 코칭 자격 보유
-- 취업/진로 코칭 경험 1년 이상""",
-            "max_participants": 30
-        },
-        {
-            "name": "리더십 역량 강화 그룹 코칭 프로젝트",
-            "description": """■ 프로젝트 목적
-조직 내 중간관리자의 리더십 역량 개발을 위한 그룹 코칭 프로그램입니다.
-
-■ 주요 내용
-1. 셀프 리더십 및 자기관리
-2. 팀 빌딩과 협업 스킬
-3. 효과적인 피드백 기법
-4. 갈등 관리 및 문제 해결
-
-■ 진행 방식
-- 그룹 코칭 (5~8명 구성)
-- 월 2회, 총 6개월 과정
-- 온/오프라인 병행
-
-■ 코치 자격 요건
-- KPC 또는 PCC 이상 자격 보유자
-- 기업 코칭 경험 3년 이상
-- 그룹 코칭 퍼실리테이션 경험 필수""",
-            "max_participants": 15
-        },
-        {
-            "name": "경력 단절 여성 재취업 지원 코칭",
-            "description": """■ 프로그램 소개
-출산, 육아 등으로 경력이 단절된 여성들의 성공적인 재취업을 돕는 맞춤형 코칭 프로그램입니다.
-
-■ 참여 대상
-- 경력 단절 후 재취업을 희망하는 여성
-- 경력 단절 기간 1년 이상
-
-■ 코칭 프로세스
-1회차: 경력 분석 및 자기 탐색
-2회차: 재취업 목표 설정
-3회차: 역량 진단 및 보완 계획
-4회차: 취업 전략 수립
-5회차: 실행 계획 및 동기 강화
-6회차: 성과 점검 및 마무리
-
-■ 코치 요건
-- 여성 코치 우대
-- 진로/취업 코칭 전문성 보유
-- 공감 능력 및 섬세한 코칭 스타일""",
-            "max_participants": 25
-        },
-        {
-            "name": "스타트업 대표 성장 코칭 프로그램",
-            "description": """■ 프로그램 개요
-초기 스타트업 대표들의 비즈니스 성장과 리더십 개발을 지원하는 1:1 전문 코칭입니다.
-
-■ 코칭 영역
-- 비전 수립 및 전략 개발
-- 의사결정 및 문제해결
-- 팀 구축 및 인재 관리
-- 스트레스 관리 및 워라밸
-
-■ 대상
-- 창업 3년 이내 스타트업 대표
-- 팀 규모 5~30인 기업
-
-■ 코칭 일정
-- 격주 1회, 회차당 90분
-- 총 12회 진행
-
-■ 코치 자격
-- 비즈니스 코칭 경력 5년 이상
-- 경영/창업 관련 실무 경험 보유
-- KPC 또는 PCC 이상""",
-            "max_participants": 10
-        },
-        {
-            "name": "청소년 진로탐색 그룹 코칭",
-            "description": """■ 프로그램 목적
-중·고등학생들의 자기 이해와 미래 진로 탐색을 돕는 그룹 코칭 프로그램입니다.
-
-■ 대상
-- 중학교 2학년 ~ 고등학교 2학년
-- 진로 고민이 있는 학생
-
-■ 주요 활동
-1. 강점 발견 워크숍
-2. 다양한 직업 세계 탐색
-3. 진로 로드맵 작성
-4. 학습 동기 부여
-
-■ 운영 방식
-- 학교 단위 8~12명 그룹
-- 주 1회, 8주 과정
-- 학교 방과 후 시간 활용
-
-■ 코치 요건
-- 청소년 코칭 경험 보유
-- 아동청소년 상담 관련 자격 우대
-- 학교 현장 경험 우대""",
-            "max_participants": 20
-        }
-    ]
-
-    # Select random template
-    template = random.choice(test_projects)
-
-    # Set dates
-    today = datetime.now().date()
-    recruitment_end = today + timedelta(days=14)
-    project_start = recruitment_end + timedelta(days=7)
-    project_end = project_start + timedelta(days=90)
-
-    # Create project with READY status (정식저장 완료)
-    new_project = Project(
-        project_name=template["name"],
-        description=template["description"],
-        recruitment_start_date=today,
-        recruitment_end_date=recruitment_end,
-        project_start_date=project_start,
-        project_end_date=project_end,
-        max_participants=template["max_participants"],
-        status=ProjectStatus.READY,  # 정식저장 완료 상태
-        project_manager_id=current_user.user_id,
-        created_by=current_user.user_id
-    )
-
-    db.add(new_project)
-    await db.commit()
-    await db.refresh(new_project)
-
-    # Add default survey items (인적사항 + 평가항목 100점)
-    # 기본 설문항목 정의 - 실제 DB에 존재하는 item_code 사용
-    default_items_config = [
-        # 평가항목 (배점 있음, 합계 100점)
-        {"item_code": "EDU_DEGREE", "max_score": Decimal("20"), "is_required": True, "proof_required_level": ProofRequiredLevel.REQUIRED},
-        {"item_code": "ADDON_CERT_COACH", "max_score": Decimal("30"), "is_required": True, "proof_required_level": ProofRequiredLevel.REQUIRED},
-        {"item_code": "ADDON_COACHING_HISTORY", "max_score": Decimal("30"), "is_required": True, "proof_required_level": ProofRequiredLevel.OPTIONAL},
-        {"item_code": "ADDON_INTRO", "max_score": Decimal("20"), "is_required": True, "proof_required_level": ProofRequiredLevel.NOT_REQUIRED},
-    ]
-
-    display_order = 1
-    for item_config in default_items_config:
-        # CompetencyItem 조회
-        result = await db.execute(
-            select(CompetencyItem).where(CompetencyItem.item_code == item_config["item_code"])
+        # Create project with READY status (정식저장 완료)
+        new_project = Project(
+            project_name=template["name"],
+            description=template["description"],
+            recruitment_start_date=today,
+            recruitment_end_date=recruitment_end,
+            project_start_date=project_start,
+            project_end_date=project_end,
+            max_participants=template["max_participants"],
+            status=ProjectStatus.READY,  # 정식저장 완료 상태
+            project_manager_id=current_user.user_id,
+            created_by=current_user.user_id
         )
-        competency_item = result.scalar_one_or_none()
 
-        if competency_item:
-            project_item = ProjectItem(
-                project_id=new_project.project_id,
-                item_id=competency_item.item_id,
-                is_required=item_config["is_required"],
-                proof_required_level=item_config["proof_required_level"],
-                max_score=item_config["max_score"],
-                display_order=display_order
-            )
-            db.add(project_item)
-            display_order += 1
+        db.add(new_project)
+        await db.commit()
+        await db.refresh(new_project)
 
-    await db.commit()
-    await db.refresh(new_project)
+        # Add default survey items (인적사항 + 평가항목 100점)
+        # DB에 존재하는 item_code를 동적으로 조회
+        # 먼저 사용 가능한 평가 항목들을 조회
+        result = await db.execute(
+            select(CompetencyItem).where(
+                CompetencyItem.is_active == True,
+                CompetencyItem.category.in_(['EDUCATION', 'ADDON', 'DETAIL'])
+            ).limit(4)
+        )
+        available_items = result.scalars().all()
 
-    # display_status 계산
-    display_status = calculate_display_status(
-        new_project.status,
-        new_project.recruitment_start_date,
-        new_project.recruitment_end_date
-    )
+        print(f"[CREATE-TEST] Found {len(available_items)} competency items")
 
-    return ProjectResponse(
-        project_id=new_project.project_id,
-        project_name=new_project.project_name,
-        description=new_project.description,
-        support_program_name=new_project.support_program_name,
-        recruitment_start_date=new_project.recruitment_start_date,
-        recruitment_end_date=new_project.recruitment_end_date,
-        project_start_date=new_project.project_start_date,
-        project_end_date=new_project.project_end_date,
-        max_participants=new_project.max_participants,
-        project_manager_id=new_project.project_manager_id,
-        status=new_project.status,
-        display_status=display_status,
-        actual_start_date=new_project.actual_start_date,
-        actual_end_date=new_project.actual_end_date,
-        overall_feedback=new_project.overall_feedback,
-        created_by=new_project.created_by,
-        created_at=new_project.created_at,
-        updated_at=new_project.updated_at
-    )
+        if available_items:
+            # 점수 배분: 항목 수에 따라 100점 분배
+            item_count = len(available_items)
+            base_score = Decimal("100") / item_count
+            remainder = Decimal("100") - (base_score * item_count)
+
+            display_order = 1
+            for i, comp_item in enumerate(available_items):
+                # 마지막 항목에 나머지 점수 추가
+                score = base_score + (remainder if i == item_count - 1 else Decimal("0"))
+                project_item = ProjectItem(
+                    project_id=new_project.project_id,
+                    item_id=comp_item.item_id,
+                    is_required=True,
+                    proof_required_level=ProofRequiredLevel.OPTIONAL,
+                    max_score=score.quantize(Decimal("0.01")),
+                    display_order=display_order
+                )
+                db.add(project_item)
+                print(f"[CREATE-TEST] Added item: {comp_item.item_code} with score {score}")
+                display_order += 1
+
+            await db.commit()
+        else:
+            print("[CREATE-TEST] No competency items found in database")
+
+        await db.refresh(new_project)
+
+        # display_status 계산
+        display_status = calculate_display_status(
+            new_project.status,
+            new_project.recruitment_start_date,
+            new_project.recruitment_end_date
+        )
+
+        return ProjectResponse(
+            project_id=new_project.project_id,
+            project_name=new_project.project_name,
+            description=new_project.description,
+            support_program_name=new_project.support_program_name,
+            recruitment_start_date=new_project.recruitment_start_date,
+            recruitment_end_date=new_project.recruitment_end_date,
+            project_start_date=new_project.project_start_date,
+            project_end_date=new_project.project_end_date,
+            max_participants=new_project.max_participants,
+            project_manager_id=new_project.project_manager_id,
+            status=new_project.status,
+            display_status=display_status,
+            actual_start_date=new_project.actual_start_date,
+            actual_end_date=new_project.actual_end_date,
+            overall_feedback=new_project.overall_feedback,
+            created_by=new_project.created_by,
+            created_at=new_project.created_at,
+            updated_at=new_project.updated_at
+        )
+    except Exception as e:
+        print(f"[CREATE-TEST ERROR] user_id={current_user.user_id}")
+        print(f"[CREATE-TEST ERROR] Exception: {type(e).__name__}: {str(e)}")
+        print(f"[CREATE-TEST ERROR] Traceback:\n{traceback.format_exc()}")
+        await db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to create test project: {str(e)}"
+        )
 
 
 # ============================================================================
@@ -325,14 +249,22 @@ async def create_project(
 
     **Required roles**: SUPER_ADMIN, PROJECT_MANAGER
 
-    **Note**: If project_manager_id is not provided, it will default to the current user's ID.
+    **Notes**:
+    - 새 과제는 항상 DRAFT(초안) 상태로 생성됩니다.
+    - READY 상태로 전환하려면 /finalize 엔드포인트를 사용하세요. (100점 검증 필요)
+    - project_manager_id가 제공되지 않으면 현재 사용자 ID로 설정됩니다.
     """
+    from app.schemas.project import calculate_display_status
+
     # Prepare project data
     project_dict = project_data.model_dump()
 
     # Auto-set project_manager_id to current user if not provided
     if project_dict.get('project_manager_id') is None:
         project_dict['project_manager_id'] = current_user.user_id
+
+    # 항상 DRAFT 상태로 생성 (status 필드 무시)
+    project_dict['status'] = ProjectStatus.DRAFT
 
     # Create new project
     new_project = Project(
@@ -344,7 +276,33 @@ async def create_project(
     await db.commit()
     await db.refresh(new_project)
 
-    return new_project
+    # display_status 계산
+    display_status = calculate_display_status(
+        new_project.status,
+        new_project.recruitment_start_date,
+        new_project.recruitment_end_date
+    )
+
+    return ProjectResponse(
+        project_id=new_project.project_id,
+        project_name=new_project.project_name,
+        description=new_project.description,
+        support_program_name=new_project.support_program_name,
+        recruitment_start_date=new_project.recruitment_start_date,
+        recruitment_end_date=new_project.recruitment_end_date,
+        project_start_date=new_project.project_start_date,
+        project_end_date=new_project.project_end_date,
+        max_participants=new_project.max_participants,
+        project_manager_id=new_project.project_manager_id,
+        status=new_project.status,
+        display_status=display_status,
+        actual_start_date=new_project.actual_start_date,
+        actual_end_date=new_project.actual_end_date,
+        overall_feedback=new_project.overall_feedback,
+        created_by=new_project.created_by,
+        created_at=new_project.created_at,
+        updated_at=new_project.updated_at
+    )
 
 
 @router.get("", response_model=List[ProjectListResponse])
@@ -582,6 +540,10 @@ async def update_project(
     Update project information
 
     **Required roles**: SUPER_ADMIN, PROJECT_MANAGER (only for their own projects)
+
+    **Note**: 상태(status) 변경은 이 엔드포인트로 할 수 없습니다.
+    - DRAFT → READY: POST /projects/{id}/finalize 사용
+    - READY → DRAFT: POST /projects/{id}/unpublish 사용
     """
     from app.schemas.project import calculate_display_status
 
@@ -590,6 +552,14 @@ async def update_project(
 
     # Update fields
     update_data = project_data.model_dump(exclude_unset=True)
+
+    # status 변경 시도 차단 (finalize/unpublish 엔드포인트 사용 필요)
+    if 'status' in update_data:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="상태 변경은 이 엔드포인트로 할 수 없습니다. DRAFT→READY: /finalize, READY→DRAFT: /unpublish 사용"
+        )
+
     for field, value in update_data.items():
         setattr(project, field, value)
 
@@ -632,20 +602,95 @@ async def delete_project(
     current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER"]))
 ):
     """
-    Delete a project
+    Delete a project and all related data
 
     **Required roles**: SUPER_ADMIN, PROJECT_MANAGER (only for their own projects)
     """
+    import traceback
+    from sqlalchemy import delete, text
+
     try:
         project = await get_project_or_404(project_id, db)
         check_project_manager_permission(project, current_user)
 
-        await db.delete(project)
+        print(f"[DELETE PROJECT] Deleting project_id={project_id} by user_id={current_user.user_id}")
+
+        # 명시적으로 관련 데이터 삭제 (CASCADE가 DB에서 동작하지 않을 경우 대비)
+        # 순서: 가장 깊은 중첩부터 삭제
+
+        # 1. ApplicationData 삭제 (Application의 자식)
+        await db.execute(text("""
+            DELETE FROM application_data
+            WHERE application_id IN (
+                SELECT application_id FROM applications WHERE project_id = :project_id
+            )
+        """), {"project_id": project_id})
+
+        # 2. CustomQuestionAnswer 삭제 (Application의 자식)
+        await db.execute(text("""
+            DELETE FROM custom_question_answers
+            WHERE application_id IN (
+                SELECT application_id FROM applications WHERE project_id = :project_id
+            )
+        """), {"project_id": project_id})
+
+        # 3. ReviewLock 삭제 (Application의 자식)
+        await db.execute(text("""
+            DELETE FROM review_locks
+            WHERE application_id IN (
+                SELECT application_id FROM applications WHERE project_id = :project_id
+            )
+        """), {"project_id": project_id})
+
+        # 4. Applications 삭제
+        await db.execute(text("""
+            DELETE FROM applications WHERE project_id = :project_id
+        """), {"project_id": project_id})
+
+        # 5. ScoringCriteria 삭제 (ProjectItem의 자식)
+        await db.execute(text("""
+            DELETE FROM scoring_criteria
+            WHERE project_item_id IN (
+                SELECT project_item_id FROM project_items WHERE project_id = :project_id
+            )
+        """), {"project_id": project_id})
+
+        # 6. ProjectItems 삭제
+        await db.execute(text("""
+            DELETE FROM project_items WHERE project_id = :project_id
+        """), {"project_id": project_id})
+
+        # 7. CustomQuestions 삭제
+        await db.execute(text("""
+            DELETE FROM custom_questions WHERE project_id = :project_id
+        """), {"project_id": project_id})
+
+        # 8. CoachEvaluations 삭제
+        await db.execute(text("""
+            DELETE FROM coach_evaluations WHERE project_id = :project_id
+        """), {"project_id": project_id})
+
+        # 9. ProjectStaff 삭제
+        await db.execute(text("""
+            DELETE FROM project_staff WHERE project_id = :project_id
+        """), {"project_id": project_id})
+
+        # 10. Notification의 related_project_id를 NULL로 설정
+        await db.execute(text("""
+            UPDATE notifications SET related_project_id = NULL WHERE related_project_id = :project_id
+        """), {"project_id": project_id})
+
+        # 11. 마지막으로 Project 삭제
+        await db.execute(text("""
+            DELETE FROM projects WHERE project_id = :project_id
+        """), {"project_id": project_id})
+
         await db.commit()
+        print(f"[DELETE PROJECT] Successfully deleted project_id={project_id}")
+
     except HTTPException:
         raise
     except Exception as e:
-        import traceback
         print(f"[DELETE PROJECT ERROR] project_id={project_id}, user_id={current_user.user_id}")
         print(f"[DELETE PROJECT ERROR] Exception: {type(e).__name__}: {str(e)}")
         print(f"[DELETE PROJECT ERROR] Traceback:\n{traceback.format_exc()}")
