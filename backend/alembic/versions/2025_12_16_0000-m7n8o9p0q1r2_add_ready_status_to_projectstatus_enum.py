@@ -26,11 +26,13 @@ def upgrade() -> None:
     # Get connection and execute outside transaction using execution_options
     op.execute("COMMIT")  # Commit any pending transaction
 
-    # Add new enum values - IF NOT EXISTS handles duplicates
-    op.execute("ALTER TYPE projectstatus ADD VALUE IF NOT EXISTS 'ready'")
-    op.execute("ALTER TYPE projectstatus ADD VALUE IF NOT EXISTS 'in_progress'")
-    op.execute("ALTER TYPE projectstatus ADD VALUE IF NOT EXISTS 'evaluating'")
-    op.execute("ALTER TYPE projectstatus ADD VALUE IF NOT EXISTS 'closed'")
+    # SQLAlchemy uses enum NAMES (uppercase) when querying, not values (lowercase)
+    # So we need to add UPPERCASE values to match what SQLAlchemy sends
+    op.execute("ALTER TYPE projectstatus ADD VALUE IF NOT EXISTS 'READY'")
+    op.execute("ALTER TYPE projectstatus ADD VALUE IF NOT EXISTS 'IN_PROGRESS'")
+    op.execute("ALTER TYPE projectstatus ADD VALUE IF NOT EXISTS 'EVALUATING'")
+    op.execute("ALTER TYPE projectstatus ADD VALUE IF NOT EXISTS 'CLOSED'")
+    op.execute("ALTER TYPE projectstatus ADD VALUE IF NOT EXISTS 'DRAFT'")
 
 
 def downgrade() -> None:
