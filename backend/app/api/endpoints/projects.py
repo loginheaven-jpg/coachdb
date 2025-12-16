@@ -383,27 +383,35 @@ async def list_projects(
             if "PROJECT_MANAGER" in user_roles:
                 # Project managers can see:
                 # 1. Their own projects (any status) - for management
-                # 2. Recruiting projects (READY status within recruitment dates) - for reference
+                # 2. Recruiting projects - for reference
                 query = query.where(
                     or_(
                         # Own projects (any status)
                         Project.project_manager_id == current_user.user_id,
                         Project.created_by == current_user.user_id,
-                        # Currently recruiting projects only
+                        # Currently recruiting projects (READY or legacy RECRUITING status)
                         (
                             (Project.status == ProjectStatus.READY) &
                             (Project.recruitment_start_date <= today) &
                             (Project.recruitment_end_date >= today)
-                        )
+                        ),
+                        # Legacy: RECRUITING status (backward compatibility)
+                        Project.status == ProjectStatus.RECRUITING
                     )
                 )
             else:
                 # Regular coaches only see currently recruiting projects
-                # READY status + within recruitment dates = display_status "recruiting"
                 query = query.where(
-                    (Project.status == ProjectStatus.READY) &
-                    (Project.recruitment_start_date <= today) &
-                    (Project.recruitment_end_date >= today)
+                    or_(
+                        # READY status + within recruitment dates = display_status "recruiting"
+                        (
+                            (Project.status == ProjectStatus.READY) &
+                            (Project.recruitment_start_date <= today) &
+                            (Project.recruitment_end_date >= today)
+                        ),
+                        # Legacy: RECRUITING status (backward compatibility)
+                        Project.status == ProjectStatus.RECRUITING
+                    )
                 )
 
         # Apply additional filters

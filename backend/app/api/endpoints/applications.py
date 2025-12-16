@@ -134,16 +134,19 @@ async def create_application(
         )
 
     # Check if project is accepting applications
-    # READY status with dates within recruitment period is considered recruiting
+    # READY status with dates within recruitment period OR legacy RECRUITING status
     from app.schemas.project import calculate_display_status
+    from app.models.project import ProjectStatus as ProjStatus
+
     display_status = calculate_display_status(
         project.status,
         project.recruitment_start_date,
         project.recruitment_end_date
     )
 
-    # Only allow applications if display_status is "recruiting"
-    if display_status != "recruiting":
+    # Allow applications if display_status is "recruiting" OR legacy RECRUITING status
+    is_recruiting = display_status == "recruiting" or project.status == ProjStatus.RECRUITING
+    if not is_recruiting:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Project is not accepting applications"
