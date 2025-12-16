@@ -367,90 +367,102 @@ async def list_projects(
     - PROJECT_MANAGER: Can see projects they manage or created
     - Others: Can see all projects (for application purposes)
     """
+    import traceback
     from app.core.utils import get_user_roles
     from app.schemas.project import calculate_display_status
 
-    user_roles = get_user_roles(current_user)
+    try:
+        user_roles = get_user_roles(current_user)
+        print(f"[LIST PROJECTS] user_id={current_user.user_id}, roles={user_roles}")
 
-    # Build query
-    query = select(Project)
+        # Build query
+        query = select(Project)
 
-    # Apply filters based on user role
-    if "SUPER_ADMIN" not in user_roles:
-        # Non-admins can only see recruiting, reviewing, and completed projects
-        # Or projects they manage
-        # READY 상태도 포함 (날짜 계산으로 모집중 여부 판단)
-        if "PROJECT_MANAGER" in user_roles:
-            query = query.where(
-                or_(
-                    Project.status.in_([ProjectStatus.READY, ProjectStatus.RECRUITING, ProjectStatus.REVIEWING, ProjectStatus.COMPLETED]),
-                    Project.project_manager_id == current_user.user_id,
-                    Project.created_by == current_user.user_id
+        # Apply filters based on user role
+        if "SUPER_ADMIN" not in user_roles:
+            # Non-admins can only see recruiting, reviewing, and completed projects
+            # Or projects they manage
+            # READY 상태도 포함 (날짜 계산으로 모집중 여부 판단)
+            if "PROJECT_MANAGER" in user_roles:
+                query = query.where(
+                    or_(
+                        Project.status.in_([ProjectStatus.READY, ProjectStatus.RECRUITING, ProjectStatus.REVIEWING, ProjectStatus.COMPLETED]),
+                        Project.project_manager_id == current_user.user_id,
+                        Project.created_by == current_user.user_id
+                    )
+                )
+            else:
+                query = query.where(
+                    Project.status.in_([ProjectStatus.READY, ProjectStatus.RECRUITING, ProjectStatus.REVIEWING, ProjectStatus.COMPLETED])
+                )
+
+        # Apply additional filters
+        if status:
+            query = query.where(Project.status == status)
+        if manager_id:
+            query = query.where(Project.project_manager_id == manager_id)
+
+        # Apply pagination
+        query = query.order_by(Project.created_at.desc()).offset(skip).limit(limit)
+
+        result = await db.execute(query)
+        projects = result.scalars().all()
+        print(f"[LIST PROJECTS] Found {len(projects)} projects")
+
+        # Build response with application counts
+        response_list = []
+        for project in projects:
+            # Count applications
+            count_result = await db.execute(
+                select(func.count(Application.application_id)).where(
+                    Application.project_id == project.project_id
                 )
             )
-        else:
-            query = query.where(
-                Project.status.in_([ProjectStatus.READY, ProjectStatus.RECRUITING, ProjectStatus.REVIEWING, ProjectStatus.COMPLETED])
+            application_count = count_result.scalar()
+
+            # display_status 계산
+            display_status = calculate_display_status(
+                project.status,
+                project.recruitment_start_date,
+                project.recruitment_end_date
             )
 
-    # Apply additional filters
-    if status:
-        query = query.where(Project.status == status)
-    if manager_id:
-        query = query.where(Project.project_manager_id == manager_id)
-
-    # Apply pagination
-    query = query.order_by(Project.created_at.desc()).offset(skip).limit(limit)
-
-    result = await db.execute(query)
-    projects = result.scalars().all()
-
-    # Build response with application counts
-    response_list = []
-    for project in projects:
-        # Count applications
-        count_result = await db.execute(
-            select(func.count(Application.application_id)).where(
-                Application.project_id == project.project_id
+            # Count confirmed participants (selected applications)
+            confirmed_result = await db.execute(
+                select(func.count(Application.application_id)).where(
+                    Application.project_id == project.project_id,
+                    Application.selection_result == "selected"
+                )
             )
-        )
-        application_count = count_result.scalar()
+            current_participants = confirmed_result.scalar() or 0
 
-        # display_status 계산
-        display_status = calculate_display_status(
-            project.status,
-            project.recruitment_start_date,
-            project.recruitment_end_date
-        )
-
-        # Count confirmed participants (selected applications)
-        confirmed_result = await db.execute(
-            select(func.count(Application.application_id)).where(
-                Application.project_id == project.project_id,
-                Application.selection_result == "selected"
+            response_item = ProjectListResponse(
+                project_id=project.project_id,
+                project_name=project.project_name,
+                recruitment_start_date=project.recruitment_start_date,
+                recruitment_end_date=project.recruitment_end_date,
+                project_start_date=project.project_start_date,
+                project_end_date=project.project_end_date,
+                status=project.status,
+                display_status=display_status,
+                max_participants=project.max_participants,
+                application_count=application_count,
+                current_participants=current_participants,
+                created_by=project.created_by,
+                project_manager_id=project.project_manager_id,
+                created_at=project.created_at
             )
-        )
-        current_participants = confirmed_result.scalar() or 0
+            response_list.append(response_item)
 
-        response_item = ProjectListResponse(
-            project_id=project.project_id,
-            project_name=project.project_name,
-            recruitment_start_date=project.recruitment_start_date,
-            recruitment_end_date=project.recruitment_end_date,
-            project_start_date=project.project_start_date,
-            project_end_date=project.project_end_date,
-            status=project.status,
-            display_status=display_status,
-            max_participants=project.max_participants,
-            application_count=application_count,
-            current_participants=current_participants,
-            created_by=project.created_by,
-            project_manager_id=project.project_manager_id,
-            created_at=project.created_at
+        return response_list
+    except Exception as e:
+        print(f"[LIST PROJECTS ERROR] user_id={current_user.user_id}")
+        print(f"[LIST PROJECTS ERROR] Exception: {type(e).__name__}: {str(e)}")
+        print(f"[LIST PROJECTS ERROR] Traceback:\n{traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to list projects: {str(e)}"
         )
-        response_list.append(response_item)
-
-    return response_list
 
 
 @router.get("/{project_id}", response_model=ProjectDetailResponse)
