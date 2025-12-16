@@ -47,6 +47,35 @@ async def init_db():
     """Initialize database - run migrations and create all tables"""
     import subprocess
     import os
+    from sqlalchemy import text
+
+    # First, fix any missing enum values (must be done outside transaction)
+    # This is needed because ALTER TYPE ADD VALUE cannot run in a transaction
+    try:
+        # Use a raw connection with autocommit for enum fixes
+        from sqlalchemy import create_engine
+        # Convert async URL to sync URL
+        sync_url = settings.DATABASE_URL
+        if "+asyncpg" in sync_url:
+            sync_url = sync_url.replace("postgresql+asyncpg://", "postgresql://")
+        sync_engine = create_engine(sync_url, isolation_level="AUTOCOMMIT")
+
+        with sync_engine.connect() as conn:
+            # Add missing projectstatus enum values
+            enum_values = ['READY', 'IN_PROGRESS', 'EVALUATING', 'CLOSED', 'DRAFT']
+            for value in enum_values:
+                try:
+                    conn.execute(text(f"ALTER TYPE projectstatus ADD VALUE IF NOT EXISTS '{value}'"))
+                    print(f"[DB] Added enum value '{value}' to projectstatus")
+                except Exception as e:
+                    # Value might already exist, that's OK
+                    if "already exists" not in str(e).lower():
+                        print(f"[DB] Could not add enum value '{value}': {e}")
+
+        sync_engine.dispose()
+        print(f"[DB] Enum fixes completed")
+    except Exception as e:
+        print(f"[DB] Enum fix skipped: {e}")
 
     # Run alembic migrations
     try:
