@@ -133,7 +133,17 @@ async def create_application(
             detail=f"Project with id {application_data.project_id} not found"
         )
 
-    if project.status != ProjectStatus.RECRUITING:
+    # Check if project is accepting applications
+    # READY status with dates within recruitment period is considered recruiting
+    from app.schemas.project import calculate_display_status
+    display_status = calculate_display_status(
+        project.status,
+        project.recruitment_start_date,
+        project.recruitment_end_date
+    )
+
+    # Only allow applications if display_status is "recruiting"
+    if display_status != "recruiting":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Project is not accepting applications"

@@ -215,11 +215,8 @@ async def create_test_project(
     await db.refresh(new_project)
 
     # Add default survey items (인적사항 + 평가항목 100점)
-    # 기본 설문항목 정의
+    # 기본 설문항목 정의 - 실제 DB에 존재하는 item_code 사용
     default_items_config = [
-        # 인적사항 (배점 없음)
-        {"item_code": "BASIC_NAME", "max_score": None, "is_required": True, "proof_required_level": ProofRequiredLevel.NOT_REQUIRED},
-        {"item_code": "BASIC_PHONE", "max_score": None, "is_required": True, "proof_required_level": ProofRequiredLevel.NOT_REQUIRED},
         # 평가항목 (배점 있음, 합계 100점)
         {"item_code": "EDU_DEGREE", "max_score": Decimal("20"), "is_required": True, "proof_required_level": ProofRequiredLevel.REQUIRED},
         {"item_code": "ADDON_CERT_COACH", "max_score": Decimal("30"), "is_required": True, "proof_required_level": ProofRequiredLevel.REQUIRED},
@@ -379,21 +376,34 @@ async def list_projects(
         query = select(Project)
 
         # Apply filters based on user role
+        from datetime import date
+        today = date.today()
+
         if "SUPER_ADMIN" not in user_roles:
-            # Non-admins can only see recruiting, reviewing, and completed projects
-            # Or projects they manage
-            # READY 상태도 포함 (날짜 계산으로 모집중 여부 판단)
             if "PROJECT_MANAGER" in user_roles:
+                # Project managers can see:
+                # 1. Their own projects (any status) - for management
+                # 2. Recruiting projects (READY status within recruitment dates) - for reference
                 query = query.where(
                     or_(
-                        Project.status.in_([ProjectStatus.READY, ProjectStatus.RECRUITING, ProjectStatus.REVIEWING, ProjectStatus.COMPLETED]),
+                        # Own projects (any status)
                         Project.project_manager_id == current_user.user_id,
-                        Project.created_by == current_user.user_id
+                        Project.created_by == current_user.user_id,
+                        # Currently recruiting projects only
+                        (
+                            (Project.status == ProjectStatus.READY) &
+                            (Project.recruitment_start_date <= today) &
+                            (Project.recruitment_end_date >= today)
+                        )
                     )
                 )
             else:
+                # Regular coaches only see currently recruiting projects
+                # READY status + within recruitment dates = display_status "recruiting"
                 query = query.where(
-                    Project.status.in_([ProjectStatus.READY, ProjectStatus.RECRUITING, ProjectStatus.REVIEWING, ProjectStatus.COMPLETED])
+                    (Project.status == ProjectStatus.READY) &
+                    (Project.recruitment_start_date <= today) &
+                    (Project.recruitment_end_date >= today)
                 )
 
         # Apply additional filters
@@ -1395,6 +1405,13 @@ async def finalize_project(
             detail="과제 기간을 입력해주세요. (시작일, 종료일 모두 필요)"
         )
 
+    # 1-1. 모집 기간 검증
+    if not project.recruitment_start_date or not project.recruitment_end_date:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="모집 기간을 입력해주세요. (모집시작일, 모집종료일 모두 필요)"
+        )
+
     # 2. 점수 검증
     # Get all project items with scores
     project_items_result = await db.execute(
@@ -1434,6 +1451,66 @@ async def finalize_project(
 
     # 3. 상태를 ready로 변경
     project.status = ProjectStatus.READY
+    await db.commit()
+    await db.refresh(project)
+
+    # display_status 계산
+    display_status = calculate_display_status(
+        project.status,
+        project.recruitment_start_date,
+        project.recruitment_end_date
+    )
+
+    return ProjectResponse(
+        project_id=project.project_id,
+        project_name=project.project_name,
+        description=project.description,
+        support_program_name=project.support_program_name,
+        recruitment_start_date=project.recruitment_start_date,
+        recruitment_end_date=project.recruitment_end_date,
+        project_start_date=project.project_start_date,
+        project_end_date=project.project_end_date,
+        max_participants=project.max_participants,
+        project_manager_id=project.project_manager_id,
+        status=project.status,
+        display_status=display_status,
+        actual_start_date=project.actual_start_date,
+        actual_end_date=project.actual_end_date,
+        overall_feedback=project.overall_feedback,
+        created_by=project.created_by,
+        created_at=project.created_at,
+        updated_at=project.updated_at
+    )
+
+
+@router.post("/{project_id}/unpublish", response_model=ProjectResponse)
+async def unpublish_project(
+    project_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER"]))
+):
+    """
+    초안으로 되돌리기 - READY 상태를 DRAFT로 변경
+
+    **Required roles**: SUPER_ADMIN, PROJECT_MANAGER (only for their own projects)
+
+    모집중인 과제도 수정이 필요할 때 일시적으로 초안으로 되돌릴 수 있습니다.
+    초안 상태에서는 코치들에게 보이지 않습니다.
+    """
+    from app.schemas.project import calculate_display_status
+
+    project = await get_project_or_404(project_id, db)
+    check_project_manager_permission(project, current_user)
+
+    # Only READY status can be reverted to DRAFT
+    if project.status != ProjectStatus.READY:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"READY 상태의 과제만 초안으로 되돌릴 수 있습니다. 현재 상태: {project.status.value}"
+        )
+
+    # Revert to DRAFT status
+    project.status = ProjectStatus.DRAFT
     await db.commit()
     await db.refresh(project)
 
