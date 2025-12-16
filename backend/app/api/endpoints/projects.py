@@ -61,49 +61,44 @@ async def create_test_project(
     from datetime import datetime, timedelta
     from decimal import Decimal
     from app.schemas.project import calculate_display_status
-    from app.models.competency import ProofRequiredLevel
+    from app.models.competency import ProofRequiredLevel, CompetencyCategory
     import random
 
+    print(f"[CREATE-TEST] === Starting test project creation for user_id={current_user.user_id} ===")
+
     try:
-        # Test project templates with realistic content
+        # Step 1: Prepare template
+        print("[CREATE-TEST] Step 1: Preparing template...")
         test_projects = [
             {
                 "name": "2025년 상반기 청년 취업 지원 코칭 프로그램",
-                "description": "본 프로그램은 취업 준비 중인 청년들의 역량 강화와 성공적인 취업을 지원하기 위한 전문 코칭 사업입니다. KAC 이상 코칭 자격 보유 및 취업/진로 코칭 경험 1년 이상인 코치를 모집합니다.",
+                "description": "본 프로그램은 취업 준비 중인 청년들의 역량 강화와 성공적인 취업을 지원하기 위한 전문 코칭 사업입니다.",
                 "max_participants": 30
             },
             {
                 "name": "리더십 역량 강화 그룹 코칭 프로젝트",
-                "description": "조직 내 중간관리자의 리더십 역량 개발을 위한 그룹 코칭 프로그램입니다. KPC 또는 PCC 이상 자격 보유자, 기업 코칭 경험 3년 이상, 그룹 코칭 퍼실리테이션 경험 필수입니다.",
+                "description": "조직 내 중간관리자의 리더십 역량 개발을 위한 그룹 코칭 프로그램입니다.",
                 "max_participants": 15
             },
             {
                 "name": "경력 단절 여성 재취업 지원 코칭",
-                "description": "출산, 육아 등으로 경력이 단절된 여성들의 성공적인 재취업을 돕는 맞춤형 코칭 프로그램입니다. 진로/취업 코칭 전문성 보유 및 공감 능력이 뛰어난 코치를 모집합니다.",
+                "description": "경력이 단절된 여성들의 성공적인 재취업을 돕는 맞춤형 코칭 프로그램입니다.",
                 "max_participants": 25
             },
-            {
-                "name": "스타트업 대표 성장 코칭 프로그램",
-                "description": "초기 스타트업 대표들의 비즈니스 성장과 리더십 개발을 지원하는 1:1 전문 코칭입니다. 비즈니스 코칭 경력 5년 이상, 경영/창업 관련 실무 경험 보유자를 모집합니다.",
-                "max_participants": 10
-            },
-            {
-                "name": "청소년 진로탐색 그룹 코칭",
-                "description": "중고등학생들의 자기 이해와 미래 진로 탐색을 돕는 그룹 코칭 프로그램입니다. 청소년 코칭 경험 보유 및 아동청소년 상담 관련 자격 우대합니다.",
-                "max_participants": 20
-            }
         ]
-
-        # Select random template
         template = random.choice(test_projects)
+        print(f"[CREATE-TEST] Selected template: {template['name']}")
 
-        # Set dates
+        # Step 2: Set dates
+        print("[CREATE-TEST] Step 2: Setting dates...")
         today = datetime.now().date()
         recruitment_end = today + timedelta(days=14)
         project_start = recruitment_end + timedelta(days=7)
         project_end = project_start + timedelta(days=90)
+        print(f"[CREATE-TEST] Dates: today={today}, recruitment_end={recruitment_end}")
 
-        # Create project with READY status (정식저장 완료)
+        # Step 3: Create project object
+        print("[CREATE-TEST] Step 3: Creating project object...")
         new_project = Project(
             project_name=template["name"],
             description=template["description"],
@@ -112,37 +107,52 @@ async def create_test_project(
             project_start_date=project_start,
             project_end_date=project_end,
             max_participants=template["max_participants"],
-            status=ProjectStatus.READY,  # 정식저장 완료 상태
+            status=ProjectStatus.READY,
             project_manager_id=current_user.user_id,
             created_by=current_user.user_id
         )
+        print(f"[CREATE-TEST] Project object created with status={new_project.status}")
 
+        # Step 4: Save project to DB
+        print("[CREATE-TEST] Step 4: Saving project to database...")
         db.add(new_project)
         await db.commit()
         await db.refresh(new_project)
+        print(f"[CREATE-TEST] Project saved with id={new_project.project_id}")
 
-        # Add default survey items (인적사항 + 평가항목 100점)
-        # DB에 존재하는 item_code를 동적으로 조회
-        # 먼저 사용 가능한 평가 항목들을 조회
-        result = await db.execute(
-            select(CompetencyItem).where(
-                CompetencyItem.is_active == True,
-                CompetencyItem.category.in_(['EDUCATION', 'ADDON', 'DETAIL'])
-            ).limit(4)
-        )
-        available_items = result.scalars().all()
+        # Step 5: Query competency items (use enum values for comparison)
+        print("[CREATE-TEST] Step 5: Querying competency items...")
+        try:
+            # 먼저 전체 항목 수 확인
+            count_result = await db.execute(select(func.count(CompetencyItem.item_id)))
+            total_count = count_result.scalar()
+            print(f"[CREATE-TEST] Total competency items in DB: {total_count}")
 
-        print(f"[CREATE-TEST] Found {len(available_items)} competency items")
+            # Enum 값으로 비교
+            result = await db.execute(
+                select(CompetencyItem).where(
+                    CompetencyItem.is_active == True
+                ).limit(4)
+            )
+            available_items = result.scalars().all()
+            print(f"[CREATE-TEST] Found {len(available_items)} active competency items")
 
+            for item in available_items:
+                print(f"[CREATE-TEST]   - {item.item_code} (category={item.category})")
+
+        except Exception as query_err:
+            print(f"[CREATE-TEST] Error querying competency items: {query_err}")
+            available_items = []
+
+        # Step 6: Add project items
+        print("[CREATE-TEST] Step 6: Adding project items...")
         if available_items:
-            # 점수 배분: 항목 수에 따라 100점 분배
             item_count = len(available_items)
             base_score = Decimal("100") / item_count
             remainder = Decimal("100") - (base_score * item_count)
 
             display_order = 1
             for i, comp_item in enumerate(available_items):
-                # 마지막 항목에 나머지 점수 추가
                 score = base_score + (remainder if i == item_count - 1 else Decimal("0"))
                 project_item = ProjectItem(
                     project_id=new_project.project_id,
@@ -157,19 +167,22 @@ async def create_test_project(
                 display_order += 1
 
             await db.commit()
+            print("[CREATE-TEST] Project items committed")
         else:
-            print("[CREATE-TEST] No competency items found in database")
+            print("[CREATE-TEST] WARNING: No competency items found, project will have 0 survey items")
 
+        # Step 7: Refresh and prepare response
+        print("[CREATE-TEST] Step 7: Preparing response...")
         await db.refresh(new_project)
 
-        # display_status 계산
         display_status = calculate_display_status(
             new_project.status,
             new_project.recruitment_start_date,
             new_project.recruitment_end_date
         )
+        print(f"[CREATE-TEST] display_status={display_status}")
 
-        return ProjectResponse(
+        response = ProjectResponse(
             project_id=new_project.project_id,
             project_name=new_project.project_name,
             description=new_project.description,
@@ -189,14 +202,24 @@ async def create_test_project(
             created_at=new_project.created_at,
             updated_at=new_project.updated_at
         )
+
+        print(f"[CREATE-TEST] === SUCCESS: Created project {new_project.project_id} ===")
+        return response
+
     except Exception as e:
+        print(f"[CREATE-TEST ERROR] ==========================================")
         print(f"[CREATE-TEST ERROR] user_id={current_user.user_id}")
-        print(f"[CREATE-TEST ERROR] Exception: {type(e).__name__}: {str(e)}")
+        print(f"[CREATE-TEST ERROR] Exception type: {type(e).__name__}")
+        print(f"[CREATE-TEST ERROR] Exception message: {str(e)}")
         print(f"[CREATE-TEST ERROR] Traceback:\n{traceback.format_exc()}")
-        await db.rollback()
+        print(f"[CREATE-TEST ERROR] ==========================================")
+        try:
+            await db.rollback()
+        except Exception:
+            pass
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to create test project: {str(e)}"
+            detail=f"Failed to create test project: {type(e).__name__}: {str(e)}"
         )
 
 
