@@ -70,7 +70,14 @@ async def upload_file(
 
     # Validate file type
     file_ext = os.path.splitext(file.filename)[1].lower()
-    if file_ext not in settings.FILE_ALLOWED_TYPES:
+    # 차단된 파일 형식 확인 (실행 파일 등)
+    if file_ext in settings.FILE_BLOCKED_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"실행 파일({file_ext})은 보안상의 이유로 업로드할 수 없습니다."
+        )
+    # 허용 파일 형식이 지정된 경우 확인 (빈 리스트면 모든 형식 허용)
+    if settings.FILE_ALLOWED_TYPES and file_ext not in settings.FILE_ALLOWED_TYPES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"File type {file_ext} not allowed. Allowed types: {settings.FILE_ALLOWED_TYPES}"

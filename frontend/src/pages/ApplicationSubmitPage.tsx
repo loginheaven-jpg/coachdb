@@ -16,15 +16,34 @@ import {
   Tag,
   Descriptions
 } from 'antd'
-import { ArrowLeftOutlined, SendOutlined, UploadOutlined, InfoCircleOutlined, UserOutlined, PlusOutlined, MinusCircleOutlined, CheckCircleOutlined, SaveOutlined, DeleteOutlined } from '@ant-design/icons'
+import { ArrowLeftOutlined, SendOutlined, UploadOutlined, InfoCircleOutlined, UserOutlined, PlusOutlined, MinusCircleOutlined, CheckCircleOutlined, SaveOutlined, DeleteOutlined, LoadingOutlined } from '@ant-design/icons'
 import projectService, { ProjectDetail, ProjectItem, ItemTemplate } from '../services/projectService'
 import applicationService, { ApplicationSubmitRequest, ApplicationDataSubmit } from '../services/applicationService'
 import authService, { UserUpdateData } from '../services/authService'
+import fileService from '../services/fileService'
 import { useAuthStore } from '../stores/authStore'
 import dayjs from 'dayjs'
 
 const { Title, Text } = Typography
 const { TextArea } = Input
+
+// 파일 업로드 설정
+const MAX_FILE_SIZE_MB = 10
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
+const BLOCKED_FILE_EXTENSIONS = [
+  '.exe', '.msi', '.bat', '.cmd', '.com', '.dll', '.scr',
+  '.vbs', '.vbe', '.js', '.jse', '.ws', '.wsf', '.wsc', '.wsh',
+  '.ps1', '.psm1', '.psd1', '.sh', '.bash', '.bin', '.app',
+  '.jar', '.msc', '.reg', '.pif', '.gadget', '.hta', '.inf', '.cpl'
+]
+
+// 업로드된 파일 정보 타입
+interface UploadedFileInfo {
+  file: File
+  file_id?: number
+  uploading?: boolean
+  error?: string
+}
 
 // 사용자 프로필 항목 코드 (설문에서 제외됨 - 개인정보는 프로필에서 표시)
 const USER_PROFILE_ITEM_CODES = [
@@ -47,7 +66,7 @@ export default function ApplicationSubmitPage() {
   const [projectItems, setProjectItems] = useState<ProjectItem[]>([])
   const [profileChanged, setProfileChanged] = useState(false)
   const [repeatableData, setRepeatableData] = useState<Record<number, any[]>>({})
-  const [uploadedFiles, setUploadedFiles] = useState<Record<string, any>>({})
+  const [uploadedFiles, setUploadedFiles] = useState<Record<string, UploadedFileInfo>>({})
   const [existingApplicationId, setExistingApplicationId] = useState<number | null>(null)
   const { user, setUser } = useAuthStore()
 
@@ -238,9 +257,64 @@ export default function ApplicationSubmitPage() {
     })
   }
 
-  // 파일 업로드 상태 업데이트
-  const handleFileUpload = (key: string, file: any) => {
-    setUploadedFiles(prev => ({ ...prev, [key]: file }))
+  // 파일 검증
+  const validateFile = (file: File): { valid: boolean; message?: string } => {
+    // 파일 크기 검증
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      return {
+        valid: false,
+        message: `파일 크기가 ${MAX_FILE_SIZE_MB}MB를 초과합니다. 최대 ${MAX_FILE_SIZE_MB}MB까지 업로드 가능합니다.`
+      }
+    }
+
+    // 실행 파일 확장자 검증
+    const fileName = file.name.toLowerCase()
+    const ext = fileName.substring(fileName.lastIndexOf('.'))
+    if (BLOCKED_FILE_EXTENSIONS.includes(ext)) {
+      return {
+        valid: false,
+        message: `실행 파일(${ext})은 업로드할 수 없습니다. 보안상의 이유로 실행 파일은 허용되지 않습니다.`
+      }
+    }
+
+    return { valid: true }
+  }
+
+  // 파일 업로드 처리
+  const handleFileUpload = async (key: string, file: File) => {
+    // 파일 검증
+    const validation = validateFile(file)
+    if (!validation.valid) {
+      message.error(validation.message)
+      return
+    }
+
+    // 업로드 중 상태 표시
+    setUploadedFiles(prev => ({
+      ...prev,
+      [key]: { file, uploading: true }
+    }))
+
+    try {
+      // 서버에 파일 업로드
+      const response = await fileService.uploadFile(file, 'proof')
+
+      // 업로드 성공 - file_id 저장
+      setUploadedFiles(prev => ({
+        ...prev,
+        [key]: { file, file_id: response.file_id, uploading: false }
+      }))
+      message.success(`${file.name} 파일이 업로드되었습니다.`)
+    } catch (error: any) {
+      console.error('파일 업로드 실패:', error)
+      // 업로드 실패 시 상태에서 제거
+      setUploadedFiles(prev => {
+        const newFiles = { ...prev }
+        delete newFiles[key]
+        return newFiles
+      })
+      message.error(error.response?.data?.detail || '파일 업로드에 실패했습니다.')
+    }
   }
 
   // Parse template config JSON safely
@@ -602,12 +676,22 @@ export default function ApplicationSubmitPage() {
         const isRepeatable = competencyItem?.is_repeatable
 
         let submittedValue: string | null = null
+        let submittedFileId: number | null = null
 
         if (isRepeatable) {
           // 반복 가능 항목은 repeatableData에서 가져옴
           const entries = repeatableData[item.project_item_id] || []
           if (entries.length > 0) {
-            submittedValue = JSON.stringify(entries)
+            // 각 entry에 대해 업로드된 파일 ID도 포함
+            const entriesWithFiles = entries.map((entry, idx) => {
+              const fileKey = `${item.project_item_id}_${idx}`
+              const fileInfo = uploadedFiles[fileKey]
+              return {
+                ...entry,
+                _file_id: fileInfo?.file_id || null
+              }
+            })
+            submittedValue = JSON.stringify(entriesWithFiles)
           }
         } else {
           // 일반 항목은 form values에서 가져옴
@@ -621,12 +705,16 @@ export default function ApplicationSubmitPage() {
               submittedValue = String(fieldValue)
             }
           }
+          // 단일 항목의 경우 첫 번째 파일 키 사용
+          const fileKey = `${item.project_item_id}_0`
+          const fileInfo = uploadedFiles[fileKey]
+          submittedFileId = fileInfo?.file_id || null
         }
 
         return {
           item_id: competencyItem?.item_id || 0,
           submitted_value: submittedValue,
-          submitted_file_id: null // TODO: Handle file uploads
+          submitted_file_id: submittedFileId
         }
       }).filter(data => data.item_id > 0)
 
@@ -892,6 +980,8 @@ export default function ApplicationSubmitPage() {
                                 {/* 증빙첨부 버튼 - proof_required_level이 required 또는 optional인 경우에만 표시 */}
                                 {(() => {
                                   const proofLevel = (item.proof_required_level || '').toLowerCase()
+                                  const fileInfo = uploadedFiles[fileKey]
+                                  const isUploading = fileInfo?.uploading
                                   return (proofLevel === 'required' || proofLevel === 'optional') && (
                                   <div className="flex items-center gap-2 pt-2 border-t">
                                     {!hasFile ? (
@@ -907,17 +997,31 @@ export default function ApplicationSubmitPage() {
                                           {proofLevel === 'required' ? '증빙첨부 (필수)' : '증빙첨부 (선택)'}
                                         </Button>
                                       </Upload>
+                                    ) : isUploading ? (
+                                      <div className="flex items-center gap-2">
+                                        <Tag color="processing" icon={<LoadingOutlined />}>
+                                          {fileInfo?.file?.name} 업로드 중...
+                                        </Tag>
+                                      </div>
                                     ) : (
                                       <div className="flex items-center gap-2">
                                         <Tag color="green" icon={<CheckCircleOutlined />}>
-                                          {uploadedFiles[fileKey]?.name}
+                                          {fileInfo?.file?.name}
                                         </Tag>
                                         <Button
                                           type="text"
                                           danger
                                           size="small"
                                           icon={<DeleteOutlined />}
-                                          onClick={() => {
+                                          onClick={async () => {
+                                            // 서버에서도 파일 삭제
+                                            if (fileInfo?.file_id) {
+                                              try {
+                                                await fileService.deleteFile(fileInfo.file_id)
+                                              } catch (error) {
+                                                console.error('파일 삭제 실패:', error)
+                                              }
+                                            }
                                             setUploadedFiles(prev => {
                                               const newFiles = { ...prev }
                                               delete newFiles[fileKey]
@@ -940,7 +1044,7 @@ export default function ApplicationSubmitPage() {
                             <Button
                               type="dashed"
                               icon={<PlusOutlined />}
-                              onClick={() => addRepeatableEntry(item.project_item_id, maxEntries)}
+                              onClick={() => addRepeatableEntry(item.project_item_id, maxEntries ?? undefined)}
                               block
                               className="mb-4"
                               disabled={maxEntries ? entries.length >= maxEntries : false}

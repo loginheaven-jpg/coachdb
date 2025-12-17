@@ -47,7 +47,15 @@ class Settings(BaseSettings):
     FILE_STORAGE_TYPE: str = "local"  # "local", "s3", or "minio"
     FILE_STORAGE_PATH: str = "./uploads"
     FILE_MAX_SIZE_MB: int = 10
-    FILE_ALLOWED_TYPES: list = [".pdf", ".jpg", ".jpeg", ".png"]
+    # 허용 파일 형식 (비어있으면 모든 형식 허용, BLOCKED_FILE_TYPES 제외)
+    FILE_ALLOWED_TYPES: list = []  # 빈 리스트 = 모든 형식 허용
+    # 차단 파일 형식 (실행 파일 등 보안 위험 파일)
+    FILE_BLOCKED_TYPES: list = [
+        ".exe", ".msi", ".bat", ".cmd", ".com", ".dll", ".scr",
+        ".vbs", ".vbe", ".js", ".jse", ".ws", ".wsf", ".wsc", ".wsh",
+        ".ps1", ".psm1", ".psd1", ".sh", ".bash", ".bin", ".app",
+        ".jar", ".msc", ".reg", ".pif", ".gadget", ".hta", ".inf", ".cpl"
+    ]
 
     # AWS S3 (if using S3)
     AWS_ACCESS_KEY_ID: Optional[str] = None
