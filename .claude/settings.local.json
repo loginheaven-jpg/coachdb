@@ -54,7 +54,9 @@
       "Bash(ls:*)",
       "Bash(git reset:*)",
       "Bash(done)",
-      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1OCIsInJvbGVzIjpbIkNPQUNIIl0sImV4cCI6MTc2NTg1MjM3NSwidHlwZSI6ImFjY2VzcyJ9.On7u6DYJ8f6m8b6PqiSfWAekFKJo0nby-QAjaQrjh94\")"
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1OCIsInJvbGVzIjpbIkNPQUNIIl0sImV4cCI6MTc2NTg1MjM3NSwidHlwZSI6ImFjY2VzcyJ9.On7u6DYJ8f6m8b6PqiSfWAekFKJo0nby-QAjaQrjh94\")",
+      "Bash(npm run build:*)",
+      "Bash(ping:*)"
     ],
     "deny": [],
     "ask": []
