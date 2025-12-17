@@ -16,7 +16,7 @@ import {
   Tag,
   Descriptions
 } from 'antd'
-import { ArrowLeftOutlined, SendOutlined, UploadOutlined, InfoCircleOutlined, UserOutlined, PlusOutlined, MinusCircleOutlined, CheckCircleOutlined, SaveOutlined } from '@ant-design/icons'
+import { ArrowLeftOutlined, SendOutlined, UploadOutlined, InfoCircleOutlined, UserOutlined, PlusOutlined, MinusCircleOutlined, CheckCircleOutlined, SaveOutlined, DeleteOutlined } from '@ant-design/icons'
 import projectService, { ProjectDetail, ProjectItem, ItemTemplate } from '../services/projectService'
 import applicationService, { ApplicationSubmitRequest, ApplicationDataSubmit } from '../services/applicationService'
 import authService, { UserUpdateData } from '../services/authService'
@@ -703,6 +703,7 @@ export default function ApplicationSubmitPage() {
               form={form}
               layout="vertical"
               onFinish={handleSubmit}
+              scrollToFirstError={{ behavior: 'smooth', block: 'center' }}
             >
               {/* Personal info from user profile - editable */}
               <Card
@@ -878,29 +879,40 @@ export default function ApplicationSubmitPage() {
                                   const proofLevel = (item.proof_required_level || '').toLowerCase()
                                   return (proofLevel === 'required' || proofLevel === 'optional') && (
                                   <div className="flex items-center gap-2 pt-2 border-t">
-                                    <Upload
-                                      maxCount={1}
-                                      beforeUpload={(file) => {
-                                        handleFileUpload(fileKey, file)
-                                        return false
-                                      }}
-                                      onRemove={() => {
-                                        setUploadedFiles(prev => {
-                                          const newFiles = { ...prev }
-                                          delete newFiles[fileKey]
-                                          return newFiles
-                                        })
-                                      }}
-                                      fileList={hasFile ? [uploadedFiles[fileKey]] : []}
-                                    >
-                                      <Button icon={<UploadOutlined />} size="small">
-                                        {proofLevel === 'required' ? '증빙첨부 (필수)' : '증빙첨부 (선택)'}
-                                      </Button>
-                                    </Upload>
-                                    {hasFile && (
-                                      <Tag color="green" icon={<CheckCircleOutlined />}>
-                                        증빙첨부완료 ({uploadedFiles[fileKey]?.name})
-                                      </Tag>
+                                    {!hasFile ? (
+                                      <Upload
+                                        maxCount={1}
+                                        showUploadList={false}
+                                        beforeUpload={(file) => {
+                                          handleFileUpload(fileKey, file)
+                                          return false
+                                        }}
+                                      >
+                                        <Button icon={<UploadOutlined />} size="small">
+                                          {proofLevel === 'required' ? '증빙첨부 (필수)' : '증빙첨부 (선택)'}
+                                        </Button>
+                                      </Upload>
+                                    ) : (
+                                      <div className="flex items-center gap-2">
+                                        <Tag color="green" icon={<CheckCircleOutlined />}>
+                                          {uploadedFiles[fileKey]?.name}
+                                        </Tag>
+                                        <Button
+                                          type="text"
+                                          danger
+                                          size="small"
+                                          icon={<DeleteOutlined />}
+                                          onClick={() => {
+                                            setUploadedFiles(prev => {
+                                              const newFiles = { ...prev }
+                                              delete newFiles[fileKey]
+                                              return newFiles
+                                            })
+                                          }}
+                                        >
+                                          삭제
+                                        </Button>
+                                      </div>
                                     )}
                                   </div>
                                 )})()}
