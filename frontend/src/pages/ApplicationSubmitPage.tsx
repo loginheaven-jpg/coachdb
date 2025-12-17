@@ -16,13 +16,21 @@ import {
   Tag,
   Descriptions
 } from 'antd'
-import { ArrowLeftOutlined, SendOutlined, UploadOutlined, InfoCircleOutlined, UserOutlined, PlusOutlined, MinusCircleOutlined, CheckCircleOutlined, SaveOutlined, DeleteOutlined, LoadingOutlined } from '@ant-design/icons'
+import { ArrowLeftOutlined, SendOutlined, UploadOutlined, InfoCircleOutlined, UserOutlined, PlusOutlined, MinusCircleOutlined, CheckCircleOutlined, SaveOutlined, DeleteOutlined, LoadingOutlined, EditOutlined } from '@ant-design/icons'
 import projectService, { ProjectDetail, ProjectItem, ItemTemplate } from '../services/projectService'
 import applicationService, { ApplicationSubmitRequest, ApplicationDataSubmit } from '../services/applicationService'
 import authService, { UserUpdateData } from '../services/authService'
 import fileService from '../services/fileService'
+import profileService, { DetailedProfile } from '../services/profileService'
 import { useAuthStore } from '../stores/authStore'
 import dayjs from 'dayjs'
+
+// 프로필 데이터와 매핑되는 설문 항목 코드
+const PROFILE_MAPPED_ITEM_CODES = {
+  'EXP_COACHING_HOURS': 'total_coaching_hours',
+  'EXP_COACHING_YEARS': 'coaching_years',
+  'SPECIALTY': 'specialty'
+}
 
 const { Title, Text } = Typography
 const { TextArea } = Input
@@ -71,6 +79,7 @@ export default function ApplicationSubmitPage() {
   const [uploadedFiles, setUploadedFiles] = useState<Record<string, UploadedFileInfo>>({})
   const [existingApplicationId, setExistingApplicationId] = useState<number | null>(null)
   const [existingApplication, setExistingApplication] = useState<any>(null)
+  const [_detailedProfile, setDetailedProfile] = useState<DetailedProfile | null>(null)
   const { user, setUser } = useAuthStore()
 
   // 수정 모드로 전환
@@ -107,6 +116,43 @@ export default function ApplicationSubmitPage() {
       })
     }
   }, [user, form])
+
+  // 세부정보 프로필 로드 및 설문 항목에 자동 채움
+  useEffect(() => {
+    const loadDetailedProfile = async () => {
+      try {
+        const profile = await profileService.getDetailedProfile()
+        setDetailedProfile(profile)
+
+        // projectItems가 로드된 후, 신규 지원이거나 수정모드가 아닌 경우에만 프로필로 자동 채움
+        if (projectItems.length > 0 && !isEditMode) {
+          const formValues: Record<string, any> = {}
+
+          projectItems.forEach(item => {
+            const itemCode = item.competency_item?.item_code
+            if (!itemCode) return
+
+            // 프로필 매핑된 항목인지 확인
+            const profileField = PROFILE_MAPPED_ITEM_CODES[itemCode as keyof typeof PROFILE_MAPPED_ITEM_CODES]
+            if (profileField && profile) {
+              const profileValue = (profile as any)[profileField]
+              if (profileValue !== undefined && profileValue !== null) {
+                formValues[`item_${item.project_item_id}`] = profileValue
+              }
+            }
+          })
+
+          if (Object.keys(formValues).length > 0) {
+            form.setFieldsValue(formValues)
+          }
+        }
+      } catch (error) {
+        console.error('세부정보 프로필 로드 실패:', error)
+      }
+    }
+
+    loadDetailedProfile()
+  }, [projectItems, isEditMode, form])
 
   // 개인정보 필드 변경 감지
   const handleProfileFieldChange = () => {
@@ -747,6 +793,33 @@ export default function ApplicationSubmitPage() {
       }
 
       await applicationService.submitApplication(applicationId, submitData)
+
+      // 제출 성공 후 프로필 자동 업데이트
+      try {
+        const profileUpdateData: Record<string, any> = {}
+
+        projectItems.forEach(item => {
+          const itemCode = item.competency_item?.item_code
+          if (!itemCode) return
+
+          const profileField = PROFILE_MAPPED_ITEM_CODES[itemCode as keyof typeof PROFILE_MAPPED_ITEM_CODES]
+          if (profileField) {
+            const fieldValue = values[`item_${item.project_item_id}`]
+            if (fieldValue !== undefined && fieldValue !== null) {
+              profileUpdateData[profileField] = fieldValue
+            }
+          }
+        })
+
+        if (Object.keys(profileUpdateData).length > 0) {
+          await profileService.updateDetailedProfile(profileUpdateData)
+          console.log('프로필 자동 업데이트 완료:', profileUpdateData)
+        }
+      } catch (profileError) {
+        console.error('프로필 자동 업데이트 실패:', profileError)
+        // 프로필 업데이트 실패해도 지원서는 이미 제출됐으므로 에러 표시 안 함
+      }
+
       message.success(isEditMode ? '지원서가 수정되었습니다.' : '지원서가 제출되었습니다.')
       navigate('/coach/my-applications')
     } catch (error: any) {
