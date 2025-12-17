@@ -2,6 +2,9 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
+// Check if running on Railway (production)
+const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID
+
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
@@ -19,10 +22,12 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    allowedHosts: ['coacdbfront-production.up.railway.app', '.railway.app'],
-    proxy: {
+    host: true,
+    allowedHosts: ['coacdbfront-production.up.railway.app', '.railway.app', 'copms.up.railway.app'],
+    // Only use proxy for local development, not on Railway
+    proxy: isRailway ? undefined : {
       '/api': {
-        target: 'http://backend:8000',
+        target: 'http://localhost:8000',
         changeOrigin: true,
         timeout: 60000,
         proxyTimeout: 60000,
