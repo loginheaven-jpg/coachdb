@@ -1,6 +1,4 @@
-import axios from 'axios'
-
-const API_URL = 'http://localhost:8000/api'
+import api from './api'
 
 // Types
 export enum CertificationType {
@@ -52,47 +50,27 @@ export interface CertificationListItem {
 // Service
 const certificationService = {
   async createCertification(data: CertificationCreate): Promise<Certification> {
-    const response = await axios.post(`${API_URL}/certifications`, data, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('access_token')}`
-      }
-    })
+    const response = await api.post('/certifications', data)
     return response.data
   },
 
   async getMyCertifications(): Promise<CertificationListItem[]> {
-    const response = await axios.get(`${API_URL}/certifications/me`, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('access_token')}`
-      }
-    })
+    const response = await api.get('/certifications/me')
     return response.data
   },
 
   async getCertification(certificationId: number): Promise<Certification> {
-    const response = await axios.get(`${API_URL}/certifications/${certificationId}`, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('access_token')}`
-      }
-    })
+    const response = await api.get(`/certifications/${certificationId}`)
     return response.data
   },
 
   async updateCertification(certificationId: number, data: CertificationUpdate): Promise<Certification> {
-    const response = await axios.put(`${API_URL}/certifications/${certificationId}`, data, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('access_token')}`
-      }
-    })
+    const response = await api.put(`/certifications/${certificationId}`, data)
     return response.data
   },
 
   async deleteCertification(certificationId: number): Promise<void> {
-    await axios.delete(`${API_URL}/certifications/${certificationId}`, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('access_token')}`
-      }
-    })
+    await api.delete(`/certifications/${certificationId}`)
   }
 }
 

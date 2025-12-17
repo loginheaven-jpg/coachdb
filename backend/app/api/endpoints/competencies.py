@@ -51,37 +51,54 @@ async def get_my_competencies(
     current_user: User = Depends(get_current_user)
 ):
     """Get current user's competencies"""
+    from sqlalchemy.orm import selectinload
+
     result = await db.execute(
         select(CoachCompetency)
         .where(CoachCompetency.user_id == current_user.user_id)
+        .options(
+            selectinload(CoachCompetency.competency_item).selectinload(CompetencyItem.fields),
+            selectinload(CoachCompetency.file)
+        )
         .order_by(CoachCompetency.created_at.desc())
     )
     competencies = result.scalars().all()
 
-    # Fetch competency items and file info for each competency
+    # Convert to response with file_info
+    response_list = []
     for competency in competencies:
-        # Fetch competency item
-        item_result = await db.execute(
-            select(CompetencyItem).where(CompetencyItem.item_id == competency.item_id)
-        )
-        competency.competency_item = item_result.scalar_one_or_none()
+        response_data = {
+            "competency_id": competency.competency_id,
+            "user_id": competency.user_id,
+            "item_id": competency.item_id,
+            "value": competency.value,
+            "file_id": competency.file_id,
+            "verification_status": competency.verification_status,
+            "verified_by": competency.verified_by,
+            "verified_at": competency.verified_at,
+            "rejection_reason": competency.rejection_reason,
+            "is_anonymized": competency.is_anonymized,
+            "created_at": competency.created_at,
+            "updated_at": competency.updated_at,
+            "is_globally_verified": competency.is_globally_verified,
+            "globally_verified_at": competency.globally_verified_at,
+            "competency_item": competency.competency_item,
+            "file_info": None
+        }
 
-        # Fetch file info if file_id exists
-        if competency.file_id:
-            file_result = await db.execute(
-                select(File).where(File.file_id == competency.file_id)
+        # Add file info if file exists
+        if competency.file:
+            response_data["file_info"] = FileBasicInfo(
+                file_id=competency.file.file_id,
+                original_filename=competency.file.original_filename,
+                file_size=competency.file.file_size,
+                mime_type=competency.file.mime_type,
+                uploaded_at=competency.file.uploaded_at
             )
-            file_obj = file_result.scalar_one_or_none()
-            if file_obj:
-                competency.file_info = FileBasicInfo(
-                    file_id=file_obj.file_id,
-                    original_filename=file_obj.original_filename,
-                    file_size=file_obj.file_size,
-                    mime_type=file_obj.mime_type,
-                    uploaded_at=file_obj.uploaded_at
-                )
 
-    return competencies
+        response_list.append(CoachCompetencyResponse(**response_data))
+
+    return response_list
 
 
 @router.post("/", response_model=CoachCompetencyResponse, status_code=status.HTTP_201_CREATED)
