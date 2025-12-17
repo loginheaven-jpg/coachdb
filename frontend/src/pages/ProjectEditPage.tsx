@@ -14,9 +14,11 @@ import {
   Alert,
   Divider
 } from 'antd'
-import { ArrowLeftOutlined, SaveOutlined, CheckCircleOutlined, WarningOutlined, UnorderedListOutlined } from '@ant-design/icons'
+import { ArrowLeftOutlined, SaveOutlined, CheckCircleOutlined, WarningOutlined, UnorderedListOutlined, EditOutlined } from '@ant-design/icons'
 import projectService, { ProjectDetail, ProjectUpdate, ProjectStatus, ScoreValidation } from '../services/projectService'
 import SurveyBuilder from '../components/SurveyBuilder'
+import PageGuide from '../components/shared/PageGuide'
+import { PAGE_GUIDES } from '../constants/pageGuides'
 import dayjs from 'dayjs'
 
 const { Title, Text } = Typography
@@ -164,6 +166,13 @@ export default function ProjectEditPage() {
           </Button>
         </div>
 
+        <PageGuide
+          guideId={PAGE_GUIDES.PROJECT_EDIT.id}
+          title={PAGE_GUIDES.PROJECT_EDIT.title}
+          message={PAGE_GUIDES.PROJECT_EDIT.message}
+          type={PAGE_GUIDES.PROJECT_EDIT.type}
+        />
+
         <Card>
           <div className="mb-6">
             <Title level={2} className="mb-2">과제 수정</Title>
@@ -309,11 +318,13 @@ export default function ProjectEditPage() {
                   )}
                   <Text>설문 점수: {scoreValidation?.total_score || 0}/100점</Text>
                   <Button
-                    type="link"
-                    icon={<UnorderedListOutlined />}
+                    type={scoreValidation?.is_valid ? "default" : "primary"}
+                    danger={!scoreValidation?.is_valid && (scoreValidation?.total_score || 0) > 0}
+                    icon={<EditOutlined />}
                     onClick={() => setSurveyBuilderVisible(true)}
+                    size="middle"
                   >
-                    설문 구성
+                    설문 구성 {!scoreValidation?.is_valid && `(${scoreValidation?.total_score || 0}/100)`}
                   </Button>
                 </div>
               </div>

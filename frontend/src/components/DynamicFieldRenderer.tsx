@@ -160,6 +160,13 @@ export default function DynamicFieldRenderer({ item, value, onChange, disabled }
                 <div key={field.field_id}>
                   <div style={{ marginBottom: 4 }}>
                     <Text strong>{field.field_label}</Text>
+                    {/* 기간 필드에 예시 추가 */}
+                    {(field.field_name === '기간' || field.field_name === '근무기간' ||
+                      field.field_label === '기간' || field.field_label === '근무기간') && (
+                      <Text type="secondary" style={{ marginLeft: 8, fontSize: '12px' }}>
+                        (예시: 2020년1월-2022년12월)
+                      </Text>
+                    )}
                     {field.is_required && <Text type="danger"> *</Text>}
                   </div>
                   {renderField(

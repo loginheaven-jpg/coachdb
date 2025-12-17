@@ -14,6 +14,8 @@ import {
 } from 'antd'
 import { ArrowLeftOutlined, SaveOutlined } from '@ant-design/icons'
 import projectService, { ProjectCreate, ProjectStatus } from '../services/projectService'
+import PageGuide from '../components/shared/PageGuide'
+import { PAGE_GUIDES } from '../constants/pageGuides'
 
 const { Title, Text } = Typography
 const { TextArea } = Input
@@ -62,6 +64,13 @@ export default function ProjectCreatePage() {
             과제 목록으로 돌아가기
           </Button>
         </div>
+
+        <PageGuide
+          guideId={PAGE_GUIDES.PROJECT_CREATE.id}
+          title={PAGE_GUIDES.PROJECT_CREATE.title}
+          message={PAGE_GUIDES.PROJECT_CREATE.message}
+          type={PAGE_GUIDES.PROJECT_CREATE.type}
+        />
 
         <Card>
           <div className="mb-6">
