@@ -80,6 +80,7 @@ export default function ApplicationSubmitPage() {
   const [existingApplicationId, setExistingApplicationId] = useState<number | null>(null)
   const [existingApplication, setExistingApplication] = useState<any>(null)
   const [_detailedProfile, setDetailedProfile] = useState<DetailedProfile | null>(null)
+  const [profileLoaded, setProfileLoaded] = useState(false)
   const { user, setUser } = useAuthStore()
 
   // 수정 모드로 전환
@@ -117,42 +118,47 @@ export default function ApplicationSubmitPage() {
     }
   }, [user, form])
 
-  // 세부정보 프로필 로드 및 설문 항목에 자동 채움
+  // 세부정보 프로필 로드 및 설문 항목에 자동 채움 (한 번만 실행)
   useEffect(() => {
+    // 이미 로드했거나, projectItems가 아직 없거나, 수정모드면 스킵
+    if (profileLoaded || projectItems.length === 0 || isEditMode) {
+      return
+    }
+
     const loadDetailedProfile = async () => {
       try {
         const profile = await profileService.getDetailedProfile()
         setDetailedProfile(profile)
+        setProfileLoaded(true)
 
-        // projectItems가 로드된 후, 신규 지원이거나 수정모드가 아닌 경우에만 프로필로 자동 채움
-        if (projectItems.length > 0 && !isEditMode) {
-          const formValues: Record<string, any> = {}
+        // 프로필로 자동 채움
+        const formValues: Record<string, any> = {}
 
-          projectItems.forEach(item => {
-            const itemCode = item.competency_item?.item_code
-            if (!itemCode) return
+        projectItems.forEach(item => {
+          const itemCode = item.competency_item?.item_code
+          if (!itemCode) return
 
-            // 프로필 매핑된 항목인지 확인
-            const profileField = PROFILE_MAPPED_ITEM_CODES[itemCode as keyof typeof PROFILE_MAPPED_ITEM_CODES]
-            if (profileField && profile) {
-              const profileValue = (profile as any)[profileField]
-              if (profileValue !== undefined && profileValue !== null) {
-                formValues[`item_${item.project_item_id}`] = profileValue
-              }
+          // 프로필 매핑된 항목인지 확인
+          const profileField = PROFILE_MAPPED_ITEM_CODES[itemCode as keyof typeof PROFILE_MAPPED_ITEM_CODES]
+          if (profileField && profile) {
+            const profileValue = (profile as any)[profileField]
+            if (profileValue !== undefined && profileValue !== null) {
+              formValues[`item_${item.project_item_id}`] = profileValue
             }
-          })
-
-          if (Object.keys(formValues).length > 0) {
-            form.setFieldsValue(formValues)
           }
+        })
+
+        if (Object.keys(formValues).length > 0) {
+          form.setFieldsValue(formValues)
         }
       } catch (error) {
         console.error('세부정보 프로필 로드 실패:', error)
+        setProfileLoaded(true) // 에러 시에도 재시도 방지
       }
     }
 
     loadDetailedProfile()
-  }, [projectItems, isEditMode, form])
+  }, [projectItems, isEditMode, profileLoaded])
 
   // 개인정보 필드 변경 감지
   const handleProfileFieldChange = () => {
