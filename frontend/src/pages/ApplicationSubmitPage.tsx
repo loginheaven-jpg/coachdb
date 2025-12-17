@@ -322,12 +322,22 @@ export default function ApplicationSubmitPage() {
 
   // 반복 항목 값 업데이트
   const updateRepeatableEntry = (projectItemId: number, entryIndex: number, fieldName: string, value: any) => {
-    console.log('[updateRepeatableEntry] Called:', { projectItemId, entryIndex, fieldName, value })
+    console.log('[updateRepeatableEntry] Called:', { projectItemId, entryIndex, fieldName, value, valueType: typeof value })
+
+    // Don't update if value is undefined (could be from blur events)
+    if (value === undefined) {
+      console.log('[updateRepeatableEntry] Skipping undefined value update')
+      return
+    }
+
     setRepeatableData(prev => {
-      const current = [...(prev[projectItemId] || [{}])]
-      current[entryIndex] = { ...current[entryIndex], [fieldName]: value }
+      const prevEntries = prev[projectItemId] || [{}]
+      const current = prevEntries.map((entry, idx) =>
+        idx === entryIndex ? { ...entry, [fieldName]: value } : entry
+      )
       const newState = { ...prev, [projectItemId]: current }
-      console.log('[updateRepeatableEntry] New state:', newState)
+      console.log('[updateRepeatableEntry] Previous:', prev[projectItemId])
+      console.log('[updateRepeatableEntry] New state for', projectItemId, ':', current)
       return newState
     })
   }
@@ -422,17 +432,20 @@ export default function ApplicationSubmitPage() {
 
     switch (field.field_type) {
       case 'select':
-        console.log('[renderSingleField] Select field:', field.field_name, 'value:', value)
+        console.log('[renderSingleField] Select field:', field.field_name, 'current value:', value, 'type:', typeof value)
         return (
           <Select
             placeholder={field.placeholder || `${field.field_label} 선택`}
-            value={value || undefined}
+            value={value !== undefined && value !== null && value !== '' ? value : undefined}
             onChange={(val) => {
-              console.log('[Select onChange]', field.field_name, 'new value:', val)
+              console.log('[Select onChange]', field.field_name, 'new value:', val, 'previous:', value)
               onChange(val)
             }}
+            onBlur={() => {
+              console.log('[Select onBlur]', field.field_name, 'value at blur:', value)
+            }}
             style={{ width: '100%' }}
-            allowClear
+            getPopupContainer={(trigger) => trigger.parentNode as HTMLElement}
           >
             {options.map(opt => (
               <Select.Option key={opt} value={opt}>{opt}</Select.Option>
@@ -482,7 +495,8 @@ export default function ApplicationSubmitPage() {
     entry: any,
     updateField: (fieldName: string, value: any) => void
   ) => {
-    console.log('[renderDynamicFields] entry:', entry)
+    console.log('[renderDynamicFields] entry object:', JSON.stringify(entry))
+    console.log('[renderDynamicFields] entry keys:', Object.keys(entry || {}))
     // file 타입 필드 제외하고 정렬
     const sortedFields = [...fields]
       .filter(f => f.field_type !== 'file')
