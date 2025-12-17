@@ -15,10 +15,25 @@ class CoachProfile(Base):
     # 누적 코칭시간
     total_coaching_hours = Column(Integer, nullable=True)  # KAC 인증 교육 시작 이후
 
+    # 총 코칭 경력 (년)
+    coaching_years = Column(Integer, nullable=True)
+
+    # 전문 분야
+    specialty = Column(String(500), nullable=True)
+
     # 학위 정보 (JSON array)
-    # Format: [{"type": "coaching", "file_id": 123}, {"type": "other", "file_id": 456}]
-    # Types: coaching, counseling, psychology, education, business, other
+    # Format: [{"type": "coaching", "degreeLevel": "master", "degreeName": "코칭학", "file_id": 123}, ...]
+    # Types: coaching, other
     degrees = Column(Text, nullable=True)  # JSON
+
+    # 자격증 목록 (JSON array)
+    # Format: [{"name": "KCA Level 3", "type": "KCA", "file_id": 123}, {"name": "상담사", "type": "COUNSELING", "file_id": 456}, ...]
+    # Types: KCA, COUNSELING
+    certifications = Column(Text, nullable=True)  # JSON
+
+    # 멘토링/수퍼비전 경험 (JSON array)
+    # Format: [{"description": "경험 설명", "file_id": 123}, ...]
+    mentoring_experiences = Column(Text, nullable=True)  # JSON
 
     # 코칭 분야별 이력 (JSON object)
     # Format: {

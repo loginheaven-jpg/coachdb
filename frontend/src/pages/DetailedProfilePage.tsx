@@ -1,27 +1,29 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Form, Input, Button, Card, message, Typography, Select, Upload, InputNumber, Divider } from 'antd'
-import { UploadOutlined, InfoCircleOutlined } from '@ant-design/icons'
+import { Form, Input, Button, Card, message, Typography, Select, Upload, InputNumber, Divider, Spin } from 'antd'
+import { UploadOutlined } from '@ant-design/icons'
 import type { UploadFile } from 'antd/es/upload/interface'
+import profileService, { DetailedProfile, DegreeItem, CertificationItem, MentoringExperienceItem, FieldExperience } from '../services/profileService'
 
 const { Title, Text } = Typography
 const { Option } = Select
 const { TextArea } = Input
 
-// 학위 유형
+// Degree types
 const DEGREE_TYPES = [
   { value: 'coaching', label: '코칭/상담/심리/교육/경영 관련 최종학위' },
   { value: 'other', label: '기타 학위' }
 ]
 
-// 학위 레벨
+// Degree levels
 const DEGREE_LEVELS = [
   { value: 'bachelor', label: '학사' },
   { value: 'master', label: '석사' },
-  { value: 'doctorate', label: '박사' }
+  { value: 'doctorate', label: '박사' },
+  { value: 'none', label: '없음' }
 ]
 
-// 코칭 분야 (관련이력용)
+// Coaching fields
 const COACHING_FIELDS = [
   { value: 'business', label: '비즈니스코칭' },
   { value: 'career', label: '진로코칭' },
@@ -36,9 +38,10 @@ interface DegreeUpload {
   degreeLevel: string
   degreeName: string
   fileList: UploadFile[]
+  file_id?: number
 }
 
-interface FieldExperience {
+interface FieldExperienceUI {
   field: string
   coaching_history: string
   certifications: string
@@ -48,65 +51,106 @@ interface FieldExperience {
 
 export default function DetailedProfilePage() {
   const [loading, setLoading] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(true)
   const [form] = Form.useForm()
   const navigate = useNavigate()
   const [degreeUploads, setDegreeUploads] = useState<DegreeUpload[]>([])
-  const [fieldExperiences, setFieldExperiences] = useState<FieldExperience[]>([])
-  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
+  const [fieldExperiences, setFieldExperiences] = useState<FieldExperienceUI[]>([])
+  const [coachingYears, setCoachingYears] = useState<number | null>(null)
+  const [specialty, setSpecialty] = useState<string>('')
 
-  // 페이지 로드 시 저장된 데이터 불러오기
+  // Load profile data from API on mount
   useEffect(() => {
-    const savedData = localStorage.getItem('detailedProfile')
-    if (savedData) {
+    const loadProfile = async () => {
       try {
-        const data = JSON.parse(savedData)
+        setInitialLoading(true)
+        const profile = await profileService.getDetailedProfile()
 
-        // 폼 데이터 복원
+        // Set form values
         form.setFieldsValue({
-          total_coaching_hours: data.total_coaching_hours,
-          degrees: data.degrees?.map((d: DegreeUpload) => d.type),
-          field_experiences: data.field_experiences?.map((f: FieldExperience) => f.field)
+          total_coaching_hours: profile.total_coaching_hours,
+          coaching_years: profile.coaching_years,
+          specialty: profile.specialty,
+          degrees: profile.degrees?.map((d: DegreeItem) => d.type) || [],
+          field_experiences: Object.keys(profile.field_experiences || {})
         })
 
-        // State 복원
-        if (data.degrees) {
-          setDegreeUploads(data.degrees)
-        }
-        if (data.field_experiences) {
-          setFieldExperiences(data.field_experiences)
-        }
-        if (data.savedAt) {
-          setLastSavedAt(data.savedAt)
+        setCoachingYears(profile.coaching_years || null)
+        setSpecialty(profile.specialty || '')
+
+        // Convert degrees from API format to UI format
+        if (profile.degrees && profile.degrees.length > 0) {
+          const degrees: DegreeUpload[] = profile.degrees.map((d: DegreeItem) => ({
+            type: d.type,
+            degreeLevel: d.degreeLevel || '',
+            degreeName: d.degreeName || '',
+            fileList: [],
+            file_id: d.file_id
+          }))
+          setDegreeUploads(degrees)
         }
 
-        console.log('저장된 데이터 복원:', data)
+        // Convert field_experiences from API format to UI format
+        if (profile.field_experiences && Object.keys(profile.field_experiences).length > 0) {
+          const experiences: FieldExperienceUI[] = Object.entries(profile.field_experiences).map(
+            ([field, exp]: [string, any]) => ({
+              field,
+              coaching_history: exp.coaching_history || '',
+              certifications: exp.certifications || '',
+              historyFiles: [],
+              certFiles: []
+            })
+          )
+          setFieldExperiences(experiences)
+        }
+
+        console.log('Profile loaded from API:', profile)
       } catch (error) {
-        console.error('데이터 복원 실패:', error)
+        console.error('Failed to load profile:', error)
+        message.error('프로필 정보를 불러오는데 실패했습니다.')
+      } finally {
+        setInitialLoading(false)
       }
     }
+
+    loadProfile()
   }, [form])
 
   const onFinish = async (values: any) => {
     setLoading(true)
     try {
-      // 세부정보 데이터 구성
-      const savedAt = new Date().toISOString()
-      const detailedProfileData = {
+      // Convert UI data to API format
+      const degreesForApi: DegreeItem[] = degreeUploads.map(d => ({
+        type: d.type as 'coaching' | 'other',
+        degreeLevel: d.degreeLevel as any,
+        degreeName: d.degreeName,
+        file_id: d.file_id
+      }))
+
+      // Convert field experiences to API format
+      const fieldExpForApi: Record<string, FieldExperience> = {}
+      fieldExperiences.forEach(exp => {
+        fieldExpForApi[exp.field] = {
+          coaching_history: exp.coaching_history,
+          certifications: exp.certifications,
+          historyFiles: [],
+          certFiles: []
+        }
+      })
+
+      // Call API to save
+      await profileService.updateDetailedProfile({
         total_coaching_hours: values.total_coaching_hours,
-        degrees: degreeUploads,
-        field_experiences: fieldExperiences,
-        savedAt
-      }
+        coaching_years: values.coaching_years,
+        specialty: values.specialty,
+        degrees: degreesForApi,
+        field_experiences: fieldExpForApi
+      })
 
-      // TODO: 추후 API 연동 필요
-      // 현재는 localStorage에 임시 저장
-      localStorage.setItem('detailedProfile', JSON.stringify(detailedProfileData))
-      setLastSavedAt(savedAt)
-
-      console.log('저장된 세부정보:', detailedProfileData)
       message.success('세부정보가 저장되었습니다!')
       navigate('/coach/dashboard')
     } catch (error: any) {
+      console.error('Save failed:', error)
       message.error(error.response?.data?.detail || '세부정보 저장에 실패했습니다.')
     } finally {
       setLoading(false)
@@ -122,7 +166,7 @@ export default function DetailedProfilePage() {
   }
 
   const handleFieldChange = (values: string[]) => {
-    const newExperiences: FieldExperience[] = values.map(field => {
+    const newExperiences: FieldExperienceUI[] = values.map(field => {
       const existing = fieldExperiences.find(e => e.field === field)
       return existing || {
         field,
@@ -135,24 +179,26 @@ export default function DetailedProfilePage() {
     setFieldExperiences(newExperiences)
   }
 
+  if (initialLoading) {
+    return (
+      <div className="min-h-screen bg-gray-100 py-8 flex items-center justify-center">
+        <Spin size="large" tip="프로필 로딩 중..." />
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-100 py-8">
       <Card className="max-w-4xl mx-auto">
         <div className="flex justify-between items-start mb-6">
           <div className="flex-1">
             <Title level={2} className="text-center mb-2">
-              세부정보 입력
+              세부정보 관리
             </Title>
             <Text className="block text-center text-gray-600">
-              선택사항입니다. 나중에 입력하셔도 됩니다.
+              입력된 정보는 과제 지원 시 자동으로 활용됩니다.
             </Text>
           </div>
-          {lastSavedAt && (
-            <div className="text-right text-gray-500 text-sm whitespace-nowrap ml-4">
-              <div className="font-semibold">최종 수정일</div>
-              <div>{new Date(lastSavedAt).toLocaleString('ko-KR')}</div>
-            </div>
-          )}
         </div>
 
         <Form
@@ -162,7 +208,21 @@ export default function DetailedProfilePage() {
           layout="vertical"
           size="large"
         >
-          {/* 누적 코칭 시간 */}
+          {/* Coaching years */}
+          <Form.Item
+            label="총 코칭 경력 (년)"
+            name="coaching_years"
+          >
+            <InputNumber
+              min={0}
+              max={50}
+              className="w-full"
+              placeholder="년 단위로 입력"
+              addonAfter="년"
+            />
+          </Form.Item>
+
+          {/* Total coaching hours */}
           <Form.Item
             label={
               <span>
@@ -182,9 +242,19 @@ export default function DetailedProfilePage() {
             />
           </Form.Item>
 
+          {/* Specialty */}
+          <Form.Item
+            label="전문 분야"
+            name="specialty"
+          >
+            <Input
+              placeholder="예: 리더십 코칭, 커리어 전환, 팀 코칭 등"
+            />
+          </Form.Item>
+
           <Divider />
 
-          {/* 학위 */}
+          {/* Degrees */}
           <Form.Item
             label="학위"
             name="degrees"
@@ -260,9 +330,9 @@ export default function DetailedProfilePage() {
 
           <Divider />
 
-          {/* 관련 이력 */}
+          {/* Field experiences */}
           <Form.Item
-            label="관련 이력 (복수 선택 가능)"
+            label="코칭 분야별 이력 (복수 선택 가능)"
             name="field_experiences"
           >
             <Select
@@ -284,7 +354,7 @@ export default function DetailedProfilePage() {
                 {COACHING_FIELDS.find(f => f.value === experience.field)?.label}
               </Title>
 
-              {/* 코칭 이력 */}
+              {/* Coaching history */}
               <div className="mb-4">
                 <Text strong className="block mb-2">코칭 이력</Text>
                 <TextArea
@@ -312,7 +382,7 @@ export default function DetailedProfilePage() {
                 </Upload>
               </div>
 
-              {/* 보유 자격 */}
+              {/* Certifications */}
               <div>
                 <Text strong className="block mb-2">보유 자격</Text>
                 <TextArea
@@ -351,7 +421,7 @@ export default function DetailedProfilePage() {
                 loading={loading}
                 size="large"
               >
-                저장하고 완료
+                저장하기
               </Button>
             </Form.Item>
 
@@ -362,7 +432,7 @@ export default function DetailedProfilePage() {
                 className="w-full"
                 size="large"
               >
-                나중에 입력하기
+                취소
               </Button>
             </Form.Item>
           </div>

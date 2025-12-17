@@ -1,7 +1,7 @@
 import { Layout, Menu, Dropdown, Button, Avatar } from 'antd'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
-import { UserOutlined, LogoutOutlined, SettingOutlined, LoginOutlined } from '@ant-design/icons'
+import { UserOutlined, LogoutOutlined, SettingOutlined, LoginOutlined, TeamOutlined } from '@ant-design/icons'
 import authService from '../../services/authService'
 import { message } from 'antd'
 import type { MenuProps } from 'antd'
@@ -83,6 +83,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
     return ''
   }
 
+  // SUPER_ADMIN 권한 체크
+  const isSuperAdmin = userRoles.includes('SUPER_ADMIN')
+
   // 사용자 드롭다운 메뉴
   const userMenuItems: MenuProps['items'] = [
     {
@@ -97,6 +100,18 @@ export default function AppLayout({ children }: AppLayoutProps) {
       label: '세부정보 관리',
       onClick: () => navigate('/coach/competencies')
     },
+    // SUPER_ADMIN만 사용자 관리 메뉴 표시
+    ...(isSuperAdmin ? [
+      {
+        type: 'divider' as const
+      },
+      {
+        key: 'user-management',
+        icon: <TeamOutlined />,
+        label: '사용자 관리',
+        onClick: () => navigate('/admin/users')
+      }
+    ] : []),
     {
       type: 'divider'
     },

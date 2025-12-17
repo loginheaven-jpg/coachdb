@@ -1,15 +1,51 @@
-import { Typography, Card, Row, Col, Button, Alert, message } from 'antd'
+import { Typography, Card, Row, Col, Button, Alert, message, Timeline, Spin, Empty } from 'antd'
 import { useAuthStore } from '../stores/authStore'
-import { FileTextOutlined, CheckCircleOutlined, UserOutlined, InfoCircleOutlined } from '@ant-design/icons'
+import {
+  FileTextOutlined, CheckCircleOutlined, UserOutlined, InfoCircleOutlined,
+  SendOutlined, EditOutlined, TrophyOutlined, WarningOutlined, BellOutlined, ClockCircleOutlined
+} from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
+import notificationService, { Notification } from '../services/notificationService'
+import dayjs from 'dayjs'
+import relativeTime from 'dayjs/plugin/relativeTime'
+import 'dayjs/locale/ko'
+
+dayjs.extend(relativeTime)
+dayjs.locale('ko')
 
 const { Title, Text } = Typography
+
+// 알림 타입별 아이콘 및 색상 매핑
+const getNotificationIcon = (type: string) => {
+  switch (type) {
+    case 'APPLICATION_SUBMITTED':
+      return <SendOutlined style={{ color: '#52c41a' }} />
+    case 'APPLICATION_UPDATED':
+      return <EditOutlined style={{ color: '#1890ff' }} />
+    case 'SELECTION_RESULT':
+      return <TrophyOutlined style={{ color: '#faad14' }} />
+    case 'SUPPLEMENT_REQUEST':
+      return <WarningOutlined style={{ color: '#ff4d4f' }} />
+    case 'SUPPLEMENT_SUBMITTED':
+      return <CheckCircleOutlined style={{ color: '#52c41a' }} />
+    case 'PROJECT_UPDATE':
+      return <BellOutlined style={{ color: '#1890ff' }} />
+    case 'DEADLINE_REMINDER':
+      return <ClockCircleOutlined style={{ color: '#ff7a45' }} />
+    case 'REVIEW_COMPLETE':
+      return <CheckCircleOutlined style={{ color: '#722ed1' }} />
+    default:
+      return <BellOutlined style={{ color: '#8c8c8c' }} />
+  }
+}
 
 export default function CoachDashboard() {
   const { user } = useAuthStore()
   const navigate = useNavigate()
   const [needsDetailedProfile, setNeedsDetailedProfile] = useState(false)
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [loadingNotifications, setLoadingNotifications] = useState(true)
 
   useEffect(() => {
     // 세부정보 입력 여부 확인 (예: CoachProfile이 없는 경우)
@@ -18,6 +54,22 @@ export default function CoachDashboard() {
       setNeedsDetailedProfile(true)
     }
   }, [user])
+
+  // 최근 활동 (알림) 로드
+  useEffect(() => {
+    const loadNotifications = async () => {
+      try {
+        setLoadingNotifications(true)
+        const data = await notificationService.getMyNotifications(false, 10)
+        setNotifications(data)
+      } catch (error) {
+        console.error('알림 로드 실패:', error)
+      } finally {
+        setLoadingNotifications(false)
+      }
+    }
+    loadNotifications()
+  }, [])
 
   return (
     <div className="p-8">
@@ -101,7 +153,55 @@ export default function CoachDashboard() {
 
       <Card className="mt-8">
         <Title level={4}>최근 활동</Title>
-        <Text className="text-gray-500">아직 활동 내역이 없습니다.</Text>
+        {loadingNotifications ? (
+          <div className="text-center py-8">
+            <Spin />
+          </div>
+        ) : notifications.length === 0 ? (
+          <Empty
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+            description="아직 활동 내역이 없습니다."
+          />
+        ) : (
+          <Timeline
+            items={notifications.map((notification) => ({
+              dot: getNotificationIcon(notification.type),
+              children: (
+                <div
+                  className={`cursor-pointer hover:bg-gray-50 p-2 rounded -m-2 ${!notification.is_read ? 'font-medium' : ''}`}
+                  onClick={() => {
+                    // 알림 읽음 처리
+                    if (!notification.is_read) {
+                      notificationService.markAsRead(notification.notification_id)
+                    }
+                    // 관련 페이지로 이동
+                    if (notification.related_application_id) {
+                      navigate(`/coach/my-applications`)
+                    } else if (notification.related_project_id) {
+                      navigate(`/coach/projects`)
+                    }
+                  }}
+                >
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className={!notification.is_read ? 'text-blue-600' : ''}>
+                        {notification.title}
+                      </div>
+                      {notification.message && (
+                        <div className="text-gray-500 text-sm mt-1">
+                          {notification.message}
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-gray-400 text-xs whitespace-nowrap ml-4">
+                      {dayjs(notification.created_at).fromNow()}
+                    </div>
+                  </div>
+                </div>
+              )
+            }))}
+          />
+        )}
       </Card>
     </div>
   )
