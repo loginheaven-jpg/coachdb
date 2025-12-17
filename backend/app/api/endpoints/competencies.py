@@ -64,39 +64,17 @@ async def get_my_competencies(
     )
     competencies = result.scalars().all()
 
-    # Convert to response with file_info
+    # Convert to response with file_info using model_validate
     response_list = []
     for competency in competencies:
-        response_data = {
-            "competency_id": competency.competency_id,
-            "user_id": competency.user_id,
-            "item_id": competency.item_id,
-            "value": competency.value,
-            "file_id": competency.file_id,
-            "verification_status": competency.verification_status,
-            "verified_by": competency.verified_by,
-            "verified_at": competency.verified_at,
-            "rejection_reason": competency.rejection_reason,
-            "is_anonymized": competency.is_anonymized,
-            "created_at": competency.created_at,
-            "updated_at": competency.updated_at,
-            "is_globally_verified": competency.is_globally_verified,
-            "globally_verified_at": competency.globally_verified_at,
-            "competency_item": competency.competency_item,
-            "file_info": None
-        }
+        # Use model_validate to properly convert SQLAlchemy object
+        response = CoachCompetencyResponse.model_validate(competency)
 
-        # Add file info if file exists
+        # Add file_info if file exists
         if competency.file:
-            response_data["file_info"] = FileBasicInfo(
-                file_id=competency.file.file_id,
-                original_filename=competency.file.original_filename,
-                file_size=competency.file.file_size,
-                mime_type=competency.file.mime_type,
-                uploaded_at=competency.file.uploaded_at
-            )
+            response.file_info = FileBasicInfo.model_validate(competency.file)
 
-        response_list.append(CoachCompetencyResponse(**response_data))
+        response_list.append(response)
 
     return response_list
 
