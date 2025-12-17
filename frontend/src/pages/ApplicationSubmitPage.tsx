@@ -333,20 +333,35 @@ export default function ApplicationSubmitPage() {
       .filter(f => f.field_type !== 'file')
       .sort((a, b) => a.display_order - b.display_order)
 
+    // 기간 필드 예시 표시 여부 확인
+    const isPeriodField = (fieldName: string, fieldLabel: string) =>
+      fieldName === '기간' || fieldName === '근무기간' ||
+      fieldLabel === '기간' || fieldLabel === '근무기간'
+
     // 2열 그리드로 표시 (textarea는 전체 너비)
     return (
       <div className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
           {sortedFields.filter(f => f.field_type !== 'textarea').map(field => (
             <div key={field.field_name}>
-              <label className="block text-sm text-gray-600 mb-1">{field.field_label}</label>
+              <label className="block text-sm text-gray-600 mb-1">
+                {field.field_label}
+                {isPeriodField(field.field_name, field.field_label) && (
+                  <span className="text-gray-400 ml-2 text-xs">(예시: 2020년1월-2022년12월)</span>
+                )}
+              </label>
               {renderSingleField(field, entry[field.field_name], (val) => updateField(field.field_name, val))}
             </div>
           ))}
         </div>
         {sortedFields.filter(f => f.field_type === 'textarea').map(field => (
           <div key={field.field_name}>
-            <label className="block text-sm text-gray-600 mb-1">{field.field_label}</label>
+            <label className="block text-sm text-gray-600 mb-1">
+              {field.field_label}
+              {isPeriodField(field.field_name, field.field_label) && (
+                <span className="text-gray-400 ml-2 text-xs">(예시: 2020년1월-2022년12월)</span>
+              )}
+            </label>
             {renderSingleField(field, entry[field.field_name], (val) => updateField(field.field_name, val))}
           </div>
         ))}
