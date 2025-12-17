@@ -60,6 +60,9 @@ const USER_PROFILE_ITEM_CODES = [
 ]
 
 export default function ApplicationSubmitPage() {
+  // Debug: Log when component renders
+  console.log('[ApplicationSubmitPage] Component rendering - v2')
+
   const navigate = useNavigate()
   const { projectId } = useParams<{ projectId: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -77,6 +80,11 @@ export default function ApplicationSubmitPage() {
   const [profileChanged, setProfileChanged] = useState(false)
   const [repeatableData, setRepeatableData] = useState<Record<number, any[]>>({})
   const [uploadedFiles, setUploadedFiles] = useState<Record<string, UploadedFileInfo>>({})
+
+  // Debug: Track repeatableData changes
+  useEffect(() => {
+    console.log('[ApplicationSubmitPage] repeatableData changed:', JSON.stringify(repeatableData))
+  }, [repeatableData])
   const [existingApplicationId, setExistingApplicationId] = useState<number | null>(null)
   const [existingApplication, setExistingApplication] = useState<any>(null)
   const [_detailedProfile, setDetailedProfile] = useState<DetailedProfile | null>(null)

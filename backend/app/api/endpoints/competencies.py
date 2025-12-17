@@ -64,15 +64,74 @@ async def get_my_competencies(
     )
     competencies = result.scalars().all()
 
-    # Convert to response with file_info using model_validate
+    # Manually construct response to avoid model_validate issues with nested objects
     response_list = []
     for competency in competencies:
-        # Use model_validate to properly convert SQLAlchemy object
-        response = CoachCompetencyResponse.model_validate(competency)
+        # Build competency_item response if exists
+        competency_item_response = None
+        if competency.competency_item:
+            item = competency.competency_item
+            fields_response = []
+            if item.fields:
+                for field in item.fields:
+                    fields_response.append(CompetencyItemFieldResponse(
+                        field_id=field.field_id,
+                        field_name=field.field_name,
+                        field_label=field.field_label,
+                        field_type=field.field_type,
+                        field_options=field.field_options,
+                        is_required=field.is_required,
+                        display_order=field.display_order,
+                        placeholder=field.placeholder
+                    ))
 
-        # Add file_info if file exists
+            competency_item_response = CompetencyItemResponse(
+                item_id=item.item_id,
+                item_name=item.item_name,
+                item_code=item.item_code,
+                category=item.category.value if item.category else None,
+                input_type=item.input_type.value if item.input_type else None,
+                is_active=item.is_active,
+                template=item.template,
+                template_config=item.template_config,
+                is_repeatable=item.is_repeatable,
+                max_entries=item.max_entries,
+                description=item.description,
+                is_custom=item.is_custom,
+                created_by=item.created_by,
+                fields=fields_response
+            )
+
+        # Build file_info response if exists
+        file_info_response = None
         if competency.file:
-            response.file_info = FileBasicInfo.model_validate(competency.file)
+            file_info_response = FileBasicInfo(
+                file_id=competency.file.file_id,
+                original_filename=competency.file.original_filename,
+                file_size=competency.file.file_size,
+                mime_type=competency.file.mime_type,
+                uploaded_at=competency.file.uploaded_at
+            )
+
+        # Build main response
+        response = CoachCompetencyResponse(
+            competency_id=competency.competency_id,
+            user_id=competency.user_id,
+            item_id=competency.item_id,
+            value=competency.value,
+            file_id=competency.file_id,
+            verification_status=competency.verification_status,
+            verified_by=competency.verified_by,
+            verified_at=competency.verified_at,
+            rejection_reason=competency.rejection_reason,
+            is_anonymized=competency.is_anonymized,
+            created_at=competency.created_at,
+            updated_at=competency.updated_at,
+            is_globally_verified=competency.is_globally_verified,
+            globally_verified_at=competency.globally_verified_at,
+            competency_item=competency_item_response,
+            file_info=file_info_response
+        )
 
         response_list.append(response)
 
