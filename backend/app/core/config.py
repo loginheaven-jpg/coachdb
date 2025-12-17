@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     ]
 
     # File Storage
-    FILE_STORAGE_TYPE: str = "local"  # "local", "s3", or "minio"
+    FILE_STORAGE_TYPE: str = "local"  # "local", "s3", "minio", or "r2"
     FILE_STORAGE_PATH: str = "./uploads"
     FILE_MAX_SIZE_MB: int = 10
     # 허용 파일 형식 (비어있으면 모든 형식 허용, BLOCKED_FILE_TYPES 제외)
@@ -69,6 +69,19 @@ class Settings(BaseSettings):
     MINIO_SECRET_KEY: Optional[str] = "minioadmin"
     MINIO_BUCKET: Optional[str] = "coach-competency"
     MINIO_SECURE: bool = False
+
+    # Cloudflare R2 (S3 호환)
+    R2_ACCOUNT_ID: Optional[str] = None
+    R2_ACCESS_KEY_ID: Optional[str] = None
+    R2_SECRET_ACCESS_KEY: Optional[str] = None
+    R2_BUCKET: Optional[str] = None
+
+    @property
+    def r2_endpoint_url(self) -> str:
+        """R2 S3 호환 엔드포인트"""
+        if self.R2_ACCOUNT_ID:
+            return f"{self.R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+        return ""
 
     # File Retention
     FILE_RETENTION_YEARS: int = 5

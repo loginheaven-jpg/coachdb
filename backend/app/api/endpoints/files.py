@@ -34,13 +34,27 @@ def get_minio_client():
     )
 
 
-def ensure_bucket_exists(client: Minio):
-    """Ensure MinIO bucket exists"""
+def ensure_bucket_exists(client: Minio, bucket_name: str):
+    """Ensure bucket exists"""
     try:
-        if not client.bucket_exists(settings.MINIO_BUCKET):
-            client.make_bucket(settings.MINIO_BUCKET)
+        if not client.bucket_exists(bucket_name):
+            client.make_bucket(bucket_name)
     except S3Error as e:
         print(f"Error creating bucket: {e}")
+
+
+# Cloudflare R2 client initialization
+def get_r2_client():
+    """Get R2 client instance (S3 compatible)"""
+    if settings.FILE_STORAGE_TYPE != "r2":
+        return None
+
+    return Minio(
+        settings.r2_endpoint_url,
+        access_key=settings.R2_ACCESS_KEY_ID,
+        secret_key=settings.R2_SECRET_ACCESS_KEY,
+        secure=True
+    )
 
 
 @router.post("/upload", response_model=FileUploadResponse)
@@ -88,16 +102,29 @@ async def upload_file(
     file_path = f"uploads/{purpose.value}/{datetime.now().strftime('%Y/%m')}/{stored_filename}"
 
     try:
-        # Upload to MinIO
-        if settings.FILE_STORAGE_TYPE == "minio":
-            minio_client = get_minio_client()
-            ensure_bucket_exists(minio_client)
+        # Read file content once for all storage types
+        file_content = await file.read()
 
-            # Read file content
-            file_content = await file.read()
+        # Upload to storage
+        if settings.FILE_STORAGE_TYPE == "r2":
+            # Cloudflare R2
+            r2_client = get_r2_client()
+            ensure_bucket_exists(r2_client, settings.R2_BUCKET)
+
             file_stream = BytesIO(file_content)
+            r2_client.put_object(
+                settings.R2_BUCKET,
+                file_path,
+                file_stream,
+                length=len(file_content),
+                content_type=file.content_type
+            )
+        elif settings.FILE_STORAGE_TYPE == "minio":
+            # MinIO
+            minio_client = get_minio_client()
+            ensure_bucket_exists(minio_client, settings.MINIO_BUCKET)
 
-            # Upload to MinIO
+            file_stream = BytesIO(file_content)
             minio_client.put_object(
                 settings.MINIO_BUCKET,
                 file_path,
@@ -109,8 +136,7 @@ async def upload_file(
             # Local file storage
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
             with open(file_path, "wb") as f:
-                content = await file.read()
-                f.write(content)
+                f.write(file_content)
 
         # Save file metadata to database
         db_file = FileModel(
@@ -189,8 +215,25 @@ async def download_file(
         )
 
     try:
-        # Download from MinIO
-        if settings.FILE_STORAGE_TYPE == "minio":
+        # Download from storage
+        if settings.FILE_STORAGE_TYPE == "r2":
+            # Cloudflare R2
+            r2_client = get_r2_client()
+
+            response = r2_client.get_object(
+                settings.R2_BUCKET,
+                db_file.file_path
+            )
+
+            return StreamingResponse(
+                response,
+                media_type=db_file.mime_type,
+                headers={
+                    "Content-Disposition": f"attachment; filename={db_file.original_filename}"
+                }
+            )
+        elif settings.FILE_STORAGE_TYPE == "minio":
+            # MinIO
             minio_client = get_minio_client()
 
             response = minio_client.get_object(
@@ -308,8 +351,16 @@ async def delete_file(
             )
 
     try:
-        # Delete from MinIO
-        if settings.FILE_STORAGE_TYPE == "minio":
+        # Delete from storage
+        if settings.FILE_STORAGE_TYPE == "r2":
+            # Cloudflare R2
+            r2_client = get_r2_client()
+            r2_client.remove_object(
+                settings.R2_BUCKET,
+                db_file.file_path
+            )
+        elif settings.FILE_STORAGE_TYPE == "minio":
+            # MinIO
             minio_client = get_minio_client()
             minio_client.remove_object(
                 settings.MINIO_BUCKET,
