@@ -54,8 +54,10 @@ const USER_PROFILE_ITEM_CODES = [
 export default function ApplicationSubmitPage() {
   const navigate = useNavigate()
   const { projectId } = useParams<{ projectId: string }>()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const applicationIdParam = searchParams.get('applicationId')
+  const modeParam = searchParams.get('mode') || 'edit' // 'view' or 'edit'
+  const isViewMode = modeParam === 'view'
   const isEditMode = !!applicationIdParam
 
   const [form] = Form.useForm()
@@ -68,7 +70,23 @@ export default function ApplicationSubmitPage() {
   const [repeatableData, setRepeatableData] = useState<Record<number, any[]>>({})
   const [uploadedFiles, setUploadedFiles] = useState<Record<string, UploadedFileInfo>>({})
   const [existingApplicationId, setExistingApplicationId] = useState<number | null>(null)
+  const [existingApplication, setExistingApplication] = useState<any>(null)
   const { user, setUser } = useAuthStore()
+
+  // 수정 모드로 전환
+  const switchToEditMode = () => {
+    const params = new URLSearchParams(searchParams)
+    params.set('mode', 'edit')
+    setSearchParams(params)
+  }
+
+  // 수정 가능 여부 (모집기간 내)
+  const canEdit = () => {
+    if (!project) return false
+    const now = dayjs()
+    const endDate = dayjs(project.recruitment_end_date).endOf('day')
+    return now.isBefore(endDate) || now.isSame(endDate, 'day')
+  }
 
   useEffect(() => {
     if (projectId) {
@@ -178,6 +196,8 @@ export default function ApplicationSubmitPage() {
           applicationService.getApplication(appId),
           applicationService.getApplicationData(appId)
         ])
+
+        setExistingApplication(existingApp)
 
         // motivation, applied_role 설정
         form.setFieldsValue({
@@ -793,13 +813,33 @@ export default function ApplicationSubmitPage() {
           </Card>
         ) : (
           <Card>
-            <div className="mb-6">
-              <Title level={3} className="mb-2">{isEditMode ? '지원서 수정' : '지원서 작성'}</Title>
-              <Text className="text-gray-600">
-                {isEditMode
-                  ? '제출한 지원서를 수정할 수 있습니다. 수정 후 다시 제출해주세요.'
-                  : '모든 필수 항목을 입력한 후 제출해주세요.'}
-              </Text>
+            <div className="mb-6 flex justify-between items-start">
+              <div>
+                <Title level={3} className="mb-2">
+                  {isViewMode ? '지원서 내용' : (isEditMode ? '지원서 수정' : '지원서 작성')}
+                </Title>
+                <Text className="text-gray-600">
+                  {isViewMode
+                    ? '제출한 지원서 내용입니다.'
+                    : (isEditMode
+                      ? '제출한 지원서를 수정할 수 있습니다. 수정 후 다시 제출해주세요.'
+                      : '모든 필수 항목을 입력한 후 제출해주세요.')}
+                </Text>
+                {isViewMode && existingApplication && (
+                  <div className="mt-2">
+                    <Tag color="green">제출일: {dayjs(existingApplication.submitted_at).format('YYYY-MM-DD HH:mm')}</Tag>
+                  </div>
+                )}
+              </div>
+              {isViewMode && canEdit() && (
+                <Button
+                  type="primary"
+                  icon={<EditOutlined />}
+                  onClick={switchToEditMode}
+                >
+                  수정하기
+                </Button>
+              )}
             </div>
 
             <Form
@@ -807,6 +847,7 @@ export default function ApplicationSubmitPage() {
               layout="vertical"
               onFinish={handleSubmit}
               scrollToFirstError={{ behavior: 'smooth', block: 'center' }}
+              disabled={isViewMode}
             >
               {/* Personal info from user profile - editable */}
               <Card
@@ -814,7 +855,7 @@ export default function ApplicationSubmitPage() {
                 title={<><UserOutlined className="mr-2" />개인 정보</>}
                 className="mb-4"
                 extra={
-                  profileChanged && (
+                  !isViewMode && profileChanged && (
                     <Button
                       type="primary"
                       size="small"
@@ -827,12 +868,14 @@ export default function ApplicationSubmitPage() {
                   )
                 }
               >
-                <Alert
-                  type="info"
-                  message="회원정보에서 자동으로 불러옵니다. 수정하면 '기본정보에 반영' 버튼이 활성화됩니다."
-                  className="mb-4"
-                  showIcon
-                />
+                {!isViewMode && (
+                  <Alert
+                    type="info"
+                    message="회원정보에서 자동으로 불러옵니다. 수정하면 '기본정보에 반영' 버튼이 활성화됩니다."
+                    className="mb-4"
+                    showIcon
+                  />
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Form.Item label="이름" name="profile_name">
                     <Input onChange={handleProfileFieldChange} />
@@ -901,13 +944,15 @@ export default function ApplicationSubmitPage() {
                 )
                 return filteredItems.length > 0 ? (
                 <Card size="small" title="설문 항목" className="mb-4">
-                  <Alert
-                    type="info"
-                    message="아래 항목들은 과제 관리자가 취합하고자 하는 정보입니다. 정확하게 입력해주세요."
-                    className="mb-4"
-                    showIcon
-                    icon={<InfoCircleOutlined />}
-                  />
+                  {!isViewMode && (
+                    <Alert
+                      type="info"
+                      message="아래 항목들은 과제 관리자가 취합하고자 하는 정보입니다. 정확하게 입력해주세요."
+                      className="mb-4"
+                      showIcon
+                      icon={<InfoCircleOutlined />}
+                    />
+                  )}
                   <Space direction="vertical" style={{ width: '100%' }} size="middle">
                     {filteredItems.map((item, itemIndex) => {
                       const competencyItem = item.competency_item
@@ -938,7 +983,7 @@ export default function ApplicationSubmitPage() {
                                   </Space>
                                 }
                                 extra={
-                                  isRepeatable && entries.length > 1 && (
+                                  !isViewMode && isRepeatable && entries.length > 1 && (
                                     <Button
                                       type="text"
                                       danger
@@ -984,54 +1029,68 @@ export default function ApplicationSubmitPage() {
                                   const isUploading = fileInfo?.uploading
                                   return (proofLevel === 'required' || proofLevel === 'optional') && (
                                   <div className="flex items-center gap-2 pt-2 border-t">
-                                    {!hasFile ? (
-                                      <Upload
-                                        maxCount={1}
-                                        showUploadList={false}
-                                        beforeUpload={(file) => {
-                                          handleFileUpload(fileKey, file)
-                                          return false
-                                        }}
-                                      >
-                                        <Button icon={<UploadOutlined />} size="small">
-                                          {proofLevel === 'required' ? '증빙첨부 (필수)' : '증빙첨부 (선택)'}
-                                        </Button>
-                                      </Upload>
-                                    ) : isUploading ? (
-                                      <div className="flex items-center gap-2">
-                                        <Tag color="processing" icon={<LoadingOutlined />}>
-                                          {fileInfo?.file?.name} 업로드 중...
-                                        </Tag>
-                                      </div>
-                                    ) : (
-                                      <div className="flex items-center gap-2">
+                                    {isViewMode ? (
+                                      // View mode: just show file info
+                                      hasFile ? (
                                         <Tag color="green" icon={<CheckCircleOutlined />}>
-                                          {fileInfo?.file?.name}
+                                          {fileInfo?.file?.name || '첨부파일'}
                                         </Tag>
-                                        <Button
-                                          type="text"
-                                          danger
-                                          size="small"
-                                          icon={<DeleteOutlined />}
-                                          onClick={async () => {
-                                            // 서버에서도 파일 삭제
-                                            if (fileInfo?.file_id) {
-                                              try {
-                                                await fileService.deleteFile(fileInfo.file_id)
-                                              } catch (error) {
-                                                console.error('파일 삭제 실패:', error)
-                                              }
-                                            }
-                                            setUploadedFiles(prev => {
-                                              const newFiles = { ...prev }
-                                              delete newFiles[fileKey]
-                                              return newFiles
-                                            })
-                                          }}
-                                        >
-                                          삭제
-                                        </Button>
-                                      </div>
+                                      ) : (
+                                        <Text type="secondary">첨부파일 없음</Text>
+                                      )
+                                    ) : (
+                                      // Edit mode: show upload/delete buttons
+                                      <>
+                                        {!hasFile ? (
+                                          <Upload
+                                            maxCount={1}
+                                            showUploadList={false}
+                                            beforeUpload={(file) => {
+                                              handleFileUpload(fileKey, file)
+                                              return false
+                                            }}
+                                          >
+                                            <Button icon={<UploadOutlined />} size="small">
+                                              {proofLevel === 'required' ? '증빙첨부 (필수)' : '증빙첨부 (선택)'}
+                                            </Button>
+                                          </Upload>
+                                        ) : isUploading ? (
+                                          <div className="flex items-center gap-2">
+                                            <Tag color="processing" icon={<LoadingOutlined />}>
+                                              {fileInfo?.file?.name} 업로드 중...
+                                            </Tag>
+                                          </div>
+                                        ) : (
+                                          <div className="flex items-center gap-2">
+                                            <Tag color="green" icon={<CheckCircleOutlined />}>
+                                              {fileInfo?.file?.name}
+                                            </Tag>
+                                            <Button
+                                              type="text"
+                                              danger
+                                              size="small"
+                                              icon={<DeleteOutlined />}
+                                              onClick={async () => {
+                                                // 서버에서도 파일 삭제
+                                                if (fileInfo?.file_id) {
+                                                  try {
+                                                    await fileService.deleteFile(fileInfo.file_id)
+                                                  } catch (error) {
+                                                    console.error('파일 삭제 실패:', error)
+                                                  }
+                                                }
+                                                setUploadedFiles(prev => {
+                                                  const newFiles = { ...prev }
+                                                  delete newFiles[fileKey]
+                                                  return newFiles
+                                                })
+                                              }}
+                                            >
+                                              삭제
+                                            </Button>
+                                          </div>
+                                        )}
+                                      </>
                                     )}
                                   </div>
                                 )})()}
@@ -1039,8 +1098,8 @@ export default function ApplicationSubmitPage() {
                             )
                           })}
 
-                          {/* 항목 추가 버튼 (repeatable인 경우) */}
-                          {isRepeatable && (
+                          {/* 항목 추가 버튼 (repeatable인 경우, view 모드에서는 숨김) */}
+                          {!isViewMode && isRepeatable && (
                             <Button
                               type="dashed"
                               icon={<PlusOutlined />}
@@ -1078,19 +1137,31 @@ export default function ApplicationSubmitPage() {
                 <Space className="w-full justify-end">
                   <Button
                     size="large"
-                    onClick={() => navigate('/coach/projects')}
+                    onClick={() => navigate('/projects')}
                   >
-                    취소
+                    {isViewMode ? '목록으로' : '취소'}
                   </Button>
-                  <Button
-                    type="primary"
-                    htmlType="submit"
-                    size="large"
-                    loading={submitting}
-                    icon={<SendOutlined />}
-                  >
-                    {isEditMode ? '수정사항 제출' : '지원서 제출'}
-                  </Button>
+                  {!isViewMode && (
+                    <Button
+                      type="primary"
+                      htmlType="submit"
+                      size="large"
+                      loading={submitting}
+                      icon={<SendOutlined />}
+                    >
+                      {isEditMode ? '수정사항 제출' : '지원서 제출'}
+                    </Button>
+                  )}
+                  {isViewMode && canEdit() && (
+                    <Button
+                      type="primary"
+                      size="large"
+                      icon={<EditOutlined />}
+                      onClick={switchToEditMode}
+                    >
+                      수정하기
+                    </Button>
+                  )}
                 </Space>
               </Form.Item>
             </Form>

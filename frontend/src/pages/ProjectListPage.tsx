@@ -145,10 +145,19 @@ export default function ProjectListPage() {
       key: 'project_name',
       width: '25%',
       render: (text: string, record: ProjectListItem) => {
-        const canView = canManageProject(record, user?.user_id, userRoles)
-        if (canView) {
+        const canManage = canManageProject(record, user?.user_id, userRoles)
+        const existingApp = getMyApplication(record.project_id)
+
+        // 관리자는 관리 페이지로, 지원한 과제는 지원서 보기로
+        if (canManage) {
           return (
             <a onClick={() => navigate(`/admin/projects/${record.project_id}`)}>
+              {text}
+            </a>
+          )
+        } else if (existingApp) {
+          return (
+            <a onClick={() => navigate(`/coach/projects/${record.project_id}/apply?applicationId=${existingApp.application_id}&mode=view`)}>
               {text}
             </a>
           )
@@ -214,15 +223,28 @@ export default function ProjectListPage() {
             {/* 지원/지원완료 버튼 */}
             {existingApp ? (
               <>
-                <Tag color="green" icon={<CheckCircleOutlined />}>
+                <Tag
+                  color="green"
+                  icon={<CheckCircleOutlined />}
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => navigate(`/coach/projects/${record.project_id}/apply?applicationId=${existingApp.application_id}&mode=view`)}
+                >
                   지원완료
                 </Tag>
+                <Button
+                  type="link"
+                  size="small"
+                  icon={<EyeOutlined />}
+                  onClick={() => navigate(`/coach/projects/${record.project_id}/apply?applicationId=${existingApp.application_id}&mode=view`)}
+                >
+                  보기
+                </Button>
                 {canEditApplication(existingApp, record) && (
                   <Button
                     type="link"
                     size="small"
                     icon={<EditOutlined />}
-                    onClick={() => navigate(`/coach/projects/${record.project_id}/apply?applicationId=${existingApp.application_id}`)}
+                    onClick={() => navigate(`/coach/projects/${record.project_id}/apply?applicationId=${existingApp.application_id}&mode=edit`)}
                   >
                     수정
                   </Button>
