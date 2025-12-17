@@ -53,6 +53,18 @@ if DATABASE_URL:
             except Exception as e:
                 print(f"[WARN] competency_items.{col_name}: {e}")
 
+        # Add missing columns to application_data table
+        appdata_columns = [
+            ('supplement_deadline', 'TIMESTAMP WITH TIME ZONE'),
+            ('supplement_requested_at', 'TIMESTAMP WITH TIME ZONE'),
+        ]
+        for col_name, col_type in appdata_columns:
+            try:
+                cur.execute(f"ALTER TABLE application_data ADD COLUMN IF NOT EXISTS {col_name} {col_type}")
+                print(f"[OK] application_data.{col_name} ensured")
+            except Exception as e:
+                print(f"[WARN] application_data.{col_name}: {e}")
+
         # Add missing enum values to competencycategory
         enum_values = ['ADDON', 'EDUCATION', 'COACHING', 'OTHER']
         for val in enum_values:
