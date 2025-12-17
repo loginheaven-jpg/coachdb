@@ -322,10 +322,13 @@ export default function ApplicationSubmitPage() {
 
   // 반복 항목 값 업데이트
   const updateRepeatableEntry = (projectItemId: number, entryIndex: number, fieldName: string, value: any) => {
+    console.log('[updateRepeatableEntry] Called:', { projectItemId, entryIndex, fieldName, value })
     setRepeatableData(prev => {
       const current = [...(prev[projectItemId] || [{}])]
       current[entryIndex] = { ...current[entryIndex], [fieldName]: value }
-      return { ...prev, [projectItemId]: current }
+      const newState = { ...prev, [projectItemId]: current }
+      console.log('[updateRepeatableEntry] New state:', newState)
+      return newState
     })
   }
 
@@ -419,12 +422,17 @@ export default function ApplicationSubmitPage() {
 
     switch (field.field_type) {
       case 'select':
+        console.log('[renderSingleField] Select field:', field.field_name, 'value:', value)
         return (
           <Select
             placeholder={field.placeholder || `${field.field_label} 선택`}
-            value={value}
-            onChange={onChange}
+            value={value || undefined}
+            onChange={(val) => {
+              console.log('[Select onChange]', field.field_name, 'new value:', val)
+              onChange(val)
+            }}
             style={{ width: '100%' }}
+            allowClear
           >
             {options.map(opt => (
               <Select.Option key={opt} value={opt}>{opt}</Select.Option>
@@ -474,6 +482,7 @@ export default function ApplicationSubmitPage() {
     entry: any,
     updateField: (fieldName: string, value: any) => void
   ) => {
+    console.log('[renderDynamicFields] entry:', entry)
     // file 타입 필드 제외하고 정렬
     const sortedFields = [...fields]
       .filter(f => f.field_type !== 'file')
