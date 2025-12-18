@@ -92,7 +92,7 @@ if DATABASE_URL:
                 print(f"[WARN] coach_competencies.{col_name}: {e}")
 
         # Add missing enum values to competencycategory
-        enum_values = ['ADDON', 'EDUCATION', 'COACHING', 'OTHER']
+        enum_values = ['ADDON', 'EDUCATION', 'COACHING', 'OTHER', 'CERTIFICATION', 'EXPERIENCE', 'DETAIL']
         for val in enum_values:
             try:
                 cur.execute(f"ALTER TYPE competencycategory ADD VALUE IF NOT EXISTS '{val}'")

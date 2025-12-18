@@ -19,24 +19,10 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Add new enum values to competencycategory enum type
-    # PostgreSQL requires ALTER TYPE to add new values
+    # NOTE: ALTER TYPE ADD VALUE cannot run inside a transaction in PostgreSQL.
+    # The new enum values are added by start.sh BEFORE Alembic runs.
+    # This migration only updates the data using those enum values.
     conn = op.get_bind()
-
-    # Check if new values already exist to make migration idempotent
-    result = conn.execute(sa.text(
-        "SELECT enumlabel FROM pg_enum WHERE enumtypid = 'competencycategory'::regtype"
-    ))
-    existing_values = [row[0] for row in result]
-
-    # Add new enum values if not exists
-    new_values = ['CERTIFICATION', 'EXPERIENCE', 'DETAIL', 'OTHER']
-    for val in new_values:
-        if val not in existing_values:
-            conn.execute(sa.text(f"ALTER TYPE competencycategory ADD VALUE IF NOT EXISTS '{val}'"))
-
-    # Commit to make new enum values available
-    conn.execute(sa.text("COMMIT"))
 
     # Update existing items to new categories based on item_code patterns
     # CERT_* or ADDON_CERT_* → CERTIFICATION (자격증)
