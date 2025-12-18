@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Typography,
@@ -45,8 +45,78 @@ const { Option } = Select
 const { TextArea } = Input
 const { Panel } = Collapse
 
-// Unused - for reference only
-// const CATEGORY_ORDER = ['BASIC', 'DETAIL', 'ADDON', 'EDUCATION']
+// 학위 레벨 한글 매핑
+const DEGREE_LEVEL_LABELS: Record<string, string> = {
+  'bachelor': '학사',
+  'master': '석사',
+  'doctorate': '박사',
+  'none': '없음'
+}
+
+// JSON 값을 보기 좋게 포맷팅하는 헬퍼 함수
+const formatCompetencyValue = (value: string | null | undefined): React.ReactNode => {
+  if (!value) return '-'
+
+  try {
+    const parsed = JSON.parse(value)
+
+    // 배열인 경우 (예: 자격증 목록)
+    if (Array.isArray(parsed)) {
+      if (parsed.length === 0) return '-'
+
+      return (
+        <ul className="list-disc list-inside space-y-1">
+          {parsed.map((entry, idx) => {
+            // cert_name이 있는 경우 (자격증)
+            if (entry.cert_name) {
+              return <li key={idx}>{entry.cert_name}</li>
+            }
+            // text가 있는 경우 (일반 텍스트 항목)
+            if (entry.text) {
+              return <li key={idx}>{entry.text}</li>
+            }
+            // 기타 객체
+            const displayText = Object.entries(entry)
+              .filter(([k]) => !k.startsWith('_') && k !== 'file_id')
+              .map(([k, v]) => `${k}: ${v}`)
+              .join(', ')
+            return displayText ? <li key={idx}>{displayText}</li> : null
+          })}
+        </ul>
+      )
+    }
+
+    // 객체인 경우 (예: 학위 정보)
+    if (typeof parsed === 'object' && parsed !== null) {
+      // degree_type이 있으면 학위 정보
+      if (parsed.degree_type) {
+        const degreeLevel = DEGREE_LEVEL_LABELS[parsed.degree_type] || parsed.degree_type
+        const parts = [degreeLevel]
+        // 숫자 키가 있으면 추가 정보 (예: 전공명)
+        Object.entries(parsed).forEach(([k, v]) => {
+          if (k !== 'degree_type' && !k.startsWith('_') && v) {
+            if (typeof v === 'string' && v.trim()) {
+              parts.push(v as string)
+            }
+          }
+        })
+        return parts.join(' - ')
+      }
+
+      // 기타 객체: 키-값 나열
+      const displayParts = Object.entries(parsed)
+        .filter(([k, v]) => !k.startsWith('_') && k !== 'file_id' && v)
+        .map(([k, v]) => `${v}`)
+      return displayParts.length > 0 ? displayParts.join(', ') : value
+    }
+
+    // 그 외 (문자열로 파싱된 경우)
+    return String(parsed)
+  } catch {
+    // JSON 파싱 실패 시 원본 반환
+    return value
+  }
+}
 
 interface GroupedItems {
   [category: string]: CompetencyItem[]
@@ -422,7 +492,7 @@ export default function UnifiedCompetencyPage() {
 
           {comp.value && (
             <div className="mt-2">
-              <Text>{comp.value}</Text>
+              {formatCompetencyValue(comp.value)}
             </div>
           )}
 
