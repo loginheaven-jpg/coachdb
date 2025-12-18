@@ -28,6 +28,9 @@ from app.schemas.competency import (
 
 router = APIRouter(prefix="/competencies", tags=["competencies"])
 
+# Debug: Log router initialization
+print("[competencies.py] Router initialized with prefix=/competencies")
+
 
 # ============================================================================
 # Migration Endpoint - 기존 응모 데이터를 세부정보로 마이그레이션
@@ -43,6 +46,7 @@ async def migrate_from_applications(
     This endpoint reads all ApplicationData for the user and creates
     corresponding CoachCompetency entries.
     """
+    print("[migrate-from-applications] Endpoint called!")  # Debug log
     from app.models.application import Application, ApplicationData
 
     print(f"[Migration] Starting for user {current_user.user_id}")
