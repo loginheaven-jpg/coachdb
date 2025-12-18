@@ -110,9 +110,31 @@ if DATABASE_URL:
             except Exception as e:
                 print(f"[WARN] enum itemtemplate.{val}: {e}")
 
+        # Update competency_items categories based on item_code patterns
+        category_updates = [
+            # CERT_* or ADDON_CERT_* → CERTIFICATION
+            ("UPDATE competency_items SET category = 'CERTIFICATION' WHERE item_code LIKE 'CERT_%' OR item_code LIKE 'ADDON_CERT_%'", "CERTIFICATION"),
+            # EDU_* or DEGREE_* → EDUCATION
+            ("UPDATE competency_items SET category = 'EDUCATION' WHERE item_code LIKE 'EDU_%' OR item_code LIKE 'DEGREE_%'", "EDUCATION"),
+            # EXP_*, COACHING_*, ADDON_COACHING_* → EXPERIENCE
+            ("UPDATE competency_items SET category = 'EXPERIENCE' WHERE item_code LIKE 'EXP_%' OR item_code LIKE 'COACHING_%' OR item_code LIKE 'ADDON_COACHING_%'", "EXPERIENCE"),
+            # Legacy experience items → EXPERIENCE
+            ("UPDATE competency_items SET category = 'EXPERIENCE' WHERE item_code IN ('ADDON_EXP_HOURS', 'ADDON_CAREER', 'ADDON_TRAINING')", "EXPERIENCE legacy"),
+            # SPECIALTY, ADDON_INTRO, ADDON_SPECIALTY → OTHER
+            ("UPDATE competency_items SET category = 'OTHER' WHERE item_code IN ('SPECIALTY', 'ADDON_INTRO', 'ADDON_SPECIALTY')", "OTHER"),
+            # EVAL_* → DETAIL
+            ("UPDATE competency_items SET category = 'DETAIL' WHERE item_code LIKE 'EVAL_%'", "DETAIL"),
+        ]
+        for sql, label in category_updates:
+            try:
+                cur.execute(sql)
+                print(f"[OK] category update: {label}")
+            except Exception as e:
+                print(f"[WARN] category update {label}: {e}")
+
         cur.close()
         conn.close()
-        print("[OK] Database columns fixed")
+        print("[OK] Database columns and categories fixed")
     except Exception as e:
         print(f"[WARN] Could not fix columns: {e}")
 else:
