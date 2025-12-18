@@ -32,6 +32,83 @@ from app.schemas.project import CustomQuestionResponse, CustomQuestionAnswerResp
 router = APIRouter(prefix="/applications", tags=["applications"])
 
 
+# ============================================================================
+# Migration Endpoint - 기존 응모 데이터를 세부정보로 마이그레이션
+# ============================================================================
+@router.post("/migrate-to-competencies", status_code=200)
+async def migrate_applications_to_competencies(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Migrate current user's application data to competency wallet (세부정보)
+
+    This is a one-time migration endpoint for existing applications.
+    """
+    from app.models.competency import CoachCompetency, VerificationStatus
+
+    # Get all user's applications with data
+    apps_result = await db.execute(
+        select(Application).where(Application.user_id == current_user.user_id)
+    )
+    applications = apps_result.scalars().all()
+
+    migrated_count = 0
+    skipped_count = 0
+
+    for application in applications:
+        # Get application data
+        data_result = await db.execute(
+            select(ApplicationData).where(ApplicationData.application_id == application.application_id)
+        )
+        app_data_items = data_result.scalars().all()
+
+        for data_item in app_data_items:
+            if not data_item.submitted_value:
+                skipped_count += 1
+                continue
+
+            # Check if competency already exists
+            comp_result = await db.execute(
+                select(CoachCompetency).where(
+                    CoachCompetency.user_id == current_user.user_id,
+                    CoachCompetency.item_id == data_item.item_id
+                )
+            )
+            existing = comp_result.scalar_one_or_none()
+
+            if existing:
+                # Update if different
+                if existing.value != data_item.submitted_value:
+                    existing.value = data_item.submitted_value
+                    if data_item.submitted_file_id:
+                        existing.file_id = data_item.submitted_file_id
+                    migrated_count += 1
+                    print(f"[Migration] Updated competency for item_id={data_item.item_id}")
+                else:
+                    skipped_count += 1
+            else:
+                # Create new
+                new_comp = CoachCompetency(
+                    user_id=current_user.user_id,
+                    item_id=data_item.item_id,
+                    value=data_item.submitted_value,
+                    file_id=data_item.submitted_file_id,
+                    verification_status=VerificationStatus.PENDING
+                )
+                db.add(new_comp)
+                migrated_count += 1
+                print(f"[Migration] Created competency for item_id={data_item.item_id}")
+
+    await db.commit()
+
+    return {
+        "message": f"마이그레이션 완료: {migrated_count}개 항목 동기화, {skipped_count}개 스킵",
+        "migrated": migrated_count,
+        "skipped": skipped_count
+    }
+
+
 @router.get("/my", response_model=List[ParticipationProjectResponse])
 async def get_my_applications(
     db: AsyncSession = Depends(get_db),
