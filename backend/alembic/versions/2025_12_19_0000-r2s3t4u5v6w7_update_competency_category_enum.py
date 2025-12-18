@@ -41,39 +41,48 @@ def upgrade() -> None:
     conn.execute(sa.text("COMMIT"))
 
     # Update existing items to new categories based on item_code patterns
-    # CERT_* → CERTIFICATION
+    # CERT_* or ADDON_CERT_* → CERTIFICATION (자격증)
     conn.execute(sa.text("""
         UPDATE competency_items
         SET category = 'CERTIFICATION'
-        WHERE item_code LIKE 'CERT_%'
+        WHERE item_code LIKE 'CERT_%' OR item_code LIKE 'ADDON_CERT_%'
     """))
 
-    # EDU_* → EDUCATION
+    # EDU_* or DEGREE_* → EDUCATION (학력)
     conn.execute(sa.text("""
         UPDATE competency_items
         SET category = 'EDUCATION'
-        WHERE item_code LIKE 'EDU_%'
+        WHERE item_code LIKE 'EDU_%' OR item_code LIKE 'DEGREE_%'
     """))
 
-    # EXP_* → EXPERIENCE
+    # EXP_* → EXPERIENCE (역량이력)
     conn.execute(sa.text("""
         UPDATE competency_items
         SET category = 'EXPERIENCE'
         WHERE item_code LIKE 'EXP_%'
     """))
 
-    # COACHING_* → EXPERIENCE
+    # COACHING_* or ADDON_COACHING_* → EXPERIENCE (역량이력)
     conn.execute(sa.text("""
         UPDATE competency_items
         SET category = 'EXPERIENCE'
-        WHERE item_code LIKE 'COACHING_%'
+        WHERE item_code LIKE 'COACHING_%' OR item_code LIKE 'ADDON_COACHING_%'
     """))
 
-    # SPECIALTY, ADDON_* → OTHER
+    # Legacy experience items → EXPERIENCE
+    conn.execute(sa.text("""
+        UPDATE competency_items
+        SET category = 'EXPERIENCE'
+        WHERE item_code IN ('ADDON_EXP_HOURS', 'ADDON_CAREER', 'ADDON_TRAINING')
+    """))
+
+    # SPECIALTY, other ADDON_* → OTHER (기타)
     conn.execute(sa.text("""
         UPDATE competency_items
         SET category = 'OTHER'
-        WHERE item_code = 'SPECIALTY' OR item_code LIKE 'ADDON_%'
+        WHERE item_code = 'SPECIALTY'
+           OR item_code = 'ADDON_INTRO'
+           OR item_code = 'ADDON_SPECIALTY'
     """))
 
     # EVAL_* stays as DETAIL (admin-only evaluation items)
