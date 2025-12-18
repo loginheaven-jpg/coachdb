@@ -22,6 +22,7 @@ import applicationService, { ApplicationSubmitRequest, ApplicationDataSubmit } f
 import authService, { UserUpdateData } from '../services/authService'
 import fileService from '../services/fileService'
 import profileService, { DetailedProfile } from '../services/profileService'
+import competencyService, { CoachCompetency } from '../services/competencyService'
 import { useAuthStore } from '../stores/authStore'
 import dayjs from 'dayjs'
 
@@ -89,6 +90,7 @@ export default function ApplicationSubmitPage() {
   const [existingApplication, setExistingApplication] = useState<any>(null)
   const [_detailedProfile, setDetailedProfile] = useState<DetailedProfile | null>(null)
   const [profileLoaded, setProfileLoaded] = useState(false)
+  const [competenciesLoaded, setCompetenciesLoaded] = useState(false)
   const { user, setUser } = useAuthStore()
 
   // 수정 모드로 전환
@@ -167,6 +169,117 @@ export default function ApplicationSubmitPage() {
 
     loadDetailedProfile()
   }, [projectItems, isEditMode, profileLoaded])
+
+  // 기존 역량 정보(세부정보)로 설문 항목 자동 채움 (신규 지원 시만)
+  useEffect(() => {
+    // 이미 로드했거나, projectItems가 아직 없거나, 수정모드면 스킵
+    if (competenciesLoaded || projectItems.length === 0 || isEditMode) {
+      return
+    }
+
+    const loadExistingCompetencies = async () => {
+      try {
+        console.log('[ApplicationSubmitPage] Loading existing competencies for pre-fill...')
+        const competencies = await competencyService.getMyCompetencies()
+        setCompetenciesLoaded(true)
+        console.log('[ApplicationSubmitPage] Loaded competencies:', competencies.length)
+
+        // 기존 역량이 없어도 repeatableData는 초기화해야 함
+        if (competencies.length === 0) {
+          console.log('[ApplicationSubmitPage] No existing competencies to pre-fill, initializing defaults')
+          const defaultRepeatableData: Record<number, any[]> = {}
+          projectItems.forEach(item => {
+            if (item.competency_item?.is_repeatable) {
+              defaultRepeatableData[item.project_item_id] = [{}]
+            }
+          })
+          setRepeatableData(defaultRepeatableData)
+          return
+        }
+
+        // 역량 데이터를 item_id로 매핑
+        const competencyMap = new Map<number, CoachCompetency>()
+        competencies.forEach(c => {
+          competencyMap.set(c.item_id, c)
+        })
+
+        // 폼 값과 repeatableData 초기화
+        const formValues: Record<string, any> = {}
+        const newRepeatableData: Record<number, any[]> = {}
+
+        projectItems.forEach(item => {
+          const itemId = item.competency_item?.item_id
+          if (!itemId) return
+
+          const isRepeatable = item.competency_item?.is_repeatable
+          const existingComp = competencyMap.get(itemId)
+
+          if (isRepeatable) {
+            // 반복 가능 항목: 기본값 또는 기존 데이터
+            if (existingComp && existingComp.value) {
+              try {
+                const entries = JSON.parse(existingComp.value)
+                if (Array.isArray(entries) && entries.length > 0) {
+                  newRepeatableData[item.project_item_id] = entries
+                  console.log(`[Pre-fill] Repeatable item ${itemId} with ${entries.length} entries`)
+                } else {
+                  newRepeatableData[item.project_item_id] = [{}] // 기본값
+                }
+              } catch {
+                // JSON 파싱 실패 시 단일 값으로 처리
+                newRepeatableData[item.project_item_id] = [{ text: existingComp.value }]
+              }
+            } else {
+              // 기존 데이터 없으면 빈 항목 하나
+              newRepeatableData[item.project_item_id] = [{}]
+            }
+          } else if (existingComp && existingComp.value) {
+            // 일반 항목 (기존 데이터 있을 때만)
+            try {
+              // JSON인 경우 파싱
+              const parsedValue = JSON.parse(existingComp.value)
+              formValues[`item_${item.project_item_id}`] = parsedValue
+              console.log(`[Pre-fill] Item ${itemId} with parsed JSON value`)
+            } catch {
+              // 일반 문자열
+              formValues[`item_${item.project_item_id}`] = existingComp.value
+              console.log(`[Pre-fill] Item ${itemId} with string value: ${existingComp.value}`)
+            }
+          }
+        })
+
+        // 상태 업데이트 - 항상 설정 (신규 지원 시 초기화 역할)
+        setRepeatableData(newRepeatableData)
+        console.log('[ApplicationSubmitPage] RepeatableData initialized/pre-filled:', Object.keys(newRepeatableData).length, 'items')
+
+        if (Object.keys(formValues).length > 0) {
+          form.setFieldsValue(formValues)
+          console.log('[ApplicationSubmitPage] Form pre-filled with', Object.keys(formValues).length, 'values')
+        }
+
+        // 기존 데이터가 있을 때만 메시지 표시
+        const hasPrefilledData = Object.keys(formValues).length > 0 ||
+          Object.values(newRepeatableData).some(entries => entries.some(e => Object.keys(e).length > 0))
+        if (hasPrefilledData) {
+          message.info('기존에 입력한 세부정보를 불러왔습니다.')
+        }
+      } catch (error) {
+        console.error('기존 역량 정보 로드 실패:', error)
+        // 에러 시에도 기본 repeatableData 초기화 (UI가 제대로 작동하도록)
+        const defaultRepeatableData: Record<number, any[]> = {}
+        projectItems.forEach(item => {
+          if (item.competency_item?.is_repeatable) {
+            defaultRepeatableData[item.project_item_id] = [{}]
+          }
+        })
+        setRepeatableData(defaultRepeatableData)
+        setCompetenciesLoaded(true) // 에러 시에도 재시도 방지
+      }
+    }
+
+    loadExistingCompetencies()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectItems, isEditMode, competenciesLoaded])
 
   // 개인정보 필드 변경 감지
   const handleProfileFieldChange = () => {
@@ -296,9 +409,10 @@ export default function ApplicationSubmitPage() {
         })
 
         form.setFieldsValue(formValues)
+        // 수정 모드에서만 repeatableData 설정 (신규는 loadExistingCompetencies에서 처리)
+        setRepeatableData(initialRepeatableData)
       }
-
-      setRepeatableData(initialRepeatableData)
+      // 신규 지원 시에는 loadExistingCompetencies useEffect에서 repeatableData 초기화
     } catch (error: any) {
       console.error('과제 정보 로드 실패:', error)
       message.error('과제 정보를 불러오는데 실패했습니다.')
@@ -820,6 +934,10 @@ export default function ApplicationSubmitPage() {
           submitted_file_id: submittedFileId
         }
       }).filter(data => data.item_id > 0)
+
+      console.log('[ApplicationSubmitPage] Prepared applicationData for sync:',
+        applicationData.map(d => ({ item_id: d.item_id, has_value: !!d.submitted_value, value_preview: d.submitted_value?.substring(0, 50) }))
+      )
 
       // 3. Submit application with all data
       const submitData: ApplicationSubmitRequest = {

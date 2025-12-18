@@ -3,6 +3,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List
 from datetime import datetime, timedelta
+import logging
+
+logger = logging.getLogger(__name__)
 
 from app.core.database import get_db
 from app.core.security import get_current_user
@@ -443,6 +446,12 @@ async def submit_application(
 
     **Permissions**: Users can submit their own applications
     """
+    # Debug: Log received data
+    print(f"[submit_application] Received application_id={application_id}")
+    print(f"[submit_application] application_data count: {len(submit_data.application_data)}")
+    for i, item in enumerate(submit_data.application_data):
+        print(f"[submit_application] data[{i}]: item_id={item.item_id}, has_value={bool(item.submitted_value)}, value_len={len(item.submitted_value) if item.submitted_value else 0}")
+
     # Get application
     app_result = await db.execute(
         select(Application).where(Application.application_id == application_id)
@@ -513,7 +522,57 @@ async def submit_application(
             )
             db.add(new_data)
 
+        # ============================================================
+        # Auto-sync to CoachCompetency (역량 지갑에 자동 저장)
+        # ============================================================
+        try:
+            value_preview = data_item.submitted_value[:50] if data_item.submitted_value else None
+            print(f"[Auto-sync] Processing item_id={data_item.item_id}, value_preview={value_preview}")
+
+            if data_item.submitted_value:  # Only sync if there's a value
+                from app.models.competency import CoachCompetency, VerificationStatus
+
+                # Check if user already has this competency
+                competency_result = await db.execute(
+                    select(CoachCompetency).where(
+                        CoachCompetency.user_id == application.user_id,
+                        CoachCompetency.item_id == data_item.item_id
+                    )
+                )
+                existing_competency = competency_result.scalar_one_or_none()
+
+                if existing_competency:
+                    # Update existing competency if value changed
+                    print(f"[Auto-sync] Updating existing competency {existing_competency.competency_id}")
+                    if existing_competency.value != data_item.submitted_value:
+                        existing_competency.value = data_item.submitted_value
+                        if data_item.submitted_file_id:
+                            existing_competency.file_id = data_item.submitted_file_id
+                        # Reset verification when value changes
+                        existing_competency.verification_status = VerificationStatus.PENDING
+                else:
+                    # Create new competency in the wallet
+                    print(f"[Auto-sync] Creating new competency for user={application.user_id}, item={data_item.item_id}")
+                    new_competency = CoachCompetency(
+                        user_id=application.user_id,
+                        item_id=data_item.item_id,
+                        value=data_item.submitted_value,
+                        file_id=data_item.submitted_file_id,
+                        verification_status=VerificationStatus.PENDING
+                    )
+                    db.add(new_competency)
+                    print(f"[Auto-sync] Added new competency to session")
+            else:
+                print(f"[Auto-sync] Skipping item_id={data_item.item_id} - no submitted_value")
+        except Exception as sync_error:
+            print(f"[Auto-sync] ERROR syncing item_id={data_item.item_id}: {str(sync_error)}")
+            import traceback
+            traceback.print_exc()
+            # Don't raise - let the commit proceed with ApplicationData at least
+
+    print(f"[Auto-sync] About to commit changes for application {application_id}...")
     await db.commit()
+    print(f"[Auto-sync] Commit successful for application {application_id}!")
     await db.refresh(application)
 
     return ApplicationResponse(
