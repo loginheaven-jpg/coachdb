@@ -113,27 +113,31 @@ async def get_my_competencies(
                 uploaded_at=competency.file.uploaded_at
             )
 
-        # Build main response
-        response = CoachCompetencyResponse(
-            competency_id=competency.competency_id,
-            user_id=competency.user_id,
-            item_id=competency.item_id,
-            value=competency.value,
-            file_id=competency.file_id,
-            verification_status=competency.verification_status,
-            verified_by=competency.verified_by,
-            verified_at=competency.verified_at,
-            rejection_reason=competency.rejection_reason,
-            is_anonymized=competency.is_anonymized,
-            created_at=competency.created_at,
-            updated_at=competency.updated_at,
-            is_globally_verified=competency.is_globally_verified,
-            globally_verified_at=competency.globally_verified_at,
-            competency_item=competency_item_response,
-            file_info=file_info_response
-        )
-
-        response_list.append(response)
+        # Build main response with null handling for required fields
+        try:
+            response = CoachCompetencyResponse(
+                competency_id=competency.competency_id,
+                user_id=competency.user_id,
+                item_id=competency.item_id,
+                value=competency.value,
+                file_id=competency.file_id,
+                verification_status=competency.verification_status if competency.verification_status else VerificationStatus.PENDING,
+                verified_by=competency.verified_by,
+                verified_at=competency.verified_at,
+                rejection_reason=competency.rejection_reason,
+                is_anonymized=competency.is_anonymized if competency.is_anonymized is not None else False,
+                created_at=competency.created_at,
+                updated_at=competency.updated_at,
+                is_globally_verified=competency.is_globally_verified if competency.is_globally_verified is not None else False,
+                globally_verified_at=competency.globally_verified_at,
+                competency_item=competency_item_response,
+                file_info=file_info_response
+            )
+            response_list.append(response)
+        except Exception as e:
+            # Log the error but continue processing other competencies
+            import logging
+            logging.error(f"Error processing competency {competency.competency_id}: {str(e)}")
 
     return response_list
 
