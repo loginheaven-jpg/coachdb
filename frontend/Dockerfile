@@ -12,8 +12,11 @@ RUN npm install
 # Copy application code
 COPY . .
 
-# Expose port
-EXPOSE 5173
+# Build for production
+RUN npm run build:prod
 
-# Run the application
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+# Expose port (serve uses 3000 by default)
+EXPOSE 3000
+
+# Serve built files (serve uses PORT env var automatically)
+CMD ["npx", "serve", "-s", "dist"]
