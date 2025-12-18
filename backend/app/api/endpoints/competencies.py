@@ -35,6 +35,13 @@ print("[competencies.py] Router initialized with prefix=/competencies")
 # ============================================================================
 # Migration Endpoint - 기존 응모 데이터를 세부정보로 마이그레이션
 # ============================================================================
+@router.get("/migrate-test")
+async def migrate_test(current_user: User = Depends(get_current_user)):
+    """Test endpoint to verify migration route is accessible"""
+    print("[migrate-test] GET endpoint called!")
+    return {"message": "Migration endpoint is accessible", "user_id": current_user.user_id}
+
+
 @router.post("/migrate-from-applications")
 async def migrate_from_applications(
     db: AsyncSession = Depends(get_db),
