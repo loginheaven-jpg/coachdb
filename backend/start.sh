@@ -79,6 +79,18 @@ if DATABASE_URL:
             except Exception as e:
                 print(f"[WARN] coach_profiles.{col_name}: {e}")
 
+        # Add missing columns to coach_competencies table (global verification)
+        coach_competencies_columns = [
+            ('is_globally_verified', 'BOOLEAN DEFAULT FALSE'),
+            ('globally_verified_at', 'TIMESTAMP WITH TIME ZONE'),
+        ]
+        for col_name, col_type in coach_competencies_columns:
+            try:
+                cur.execute(f"ALTER TABLE coach_competencies ADD COLUMN IF NOT EXISTS {col_name} {col_type}")
+                print(f"[OK] coach_competencies.{col_name} ensured")
+            except Exception as e:
+                print(f"[WARN] coach_competencies.{col_name}: {e}")
+
         # Add missing enum values to competencycategory
         enum_values = ['ADDON', 'EDUCATION', 'COACHING', 'OTHER']
         for val in enum_values:
