@@ -19,15 +19,22 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # Check if columns already exist before adding (idempotent migration)
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    existing_columns = [col['name'] for col in inspector.get_columns('coach_competencies')]
+
     # Add is_globally_verified column with default False
-    op.add_column('coach_competencies',
-        sa.Column('is_globally_verified', sa.Boolean(), nullable=False, server_default='false')
-    )
+    if 'is_globally_verified' not in existing_columns:
+        op.add_column('coach_competencies',
+            sa.Column('is_globally_verified', sa.Boolean(), nullable=False, server_default='false')
+        )
 
     # Add globally_verified_at column
-    op.add_column('coach_competencies',
-        sa.Column('globally_verified_at', sa.DateTime(timezone=True), nullable=True)
-    )
+    if 'globally_verified_at' not in existing_columns:
+        op.add_column('coach_competencies',
+            sa.Column('globally_verified_at', sa.DateTime(timezone=True), nullable=True)
+        )
 
 
 def downgrade() -> None:
