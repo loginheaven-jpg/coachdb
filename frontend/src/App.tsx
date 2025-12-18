@@ -5,7 +5,7 @@ import RegisterPage from './pages/RegisterPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import ProfileEditPage from './pages/ProfileEditPage'
-import CompetencyManagementPageNew from './pages/CompetencyManagementPageNew'
+import UnifiedCompetencyPage from './pages/UnifiedCompetencyPage'
 import MyApplicationsPage from './pages/MyApplicationsPage'
 import CoachDashboard from './pages/CoachDashboard'
 import StaffDashboard from './pages/StaffDashboard'
@@ -15,7 +15,6 @@ import ProjectCreatePage from './pages/ProjectCreatePage'
 import ProjectDetailPage from './pages/ProjectDetailPage'
 import ProjectEditPage from './pages/ProjectEditPage'
 import ProjectEvaluationCreatePage from './pages/ProjectEvaluationCreatePage'
-import ProjectBrowsePage from './pages/ProjectBrowsePage'
 import ApplicationSubmitPage from './pages/ApplicationSubmitPage'
 import AdminCompetencyItemsPage from './pages/AdminCompetencyItemsPage'
 import UserManagementPage from './pages/UserManagementPage'
@@ -111,7 +110,7 @@ function App() {
           path="/coach/competencies"
           element={
             <ProtectedRoute allowedRoles={COACH_ROLES}>
-              <CompetencyManagementPageNew />
+              <UnifiedCompetencyPage />
             </ProtectedRoute>
           }
         />
