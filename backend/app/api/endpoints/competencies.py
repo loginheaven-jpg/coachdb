@@ -76,28 +76,28 @@ async def get_my_competencies(
                 for field in item.fields:
                     fields_response.append(CompetencyItemFieldResponse(
                         field_id=field.field_id,
-                        field_name=field.field_name,
-                        field_label=field.field_label,
-                        field_type=field.field_type,
+                        field_name=field.field_name or "",
+                        field_label=field.field_label or "",
+                        field_type=field.field_type or "text",
                         field_options=field.field_options,
-                        is_required=field.is_required,
-                        display_order=field.display_order,
+                        is_required=field.is_required if field.is_required is not None else True,
+                        display_order=field.display_order if field.display_order is not None else 0,
                         placeholder=field.placeholder
                     ))
 
             competency_item_response = CompetencyItemResponse(
                 item_id=item.item_id,
-                item_name=item.item_name,
-                item_code=item.item_code,
+                item_name=item.item_name or "",
+                item_code=item.item_code or "",
                 category=item.category.value if item.category else "ADDON",
                 input_type=item.input_type.value if item.input_type else "text",
-                is_active=item.is_active,
+                is_active=item.is_active if item.is_active is not None else True,
                 template=item.template,
                 template_config=item.template_config,
-                is_repeatable=item.is_repeatable,
+                is_repeatable=item.is_repeatable if item.is_repeatable is not None else False,
                 max_entries=item.max_entries,
                 description=item.description,
-                is_custom=item.is_custom,
+                is_custom=item.is_custom if item.is_custom is not None else False,
                 created_by=item.created_by,
                 fields=fields_response
             )
