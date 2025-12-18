@@ -29,13 +29,11 @@ def upgrade() -> None:
     ))
     existing_values = [row[0] for row in result]
 
-    # Add CERTIFICATION if not exists
-    if 'CERTIFICATION' not in existing_values:
-        conn.execute(sa.text("ALTER TYPE competencycategory ADD VALUE IF NOT EXISTS 'CERTIFICATION'"))
-
-    # Add EXPERIENCE if not exists
-    if 'EXPERIENCE' not in existing_values:
-        conn.execute(sa.text("ALTER TYPE competencycategory ADD VALUE IF NOT EXISTS 'EXPERIENCE'"))
+    # Add new enum values if not exists
+    new_values = ['CERTIFICATION', 'EXPERIENCE', 'DETAIL', 'OTHER']
+    for val in new_values:
+        if val not in existing_values:
+            conn.execute(sa.text(f"ALTER TYPE competencycategory ADD VALUE IF NOT EXISTS '{val}'"))
 
     # Commit to make new enum values available
     conn.execute(sa.text("COMMIT"))
