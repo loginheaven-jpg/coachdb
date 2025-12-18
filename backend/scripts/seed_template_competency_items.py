@@ -65,11 +65,11 @@ async def seed_template_items():
             print("\n[2단계] 새 역량 항목 생성")
 
             items_data = [
-                # 기본 평가 항목
+                # 기본 평가 항목 (관리자 전용)
                 {
                     "item_name": "이전과제수행평가",
                     "item_code": "EVAL_PREVIOUS_PROJECT",
-                    "category": CompetencyCategory.DETAIL,
+                    "category": CompetencyCategory.DETAIL,  # 관리자 전용 평가 항목
                     "template": ItemTemplate.SELECT,
                     "template_config": json.dumps({"options": ["우수", "양호", "미비"]}),
                     "is_repeatable": False,
@@ -87,7 +87,7 @@ async def seed_template_items():
                 {
                     "item_name": "심사위원평가",
                     "item_code": "EVAL_COMMITTEE",
-                    "category": CompetencyCategory.DETAIL,
+                    "category": CompetencyCategory.DETAIL,  # 관리자 전용 평가 항목
                     "template": ItemTemplate.SELECT,
                     "template_config": json.dumps({"options": ["우수", "양호", "미비"]}),
                     "is_repeatable": False,
@@ -103,11 +103,11 @@ async def seed_template_items():
                     ]
                 },
 
-                # 학력
+                # 학력 (EDUCATION)
                 {
                     "item_name": "코칭/상담/심리 관련 최종학력",
                     "item_code": "EDU_COACHING_FINAL",
-                    "category": CompetencyCategory.EVALUATION,
+                    "category": CompetencyCategory.EDUCATION,
                     "template": ItemTemplate.DEGREE,
                     "template_config": json.dumps({"degree_options": ["박사", "석사", "학사", "없음"]}),
                     "is_repeatable": False,
@@ -142,7 +142,7 @@ async def seed_template_items():
                 {
                     "item_name": "기타분야 관련 최종학력",
                     "item_code": "EDU_OTHER_FINAL",
-                    "category": CompetencyCategory.EVALUATION,
+                    "category": CompetencyCategory.EDUCATION,
                     "template": ItemTemplate.DEGREE,
                     "template_config": json.dumps({"degree_options": ["박사", "석사", "학사", "없음"]}),
                     "is_repeatable": False,
@@ -175,11 +175,11 @@ async def seed_template_items():
                     ]
                 },
 
-                # 자격증/경험 (복수 가능)
+                # 자격증 (CERTIFICATION) - 복수 가능
                 {
                     "item_name": "KCA 코칭관련 자격증",
                     "item_code": "CERT_KCA",
-                    "category": CompetencyCategory.EVALUATION,
+                    "category": CompetencyCategory.CERTIFICATION,
                     "template": ItemTemplate.TEXT_FILE,
                     "is_repeatable": True,
                     "max_entries": None,
@@ -204,7 +204,7 @@ async def seed_template_items():
                 {
                     "item_name": "상담,심리치료관련 자격",
                     "item_code": "CERT_COUNSELING",
-                    "category": CompetencyCategory.EVALUATION,
+                    "category": CompetencyCategory.CERTIFICATION,
                     "template": ItemTemplate.TEXT_FILE,
                     "is_repeatable": True,
                     "max_entries": None,
@@ -229,7 +229,7 @@ async def seed_template_items():
                 {
                     "item_name": "멘토링/수퍼비전 경험",
                     "item_code": "EXP_MENTORING",
-                    "category": CompetencyCategory.EVALUATION,
+                    "category": CompetencyCategory.EXPERIENCE,
                     "template": ItemTemplate.TEXT_FILE,
                     "is_repeatable": True,
                     "max_entries": None,
@@ -252,11 +252,11 @@ async def seed_template_items():
                     ]
                 },
 
-                # 경력
+                # 역량이력 (EXPERIENCE)
                 {
                     "item_name": "총 코칭 경력",
                     "item_code": "EXP_COACHING_YEARS",
-                    "category": CompetencyCategory.EVALUATION,
+                    "category": CompetencyCategory.EXPERIENCE,
                     "template": ItemTemplate.NUMBER,
                     "is_repeatable": False,
                     "fields": [
@@ -273,7 +273,7 @@ async def seed_template_items():
                 {
                     "item_name": "누적 코칭 시간",
                     "item_code": "EXP_COACHING_HOURS",
-                    "category": CompetencyCategory.EVALUATION,
+                    "category": CompetencyCategory.EXPERIENCE,
                     "template": ItemTemplate.NUMBER,
                     "is_repeatable": False,
                     "fields": [
@@ -288,11 +288,11 @@ async def seed_template_items():
                     ]
                 },
 
-                # 코칭 분야별 이력
+                # 코칭 분야별 이력 (EXPERIENCE)
                 {
                     "item_name": "비즈니스코칭 이력",
                     "item_code": "COACHING_BUSINESS",
-                    "category": CompetencyCategory.EVALUATION,
+                    "category": CompetencyCategory.EXPERIENCE,
                     "template": ItemTemplate.COACHING_HISTORY,
                     "is_repeatable": False,
                     "fields": [
@@ -316,7 +316,7 @@ async def seed_template_items():
                 {
                     "item_name": "커리어코칭 이력",
                     "item_code": "COACHING_CAREER",
-                    "category": CompetencyCategory.EVALUATION,
+                    "category": CompetencyCategory.EXPERIENCE,
                     "template": ItemTemplate.COACHING_HISTORY,
                     "is_repeatable": False,
                     "fields": [
@@ -340,7 +340,7 @@ async def seed_template_items():
                 {
                     "item_name": "청소년코칭 이력",
                     "item_code": "COACHING_YOUTH",
-                    "category": CompetencyCategory.EVALUATION,
+                    "category": CompetencyCategory.EXPERIENCE,
                     "template": ItemTemplate.COACHING_HISTORY,
                     "is_repeatable": False,
                     "fields": [
@@ -364,7 +364,7 @@ async def seed_template_items():
                 {
                     "item_name": "청년코칭 이력",
                     "item_code": "COACHING_YOUNG_ADULT",
-                    "category": CompetencyCategory.EVALUATION,
+                    "category": CompetencyCategory.EXPERIENCE,
                     "template": ItemTemplate.COACHING_HISTORY,
                     "is_repeatable": False,
                     "fields": [
@@ -388,7 +388,7 @@ async def seed_template_items():
                 {
                     "item_name": "가족코칭 이력",
                     "item_code": "COACHING_FAMILY",
-                    "category": CompetencyCategory.EVALUATION,
+                    "category": CompetencyCategory.EXPERIENCE,
                     "template": ItemTemplate.COACHING_HISTORY,
                     "is_repeatable": False,
                     "fields": [
@@ -412,7 +412,7 @@ async def seed_template_items():
                 {
                     "item_name": "라이프코칭 이력",
                     "item_code": "COACHING_LIFE",
-                    "category": CompetencyCategory.EVALUATION,
+                    "category": CompetencyCategory.EXPERIENCE,
                     "template": ItemTemplate.COACHING_HISTORY,
                     "is_repeatable": False,
                     "fields": [
@@ -434,11 +434,11 @@ async def seed_template_items():
                     ]
                 },
 
-                # 기타
+                # 기타 (OTHER)
                 {
                     "item_name": "전문 분야",
                     "item_code": "SPECIALTY",
-                    "category": CompetencyCategory.EVALUATION,
+                    "category": CompetencyCategory.OTHER,
                     "template": ItemTemplate.TEXT,
                     "is_repeatable": False,
                     "fields": [

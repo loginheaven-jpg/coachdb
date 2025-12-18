@@ -112,13 +112,13 @@ export default function SurveyBuilder({ projectId, visible, onClose, onSave }: S
 
       // Initialize selections
       // - DB에 저장된 항목: 저장된 상태 유지
-      // - 새 항목: 기타 그룹(OTHER_CODES, 커스텀)은 불포함, 나머지는 포함
-      const OTHER_CODES = ['ADDON_INTRO', 'ADDON_SPECIALTY']
+      // - 새 항목: 기타(OTHER) 카테고리, 커스텀은 불포함, 나머지는 포함
       const newSelections = new Map<number, ItemSelection>()
       items.forEach(item => {
         const existing = existingItems.find(pi => pi.item_id === item.item_id)
-        const isOtherGroup = OTHER_CODES.includes(item.item_code) || item.is_custom
-        const defaultIncluded = existing ? true : !isOtherGroup  // 기타 그룹은 기본 불포함
+        // 기타(OTHER) 카테고리, ADDON(legacy), 커스텀은 기본 불포함
+        const isOtherGroup = item.category === 'OTHER' || item.category === 'ADDON' || item.is_custom
+        const defaultIncluded = existing ? true : !isOtherGroup
         newSelections.set(item.item_id, {
           item,
           included: existing ? true : defaultIncluded,
@@ -143,71 +143,75 @@ export default function SurveyBuilder({ projectId, visible, onClose, onSave }: S
     }
   }
 
-  // 인적사항 항목 코드 목록 (배점 없음, 증빙 없음)
-  const PERSONAL_INFO_CODES = [
-    'BASIC_NAME', 'BASIC_PHONE', 'BASIC_EMAIL', 'BASIC_ADDRESS',
-    'BASIC_GENDER', 'BASIC_BIRTHDATE',
-    'DETAIL_COACHING_AREA', 'DETAIL_CERT_NUMBER'
-    // ADDON_INTRO, ADDON_SPECIALTY는 과제관리자가 증빙 설정 가능해야 함
-  ]
+  // 카테고리별 그룹명 매핑 (백엔드 CompetencyCategory enum과 일치)
+  const CATEGORY_GROUP_MAP: Record<string, string> = {
+    'BASIC': '기본정보',
+    'CERTIFICATION': '자격증',
+    'EDUCATION': '학력',
+    'EXPERIENCE': '역량이력',
+    'OTHER': '기타',
+    // Legacy 카테고리 호환
+    'DETAIL': '역량이력',     // DETAIL → 역량이력으로 매핑
+    'ADDON': '기타',          // ADDON → 기타로 매핑
+    'COACHING': '역량이력',   // COACHING → 역량이력으로 매핑
+    'EVALUATION': '역량이력', // EVALUATION → 역량이력으로 매핑
+    'INFO': '기본정보'        // INFO → 기본정보로 매핑
+  }
 
-  // 자격증 항목 코드 목록
-  const CERT_CODES = [
-    'ADDON_CERT_COACH', 'ADDON_CERT_COUNSELING', 'ADDON_CERT_OTHER'
-  ]
+  // 그룹 우선순위 (저장 시 display_order 결정에 사용)
+  const GROUP_PRIORITY: Record<string, number> = {
+    '기본정보': 1,
+    '자격증': 2,
+    '학력': 3,
+    '역량이력': 4,
+    '기타': 5
+  }
 
-  // 학력 항목 코드 목록 (학위 관련만)
-  const EDUCATION_CODES = ['EDU_DEGREE', 'COACH_DEGREE']
-
-  // 역량 이력 항목 코드 목록 (코칭 경력, 연수 등)
-  const COMPETENCY_HISTORY_CODES = [
-    'ADDON_COACHING_HOURS', 'ADDON_COACHING_HISTORY',
-    'ADDON_WORK_EXPERIENCE', 'ADDON_COACH_TRAINING'
-  ]
-
-  // 기타 항목 코드 목록
-  const OTHER_CODES = ['ADDON_INTRO', 'ADDON_SPECIALTY']
-
-  // 그룹 우선순위 반환 (저장 시 display_order 결정에 사용)
-  const getGroupPriority = (itemCode: string, isCustom: boolean): number => {
-    if (PERSONAL_INFO_CODES.includes(itemCode)) return 1  // 인적사항
-    if (CERT_CODES.includes(itemCode)) return 2           // 자격증
-    if (EDUCATION_CODES.includes(itemCode)) return 3      // 학력
-    if (COMPETENCY_HISTORY_CODES.includes(itemCode)) return 4  // 역량 이력
-    if (OTHER_CODES.includes(itemCode) || isCustom) return 5   // 기타 (커스텀 포함)
-    return 4                                               // 역량 이력 (기타 표준 항목)
+  // 그룹 우선순위 반환 (카테고리 기반)
+  const getGroupPriority = (category: string, isCustom: boolean): number => {
+    if (isCustom) return 5  // 커스텀 항목은 기타 그룹
+    const groupName = CATEGORY_GROUP_MAP[category] || '역량이력'
+    return GROUP_PRIORITY[groupName] || 4
   }
 
   const groupItemsByCategory = (): GroupedItems => {
     const grouped: GroupedItems = {
-      '인적사항': [],
       '자격증': [],
       '학력': [],
-      '역량 이력': [],
-      '기타': [],
-      '커스텀 질문': []
+      '역량이력': [],
+      '기타': []
     }
 
     selections.forEach(selection => {
-      const code = selection.item.item_code
+      const category = selection.item.category || 'EXPERIENCE'
 
-      if (PERSONAL_INFO_CODES.includes(code)) {
-        grouped['인적사항'].push(selection)
-      } else if (CERT_CODES.includes(code)) {
-        grouped['자격증'].push(selection)
-      } else if (EDUCATION_CODES.includes(code)) {
-        grouped['학력'].push(selection)
-      } else if (COMPETENCY_HISTORY_CODES.includes(code)) {
-        grouped['역량 이력'].push(selection)
-      } else if (OTHER_CODES.includes(code) || selection.item.is_custom) {
-        grouped['기타'].push(selection)  // 기타 표준 항목 + 커스텀 항목
+      // 커스텀 항목은 기타 그룹
+      if (selection.item.is_custom) {
+        grouped['기타'].push(selection)
+        return
+      }
+
+      // 카테고리에 따라 그룹 결정
+      const groupName = CATEGORY_GROUP_MAP[category] || '역량이력'
+
+      // 기본정보(BASIC)는 User 테이블에서 직접 표시하므로 설문에서 제외
+      if (groupName === '기본정보') {
+        return
+      }
+
+      if (grouped[groupName]) {
+        grouped[groupName].push(selection)
       } else {
-        grouped['역량 이력'].push(selection)  // 나머지 표준 항목
+        grouped['역량이력'].push(selection)  // 매핑되지 않은 카테고리는 역량이력으로
       }
     })
-    // '커스텀 질문'은 항상 빈 배열 (버튼만 표시)
 
     return grouped
+  }
+
+  // 기본정보 카테고리인지 확인 (배점 및 증빙 설정 제외 대상)
+  const isBasicCategory = (category: string): boolean => {
+    return CATEGORY_GROUP_MAP[category] === '기본정보'
   }
 
   // 자동 저장 함수 (debounce)
@@ -231,21 +235,21 @@ export default function SurveyBuilder({ projectId, visible, onClose, onSave }: S
         const sortedSelections = Array.from(selectionsToSave.values())
           .filter(s => s.included)
           .sort((a, b) => {
-            const priorityA = getGroupPriority(a.item.item_code, a.item.is_custom)
-            const priorityB = getGroupPriority(b.item.item_code, b.item.is_custom)
+            const priorityA = getGroupPriority(a.item.category || 'EXPERIENCE', a.item.is_custom)
+            const priorityB = getGroupPriority(b.item.category || 'EXPERIENCE', b.item.is_custom)
             return priorityA - priorityB
           })
 
         let displayOrder = 1
         for (const selection of sortedSelections) {
           const existing = existingItems.find(e => e.item_id === selection.item.item_id)
-          // 인적사항 항목은 증빙 불필요로 강제 설정
-          const isPersonalInfo = PERSONAL_INFO_CODES.includes(selection.item.item_code)
+          // 기본정보 카테고리는 증빙 불필요로 강제 설정
+          const isBasic = isBasicCategory(selection.item.category || '')
           const itemData = {
             item_id: selection.item.item_id,
-            is_required: selection.is_required,  // 독립적인 필드 사용
-            proof_required_level: isPersonalInfo ? ProofRequiredLevel.NOT_REQUIRED : selection.proof_required_level,
-            max_score: isPersonalInfo ? null : selection.score,  // 인적사항은 배점도 없음
+            is_required: selection.is_required,
+            proof_required_level: isBasic ? ProofRequiredLevel.NOT_REQUIRED : selection.proof_required_level,
+            max_score: isBasic ? null : selection.score,  // 기본정보는 배점도 없음
             display_order: displayOrder++,
             scoring_criteria: []
           }
@@ -284,8 +288,8 @@ export default function SurveyBuilder({ projectId, visible, onClose, onSave }: S
   const calculateTotalScore = (): number => {
     let total = 0
     selections.forEach(selection => {
-      // 인적사항 항목은 배점에서 제외
-      if (selection.included && selection.score && !PERSONAL_INFO_CODES.includes(selection.item.item_code)) {
+      // 기본정보 카테고리는 배점에서 제외
+      if (selection.included && selection.score && !isBasicCategory(selection.item.category || '')) {
         total += Math.floor(Number(selection.score))
       }
     })
@@ -323,21 +327,21 @@ export default function SurveyBuilder({ projectId, visible, onClose, onSave }: S
       const sortedSelections = Array.from(selections.values())
         .filter(s => s.included)
         .sort((a, b) => {
-          const priorityA = getGroupPriority(a.item.item_code, a.item.is_custom)
-          const priorityB = getGroupPriority(b.item.item_code, b.item.is_custom)
+          const priorityA = getGroupPriority(a.item.category || 'EXPERIENCE', a.item.is_custom)
+          const priorityB = getGroupPriority(b.item.category || 'EXPERIENCE', b.item.is_custom)
           return priorityA - priorityB
         })
 
       let displayOrder = 1
       for (const selection of sortedSelections) {
         const existing = existingItems.find(e => e.item_id === selection.item.item_id)
-        // 인적사항 항목은 증빙 불필요로 강제 설정
-        const isPersonalInfo = PERSONAL_INFO_CODES.includes(selection.item.item_code)
+        // 기본정보 카테고리는 증빙 불필요로 강제 설정
+        const isBasic = isBasicCategory(selection.item.category || '')
         const itemData = {
           item_id: selection.item.item_id,
-          is_required: selection.is_required,  // 독립적인 필드 사용
-          proof_required_level: isPersonalInfo ? ProofRequiredLevel.NOT_REQUIRED : selection.proof_required_level,
-          max_score: isPersonalInfo ? null : selection.score,  // 인적사항은 배점도 없음
+          is_required: selection.is_required,
+          proof_required_level: isBasic ? ProofRequiredLevel.NOT_REQUIRED : selection.proof_required_level,
+          max_score: isBasic ? null : selection.score,  // 기본정보는 배점도 없음
           display_order: displayOrder++,
           scoring_criteria: []
         }
@@ -505,7 +509,7 @@ export default function SurveyBuilder({ projectId, visible, onClose, onSave }: S
 
       <Space direction="vertical" style={{ width: '100%' }} size="large">
         {/* Item Groups */}
-        <Collapse defaultActiveKey={['인적사항', '자격증', '학력', '역량 이력', '기타', '커스텀 질문']}>
+        <Collapse defaultActiveKey={['자격증', '학력', '역량이력', '기타']}>
           {Object.entries(grouped).map(([category, items]) => {
             // 커스텀 질문 그룹은 항목이 없어도 표시 (+ 버튼이 있으므로)
             if (items.length === 0 && category !== '커스텀 질문') return null
@@ -546,8 +550,8 @@ export default function SurveyBuilder({ projectId, visible, onClose, onSave }: S
                             )}
                           </Space>
 
-                          {/* 인적사항이 아닌 경우에만 배점 표시 */}
-                          {selection.included && category !== '인적사항' && (
+                          {/* 포함된 항목에 배점 표시 (기본정보는 설문에서 제외됨) */}
+                          {selection.included && (
                             <Space>
                               <Text>배점:</Text>
                               <InputNumber
@@ -562,8 +566,8 @@ export default function SurveyBuilder({ projectId, visible, onClose, onSave }: S
                           )}
                         </Space>
 
-                        {/* 인적사항이 아닌 경우에만 입력/증빙 옵션 표시 */}
-                        {selection.included && category !== '인적사항' && (
+                        {/* 포함된 항목에 입력/증빙 옵션 표시 (기본정보는 설문에서 제외됨) */}
+                        {selection.included && (
                           <Space wrap>
                             {/* 입력 필수 여부 */}
                             <Space>

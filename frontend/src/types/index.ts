@@ -53,11 +53,16 @@ export interface Project {
 
 // Competency Types (백엔드 CompetencyCategory enum과 일치)
 export enum CompetencyCategory {
-  BASIC = 'BASIC',           // 기본정보
-  DETAIL = 'DETAIL',         // 세부정보
-  ADDON = 'ADDON',           // 추가역량
-  EDUCATION = 'EDUCATION',   // 학력
-  COACHING = 'COACHING',     // 코칭이력
+  // Primary categories (aligned with survey grouping)
+  BASIC = 'BASIC',                   // 기본정보 (User 테이블에서 직접)
+  CERTIFICATION = 'CERTIFICATION',   // 자격증
+  EDUCATION = 'EDUCATION',           // 학력
+  EXPERIENCE = 'EXPERIENCE',         // 역량이력
+  OTHER = 'OTHER',                   // 기타 (자기소개, 전문분야 등)
+  // Legacy categories (deprecated, for backward compatibility)
+  DETAIL = 'DETAIL',                 // Deprecated
+  ADDON = 'ADDON',                   // Deprecated
+  COACHING = 'COACHING',             // Deprecated
 }
 
 export enum InputType {

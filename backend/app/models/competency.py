@@ -6,15 +6,18 @@ from app.core.database import Base
 
 
 class CompetencyCategory(str, enum.Enum):
-    BASIC = "BASIC"              # 기본정보 (평가 대상 아님)
-    DETAIL = "DETAIL"            # 세부정보 (모든 과제 활용)
-    ADDON = "ADDON"              # 추가역량 (과제별 동적)
-    EDUCATION = "EDUCATION"      # 교육이력
-    COACHING = "COACHING"        # 코칭 분야별 이력
-    # Legacy categories (deprecated)
-    INFO = "INFO"                # Deprecated: use BASIC
-    EVALUATION = "EVALUATION"    # Deprecated: use DETAIL
-    OTHER = "OTHER"              # Deprecated: use ADDON
+    # Primary categories (aligned with survey grouping)
+    BASIC = "BASIC"                  # 기본정보 (User 테이블에서 직접)
+    CERTIFICATION = "CERTIFICATION"  # 자격증
+    EDUCATION = "EDUCATION"          # 학력
+    EXPERIENCE = "EXPERIENCE"        # 역량이력
+    OTHER = "OTHER"                  # 기타 (자기소개, 전문분야 등)
+    # Legacy categories (deprecated, for backward compatibility)
+    DETAIL = "DETAIL"                # Deprecated: use CERTIFICATION/EDUCATION/EXPERIENCE/OTHER
+    ADDON = "ADDON"                  # Deprecated: use OTHER
+    COACHING = "COACHING"            # Deprecated: use EXPERIENCE
+    INFO = "INFO"                    # Deprecated: use BASIC
+    EVALUATION = "EVALUATION"        # Deprecated: use specific categories above
 
 
 class InputType(str, enum.Enum):

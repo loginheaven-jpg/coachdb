@@ -576,13 +576,17 @@ export default function UnifiedCompetencyPage() {
     )
   }
 
-  const renderDetailSection = () => {
-    const items = groupedItems['DETAIL'] || []
-    const categoryCompetencies = getCompetenciesForCategory('DETAIL')
+  // 공통 섹션 렌더링 함수
+  const renderCategorySection = (category: string, title: string, description?: string) => {
+    const items = groupedItems[category] || []
+    const categoryCompetencies = getCompetenciesForCategory(category)
 
     return (
-      <Panel header={`세부정보 (모든 과제 활용) (${categoryCompetencies.length}/${items.length})`} key="DETAIL">
+      <Panel header={`${title} (${categoryCompetencies.length}/${items.length})`} key={category}>
         <div className="space-y-4">
+          {description && (
+            <Text type="secondary" className="block mb-4">{description}</Text>
+          )}
           {items.map(item => {
             const existingComp = getCompetencyForItem(item.item_id)
 
@@ -602,7 +606,7 @@ export default function UnifiedCompetencyPage() {
                       type="dashed"
                       size="small"
                       icon={<PlusOutlined />}
-                      onClick={() => handleAdd('DETAIL', item)}
+                      onClick={() => handleAdd(category, item)}
                     >
                       추가
                     </Button>
@@ -611,25 +615,24 @@ export default function UnifiedCompetencyPage() {
               )
             }
           })}
+          {items.length === 0 && (
+            <Text type="secondary">등록된 항목이 없습니다.</Text>
+          )}
         </div>
       </Panel>
     )
   }
 
-  const renderAddonSection = () => {
-    const categoryCompetencies = getCompetenciesForCategory('ADDON')
+  const renderCertificationSection = () => {
+    return renderCategorySection('CERTIFICATION', '자격증', '코칭 관련 자격증, 상담/심리치료 자격 등을 등록하세요.')
+  }
 
-    return (
-      <Panel header={`추가역량 (과제별 동적) (${categoryCompetencies.length})`} key="ADDON">
-        <div className="space-y-4">
-          {categoryCompetencies.length === 0 ? (
-            <Text type="secondary">과제관리자가 과제별로 추가한 역량 항목이 여기에 표시됩니다.</Text>
-          ) : (
-            categoryCompetencies.map(comp => renderCompetencyCard(comp))
-          )}
-        </div>
-      </Panel>
-    )
+  const renderExperienceSection = () => {
+    return renderCategorySection('EXPERIENCE', '역량이력', '코칭 경력, 누적 코칭 시간, 멘토링 경험 등을 등록하세요.')
+  }
+
+  const renderOtherSection = () => {
+    return renderCategorySection('OTHER', '기타', '전문 분야, 자기소개 등을 등록하세요.')
   }
 
   const renderEducationSection = () => {
@@ -759,11 +762,12 @@ export default function UnifiedCompetencyPage() {
           {loading && !competencyItems.length ? (
             <div className="text-center py-8">데이터를 불러오는 중...</div>
           ) : (
-            <Collapse defaultActiveKey={['BASIC', 'DETAIL']}>
+            <Collapse defaultActiveKey={['BASIC', 'CERTIFICATION']}>
               {renderBasicInfoSection()}
-              {renderDetailSection()}
-              {renderAddonSection()}
+              {renderCertificationSection()}
               {renderEducationSection()}
+              {renderExperienceSection()}
+              {renderOtherSection()}
             </Collapse>
           )}
         </Card>
