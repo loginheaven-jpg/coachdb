@@ -4,7 +4,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "if [ \"$RAILWAY_ENVIRONMENT\" ]; then npm run build:prod && npx serve -s dist -l $PORT; else vite; fi",
+    "dev:local": "vite",
     "build": "tsc && vite build",
     "build:prod": "vite build",
     "start": "serve -s dist",
