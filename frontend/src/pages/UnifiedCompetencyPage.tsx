@@ -53,6 +53,49 @@ const DEGREE_LEVEL_LABELS: Record<string, string> = {
   'none': '없음'
 }
 
+// JSON 값에서 편집용 텍스트 추출하는 헬퍼 함수
+const extractEditableValue = (value: string | null | undefined): string => {
+  if (!value) return ''
+
+  try {
+    const parsed = JSON.parse(value)
+
+    // 배열인 경우 (예: 자격증 목록)
+    if (Array.isArray(parsed)) {
+      if (parsed.length === 0) return ''
+
+      // 첫 번째 항목에서 사용자가 입력한 값 추출
+      const firstItem = parsed[0]
+      if (firstItem.cert_name) return firstItem.cert_name
+      if (firstItem.text) return firstItem.text
+      if (firstItem.name) return firstItem.name
+
+      // 기타: _로 시작하지 않는 첫 번째 문자열 값 반환
+      for (const [key, val] of Object.entries(firstItem)) {
+        if (!key.startsWith('_') && typeof val === 'string') {
+          return val
+        }
+      }
+    }
+
+    // 객체인 경우
+    if (typeof parsed === 'object' && parsed !== null) {
+      if (parsed.cert_name) return parsed.cert_name
+      if (parsed.text) return parsed.text
+      if (parsed.name) return parsed.name
+
+      // degree_type이 있으면 학위 정보
+      if (parsed.degree_type) {
+        return parsed.degree_type
+      }
+    }
+
+    return value
+  } catch {
+    return value
+  }
+}
+
 // JSON 값을 보기 좋게 포맷팅하는 헬퍼 함수
 const formatCompetencyValue = (value: string | null | undefined): React.ReactNode => {
   if (!value) return '-'
@@ -227,7 +270,7 @@ export default function UnifiedCompetencyPage() {
     setSelectedCategory(record.competency_item?.category || 'DETAIL')
     form.setFieldsValue({
       item_id: record.item_id,
-      value: record.value
+      value: extractEditableValue(record.value)
     })
     setIsModalVisible(true)
   }
@@ -488,7 +531,6 @@ export default function UnifiedCompetencyPage() {
       <div className="flex justify-between items-start">
         <div className="flex-1">
           <div className="font-medium">{comp.competency_item?.item_name}</div>
-          <Text type="secondary" className="text-xs">{comp.competency_item?.item_code}</Text>
 
           {comp.value && (
             <div className="mt-2">
@@ -800,13 +842,13 @@ export default function UnifiedCompetencyPage() {
               >
                 {selectedCategory && groupedItems[selectedCategory]?.map(item => (
                   <Option key={item.item_id} value={item.item_id}>
-                    {item.item_name} ({item.item_code})
+                    {item.item_name}
                     {item.input_type === 'file' && <FileOutlined style={{ marginLeft: 8, color: '#1890ff' }} />}
                   </Option>
                 ))}
                 {!selectedCategory && competencyItems.map(item => (
                   <Option key={item.item_id} value={item.item_id}>
-                    {item.item_name} ({item.item_code})
+                    {item.item_name}
                     {item.input_type === 'file' && <FileOutlined style={{ marginLeft: 8, color: '#1890ff' }} />}
                   </Option>
                 ))}
