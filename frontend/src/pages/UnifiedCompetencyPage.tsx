@@ -15,7 +15,6 @@ import {
   Upload,
   UploadFile,
   Collapse,
-  Divider,
   InputNumber,
   DatePicker,
   Table
@@ -590,16 +589,26 @@ export default function UnifiedCompetencyPage() {
     })
   }
 
-  // 특정 항목에 대한 역량 찾기
-  const getCompetencyForItem = (itemId: number) => {
-    return competencies.find(comp => comp.item_id === itemId)
+  // 특정 항목에 대한 모든 역량 찾기 (repeatable 항목용)
+  const getCompetenciesForItem = (itemId: number): CoachCompetency[] => {
+    return competencies.filter(comp => comp.item_id === itemId)
   }
 
-  const renderCompetencyCard = (comp: CoachCompetency) => (
+  const renderCompetencyCard = (comp: CoachCompetency, entryIndex?: number, showItemName: boolean = true) => (
     <Card size="small" className="mb-2" key={comp.competency_id}>
       <div className="flex justify-between items-start">
         <div className="flex-1">
-          <div className="font-medium">{comp.competency_item?.item_name}</div>
+          {showItemName && (
+            <div className="font-medium">
+              {comp.competency_item?.item_name}
+              {entryIndex !== undefined && (
+                <span className="text-gray-500 ml-1">#{entryIndex + 1}</span>
+              )}
+            </div>
+          )}
+          {!showItemName && entryIndex !== undefined && (
+            <div className="font-medium text-gray-500">#{entryIndex + 1}</div>
+          )}
 
           {comp.value && (
             <div className="mt-2">
@@ -691,18 +700,71 @@ export default function UnifiedCompetencyPage() {
   const renderCategorySection = (category: string, title: string, description?: string) => {
     const items = groupedItems[category] || []
     const categoryCompetencies = getCompetenciesForCategory(category)
+    // 진행률: 고유 item_id 개수 기준으로 계산
+    const itemsWithData = new Set(categoryCompetencies.map(c => c.item_id)).size
 
     return (
-      <Panel header={`${title} (${categoryCompetencies.length}/${items.length})`} key={category}>
+      <Panel header={`${title} (${itemsWithData}/${items.length})`} key={category}>
         <div className="space-y-4">
           {description && (
             <Text type="secondary" className="block mb-4">{description}</Text>
           )}
           {items.map(item => {
-            const existingComp = getCompetencyForItem(item.item_id)
+            const isRepeatable = item.is_repeatable
+            const existingComps = getCompetenciesForItem(item.item_id)
+            const maxEntries = item.max_entries
+            const canAddMore = isRepeatable
+              ? (!maxEntries || existingComps.length < maxEntries)
+              : existingComps.length === 0
 
-            if (existingComp) {
-              return renderCompetencyCard(existingComp)
+            // Repeatable 항목: 헤더 + 모든 엔트리 표시
+            if (isRepeatable) {
+              return (
+                <div key={item.item_id} className="mb-4">
+                  {/* Repeatable 항목 헤더 */}
+                  <div className="flex justify-between items-center mb-2">
+                    <div className="flex items-center gap-2">
+                      <Text strong>{item.item_name}</Text>
+                      <Tag color="blue">복수 입력 가능</Tag>
+                      {maxEntries && (
+                        <Text type="secondary">({existingComps.length}/{maxEntries})</Text>
+                      )}
+                      {!maxEntries && existingComps.length > 0 && (
+                        <Text type="secondary">({existingComps.length}개)</Text>
+                      )}
+                    </div>
+                    {canAddMore && (
+                      <Button
+                        type="dashed"
+                        size="small"
+                        icon={<PlusOutlined />}
+                        onClick={() => handleAdd(category, item)}
+                      >
+                        추가
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* 모든 기존 항목 표시 */}
+                  {existingComps.map((comp, idx) =>
+                    renderCompetencyCard(comp, idx, false)
+                  )}
+
+                  {/* 항목 없을 때 안내 */}
+                  {existingComps.length === 0 && (
+                    <Card size="small" className="border-dashed">
+                      <div className="text-center py-2">
+                        <Text type="secondary">등록된 항목이 없습니다.</Text>
+                      </div>
+                    </Card>
+                  )}
+                </div>
+              )
+            }
+
+            // Non-repeatable 항목: 기존 동작 유지
+            if (existingComps.length > 0) {
+              return renderCompetencyCard(existingComps[0])
             } else {
               return (
                 <Card size="small" className="mb-2 border-dashed" key={item.item_id}>
