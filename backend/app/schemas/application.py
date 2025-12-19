@@ -2,6 +2,7 @@ from pydantic import BaseModel
 from typing import Optional, List, Any
 from datetime import date, datetime
 from app.models.application import CoachRole
+from app.schemas.competency import FileBasicInfo
 
 
 # ============================================================================
@@ -22,6 +23,7 @@ class ApplicationDataResponse(BaseModel):
     competency_id: Optional[int] = None
     submitted_value: Optional[str] = None
     submitted_file_id: Optional[int] = None
+    submitted_file_info: Optional[FileBasicInfo] = None  # 파일 메타데이터
     verification_status: str
     item_score: Optional[float] = None
     reviewed_by: Optional[int] = None

@@ -48,8 +48,10 @@ const BLOCKED_FILE_EXTENSIONS = [
 
 // 업로드된 파일 정보 타입
 interface UploadedFileInfo {
-  file: File
+  file?: File  // 새로 업로드한 경우에만 존재
   file_id?: number
+  filename?: string  // 기존 파일의 원본 파일명
+  file_size?: number  // 기존 파일의 크기
   uploading?: boolean
   error?: string
 }
@@ -380,6 +382,8 @@ export default function ApplicationSubmitPage() {
 
         // 기존 응답 데이터를 폼에 설정
         const formValues: Record<string, any> = {}
+        const initialUploadedFiles: Record<string, UploadedFileInfo> = {}
+
         existingData.forEach(data => {
           // item_id로 project_item 찾기
           const projectItem = sortedItems.find(
@@ -406,9 +410,20 @@ export default function ApplicationSubmitPage() {
               formValues[`item_${projectItem.project_item_id}`] = data.submitted_value
             }
           }
+
+          // 기존 파일 정보 복원
+          if (data.submitted_file_id && data.submitted_file_info) {
+            const fileKey = `${projectItem.project_item_id}_0`
+            initialUploadedFiles[fileKey] = {
+              file_id: data.submitted_file_id,
+              filename: data.submitted_file_info.original_filename,
+              file_size: data.submitted_file_info.file_size
+            }
+          }
         })
 
         form.setFieldsValue(formValues)
+        setUploadedFiles(initialUploadedFiles)
         // 수정 모드에서만 repeatableData 설정 (신규는 loadExistingCompetencies에서 처리)
         setRepeatableData(initialRepeatableData)
       }
@@ -1261,7 +1276,7 @@ export default function ApplicationSubmitPage() {
                                       // View mode: just show file info
                                       hasFile ? (
                                         <Tag color="green" icon={<CheckCircleOutlined />}>
-                                          {fileInfo?.file?.name || '첨부파일'}
+                                          {fileInfo?.file?.name || fileInfo?.filename || '첨부파일'}
                                         </Tag>
                                       ) : (
                                         <Text type="secondary">첨부파일 없음</Text>
@@ -1285,13 +1300,13 @@ export default function ApplicationSubmitPage() {
                                         ) : isUploading ? (
                                           <div className="flex items-center gap-2">
                                             <Tag color="processing" icon={<LoadingOutlined />}>
-                                              {fileInfo?.file?.name} 업로드 중...
+                                              {fileInfo?.file?.name || fileInfo?.filename} 업로드 중...
                                             </Tag>
                                           </div>
                                         ) : (
                                           <div className="flex items-center gap-2">
                                             <Tag color="green" icon={<CheckCircleOutlined />}>
-                                              {fileInfo?.file?.name}
+                                              {fileInfo?.file?.name || fileInfo?.filename}
                                             </Tag>
                                             <Button
                                               type="text"

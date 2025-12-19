@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
+from app.schemas.competency import FileBasicInfo
 
 
 class VerificationRecordResponse(BaseModel):
@@ -24,6 +25,7 @@ class CompetencyVerificationStatus(BaseModel):
     item_name: Optional[str] = None
     value: Optional[str] = None
     file_id: Optional[int] = None
+    file_info: Optional[FileBasicInfo] = None  # 파일 메타데이터
     is_globally_verified: bool
     globally_verified_at: Optional[datetime] = None
     verification_count: int  # 현재 유효한 컨펌 수
@@ -56,6 +58,7 @@ class PendingVerificationItem(BaseModel):
     item_code: str
     value: Optional[str] = None
     file_id: Optional[int] = None
+    file_info: Optional[FileBasicInfo] = None  # 파일 메타데이터
     created_at: datetime
     verification_count: int
     required_count: int

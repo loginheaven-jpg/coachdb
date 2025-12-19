@@ -156,7 +156,9 @@ export default function VerificationPage() {
             </Tooltip>
           )}
           {record.file_id && (
-            <Tag icon={<FileOutlined />} color="processing">파일</Tag>
+            <Tooltip title={record.file_info?.original_filename || '첨부파일'}>
+              <Tag icon={<FileOutlined />} color="processing">파일</Tag>
+            </Tooltip>
           )}
           {!record.value && !record.file_id && (
             <Tag>없음</Tag>
@@ -316,7 +318,7 @@ export default function VerificationPage() {
                     target="_blank"
                     rel="noreferrer"
                   >
-                    파일 보기 (ID: {selectedCompetency.file_id})
+                    {selectedCompetency.file_info?.original_filename || `파일 ID: ${selectedCompetency.file_id}`}
                   </a>
                 ) : '-'}
               </Descriptions.Item>

@@ -24,6 +24,7 @@ from app.schemas.verification import (
     VerificationResetRequest,
     PendingVerificationItem
 )
+from app.schemas.competency import FileBasicInfo
 
 router = APIRouter(prefix="/verifications", tags=["Verifications"])
 
@@ -108,7 +109,8 @@ async def get_pending_verifications(
         .options(
             selectinload(CoachCompetency.item),
             selectinload(CoachCompetency.user),
-            selectinload(CoachCompetency.verification_records)
+            selectinload(CoachCompetency.verification_records),
+            selectinload(CoachCompetency.file)  # 파일 정보 로드
         )
         .where(
             and_(
@@ -152,6 +154,17 @@ async def get_pending_verifications(
                 is_valid=my_record.is_valid
             )
 
+        # Build file info if file exists
+        file_info = None
+        if comp.file:
+            file_info = FileBasicInfo(
+                file_id=comp.file.file_id,
+                original_filename=comp.file.original_filename,
+                file_size=comp.file.file_size,
+                mime_type=comp.file.mime_type,
+                uploaded_at=comp.file.uploaded_at
+            )
+
         items.append(PendingVerificationItem(
             competency_id=comp.competency_id,
             user_id=comp.user_id,
@@ -162,6 +175,7 @@ async def get_pending_verifications(
             item_code=comp.item.code if comp.item else "",
             value=comp.value,
             file_id=comp.file_id,
+            file_info=file_info,
             created_at=comp.created_at or datetime.now(timezone.utc),
             verification_count=verification_count,
             required_count=required_count,
@@ -186,7 +200,8 @@ async def get_verification_status(
         .options(
             selectinload(CoachCompetency.item),
             selectinload(CoachCompetency.user),
-            selectinload(CoachCompetency.verification_records)
+            selectinload(CoachCompetency.verification_records),
+            selectinload(CoachCompetency.file)  # 파일 정보 로드
         )
         .where(CoachCompetency.competency_id == competency_id)
     )
@@ -218,6 +233,17 @@ async def get_verification_status(
             is_valid=record.is_valid
         ))
 
+    # Build file info if file exists
+    file_info = None
+    if competency.file:
+        file_info = FileBasicInfo(
+            file_id=competency.file.file_id,
+            original_filename=competency.file.original_filename,
+            file_size=competency.file.file_size,
+            mime_type=competency.file.mime_type,
+            uploaded_at=competency.file.uploaded_at
+        )
+
     return CompetencyVerificationStatus(
         competency_id=competency.competency_id,
         user_id=competency.user_id,
@@ -226,6 +252,7 @@ async def get_verification_status(
         item_name=competency.item.name if competency.item else None,
         value=competency.value,
         file_id=competency.file_id,
+        file_info=file_info,
         is_globally_verified=competency.is_globally_verified,
         globally_verified_at=competency.globally_verified_at,
         verification_count=len(valid_records),

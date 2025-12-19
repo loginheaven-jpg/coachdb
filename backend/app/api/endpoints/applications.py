@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from typing import List
 from datetime import datetime, timedelta
 import logging
@@ -28,6 +29,7 @@ from app.schemas.application import (
     SupplementSubmit
 )
 from app.schemas.project import CustomQuestionResponse, CustomQuestionAnswerResponse
+from app.schemas.competency import FileBasicInfo
 
 router = APIRouter(prefix="/applications", tags=["applications"])
 
@@ -703,30 +705,44 @@ async def get_application_data(
                 detail="Not enough permissions"
             )
 
-    # Get application data
+    # Get application data with file info
     result = await db.execute(
         select(ApplicationData)
         .where(ApplicationData.application_id == application_id)
+        .options(selectinload(ApplicationData.submitted_file))
         .order_by(ApplicationData.item_id)
     )
     data_items = result.scalars().all()
 
-    return [
-        ApplicationDataResponse(
+    responses = []
+    for item in data_items:
+        # Build file info if file exists
+        file_info = None
+        if item.submitted_file:
+            file_info = FileBasicInfo(
+                file_id=item.submitted_file.file_id,
+                original_filename=item.submitted_file.original_filename,
+                file_size=item.submitted_file.file_size,
+                mime_type=item.submitted_file.mime_type,
+                uploaded_at=item.submitted_file.uploaded_at
+            )
+
+        responses.append(ApplicationDataResponse(
             data_id=item.data_id,
             application_id=item.application_id,
             item_id=item.item_id,
             competency_id=item.competency_id,
             submitted_value=item.submitted_value,
             submitted_file_id=item.submitted_file_id,
+            submitted_file_info=file_info,
             verification_status=item.verification_status,
             item_score=float(item.item_score) if item.item_score else None,
             reviewed_by=item.reviewed_by,
             reviewed_at=item.reviewed_at,
             rejection_reason=item.rejection_reason
-        )
-        for item in data_items
-    ]
+        ))
+
+    return responses
 
 
 @router.post("/{application_id}/data", response_model=ApplicationDataResponse, status_code=status.HTTP_201_CREATED)
@@ -977,8 +993,47 @@ async def submit_supplement(
         app_data.submitted_file_id = request.submitted_file_id
     app_data.verification_status = 'supplemented'
 
+    # Auto-sync to CoachCompetency (역량 지갑에 자동 동기화)
+    from app.models.competency import CoachCompetency, VerificationStatus
+    competency_result = await db.execute(
+        select(CoachCompetency).where(
+            CoachCompetency.user_id == application.user_id,
+            CoachCompetency.item_id == app_data.item_id
+        )
+    )
+    existing_competency = competency_result.scalar_one_or_none()
+
+    if existing_competency:
+        # Update existing competency
+        if request.submitted_value is not None:
+            existing_competency.value = request.submitted_value
+        if request.submitted_file_id is not None:
+            existing_competency.file_id = request.submitted_file_id
+        existing_competency.verification_status = VerificationStatus.PENDING
+        existing_competency.is_globally_verified = False
+        existing_competency.globally_verified_at = None
+        logger.info(f"Auto-synced supplement to CoachCompetency {existing_competency.competency_id}")
+
     await db.commit()
-    await db.refresh(app_data)
+
+    # Reload with file info
+    result = await db.execute(
+        select(ApplicationData)
+        .where(ApplicationData.data_id == data_id)
+        .options(selectinload(ApplicationData.submitted_file))
+    )
+    app_data = result.scalar_one()
+
+    # Build file info
+    file_info = None
+    if app_data.submitted_file:
+        file_info = FileBasicInfo(
+            file_id=app_data.submitted_file.file_id,
+            original_filename=app_data.submitted_file.original_filename,
+            file_size=app_data.submitted_file.file_size,
+            mime_type=app_data.submitted_file.mime_type,
+            uploaded_at=app_data.submitted_file.uploaded_at
+        )
 
     return ApplicationDataResponse(
         data_id=app_data.data_id,
@@ -987,6 +1042,7 @@ async def submit_supplement(
         competency_id=app_data.competency_id,
         submitted_value=app_data.submitted_value,
         submitted_file_id=app_data.submitted_file_id,
+        submitted_file_info=file_info,
         verification_status=app_data.verification_status,
         item_score=float(app_data.item_score) if app_data.item_score else None,
         reviewed_by=app_data.reviewed_by,
