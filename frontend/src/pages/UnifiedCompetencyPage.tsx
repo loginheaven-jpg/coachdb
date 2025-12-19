@@ -53,6 +53,68 @@ const DEGREE_LEVEL_LABELS: Record<string, string> = {
   'none': '없음'
 }
 
+// 편집된 값을 원래 JSON 형식으로 재구성하는 헬퍼 함수
+const rebuildValueWithOriginalFormat = (
+  newValue: string,
+  originalValue: string | null,
+  fileId?: number
+): string => {
+  if (!originalValue) {
+    // 원본이 없으면 그대로 반환
+    return newValue
+  }
+
+  try {
+    const parsed = JSON.parse(originalValue)
+
+    // 배열인 경우 (예: 자격증 목록)
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      const firstItem = parsed[0]
+
+      // cert_name 형식인 경우
+      if ('cert_name' in firstItem) {
+        const rebuilt: Record<string, unknown> = { cert_name: newValue }
+        if (fileId) rebuilt._file_id = fileId
+        return JSON.stringify([rebuilt])
+      }
+
+      // text 형식인 경우
+      if ('text' in firstItem) {
+        const rebuilt: Record<string, unknown> = { text: newValue }
+        if (fileId) rebuilt._file_id = fileId
+        return JSON.stringify([rebuilt])
+      }
+
+      // name 형식인 경우
+      if ('name' in firstItem) {
+        const rebuilt: Record<string, unknown> = { name: newValue }
+        if (fileId) rebuilt._file_id = fileId
+        return JSON.stringify([rebuilt])
+      }
+    }
+
+    // 객체인 경우
+    if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+      if ('cert_name' in parsed) {
+        const rebuilt: Record<string, unknown> = { cert_name: newValue }
+        if (fileId) rebuilt._file_id = fileId
+        return JSON.stringify(rebuilt)
+      }
+      if ('text' in parsed) {
+        const rebuilt: Record<string, unknown> = { text: newValue }
+        if (fileId) rebuilt._file_id = fileId
+        return JSON.stringify(rebuilt)
+      }
+    }
+
+    // 원본 형식을 알 수 없으면 그대로 반환
+    return newValue
+  } catch {
+    // JSON 파싱 실패 시 그대로 반환
+    return newValue
+  }
+}
+
 // JSON 값에서 편집용 텍스트 추출하는 헬퍼 함수
 const extractEditableValue = (value: string | null | undefined): string => {
   if (!value) return ''
@@ -193,6 +255,7 @@ export default function UnifiedCompetencyPage() {
   const [uploadedFileId, setUploadedFileId] = useState<number | undefined>(undefined)
   const [selectedItemType, setSelectedItemType] = useState<string>('')
   const [selectedCategory, setSelectedCategory] = useState<string>('')
+  const [originalValue, setOriginalValue] = useState<string | null>(null)
   const [form] = Form.useForm()
   const [educationForm] = Form.useForm()
 
@@ -250,6 +313,7 @@ export default function UnifiedCompetencyPage() {
     setFileList([])
     setUploadedFileId(undefined)
     setSelectedCategory(category)
+    setOriginalValue(null)
 
     if (item) {
       setSelectedItemType(item.input_type)
@@ -268,6 +332,7 @@ export default function UnifiedCompetencyPage() {
     setUploadedFileId(record.file_id)
     setSelectedItemType(record.competency_item?.input_type || '')
     setSelectedCategory(record.competency_item?.category || 'DETAIL')
+    setOriginalValue(record.value || null)
     form.setFieldsValue({
       item_id: record.item_id,
       value: extractEditableValue(record.value)
@@ -372,8 +437,10 @@ export default function UnifiedCompetencyPage() {
       }
 
       if (editingCompetency) {
+        // 원래 JSON 형식으로 재구성하여 저장
+        const valueToSave = rebuildValueWithOriginalFormat(values.value, originalValue, fileId)
         await competencyService.updateCompetency(editingCompetency.competency_id, {
-          value: values.value,
+          value: valueToSave,
           file_id: fileId
         })
         message.success('역량이 수정되었습니다.')
@@ -390,6 +457,7 @@ export default function UnifiedCompetencyPage() {
       form.resetFields()
       setFileList([])
       setUploadedFileId(undefined)
+      setOriginalValue(null)
       loadData()
     } catch (error: any) {
       if (error.errorFields) {
@@ -409,6 +477,7 @@ export default function UnifiedCompetencyPage() {
     setUploadedFileId(undefined)
     setEditingCompetency(null)
     setSelectedItemType('')
+    setOriginalValue(null)
   }
 
   const handleAddEducation = () => {
