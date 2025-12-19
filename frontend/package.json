@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "npx serve -s dist -l ${PORT:-3000}",
+    "dev": "sh -c 'npx serve -s dist -l ${PORT:-3000}'",
     "dev:local": "vite",
     "build": "tsc && vite build",
     "build:prod": "vite build",
