@@ -15,8 +15,9 @@ COPY . .
 # Build for production
 RUN npm run build:prod
 
-# Expose port (serve uses 3000 by default)
+# Expose port (Railway provides PORT env var)
 EXPOSE 3000
 
-# Serve built files (serve uses PORT env var automatically)
-CMD ["npx", "serve", "-s", "dist"]
+# Serve built files with Railway PORT env var
+# Using shell form to enable environment variable expansion
+CMD ["sh", "-c", "npx serve -s dist -l ${PORT:-3000}"]
