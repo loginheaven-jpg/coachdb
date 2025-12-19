@@ -271,17 +271,57 @@ async def create_competency(
     await db.commit()
     await db.refresh(new_competency)
 
-    # Fetch competency item
-    new_competency.competency_item = item
+    # Build competency_item response
+    from sqlalchemy.orm import selectinload
+    item_with_fields_result = await db.execute(
+        select(CompetencyItem)
+        .where(CompetencyItem.item_id == new_competency.item_id)
+        .options(selectinload(CompetencyItem.fields))
+    )
+    item_with_fields = item_with_fields_result.scalar_one_or_none()
+
+    competency_item_response = None
+    if item_with_fields:
+        fields_response = []
+        if item_with_fields.fields:
+            for field in item_with_fields.fields:
+                fields_response.append(CompetencyItemFieldResponse(
+                    field_id=field.field_id,
+                    field_name=field.field_name or "",
+                    field_label=field.field_label or "",
+                    field_type=field.field_type or "text",
+                    field_options=field.field_options,
+                    is_required=field.is_required if field.is_required is not None else True,
+                    display_order=field.display_order if field.display_order is not None else 0,
+                    placeholder=field.placeholder
+                ))
+
+        competency_item_response = CompetencyItemResponse(
+            item_id=item_with_fields.item_id,
+            item_name=item_with_fields.item_name or "",
+            item_code=item_with_fields.item_code or "",
+            category=item_with_fields.category.value if item_with_fields.category else "ADDON",
+            input_type=item_with_fields.input_type.value if item_with_fields.input_type else "text",
+            is_active=item_with_fields.is_active if item_with_fields.is_active is not None else True,
+            template=item_with_fields.template,
+            template_config=item_with_fields.template_config,
+            is_repeatable=item_with_fields.is_repeatable if item_with_fields.is_repeatable is not None else False,
+            max_entries=item_with_fields.max_entries,
+            description=item_with_fields.description,
+            is_custom=item_with_fields.is_custom if item_with_fields.is_custom is not None else False,
+            created_by=item_with_fields.created_by,
+            fields=fields_response
+        )
 
     # Fetch file info if file_id exists
+    file_info_response = None
     if new_competency.file_id:
         file_result = await db.execute(
             select(File).where(File.file_id == new_competency.file_id)
         )
         file_obj = file_result.scalar_one_or_none()
         if file_obj:
-            new_competency.file_info = FileBasicInfo(
+            file_info_response = FileBasicInfo(
                 file_id=file_obj.file_id,
                 original_filename=file_obj.original_filename,
                 file_size=file_obj.file_size,
@@ -289,7 +329,25 @@ async def create_competency(
                 uploaded_at=file_obj.uploaded_at
             )
 
-    return new_competency
+    # Build and return response
+    return CoachCompetencyResponse(
+        competency_id=new_competency.competency_id,
+        user_id=new_competency.user_id,
+        item_id=new_competency.item_id,
+        value=new_competency.value,
+        file_id=new_competency.file_id,
+        verification_status=new_competency.verification_status if new_competency.verification_status else VerificationStatus.PENDING,
+        verified_by=new_competency.verified_by,
+        verified_at=new_competency.verified_at,
+        rejection_reason=new_competency.rejection_reason,
+        is_anonymized=new_competency.is_anonymized if new_competency.is_anonymized is not None else False,
+        created_at=new_competency.created_at,
+        updated_at=new_competency.updated_at,
+        is_globally_verified=new_competency.is_globally_verified if new_competency.is_globally_verified is not None else False,
+        globally_verified_at=new_competency.globally_verified_at,
+        competency_item=competency_item_response,
+        file_info=file_info_response
+    )
 
 
 @router.put("/{competency_id}", response_model=CoachCompetencyResponse)
@@ -352,20 +410,58 @@ async def update_competency(
     await db.commit()
     await db.refresh(competency)
 
-    # Fetch competency item
+    # Fetch competency item with fields
+    from sqlalchemy.orm import selectinload
     item_result = await db.execute(
-        select(CompetencyItem).where(CompetencyItem.item_id == competency.item_id)
+        select(CompetencyItem)
+        .where(CompetencyItem.item_id == competency.item_id)
+        .options(selectinload(CompetencyItem.fields))
     )
-    competency.competency_item = item_result.scalar_one_or_none()
+    item = item_result.scalar_one_or_none()
+
+    # Build competency_item response
+    competency_item_response = None
+    if item:
+        fields_response = []
+        if item.fields:
+            for field in item.fields:
+                fields_response.append(CompetencyItemFieldResponse(
+                    field_id=field.field_id,
+                    field_name=field.field_name or "",
+                    field_label=field.field_label or "",
+                    field_type=field.field_type or "text",
+                    field_options=field.field_options,
+                    is_required=field.is_required if field.is_required is not None else True,
+                    display_order=field.display_order if field.display_order is not None else 0,
+                    placeholder=field.placeholder
+                ))
+
+        competency_item_response = CompetencyItemResponse(
+            item_id=item.item_id,
+            item_name=item.item_name or "",
+            item_code=item.item_code or "",
+            category=item.category.value if item.category else "ADDON",
+            input_type=item.input_type.value if item.input_type else "text",
+            is_active=item.is_active if item.is_active is not None else True,
+            template=item.template,
+            template_config=item.template_config,
+            is_repeatable=item.is_repeatable if item.is_repeatable is not None else False,
+            max_entries=item.max_entries,
+            description=item.description,
+            is_custom=item.is_custom if item.is_custom is not None else False,
+            created_by=item.created_by,
+            fields=fields_response
+        )
 
     # Fetch file info if file_id exists
+    file_info_response = None
     if competency.file_id:
         file_result = await db.execute(
             select(File).where(File.file_id == competency.file_id)
         )
         file_obj = file_result.scalar_one_or_none()
         if file_obj:
-            competency.file_info = FileBasicInfo(
+            file_info_response = FileBasicInfo(
                 file_id=file_obj.file_id,
                 original_filename=file_obj.original_filename,
                 file_size=file_obj.file_size,
@@ -373,7 +469,25 @@ async def update_competency(
                 uploaded_at=file_obj.uploaded_at
             )
 
-    return competency
+    # Build and return response
+    return CoachCompetencyResponse(
+        competency_id=competency.competency_id,
+        user_id=competency.user_id,
+        item_id=competency.item_id,
+        value=competency.value,
+        file_id=competency.file_id,
+        verification_status=competency.verification_status if competency.verification_status else VerificationStatus.PENDING,
+        verified_by=competency.verified_by,
+        verified_at=competency.verified_at,
+        rejection_reason=competency.rejection_reason,
+        is_anonymized=competency.is_anonymized if competency.is_anonymized is not None else False,
+        created_at=competency.created_at,
+        updated_at=competency.updated_at,
+        is_globally_verified=competency.is_globally_verified if competency.is_globally_verified is not None else False,
+        globally_verified_at=competency.globally_verified_at,
+        competency_item=competency_item_response,
+        file_info=file_info_response
+    )
 
 
 @router.delete("/{competency_id}", status_code=status.HTTP_204_NO_CONTENT)
