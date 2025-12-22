@@ -13,7 +13,7 @@ from app.core.security import get_current_user
 from app.core.utils import get_user_roles
 from app.models.user import User, UserRole
 from app.models.application import Application, ApplicationData
-from app.models.competency import CoachCompetency
+from app.models.competency import CoachCompetency, CompetencyItem
 from app.models.project import Project, ProjectStatus
 from app.models.custom_question import CustomQuestion, CustomQuestionAnswer
 from app.models.notification import Notification, NotificationType
@@ -716,20 +716,55 @@ async def get_application_data(
             )
 
     # ============================================================================
-    # 핵심 수정: competency_id 대신 user_id + item_id로 competency 조회
-    # - competency_id는 stale해질 수 있음 (세부정보 수정 시 업데이트 안됨)
-    # - user_id + item_id로 조회하면 항상 최신 데이터 반환
+    # 핵심 수정: item_code 기반 매핑으로 competency 조회
+    # - 설문 항목(CERT_COACH)과 세부정보 항목(ADDON_CERT_COACH)은 다른 item_id
+    # - item_code 패턴으로 매핑: CERT_* → ADDON_CERT_*, EXP_* → ADDON_EXP_*, etc.
     # ============================================================================
 
-    # 1. 해당 사용자의 모든 competency를 미리 로드 (N+1 쿼리 방지)
-    from app.models.competency import CoachCompetency
+    # 1. CompetencyItem 전체 조회하여 item_code 매핑 생성
+    items_result = await db.execute(select(CompetencyItem))
+    all_items = items_result.scalars().all()
+    item_id_to_code = {item.item_id: item.item_code for item in all_items}
+    code_to_item_id = {item.item_code: item.item_id for item in all_items}
+
+    # 2. survey item_code → ADDON_* item_code 변환 함수
+    def get_addon_item_codes(survey_item_code: str) -> list:
+        """설문 item_code에 대응하는 ADDON item_code 목록 반환"""
+        if not survey_item_code:
+            return []
+        addon_codes = []
+        # CERT_COACH → ADDON_CERT_COACH
+        if survey_item_code.startswith("CERT_"):
+            addon_codes.append("ADDON_" + survey_item_code)
+        # EXP_* → ADDON_EXP_* (legacy 포함)
+        elif survey_item_code.startswith("EXP_"):
+            addon_codes.append("ADDON_" + survey_item_code)
+        # DEGREE_* → ADDON_DEGREE_* 또는 EDU_*
+        elif survey_item_code.startswith("DEGREE_"):
+            addon_codes.append("ADDON_" + survey_item_code)
+        # COACHING_* → ADDON_COACHING_*
+        elif survey_item_code.startswith("COACHING_"):
+            addon_codes.append("ADDON_" + survey_item_code)
+        # 이미 ADDON_* 인 경우 그대로
+        elif survey_item_code.startswith("ADDON_"):
+            addon_codes.append(survey_item_code)
+        return addon_codes
+
+    # 3. 해당 사용자의 모든 competency를 미리 로드 (N+1 쿼리 방지)
     competencies_result = await db.execute(
         select(CoachCompetency)
         .where(CoachCompetency.user_id == application.user_id)
         .options(selectinload(CoachCompetency.file))
     )
+    all_user_competencies = competencies_result.scalars().all()
     # item_id를 키로 하는 딕셔너리 생성
-    user_competencies = {c.item_id: c for c in competencies_result.scalars().all()}
+    user_competencies_by_id = {c.item_id: c for c in all_user_competencies}
+    # item_code를 키로 하는 딕셔너리도 생성 (매핑용)
+    user_competencies_by_code = {}
+    for c in all_user_competencies:
+        item_code = item_id_to_code.get(c.item_id)
+        if item_code:
+            user_competencies_by_code[item_code] = c
 
     # 2. ApplicationData 조회 (linked_competency 없이 - stale link 방지)
     result = await db.execute(
@@ -753,14 +788,26 @@ async def get_application_data(
                 uploaded_at=item.submitted_file.uploaded_at
             )
 
-        # 3. item_id로 최신 competency 조회 (항상 최신 데이터!)
+        # 4. item_code 기반 매핑으로 최신 competency 조회
         linked_value = None
         linked_file_id = None
         linked_file_info = None
         linked_verification_status = None
 
-        # user_competencies에서 item_id로 조회 (competency_id 대신)
-        competency = user_competencies.get(item.item_id)
+        # item_code 기반 매핑으로 competency 조회
+        survey_item_code = item_id_to_code.get(item.item_id)
+        competency = None
+
+        # 1차: 직접 item_id 매칭 시도
+        competency = user_competencies_by_id.get(item.item_id)
+
+        # 2차: ADDON_* 매핑으로 시도 (CERT_COACH → ADDON_CERT_COACH)
+        if not competency and survey_item_code:
+            addon_codes = get_addon_item_codes(survey_item_code)
+            for addon_code in addon_codes:
+                if addon_code in user_competencies_by_code:
+                    competency = user_competencies_by_code[addon_code]
+                    break
         if competency:
             linked_value = competency.value
             linked_file_id = competency.file_id
