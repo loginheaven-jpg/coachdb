@@ -561,10 +561,10 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
   const handleDeleteEducation = async (educationId: number) => {
     try {
       await educationService.deleteEducationHistory(educationId)
-      message.success('학력이 삭제되었습니다.')
+      message.success('연수가 삭제되었습니다.')
       loadData()
     } catch (error: any) {
-      message.error('학력 삭제에 실패했습니다.')
+      message.error('연수 삭제에 실패했습니다.')
     }
   }
 
@@ -594,10 +594,10 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
 
       if (editingEducation) {
         await educationService.updateEducationHistory(editingEducation.education_id, educationData)
-        message.success('학력이 수정되었습니다.')
+        message.success('연수가 수정되었습니다.')
       } else {
         await educationService.createEducationHistory(educationData)
-        message.success('학력이 추가되었습니다.')
+        message.success('연수가 추가되었습니다.')
       }
 
       setIsEducationModalVisible(false)
@@ -610,7 +610,7 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
         return
       }
       const errorMsg = error.response?.data?.detail || error.message || '알 수 없는 오류가 발생했습니다.'
-      message.error((editingEducation ? '학력 수정에 실패했습니다: ' : '학력 추가에 실패했습니다: ') + errorMsg)
+      message.error((editingEducation ? '연수 수정에 실패했습니다: ' : '연수 추가에 실패했습니다: ') + errorMsg)
     } finally {
       setLoading(false)
     }
@@ -891,8 +891,8 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
     return renderCategorySection('OTHER', '기타', '전문 분야, 자기소개 등을 등록하세요.')
   }
 
-  const renderEducationSection = () => {
-    const educationColumns = [
+  const renderTrainingSection = () => {
+    const trainingColumns = [
       {
         title: '교육명',
         dataIndex: 'education_name',
@@ -934,7 +934,7 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
               size="small"
             />
             <Popconfirm
-              title="이 학력을 삭제하시겠습니까?"
+              title="이 연수를 삭제하시겠습니까?"
               onConfirm={() => handleDeleteEducation(record.education_id)}
               okText="삭제"
               cancelText="취소"
@@ -953,8 +953,8 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
 
     return (
       <Panel
-        header={`학력 (${educationHistory.length})`}
-        key="EDUCATION"
+        header={`코칭관련 연수 (${educationHistory.length})`}
+        key="TRAINING"
         extra={
           <Button
             type="primary"
@@ -964,18 +964,18 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
               handleAddEducation()
             }}
           >
-            + 학력 추가
+            + 연수 추가
           </Button>
         }
       >
         <div className="space-y-4">
           {educationHistory.length === 0 ? (
             <div className="text-center py-4">
-              <Text type="secondary">등록된 학력이 없습니다.</Text>
+              <Text type="secondary">등록된 연수가 없습니다.</Text>
             </div>
           ) : (
             <Table
-              columns={educationColumns}
+              columns={trainingColumns}
               dataSource={educationHistory}
               rowKey="education_id"
               pagination={false}
@@ -1035,7 +1035,8 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
             <Collapse defaultActiveKey={['BASIC', 'CERTIFICATION']}>
               {renderBasicInfoSection()}
               {renderCertificationSection()}
-              {renderEducationSection()}
+              {renderCategorySection('EDUCATION', '학력', '코칭/상담 관련 학위 및 기타 학위를 등록하세요.')}
+              {renderTrainingSection()}
               {renderExperienceSection()}
               {renderOtherSection()}
             </Collapse>
@@ -1160,9 +1161,9 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
             </Form>
           </Modal>
 
-          {/* Education Modal */}
+          {/* Training Modal */}
           <Modal
-            title={editingEducation ? '학력 수정' : '학력 추가'}
+            title={editingEducation ? '연수 수정' : '연수 추가'}
             open={isEducationModalVisible}
             onOk={handleEducationModalOk}
             onCancel={handleEducationModalCancel}
@@ -1378,9 +1379,9 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
           </Form>
         </Modal>
 
-        {/* Education History Modal */}
+        {/* Training History Modal */}
         <Modal
-          title={editingEducation ? '학력 수정' : '학력 추가'}
+          title={editingEducation ? '연수 수정' : '연수 추가'}
           open={isEducationModalVisible}
           onOk={handleEducationModalOk}
           onCancel={handleEducationModalCancel}
