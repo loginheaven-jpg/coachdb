@@ -103,6 +103,17 @@ if DATABASE_URL:
             except Exception as e:
                 print(f"[WARN] applications.{col_name}: {e}")
 
+        # Add missing columns to notifications table (verification related)
+        notifications_columns = [
+            ('related_competency_id', 'BIGINT'),
+        ]
+        for col_name, col_type in notifications_columns:
+            try:
+                cur.execute(f"ALTER TABLE notifications ADD COLUMN IF NOT EXISTS {col_name} {col_type}")
+                print(f"[OK] notifications.{col_name} ensured")
+            except Exception as e:
+                print(f"[WARN] notifications.{col_name}: {e}")
+
         # Add missing enum values to competencycategory
         enum_values = ['ADDON', 'EDUCATION', 'COACHING', 'OTHER', 'CERTIFICATION', 'EXPERIENCE', 'DETAIL']
         for val in enum_values:
