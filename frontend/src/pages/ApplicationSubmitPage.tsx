@@ -17,7 +17,7 @@ import {
   Descriptions,
   Modal
 } from 'antd'
-import { ArrowLeftOutlined, SendOutlined, UploadOutlined, InfoCircleOutlined, UserOutlined, PlusOutlined, MinusCircleOutlined, CheckCircleOutlined, SaveOutlined, DeleteOutlined, LoadingOutlined, EditOutlined, ClockCircleOutlined, DownloadOutlined, CloseCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
+import { ArrowLeftOutlined, SendOutlined, UploadOutlined, InfoCircleOutlined, UserOutlined, CheckCircleOutlined, SaveOutlined, DeleteOutlined, LoadingOutlined, EditOutlined, ClockCircleOutlined, DownloadOutlined, CloseCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
 import projectService, { ProjectDetail, ProjectItem, ItemTemplate } from '../services/projectService'
 import applicationService, { ApplicationSubmitRequest, ApplicationDataSubmit, ApplicationData } from '../services/applicationService'
 import authService, { UserUpdateData } from '../services/authService'
@@ -1242,203 +1242,307 @@ export default function ApplicationSubmitPage() {
                     />
                   )}
                   <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                    {filteredItems.map((item, itemIndex) => {
+                    {filteredItems.map((item) => {
                       const competencyItem = item.competency_item
                       if (!competencyItem) return null
 
                       const isRepeatable = competencyItem.is_repeatable
                       const entries = isRepeatable ? (repeatableData[item.project_item_id] || [{}]) : [{}]
                       const maxEntries = competencyItem.max_entries
+                      const canAddMore = !maxEntries || entries.length < maxEntries
 
-                      return (
-                        <div key={item.project_item_id}>
-                          {entries.map((entry, entryIndex) => {
-                            const fileKey = `${item.project_item_id}_${entryIndex}`
-                            const hasFile = !!uploadedFiles[fileKey]
+                      // 반복 가능 항목: 그룹 헤더 + 내부 항목들
+                      if (isRepeatable) {
+                        return (
+                          <div key={item.project_item_id} className="mb-4">
+                            {/* 그룹 헤더 */}
+                            <div className="flex justify-between items-center mb-2 pb-2 border-b">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{competencyItem.item_name}</span>
+                                {item.is_required && <Tag color="red">필수</Tag>}
+                                <Tag color="blue">복수 입력 가능</Tag>
+                                <Text type="secondary">({entries.length}개)</Text>
+                              </div>
+                              {!isViewMode && canAddMore && (
+                                <Button
+                                  type="dashed"
+                                  size="small"
+                                  onClick={() => addRepeatableEntry(item.project_item_id, maxEntries ?? undefined)}
+                                >
+                                  + 추가
+                                </Button>
+                              )}
+                            </div>
 
-                            return (
-                              <Card
-                                key={entryIndex}
-                                size="small"
-                                className="mb-2"
-                                title={
-                                  <Space>
-                                    <span className="font-medium">
-                                      {itemIndex + 1}.{isRepeatable ? ` ${competencyItem.item_name} #${entryIndex + 1}` : ` ${competencyItem.item_name}`}
-                                    </span>
-                                    {item.is_required && <Tag color="red">필수</Tag>}
-                                    {isRepeatable && <Tag color="blue">복수 입력 가능</Tag>}
-                                  </Space>
-                                }
-                                extra={
-                                  !isViewMode && isRepeatable && entries.length > 1 && (
-                                    <Button
-                                      type="text"
-                                      danger
-                                      size="small"
-                                      icon={<MinusCircleOutlined />}
-                                      onClick={() => removeRepeatableEntry(item.project_item_id, entryIndex)}
-                                    >
-                                      삭제
-                                    </Button>
-                                  )
-                                }
-                              >
-                                {competencyItem.description && (
-                                  <Text type="secondary" className="block mb-3 text-sm">
-                                    {competencyItem.description}
-                                  </Text>
-                                )}
+                            {competencyItem.description && (
+                              <Text type="secondary" className="block mb-3 text-sm">
+                                {competencyItem.description}
+                              </Text>
+                            )}
 
-                                {/* Input field based on template */}
-                                {isRepeatable ? (
+                            {/* 각 항목 카드 */}
+                            {entries.map((entry, entryIndex) => {
+                              const fileKey = `${item.project_item_id}_${entryIndex}`
+                              const hasFile = !!uploadedFiles[fileKey]
+
+                              return (
+                                <Card
+                                  key={entryIndex}
+                                  size="small"
+                                  className="mb-2"
+                                  title={
+                                    <span className="font-medium">#{entryIndex + 1}</span>
+                                  }
+                                  extra={
+                                    !isViewMode && entries.length > 1 && (
+                                      <Button
+                                        type="text"
+                                        danger
+                                        size="small"
+                                        icon={<DeleteOutlined />}
+                                        onClick={() => removeRepeatableEntry(item.project_item_id, entryIndex)}
+                                      />
+                                    )
+                                  }
+                                >
+                                  {/* Input field */}
                                   <div className="mb-3">
                                     {renderRepeatableInputField(item, entryIndex, entry)}
                                   </div>
-                                ) : (
-                                  <Form.Item
-                                    name={`item_${item.project_item_id}`}
-                                    className="mb-3"
-                                    rules={[
-                                      {
-                                        required: item.is_required,
-                                        message: '이 항목은 필수입니다.'
-                                      }
-                                    ]}
-                                  >
-                                    {renderInputField(item)}
-                                  </Form.Item>
-                                )}
 
-                                {/* 증빙첨부 버튼 - proof_required_level이 required 또는 optional인 경우에만 표시 */}
-                                {(() => {
-                                  const proofLevel = (item.proof_required_level || '').toLowerCase()
-                                  const fileInfo = uploadedFiles[fileKey]
-                                  const isUploading = fileInfo?.uploading
-                                  return (proofLevel === 'required' || proofLevel === 'optional') && (
-                                  <div className="flex items-center gap-2 pt-2 border-t">
-                                    {isViewMode ? (
-                                      // View mode: just show file info
-                                      hasFile ? (
-                                        <Tag color="green" icon={<CheckCircleOutlined />}>
-                                          {fileInfo?.file?.name || fileInfo?.filename || '첨부파일'}
-                                        </Tag>
-                                      ) : (
-                                        <Text type="secondary">첨부파일 없음</Text>
-                                      )
-                                    ) : (
-                                      // Edit mode: show upload/delete buttons
-                                      <>
-                                        {!hasFile ? (
-                                          <Upload
-                                            maxCount={1}
-                                            showUploadList={false}
-                                            beforeUpload={(file) => {
-                                              handleFileUpload(fileKey, file)
-                                              return false
-                                            }}
-                                          >
-                                            <Button icon={<UploadOutlined />} size="small">
-                                              {proofLevel === 'required' ? '증빙첨부 (필수)' : '증빙첨부 (선택)'}
-                                            </Button>
-                                          </Upload>
-                                        ) : isUploading ? (
-                                          <div className="flex items-center gap-2">
-                                            <Tag color="processing" icon={<LoadingOutlined />}>
-                                              {fileInfo?.file?.name || fileInfo?.filename} 업로드 중...
-                                            </Tag>
-                                          </div>
-                                        ) : (
-                                          <div className="flex items-center gap-2">
+                                  {/* 증빙첨부 */}
+                                  {(() => {
+                                    const proofLevel = (item.proof_required_level || '').toLowerCase()
+                                    const fileInfo = uploadedFiles[fileKey]
+                                    const isUploading = fileInfo?.uploading
+                                    return (proofLevel === 'required' || proofLevel === 'optional') && (
+                                      <div className="flex items-center gap-2 pt-2 border-t">
+                                        {isViewMode ? (
+                                          hasFile ? (
                                             <Tag color="green" icon={<CheckCircleOutlined />}>
-                                              {fileInfo?.file?.name || fileInfo?.filename}
+                                              {fileInfo?.file?.name || fileInfo?.filename || '첨부파일'}
                                             </Tag>
-                                            <Button
-                                              type="text"
-                                              danger
-                                              size="small"
-                                              icon={<DeleteOutlined />}
-                                              onClick={async () => {
-                                                // 서버에서도 파일 삭제
-                                                if (fileInfo?.file_id) {
-                                                  try {
-                                                    await fileService.deleteFile(fileInfo.file_id)
-                                                  } catch (error) {
-                                                    console.error('파일 삭제 실패:', error)
-                                                  }
-                                                }
-                                                setUploadedFiles(prev => {
-                                                  const newFiles = { ...prev }
-                                                  delete newFiles[fileKey]
-                                                  return newFiles
-                                                })
-                                              }}
-                                            >
-                                              삭제
-                                            </Button>
-                                          </div>
+                                          ) : (
+                                            <Text type="secondary">첨부파일 없음</Text>
+                                          )
+                                        ) : (
+                                          <>
+                                            {!hasFile ? (
+                                              <Upload
+                                                maxCount={1}
+                                                showUploadList={false}
+                                                beforeUpload={(file) => {
+                                                  handleFileUpload(fileKey, file)
+                                                  return false
+                                                }}
+                                              >
+                                                <Button icon={<UploadOutlined />} size="small">
+                                                  {proofLevel === 'required' ? '증빙첨부 (필수)' : '증빙첨부 (선택)'}
+                                                </Button>
+                                              </Upload>
+                                            ) : isUploading ? (
+                                              <Tag color="processing" icon={<LoadingOutlined />}>
+                                                {fileInfo?.file?.name || fileInfo?.filename} 업로드 중...
+                                              </Tag>
+                                            ) : (
+                                              <div className="flex items-center gap-2">
+                                                <Tag color="green" icon={<CheckCircleOutlined />}>
+                                                  {fileInfo?.file?.name || fileInfo?.filename}
+                                                </Tag>
+                                                <Button
+                                                  type="text"
+                                                  danger
+                                                  size="small"
+                                                  icon={<DeleteOutlined />}
+                                                  onClick={async () => {
+                                                    if (fileInfo?.file_id) {
+                                                      try {
+                                                        await fileService.deleteFile(fileInfo.file_id)
+                                                      } catch (error) {
+                                                        console.error('파일 삭제 실패:', error)
+                                                      }
+                                                    }
+                                                    setUploadedFiles(prev => {
+                                                      const newFiles = { ...prev }
+                                                      delete newFiles[fileKey]
+                                                      return newFiles
+                                                    })
+                                                  }}
+                                                />
+                                              </div>
+                                            )}
+                                          </>
                                         )}
-                                      </>
-                                    )}
-                                  </div>
-                                )})()}
+                                      </div>
+                                    )
+                                  })()}
 
-                                {/* 역량 지갑 연동 정보 표시 (파일명, 크기, 검토상태) */}
-                                {(() => {
-                                  const linkedData = linkedCompetencyData[item.project_item_id]
-                                  if (!linkedData) return null
+                                  {/* 검토상태 표시 */}
+                                  {(() => {
+                                    const linkedData = linkedCompetencyData[item.project_item_id]
+                                    if (!linkedData) return null
+                                    const verificationStatus = linkedData.linked_competency_verification_status || linkedData.verification_status
+                                    return verificationStatus && (
+                                      <div className="flex items-center gap-2 mt-2 pt-2 border-t border-dashed">
+                                        <Text type="secondary" className="text-xs">검토상태:</Text>
+                                        {getVerificationStatusTag(verificationStatus)}
+                                      </div>
+                                    )
+                                  })()}
+                                </Card>
+                              )
+                            })}
 
-                                  // linked_competency 정보 우선, 없으면 submitted 정보 사용
-                                  const fileInfo = linkedData.linked_competency_file_info || linkedData.submitted_file_info
-                                  const verificationStatus = linkedData.linked_competency_verification_status || linkedData.verification_status
+                            {/* 항목이 없을 때 */}
+                            {entries.length === 0 && (
+                              <Card size="small" className="border-dashed">
+                                <div className="text-center py-2">
+                                  <Text type="secondary">등록된 항목이 없습니다.</Text>
+                                </div>
+                              </Card>
+                            )}
+                          </div>
+                        )
+                      }
 
-                                  return (
-                                    <div className="mt-3 pt-3 border-t border-dashed">
-                                      {/* 파일 정보 표시 */}
-                                      {fileInfo && (
-                                        <div className="flex items-center gap-2 mb-2">
-                                          <DownloadOutlined className="text-blue-500" />
-                                          <Button
-                                            type="link"
-                                            size="small"
-                                            className="p-0"
-                                            onClick={() => handleFileDownload(fileInfo.file_id, fileInfo.original_filename)}
-                                          >
-                                            {fileInfo.original_filename}
-                                          </Button>
-                                          <Text type="secondary" className="text-xs">
-                                            ({(fileInfo.file_size / 1024).toFixed(1)} KB)
-                                          </Text>
-                                        </div>
-                                      )}
+                      // 단일 항목 (non-repeatable)
+                      const singleFileKey = `${item.project_item_id}_0`
+                      const singleFileInfo = uploadedFiles[singleFileKey]
+                      const singleHasFile = !!singleFileInfo
 
-                                      {/* 검토 상태 표시 */}
-                                      {verificationStatus && (
-                                        <div className="flex items-center gap-2">
-                                          <Text type="secondary" className="text-xs">검토상태:</Text>
-                                          {getVerificationStatusTag(verificationStatus)}
-                                        </div>
+                      return (
+                        <div key={item.project_item_id} className="mb-4">
+                          {/* 그룹 헤더 (단일 항목용) */}
+                          <div className="flex justify-between items-center mb-2 pb-2 border-b">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{competencyItem.item_name}</span>
+                              {item.is_required && <Tag color="red">필수</Tag>}
+                            </div>
+                          </div>
+
+                          {competencyItem.description && (
+                            <Text type="secondary" className="block mb-3 text-sm">
+                              {competencyItem.description}
+                            </Text>
+                          )}
+
+                          {/* Input field based on template */}
+                          <Card size="small" className="mb-2">
+                            <Form.Item
+                              name={`item_${item.project_item_id}`}
+                              className="mb-3"
+                              rules={[
+                                {
+                                  required: item.is_required,
+                                  message: '이 항목은 필수입니다.'
+                                }
+                              ]}
+                            >
+                              {renderInputField(item)}
+                            </Form.Item>
+
+                            {/* 증빙첨부 버튼 - proof_required_level이 required 또는 optional인 경우에만 표시 */}
+                            {(() => {
+                              const proofLevel = (item.proof_required_level || '').toLowerCase()
+                              const isUploading = singleFileInfo?.uploading
+                              return (proofLevel === 'required' || proofLevel === 'optional') && (
+                              <div className="flex items-center gap-2 pt-2 border-t">
+                                {isViewMode ? (
+                                  singleHasFile ? (
+                                    <div className="flex items-center gap-2">
+                                      <DownloadOutlined className="text-blue-500" />
+                                      <Button
+                                        type="link"
+                                        size="small"
+                                        className="p-0"
+                                        onClick={() => singleFileInfo?.file_id && handleFileDownload(singleFileInfo.file_id, singleFileInfo.filename || '파일')}
+                                      >
+                                        {singleFileInfo?.filename || '첨부파일'}
+                                      </Button>
+                                      {singleFileInfo?.file_size && (
+                                        <Text type="secondary" className="text-xs">
+                                          ({(singleFileInfo.file_size / 1024).toFixed(1)} KB)
+                                        </Text>
                                       )}
                                     </div>
+                                  ) : (
+                                    <Text type="secondary">첨부파일 없음</Text>
                                   )
-                                })()}
-                              </Card>
-                            )
-                          })}
+                                ) : (
+                                  <>
+                                    {!singleHasFile ? (
+                                      <Upload
+                                        maxCount={1}
+                                        showUploadList={false}
+                                        beforeUpload={(file) => {
+                                          handleFileUpload(singleFileKey, file)
+                                          return false
+                                        }}
+                                      >
+                                        <Button icon={<UploadOutlined />} size="small">
+                                          {proofLevel === 'required' ? '증빙첨부 (필수)' : '증빙첨부 (선택)'}
+                                        </Button>
+                                      </Upload>
+                                    ) : isUploading ? (
+                                      <Tag color="processing" icon={<LoadingOutlined />}>
+                                        {singleFileInfo?.file?.name || singleFileInfo?.filename} 업로드 중...
+                                      </Tag>
+                                    ) : (
+                                      <div className="flex items-center gap-2">
+                                        <DownloadOutlined className="text-blue-500" />
+                                        <Button
+                                          type="link"
+                                          size="small"
+                                          className="p-0"
+                                          onClick={() => singleFileInfo?.file_id && handleFileDownload(singleFileInfo.file_id, singleFileInfo.filename || singleFileInfo?.file?.name || '파일')}
+                                        >
+                                          {singleFileInfo?.file?.name || singleFileInfo?.filename}
+                                        </Button>
+                                        {singleFileInfo?.file_size && (
+                                          <Text type="secondary" className="text-xs">
+                                            ({(singleFileInfo.file_size / 1024).toFixed(1)} KB)
+                                          </Text>
+                                        )}
+                                        <Button
+                                          type="text"
+                                          danger
+                                          size="small"
+                                          icon={<DeleteOutlined />}
+                                          onClick={async () => {
+                                            if (singleFileInfo?.file_id) {
+                                              try {
+                                                await fileService.deleteFile(singleFileInfo.file_id)
+                                              } catch (error) {
+                                                console.error('파일 삭제 실패:', error)
+                                              }
+                                            }
+                                            setUploadedFiles(prev => {
+                                              const newFiles = { ...prev }
+                                              delete newFiles[singleFileKey]
+                                              return newFiles
+                                            })
+                                          }}
+                                        />
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            )})()}
 
-                          {/* 항목 추가 버튼 (repeatable인 경우, view 모드에서는 숨김) */}
-                          {!isViewMode && isRepeatable && (
-                            <Button
-                              type="dashed"
-                              onClick={() => addRepeatableEntry(item.project_item_id, maxEntries ?? undefined)}
-                              block
-                              className="mb-4"
-                              disabled={maxEntries ? entries.length >= maxEntries : false}
-                            >
-                              + {competencyItem.item_name} 추가
-                              {maxEntries && ` (${entries.length}/${maxEntries})`}
-                            </Button>
-                          )}
+                            {/* 검토상태 표시 */}
+                            {(() => {
+                              const linkedData = linkedCompetencyData[item.project_item_id]
+                              if (!linkedData) return null
+                              const verificationStatus = linkedData.linked_competency_verification_status || linkedData.verification_status
+                              return verificationStatus && (
+                                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-dashed">
+                                  <Text type="secondary" className="text-xs">검토상태:</Text>
+                                  {getVerificationStatusTag(verificationStatus)}
+                                </div>
+                              )
+                            })()}
+                          </Card>
                         </div>
                       )
                     })}
