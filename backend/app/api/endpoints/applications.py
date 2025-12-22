@@ -715,14 +715,27 @@ async def get_application_data(
                 detail="Not enough permissions"
             )
 
-    # Get application data with file info and linked competency
+    # ============================================================================
+    # 핵심 수정: competency_id 대신 user_id + item_id로 competency 조회
+    # - competency_id는 stale해질 수 있음 (세부정보 수정 시 업데이트 안됨)
+    # - user_id + item_id로 조회하면 항상 최신 데이터 반환
+    # ============================================================================
+
+    # 1. 해당 사용자의 모든 competency를 미리 로드 (N+1 쿼리 방지)
+    from app.models.competency import CoachCompetency
+    competencies_result = await db.execute(
+        select(CoachCompetency)
+        .where(CoachCompetency.user_id == application.user_id)
+        .options(selectinload(CoachCompetency.file))
+    )
+    # item_id를 키로 하는 딕셔너리 생성
+    user_competencies = {c.item_id: c for c in competencies_result.scalars().all()}
+
+    # 2. ApplicationData 조회 (linked_competency 없이 - stale link 방지)
     result = await db.execute(
         select(ApplicationData)
         .where(ApplicationData.application_id == application_id)
-        .options(
-            selectinload(ApplicationData.submitted_file),
-            selectinload(ApplicationData.linked_competency).selectinload(CoachCompetency.file)
-        )
+        .options(selectinload(ApplicationData.submitted_file))
         .order_by(ApplicationData.item_id)
     )
     data_items = result.scalars().all()
@@ -740,24 +753,26 @@ async def get_application_data(
                 uploaded_at=item.submitted_file.uploaded_at
             )
 
-        # Build linked competency info (역량 지갑에서 가져온 실시간 데이터)
+        # 3. item_id로 최신 competency 조회 (항상 최신 데이터!)
         linked_value = None
         linked_file_id = None
         linked_file_info = None
         linked_verification_status = None
 
-        if item.linked_competency:
-            linked_value = item.linked_competency.value
-            linked_file_id = item.linked_competency.file_id
-            linked_verification_status = item.linked_competency.verification_status.value if item.linked_competency.verification_status else None
+        # user_competencies에서 item_id로 조회 (competency_id 대신)
+        competency = user_competencies.get(item.item_id)
+        if competency:
+            linked_value = competency.value
+            linked_file_id = competency.file_id
+            linked_verification_status = competency.verification_status.value if competency.verification_status else None
 
-            if item.linked_competency.file:
+            if competency.file:
                 linked_file_info = FileBasicInfo(
-                    file_id=item.linked_competency.file.file_id,
-                    original_filename=item.linked_competency.file.original_filename,
-                    file_size=item.linked_competency.file.file_size,
-                    mime_type=item.linked_competency.file.mime_type,
-                    uploaded_at=item.linked_competency.file.uploaded_at
+                    file_id=competency.file.file_id,
+                    original_filename=competency.file.original_filename,
+                    file_size=competency.file.file_size,
+                    mime_type=competency.file.mime_type,
+                    uploaded_at=competency.file.uploaded_at
                 )
 
         # 하이브리드 구조: is_frozen 상태에 따라 표시할 값 결정
