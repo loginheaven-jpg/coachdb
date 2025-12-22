@@ -1254,8 +1254,7 @@ export default function ApplicationSubmitPage() {
                                     if (!linkedData) return null
                                     const verificationStatus = linkedData.linked_competency_verification_status || linkedData.verification_status
                                     return verificationStatus && (
-                                      <div className="flex items-center gap-2 mt-2 pt-2 border-t border-dashed">
-                                        <Text type="secondary" className="text-xs">검토상태:</Text>
+                                      <div className="mt-2">
                                         {getVerificationStatusTag(verificationStatus)}
                                       </div>
                                     )
@@ -1278,7 +1277,16 @@ export default function ApplicationSubmitPage() {
 
                       // 단일 항목 (non-repeatable)
                       const singleFileKey = `${item.project_item_id}_0`
-                      const singleFileInfo = uploadedFiles[singleFileKey]
+                      const uploadedFileInfo = uploadedFiles[singleFileKey]
+                      const singleLinkedData = linkedCompetencyData[item.project_item_id]
+                      const singleLinkedFileInfo = singleLinkedData?.linked_competency_file_info
+
+                      // 새로 업로드한 파일 우선, 없으면 세부정보에서 가져온 파일 사용
+                      const singleFileInfo = uploadedFileInfo || (singleLinkedFileInfo ? {
+                        file_id: singleLinkedData?.linked_competency_file_id,
+                        filename: singleLinkedFileInfo.original_filename,
+                        file_size: singleLinkedFileInfo.file_size
+                      } : null)
                       const singleHasFile = !!singleFileInfo
 
                       return (
@@ -1315,7 +1323,10 @@ export default function ApplicationSubmitPage() {
                             {/* 증빙첨부 버튼 - proof_required_level이 required 또는 optional인 경우에만 표시 */}
                             {(() => {
                               const proofLevel = (item.proof_required_level || '').toLowerCase()
-                              const isUploading = singleFileInfo?.uploading
+                              const isUploading = uploadedFileInfo?.uploading
+                              const hasUploadedFile = !!uploadedFileInfo
+                              const hasLinkedFile = !!singleLinkedFileInfo
+
                               return (proofLevel === 'required' || proofLevel === 'optional') && (
                               <div className="flex items-center gap-2 pt-2 border-t">
                                 {isViewMode ? (
@@ -1339,64 +1350,90 @@ export default function ApplicationSubmitPage() {
                                   ) : (
                                     <Text type="secondary">첨부파일 없음</Text>
                                   )
-                                ) : (
-                                  <>
-                                    {!singleHasFile ? (
-                                      <Upload
-                                        maxCount={1}
-                                        showUploadList={false}
-                                        beforeUpload={(file) => {
-                                          handleFileUpload(singleFileKey, file)
-                                          return false
-                                        }}
-                                      >
-                                        <Button icon={<UploadOutlined />} size="small">
-                                          {proofLevel === 'required' ? '증빙첨부 (필수)' : '증빙첨부 (선택)'}
-                                        </Button>
-                                      </Upload>
-                                    ) : isUploading ? (
-                                      <Tag color="processing" icon={<LoadingOutlined />}>
-                                        {singleFileInfo?.file?.name || singleFileInfo?.filename} 업로드 중...
-                                      </Tag>
-                                    ) : (
-                                      <div className="flex items-center gap-2">
-                                        <DownloadOutlined className="text-blue-500" />
-                                        <Button
-                                          type="link"
-                                          size="small"
-                                          className="p-0"
-                                          onClick={() => singleFileInfo?.file_id && handleFileDownload(singleFileInfo.file_id, singleFileInfo.filename || singleFileInfo?.file?.name || '파일')}
-                                        >
-                                          {singleFileInfo?.file?.name || singleFileInfo?.filename}
-                                        </Button>
-                                        {singleFileInfo?.file_size && (
-                                          <Text type="secondary" className="text-xs">
-                                            ({(singleFileInfo.file_size / 1024).toFixed(1)} KB)
-                                          </Text>
-                                        )}
-                                        <Button
-                                          type="text"
-                                          danger
-                                          size="small"
-                                          icon={<DeleteOutlined />}
-                                          onClick={async () => {
-                                            if (singleFileInfo?.file_id) {
-                                              try {
-                                                await fileService.deleteFile(singleFileInfo.file_id)
-                                              } catch (error) {
-                                                console.error('파일 삭제 실패:', error)
-                                              }
-                                            }
-                                            setUploadedFiles(prev => {
-                                              const newFiles = { ...prev }
-                                              delete newFiles[singleFileKey]
-                                              return newFiles
-                                            })
-                                          }}
-                                        />
-                                      </div>
+                                ) : isUploading ? (
+                                  <Tag color="processing" icon={<LoadingOutlined />}>
+                                    {uploadedFileInfo?.file?.name || uploadedFileInfo?.filename} 업로드 중...
+                                  </Tag>
+                                ) : hasUploadedFile ? (
+                                  // 새로 업로드한 파일 표시
+                                  <div className="flex items-center gap-2">
+                                    <DownloadOutlined className="text-blue-500" />
+                                    <Button
+                                      type="link"
+                                      size="small"
+                                      className="p-0"
+                                      onClick={() => uploadedFileInfo?.file_id && handleFileDownload(uploadedFileInfo.file_id, uploadedFileInfo.filename || uploadedFileInfo?.file?.name || '파일')}
+                                    >
+                                      {uploadedFileInfo?.file?.name || uploadedFileInfo?.filename}
+                                    </Button>
+                                    {uploadedFileInfo?.file_size && (
+                                      <Text type="secondary" className="text-xs">
+                                        ({(uploadedFileInfo.file_size / 1024).toFixed(1)} KB)
+                                      </Text>
                                     )}
-                                  </>
+                                    <Button
+                                      type="text"
+                                      danger
+                                      size="small"
+                                      icon={<DeleteOutlined />}
+                                      onClick={async () => {
+                                        if (uploadedFileInfo?.file_id) {
+                                          try {
+                                            await fileService.deleteFile(uploadedFileInfo.file_id)
+                                          } catch (error) {
+                                            console.error('파일 삭제 실패:', error)
+                                          }
+                                        }
+                                        setUploadedFiles(prev => {
+                                          const newFiles = { ...prev }
+                                          delete newFiles[singleFileKey]
+                                          return newFiles
+                                        })
+                                      }}
+                                    />
+                                  </div>
+                                ) : hasLinkedFile ? (
+                                  // 세부정보에서 가져온 파일 표시 (삭제 불가, 대체만 가능)
+                                  <div className="flex items-center gap-2">
+                                    <DownloadOutlined className="text-blue-500" />
+                                    <Button
+                                      type="link"
+                                      size="small"
+                                      className="p-0"
+                                      onClick={() => singleLinkedData?.linked_competency_file_id && handleFileDownload(singleLinkedData.linked_competency_file_id, singleLinkedFileInfo.original_filename)}
+                                    >
+                                      {singleLinkedFileInfo.original_filename}
+                                    </Button>
+                                    <Text type="secondary" className="text-xs">
+                                      ({(singleLinkedFileInfo.file_size / 1024).toFixed(1)} KB)
+                                    </Text>
+                                    <Upload
+                                      maxCount={1}
+                                      showUploadList={false}
+                                      beforeUpload={(file) => {
+                                        handleFileUpload(singleFileKey, file)
+                                        return false
+                                      }}
+                                    >
+                                      <Button type="text" size="small" icon={<UploadOutlined />}>
+                                        파일 대체
+                                      </Button>
+                                    </Upload>
+                                  </div>
+                                ) : (
+                                  // 파일 없음 - 업로드 버튼 표시
+                                  <Upload
+                                    maxCount={1}
+                                    showUploadList={false}
+                                    beforeUpload={(file) => {
+                                      handleFileUpload(singleFileKey, file)
+                                      return false
+                                    }}
+                                  >
+                                    <Button icon={<UploadOutlined />} size="small">
+                                      {proofLevel === 'required' ? '증빙첨부 (필수)' : '증빙첨부 (선택)'}
+                                    </Button>
+                                  </Upload>
                                 )}
                               </div>
                             )})()}
@@ -1407,8 +1444,7 @@ export default function ApplicationSubmitPage() {
                               if (!linkedData) return null
                               const verificationStatus = linkedData.linked_competency_verification_status || linkedData.verification_status
                               return verificationStatus && (
-                                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-dashed">
-                                  <Text type="secondary" className="text-xs">검토상태:</Text>
+                                <div className="mt-2">
                                   {getVerificationStatusTag(verificationStatus)}
                                 </div>
                               )
