@@ -91,6 +91,18 @@ if DATABASE_URL:
             except Exception as e:
                 print(f"[WARN] coach_competencies.{col_name}: {e}")
 
+        # Add missing columns to applications table (frozen snapshot)
+        applications_columns = [
+            ('is_frozen', 'BOOLEAN DEFAULT FALSE'),
+            ('frozen_at', 'TIMESTAMP WITH TIME ZONE'),
+        ]
+        for col_name, col_type in applications_columns:
+            try:
+                cur.execute(f"ALTER TABLE applications ADD COLUMN IF NOT EXISTS {col_name} {col_type}")
+                print(f"[OK] applications.{col_name} ensured")
+            except Exception as e:
+                print(f"[WARN] applications.{col_name}: {e}")
+
         # Add missing enum values to competencycategory
         enum_values = ['ADDON', 'EDUCATION', 'COACHING', 'OTHER', 'CERTIFICATION', 'EXPERIENCE', 'DETAIL']
         for val in enum_values:

@@ -68,7 +68,9 @@
       "Bash(else echo \".env not found\")",
       "Bash(fi)",
       "Bash(pip show:*)",
-      "Bash(PGPASSWORD=lFChOgaRykkLWYJLIJgkuhRlUQNEdluF psql:*)"
+      "Bash(PGPASSWORD=lFChOgaRykkLWYJLIJgkuhRlUQNEdluF psql:*)",
+      "Bash(npm run build:prod:*)",
+      "Bash(alembic upgrade:*)"
     ],
     "deny": [],
     "ask": []
