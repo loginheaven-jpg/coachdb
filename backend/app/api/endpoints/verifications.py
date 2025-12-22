@@ -110,7 +110,7 @@ async def get_pending_verifications(
         .join(CompetencyItem, CoachCompetency.item_id == CompetencyItem.item_id)
         .join(User, CoachCompetency.user_id == User.user_id)
         .options(
-            selectinload(CoachCompetency.item),
+            selectinload(CoachCompetency.competency_item),
             selectinload(CoachCompetency.user),
             selectinload(CoachCompetency.verification_records),
             selectinload(CoachCompetency.file)  # 파일 정보 로드
@@ -174,8 +174,8 @@ async def get_pending_verifications(
             user_name=comp.user.name if comp.user else "Unknown",
             user_email=comp.user.email if comp.user else "",
             item_id=comp.item_id,
-            item_name=comp.item.name if comp.item else "Unknown",
-            item_code=comp.item.code if comp.item else "",
+            item_name=comp.competency_item.item_name if comp.competency_item else "Unknown",
+            item_code=comp.competency_item.item_code if comp.competency_item else "",
             value=comp.value,
             file_id=comp.file_id,
             file_info=file_info,
@@ -203,7 +203,7 @@ async def get_verification_status(
     result = await db.execute(
         select(CoachCompetency)
         .options(
-            selectinload(CoachCompetency.item),
+            selectinload(CoachCompetency.competency_item),
             selectinload(CoachCompetency.user),
             selectinload(CoachCompetency.verification_records),
             selectinload(CoachCompetency.file)  # 파일 정보 로드
@@ -254,7 +254,7 @@ async def get_verification_status(
         user_id=competency.user_id,
         user_name=competency.user.name if competency.user else None,
         item_id=competency.item_id,
-        item_name=competency.item.name if competency.item else None,
+        item_name=competency.competency_item.item_name if competency.competency_item else None,
         value=competency.value,
         file_id=competency.file_id,
         file_info=file_info,

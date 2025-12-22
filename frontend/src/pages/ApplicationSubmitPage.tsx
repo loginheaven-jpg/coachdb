@@ -1267,11 +1267,16 @@ export default function ApplicationSubmitPage() {
                             {/* 각 항목 카드 */}
                             {entries.map((entry, entryIndex) => {
                               const fileKey = `${item.project_item_id}_${entryIndex}`
-                              const hasFile = !!uploadedFiles[fileKey]
+                              const fileInfo = uploadedFiles[fileKey]
+                              const hasFile = !!fileInfo
+                              const isUploading = fileInfo?.uploading
+                              // 증빙첨부 레벨 확인 (IIFE 밖에서 미리 계산)
+                              const proofLevel = (item.proof_required_level || '').toLowerCase()
+                              const showProofUpload = proofLevel === 'required' || proofLevel === 'optional'
 
                               return (
                                 <Card
-                                  key={entryIndex}
+                                  key={`${item.project_item_id}_${entryIndex}_${Object.keys(entry).length}`}
                                   size="small"
                                   className="mb-2"
                                   title={
@@ -1319,72 +1324,67 @@ export default function ApplicationSubmitPage() {
                                     )}
                                   </div>
 
-                                  {/* 증빙첨부 */}
-                                  {(() => {
-                                    const proofLevel = (item.proof_required_level || '').toLowerCase()
-                                    const fileInfo = uploadedFiles[fileKey]
-                                    const isUploading = fileInfo?.uploading
-                                    return (proofLevel === 'required' || proofLevel === 'optional') && (
-                                      <div className="flex items-center gap-2 pt-2 border-t">
-                                        {isViewMode ? (
-                                          hasFile ? (
-                                            <Tag color="green" icon={<CheckCircleOutlined />}>
-                                              {fileInfo?.file?.name || fileInfo?.filename || '첨부파일'}
+                                  {/* 증빙첨부 - proof_required_level이 required 또는 optional인 경우에만 표시 */}
+                                  {showProofUpload && (
+                                    <div className="flex items-center gap-2 pt-2 border-t">
+                                      {isViewMode ? (
+                                        hasFile ? (
+                                          <Tag color="green" icon={<CheckCircleOutlined />}>
+                                            {fileInfo?.file?.name || fileInfo?.filename || '첨부파일'}
+                                          </Tag>
+                                        ) : (
+                                          <Text type="secondary">첨부파일 없음</Text>
+                                        )
+                                      ) : (
+                                        <>
+                                          {!hasFile ? (
+                                            <Upload
+                                              maxCount={1}
+                                              showUploadList={false}
+                                              beforeUpload={(file) => {
+                                                handleFileUpload(fileKey, file)
+                                                return false
+                                              }}
+                                            >
+                                              <Button icon={<UploadOutlined />} size="small">
+                                                {proofLevel === 'required' ? '증빙첨부 (필수)' : '증빙첨부 (선택)'}
+                                              </Button>
+                                            </Upload>
+                                          ) : isUploading ? (
+                                            <Tag color="processing" icon={<LoadingOutlined />}>
+                                              {fileInfo?.file?.name || fileInfo?.filename} 업로드 중...
                                             </Tag>
                                           ) : (
-                                            <Text type="secondary">첨부파일 없음</Text>
-                                          )
-                                        ) : (
-                                          <>
-                                            {!hasFile ? (
-                                              <Upload
-                                                maxCount={1}
-                                                showUploadList={false}
-                                                beforeUpload={(file) => {
-                                                  handleFileUpload(fileKey, file)
-                                                  return false
-                                                }}
-                                              >
-                                                <Button icon={<UploadOutlined />} size="small">
-                                                  {proofLevel === 'required' ? '증빙첨부 (필수)' : '증빙첨부 (선택)'}
-                                                </Button>
-                                              </Upload>
-                                            ) : isUploading ? (
-                                              <Tag color="processing" icon={<LoadingOutlined />}>
-                                                {fileInfo?.file?.name || fileInfo?.filename} 업로드 중...
+                                            <div className="flex items-center gap-2">
+                                              <Tag color="green" icon={<CheckCircleOutlined />}>
+                                                {fileInfo?.file?.name || fileInfo?.filename}
                                               </Tag>
-                                            ) : (
-                                              <div className="flex items-center gap-2">
-                                                <Tag color="green" icon={<CheckCircleOutlined />}>
-                                                  {fileInfo?.file?.name || fileInfo?.filename}
-                                                </Tag>
-                                                <Button
-                                                  type="text"
-                                                  danger
-                                                  size="small"
-                                                  icon={<DeleteOutlined />}
-                                                  onClick={async () => {
-                                                    if (fileInfo?.file_id) {
-                                                      try {
-                                                        await fileService.deleteFile(fileInfo.file_id)
-                                                      } catch (error) {
-                                                        console.error('파일 삭제 실패:', error)
-                                                      }
+                                              <Button
+                                                type="text"
+                                                danger
+                                                size="small"
+                                                icon={<DeleteOutlined />}
+                                                onClick={async () => {
+                                                  if (fileInfo?.file_id) {
+                                                    try {
+                                                      await fileService.deleteFile(fileInfo.file_id)
+                                                    } catch (error) {
+                                                      console.error('파일 삭제 실패:', error)
                                                     }
-                                                    setUploadedFiles(prev => {
-                                                      const newFiles = { ...prev }
-                                                      delete newFiles[fileKey]
-                                                      return newFiles
-                                                    })
-                                                  }}
-                                                />
-                                              </div>
-                                            )}
-                                          </>
-                                        )}
-                                      </div>
-                                    )
-                                  })()}
+                                                  }
+                                                  setUploadedFiles(prev => {
+                                                    const newFiles = { ...prev }
+                                                    delete newFiles[fileKey]
+                                                    return newFiles
+                                                  })
+                                                }}
+                                              />
+                                            </div>
+                                          )}
+                                        </>
+                                      )}
+                                    </div>
+                                  )}
 
                                   {/* 검토상태 표시 */}
                                   {(() => {
@@ -1445,18 +1445,25 @@ export default function ApplicationSubmitPage() {
 
                           {/* Input field based on template */}
                           <Card size="small" className="mb-2">
-                            <Form.Item
-                              name={`item_${item.project_item_id}`}
-                              className="mb-3"
-                              rules={[
-                                {
-                                  required: item.is_required,
-                                  message: '이 항목은 필수입니다.'
-                                }
-                              ]}
-                            >
-                              {renderInputField(item)}
-                            </Form.Item>
+                            {/* DEGREE, COACHING_HISTORY 등 복합 템플릿은 내부에 자체 Form.Item을 가지므로 부모에 name 없이 렌더링 */}
+                            {(competencyItem.template === ItemTemplate.DEGREE || competencyItem.template === ItemTemplate.COACHING_HISTORY) ? (
+                              <div className="mb-3">
+                                {renderInputField(item)}
+                              </div>
+                            ) : (
+                              <Form.Item
+                                name={`item_${item.project_item_id}`}
+                                className="mb-3"
+                                rules={[
+                                  {
+                                    required: item.is_required,
+                                    message: '이 항목은 필수입니다.'
+                                  }
+                                ]}
+                              >
+                                {renderInputField(item)}
+                              </Form.Item>
+                            )}
 
                             {/* 증빙첨부 버튼 - proof_required_level이 required 또는 optional인 경우에만 표시 */}
                             {(() => {
