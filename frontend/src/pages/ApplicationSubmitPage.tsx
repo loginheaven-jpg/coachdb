@@ -207,10 +207,12 @@ export default function ApplicationSubmitPage() {
           return
         }
 
-        // 역량 데이터를 item_id로 매핑
-        const competencyMap = new Map<number, CoachCompetency>()
+        // 역량 데이터를 item_id로 매핑 (복수 항목 지원: 배열로 저장)
+        const competencyMap = new Map<number, CoachCompetency[]>()
         competencies.forEach(c => {
-          competencyMap.set(c.item_id, c)
+          const existing = competencyMap.get(c.item_id) || []
+          existing.push(c)
+          competencyMap.set(c.item_id, existing)
         })
 
         // 폼 값과 repeatableData 초기화
@@ -226,47 +228,88 @@ export default function ApplicationSubmitPage() {
           if (!itemId) return
 
           const isRepeatable = item.competency_item?.is_repeatable
-          const existingComp = competencyMap.get(itemId)
+          const existingComps = competencyMap.get(itemId) || []
 
           if (isRepeatable) {
-            // 반복 가능 항목: 기본값 또는 기존 데이터
-            if (existingComp && existingComp.value) {
-              try {
-                const entries = JSON.parse(existingComp.value)
-                if (Array.isArray(entries) && entries.length > 0) {
-                  newRepeatableData[item.project_item_id] = entries
-                  console.log(`[Pre-fill] Repeatable item ${itemId} with ${entries.length} entries`)
+            // 반복 가능 항목: 여러 CoachCompetency 레코드를 하나의 배열로 병합
+            if (existingComps.length > 0) {
+              const allEntries: any[] = []
 
-                  // 각 entry의 파일 정보를 uploadedFiles에 저장
-                  entries.forEach((entry: any, idx: number) => {
-                    const fileKey = `${item.project_item_id}_${idx}`
-                    if (entry._file_info) {
-                      newUploadedFiles[fileKey] = {
-                        file_id: entry._file_info.file_id,
-                        filename: entry._file_info.original_filename,
-                        uploading: false
-                      }
-                      console.log(`[Pre-fill] File info for entry ${idx}: ${entry._file_info.original_filename}`)
-                    } else if (entry._file_id) {
-                      // _file_info가 없어도 _file_id가 있으면 저장 (파일명은 없음)
-                      newUploadedFiles[fileKey] = {
-                        file_id: entry._file_id,
-                        uploading: false
-                      }
+              // 각 competency에서 entries와 file_info 추출
+              existingComps.forEach((comp, compIdx) => {
+                if (comp.value) {
+                  try {
+                    const parsed = JSON.parse(comp.value)
+                    if (Array.isArray(parsed)) {
+                      // 배열인 경우 각 항목에 file_info 추가
+                      parsed.forEach(entry => {
+                        allEntries.push({
+                          ...entry,
+                          _file_info: comp.file_info ? {
+                            file_id: comp.file_info.file_id,
+                            original_filename: comp.file_info.original_filename,
+                            file_size: comp.file_info.file_size,
+                            mime_type: comp.file_info.mime_type
+                          } : null
+                        })
+                      })
+                    } else if (typeof parsed === 'object') {
+                      allEntries.push({
+                        ...parsed,
+                        _file_info: comp.file_info ? {
+                          file_id: comp.file_info.file_id,
+                          original_filename: comp.file_info.original_filename,
+                          file_size: comp.file_info.file_size,
+                          mime_type: comp.file_info.mime_type
+                        } : null
+                      })
                     }
-                  })
-                } else {
-                  newRepeatableData[item.project_item_id] = [{}] // 기본값
+                  } catch {
+                    // JSON이 아닌 경우 단순 값으로 처리
+                    allEntries.push({
+                      cert_name: comp.value,
+                      _file_id: comp.file_id,
+                      _file_info: comp.file_info ? {
+                        file_id: comp.file_info.file_id,
+                        original_filename: comp.file_info.original_filename,
+                        file_size: comp.file_info.file_size,
+                        mime_type: comp.file_info.mime_type
+                      } : null
+                    })
+                  }
                 }
-              } catch {
-                // JSON 파싱 실패 시 단일 값으로 처리
-                newRepeatableData[item.project_item_id] = [{ text: existingComp.value }]
+              })
+
+              if (allEntries.length > 0) {
+                newRepeatableData[item.project_item_id] = allEntries
+                console.log(`[Pre-fill] Repeatable item ${itemId} with ${allEntries.length} entries from ${existingComps.length} competencies`)
+
+                // 각 entry의 파일 정보를 uploadedFiles에 저장
+                allEntries.forEach((entry: any, idx: number) => {
+                  const fileKey = `${item.project_item_id}_${idx}`
+                  if (entry._file_info && entry._file_info.original_filename) {
+                    newUploadedFiles[fileKey] = {
+                      file_id: entry._file_info.file_id,
+                      filename: entry._file_info.original_filename,
+                      uploading: false
+                    }
+                    console.log(`[Pre-fill] File info for entry ${idx}: ${entry._file_info.original_filename}`)
+                  } else if (entry._file_id) {
+                    newUploadedFiles[fileKey] = {
+                      file_id: entry._file_id,
+                      uploading: false
+                    }
+                  }
+                })
+              } else {
+                newRepeatableData[item.project_item_id] = [{}]
               }
             } else {
               // 기존 데이터 없으면 빈 항목 하나
               newRepeatableData[item.project_item_id] = [{}]
             }
-          } else if (existingComp) {
+          } else if (existingComps.length > 0) {
+            const existingComp = existingComps[0]  // 단일 항목은 첫 번째 사용
             // 일반 항목 - value와 file 정보 모두 처리
             if (existingComp.value) {
               try {
@@ -481,7 +524,26 @@ export default function ApplicationSubmitPage() {
           if (isRepeatable && valueToUse) {
             try {
               const entries = JSON.parse(valueToUse)
-              initialRepeatableData[projectItem.project_item_id] = Array.isArray(entries) ? entries : [entries]
+              const entriesArray = Array.isArray(entries) ? entries : [entries]
+              initialRepeatableData[projectItem.project_item_id] = entriesArray
+
+              // 각 entry의 _file_info를 uploadedFiles에 저장
+              entriesArray.forEach((entry: any, idx: number) => {
+                const fileKey = `${projectItem.project_item_id}_${idx}`
+                if (entry._file_info && entry._file_info.original_filename) {
+                  initialUploadedFiles[fileKey] = {
+                    file_id: entry._file_info.file_id,
+                    filename: entry._file_info.original_filename,
+                    file_size: entry._file_info.file_size
+                  }
+                  console.log(`[LoadApp] Repeatable entry ${idx} file: ${entry._file_info.original_filename}`)
+                } else if (entry._file_id) {
+                  initialUploadedFiles[fileKey] = {
+                    file_id: entry._file_id,
+                    uploading: false
+                  }
+                }
+              })
             } catch {
               initialRepeatableData[projectItem.project_item_id] = [{}]
             }
@@ -496,8 +558,8 @@ export default function ApplicationSubmitPage() {
             }
           }
 
-          // 기존 파일 정보 복원 (is_frozen 기반으로 적절한 소스 사용)
-          if (fileIdToUse && fileInfoToUse) {
+          // 기존 파일 정보 복원 (비반복 항목만 - 반복 항목은 위에서 각 entry별로 처리)
+          if (!isRepeatable && fileIdToUse && fileInfoToUse) {
             const fileKey = `${projectItem.project_item_id}_0`
             initialUploadedFiles[fileKey] = {
               file_id: fileIdToUse,
