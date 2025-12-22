@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from typing import List
@@ -354,6 +354,7 @@ async def create_competency(
 async def update_competency(
     competency_id: int,
     competency_data: CompetencyUpdate,
+    sync_to_applications: bool = Query(False, description="연결된 ApplicationData에도 동기화 여부"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -406,6 +407,24 @@ async def update_competency(
         records = records_result.scalars().all()
         for record in records:
             record.is_valid = False
+
+        # Sync to linked ApplicationData if requested (역방향 동기화)
+        if sync_to_applications:
+            from app.models.application import ApplicationData
+
+            app_data_result = await db.execute(
+                select(ApplicationData).where(
+                    ApplicationData.competency_id == competency_id
+                )
+            )
+            linked_app_data = app_data_result.scalars().all()
+
+            for app_data in linked_app_data:
+                # Update the snapshot values to match current competency
+                app_data.submitted_value = competency.value
+                app_data.submitted_file_id = competency.file_id
+                # Reset verification status to pending
+                app_data.verification_status = "pending"
 
     await db.commit()
     await db.refresh(competency)
@@ -488,6 +507,49 @@ async def update_competency(
         competency_item=competency_item_response,
         file_info=file_info_response
     )
+
+
+@router.get("/{competency_id}/has-linked-applications")
+async def check_linked_applications(
+    competency_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Check if a competency has linked ApplicationData records.
+    Used by frontend to determine whether to show sync confirmation dialog.
+    """
+    from app.models.application import ApplicationData
+    from sqlalchemy import func
+
+    # Verify competency belongs to current user
+    comp_result = await db.execute(
+        select(CoachCompetency).where(
+            CoachCompetency.competency_id == competency_id,
+            CoachCompetency.user_id == current_user.user_id
+        )
+    )
+    competency = comp_result.scalar_one_or_none()
+
+    if not competency:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Competency not found"
+        )
+
+    # Count linked ApplicationData
+    count_result = await db.execute(
+        select(func.count(ApplicationData.data_id)).where(
+            ApplicationData.competency_id == competency_id
+        )
+    )
+    linked_count = count_result.scalar() or 0
+
+    return {
+        "competency_id": competency_id,
+        "has_linked_applications": linked_count > 0,
+        "linked_count": linked_count
+    }
 
 
 @router.delete("/{competency_id}", status_code=status.HTTP_204_NO_CONTENT)

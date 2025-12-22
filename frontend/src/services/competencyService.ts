@@ -111,8 +111,13 @@ class CompetencyService {
     return response.data
   }
 
-  async updateCompetency(competencyId: number, data: CompetencyUpdateData): Promise<CoachCompetency> {
-    const response = await api.put<CoachCompetency>(`/competencies/${competencyId}`, data)
+  async updateCompetency(competencyId: number, data: CompetencyUpdateData, syncToApplications: boolean = false): Promise<CoachCompetency> {
+    const response = await api.put<CoachCompetency>(`/competencies/${competencyId}?sync_to_applications=${syncToApplications}`, data)
+    return response.data
+  }
+
+  async checkLinkedApplications(competencyId: number): Promise<{ has_linked_applications: boolean; linked_count: number }> {
+    const response = await api.get<{ competency_id: number; has_linked_applications: boolean; linked_count: number }>(`/competencies/${competencyId}/has-linked-applications`)
     return response.data
   }
 

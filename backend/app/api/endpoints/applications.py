@@ -13,6 +13,7 @@ from app.core.security import get_current_user
 from app.core.utils import get_user_roles
 from app.models.user import User, UserRole
 from app.models.application import Application, ApplicationData
+from app.models.competency import CoachCompetency
 from app.models.project import Project, ProjectStatus
 from app.models.custom_question import CustomQuestion, CustomQuestionAnswer
 from app.models.notification import Notification, NotificationType
@@ -705,11 +706,14 @@ async def get_application_data(
                 detail="Not enough permissions"
             )
 
-    # Get application data with file info
+    # Get application data with file info and linked competency
     result = await db.execute(
         select(ApplicationData)
         .where(ApplicationData.application_id == application_id)
-        .options(selectinload(ApplicationData.submitted_file))
+        .options(
+            selectinload(ApplicationData.submitted_file),
+            selectinload(ApplicationData.linked_competency).selectinload(CoachCompetency.file)
+        )
         .order_by(ApplicationData.item_id)
     )
     data_items = result.scalars().all()
@@ -727,6 +731,26 @@ async def get_application_data(
                 uploaded_at=item.submitted_file.uploaded_at
             )
 
+        # Build linked competency info (역량 지갑에서 가져온 실시간 데이터)
+        linked_value = None
+        linked_file_id = None
+        linked_file_info = None
+        linked_verification_status = None
+
+        if item.linked_competency:
+            linked_value = item.linked_competency.value
+            linked_file_id = item.linked_competency.file_id
+            linked_verification_status = item.linked_competency.verification_status.value if item.linked_competency.verification_status else None
+
+            if item.linked_competency.file:
+                linked_file_info = FileBasicInfo(
+                    file_id=item.linked_competency.file.file_id,
+                    original_filename=item.linked_competency.file.original_filename,
+                    file_size=item.linked_competency.file.file_size,
+                    mime_type=item.linked_competency.file.mime_type,
+                    uploaded_at=item.linked_competency.file.uploaded_at
+                )
+
         responses.append(ApplicationDataResponse(
             data_id=item.data_id,
             application_id=item.application_id,
@@ -739,7 +763,12 @@ async def get_application_data(
             item_score=float(item.item_score) if item.item_score else None,
             reviewed_by=item.reviewed_by,
             reviewed_at=item.reviewed_at,
-            rejection_reason=item.rejection_reason
+            rejection_reason=item.rejection_reason,
+            # Linked competency data
+            linked_competency_value=linked_value,
+            linked_competency_file_id=linked_file_id,
+            linked_competency_file_info=linked_file_info,
+            linked_competency_verification_status=linked_verification_status
         ))
 
     return responses

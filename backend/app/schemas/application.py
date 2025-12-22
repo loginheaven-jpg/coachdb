@@ -33,6 +33,12 @@ class ApplicationDataResponse(BaseModel):
     supplement_deadline: Optional[datetime] = None
     supplement_requested_at: Optional[datetime] = None
 
+    # Linked competency 정보 (역량 지갑에서 가져온 실시간 데이터)
+    linked_competency_value: Optional[str] = None
+    linked_competency_file_id: Optional[int] = None
+    linked_competency_file_info: Optional[FileBasicInfo] = None
+    linked_competency_verification_status: Optional[str] = None
+
     class Config:
         from_attributes = True
 

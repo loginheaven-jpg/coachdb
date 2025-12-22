@@ -1,5 +1,6 @@
 import api from './api'
 import { CoachRole } from './projectService'
+import { FileBasicInfo } from './competencyService'
 
 // ============================================================================
 // Type Definitions
@@ -62,6 +63,7 @@ export interface ApplicationData {
   competency_id: number | null
   submitted_value: string | null
   submitted_file_id: number | null
+  submitted_file_info?: FileBasicInfo | null  // 파일 메타데이터
   verification_status: string  // 'pending' | 'approved' | 'rejected' | 'supplement_requested' | 'supplemented'
   item_score: number | null
   reviewed_by: number | null
@@ -69,6 +71,12 @@ export interface ApplicationData {
   rejection_reason: string | null
   supplement_deadline: string | null
   supplement_requested_at: string | null
+
+  // Linked competency 정보 (역량 지갑에서 가져온 실시간 데이터)
+  linked_competency_value?: string | null
+  linked_competency_file_id?: number | null
+  linked_competency_file_info?: FileBasicInfo | null
+  linked_competency_verification_status?: string | null
 }
 
 export interface SupplementSubmitRequest {

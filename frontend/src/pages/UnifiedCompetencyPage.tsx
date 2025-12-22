@@ -423,6 +423,41 @@ export default function UnifiedCompetencyPage() {
         }
       }
 
+      // 수정 모드에서 연결된 지원서가 있는지 확인
+      if (editingCompetency) {
+        try {
+          const linkResult = await competencyService.checkLinkedApplications(editingCompetency.competency_id)
+          if (linkResult.has_linked_applications) {
+            // 연결된 지원서가 있으면 확인창 표시
+            Modal.confirm({
+              title: '변경사항 동기화',
+              content: '이 변경사항이 "설문항목" 화면에도 반영됩니다. 계속하시겠습니까?',
+              okText: '반영',
+              cancelText: '취소',
+              onOk: () => performSave(values, true)
+            })
+            return
+          }
+        } catch (error) {
+          // 연결 확인 실패해도 저장은 진행
+          console.error('연결된 지원서 확인 실패:', error)
+        }
+      }
+
+      // 연결된 지원서가 없으면 바로 저장
+      await performSave(values, false)
+    } catch (error: any) {
+      if (error.errorFields) {
+        return
+      }
+      const errorMsg = error.response?.data?.detail || error.message || '알 수 없는 오류가 발생했습니다.'
+      message.error((editingCompetency ? '역량 수정에 실패했습니다: ' : '역량 추가에 실패했습니다: ') + errorMsg)
+    }
+  }
+
+  // 실제 저장 수행 함수
+  const performSave = async (values: any, syncToApplications: boolean) => {
+    try {
       setLoading(true)
 
       let fileId = uploadedFileId
@@ -441,7 +476,7 @@ export default function UnifiedCompetencyPage() {
         await competencyService.updateCompetency(editingCompetency.competency_id, {
           value: valueToSave,
           file_id: fileId
-        })
+        }, syncToApplications)
         message.success('역량이 수정되었습니다.')
       } else {
         await competencyService.createCompetency({
@@ -459,9 +494,6 @@ export default function UnifiedCompetencyPage() {
       setOriginalValue(null)
       loadData()
     } catch (error: any) {
-      if (error.errorFields) {
-        return
-      }
       const errorMsg = error.response?.data?.detail || error.message || '알 수 없는 오류가 발생했습니다.'
       message.error((editingCompetency ? '역량 수정에 실패했습니다: ' : '역량 추가에 실패했습니다: ') + errorMsg)
     } finally {

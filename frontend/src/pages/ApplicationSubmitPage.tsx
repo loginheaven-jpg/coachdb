@@ -14,11 +14,12 @@ import {
   Upload,
   Alert,
   Tag,
-  Descriptions
+  Descriptions,
+  Modal
 } from 'antd'
-import { ArrowLeftOutlined, SendOutlined, UploadOutlined, InfoCircleOutlined, UserOutlined, PlusOutlined, MinusCircleOutlined, CheckCircleOutlined, SaveOutlined, DeleteOutlined, LoadingOutlined, EditOutlined } from '@ant-design/icons'
+import { ArrowLeftOutlined, SendOutlined, UploadOutlined, InfoCircleOutlined, UserOutlined, PlusOutlined, MinusCircleOutlined, CheckCircleOutlined, SaveOutlined, DeleteOutlined, LoadingOutlined, EditOutlined, ClockCircleOutlined, DownloadOutlined, CloseCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
 import projectService, { ProjectDetail, ProjectItem, ItemTemplate } from '../services/projectService'
-import applicationService, { ApplicationSubmitRequest, ApplicationDataSubmit } from '../services/applicationService'
+import applicationService, { ApplicationSubmitRequest, ApplicationDataSubmit, ApplicationData } from '../services/applicationService'
 import authService, { UserUpdateData } from '../services/authService'
 import fileService from '../services/fileService'
 import profileService, { DetailedProfile } from '../services/profileService'
@@ -90,6 +91,7 @@ export default function ApplicationSubmitPage() {
   }, [repeatableData])
   const [existingApplicationId, setExistingApplicationId] = useState<number | null>(null)
   const [existingApplication, setExistingApplication] = useState<any>(null)
+  const [linkedCompetencyData, setLinkedCompetencyData] = useState<Record<number, ApplicationData>>({})
   const [_detailedProfile, setDetailedProfile] = useState<DetailedProfile | null>(null)
   const [profileLoaded, setProfileLoaded] = useState(false)
   const [competenciesLoaded, setCompetenciesLoaded] = useState(false)
@@ -383,6 +385,7 @@ export default function ApplicationSubmitPage() {
         // 기존 응답 데이터를 폼에 설정
         const formValues: Record<string, any> = {}
         const initialUploadedFiles: Record<string, UploadedFileInfo> = {}
+        const linkedData: Record<number, ApplicationData> = {}
 
         existingData.forEach(data => {
           // item_id로 project_item 찾기
@@ -420,10 +423,14 @@ export default function ApplicationSubmitPage() {
               file_size: data.submitted_file_info.file_size
             }
           }
+
+          // linked competency 데이터 저장 (역량 지갑에서 가져온 실시간 데이터)
+          linkedData[projectItem.project_item_id] = data
         })
 
         form.setFieldsValue(formValues)
         setUploadedFiles(initialUploadedFiles)
+        setLinkedCompetencyData(linkedData)
         // 수정 모드에서만 repeatableData 설정 (신규는 loadExistingCompetencies에서 처리)
         setRepeatableData(initialRepeatableData)
       }
@@ -537,6 +544,33 @@ export default function ApplicationSubmitPage() {
       })
       message.error(error.response?.data?.detail || '파일 업로드에 실패했습니다.')
     }
+  }
+
+  // 파일 다운로드 핸들러
+  const handleFileDownload = async (fileId: number, filename: string) => {
+    try {
+      await fileService.downloadAndSave(fileId, filename)
+      message.success('파일 다운로드가 시작되었습니다.')
+    } catch (error: any) {
+      message.error('파일 다운로드에 실패했습니다.')
+    }
+  }
+
+  // 검토 상태 태그 렌더링
+  const getVerificationStatusTag = (status: string) => {
+    const statusMap: Record<string, { color: string; icon: React.ReactNode; text: string }> = {
+      pending: { color: 'orange', icon: <ClockCircleOutlined />, text: '검토중' },
+      approved: { color: 'green', icon: <CheckCircleOutlined />, text: '승인' },
+      rejected: { color: 'red', icon: <CloseCircleOutlined />, text: '반려' },
+      supplemented: { color: 'blue', icon: <ClockCircleOutlined />, text: '보완완료' },
+      supplement_requested: { color: 'red', icon: <ExclamationCircleOutlined />, text: '보충필요' }
+    }
+    const config = statusMap[status] || statusMap.pending
+    return (
+      <Tag color={config.color} icon={config.icon}>
+        {config.text}
+      </Tag>
+    )
   }
 
   // Parse template config JSON safely
@@ -878,6 +912,17 @@ export default function ApplicationSubmitPage() {
     }
   }
 
+  // 제출 전 동기화 확인창 표시
+  const handleSubmitWithConfirmation = (values: any) => {
+    Modal.confirm({
+      title: '변경사항 동기화',
+      content: '이 변경사항이 "세부정보" 화면에도 반영됩니다. 계속하시겠습니까?',
+      okText: '반영',
+      cancelText: '취소',
+      onOk: () => handleSubmit(values)
+    })
+  }
+
   const handleSubmit = async (values: any) => {
     if (!projectId) return
     setSubmitting(true)
@@ -1088,7 +1133,7 @@ export default function ApplicationSubmitPage() {
             <Form
               form={form}
               layout="vertical"
-              onFinish={handleSubmit}
+              onFinish={handleSubmitWithConfirmation}
               scrollToFirstError={{ behavior: 'smooth', block: 'center' }}
               disabled={isViewMode}
             >
@@ -1337,6 +1382,46 @@ export default function ApplicationSubmitPage() {
                                     )}
                                   </div>
                                 )})()}
+
+                                {/* 역량 지갑 연동 정보 표시 (파일명, 크기, 검토상태) */}
+                                {(() => {
+                                  const linkedData = linkedCompetencyData[item.project_item_id]
+                                  if (!linkedData) return null
+
+                                  // linked_competency 정보 우선, 없으면 submitted 정보 사용
+                                  const fileInfo = linkedData.linked_competency_file_info || linkedData.submitted_file_info
+                                  const verificationStatus = linkedData.linked_competency_verification_status || linkedData.verification_status
+
+                                  return (
+                                    <div className="mt-3 pt-3 border-t border-dashed">
+                                      {/* 파일 정보 표시 */}
+                                      {fileInfo && (
+                                        <div className="flex items-center gap-2 mb-2">
+                                          <DownloadOutlined className="text-blue-500" />
+                                          <Button
+                                            type="link"
+                                            size="small"
+                                            className="p-0"
+                                            onClick={() => handleFileDownload(fileInfo.file_id, fileInfo.original_filename)}
+                                          >
+                                            {fileInfo.original_filename}
+                                          </Button>
+                                          <Text type="secondary" className="text-xs">
+                                            ({(fileInfo.file_size / 1024).toFixed(1)} KB)
+                                          </Text>
+                                        </div>
+                                      )}
+
+                                      {/* 검토 상태 표시 */}
+                                      {verificationStatus && (
+                                        <div className="flex items-center gap-2">
+                                          <Text type="secondary" className="text-xs">검토상태:</Text>
+                                          {getVerificationStatusTag(verificationStatus)}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )
+                                })()}
                               </Card>
                             )
                           })}
