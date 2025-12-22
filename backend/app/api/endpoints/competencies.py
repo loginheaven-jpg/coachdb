@@ -408,51 +408,10 @@ async def update_competency(
         for record in records:
             record.is_valid = False
 
-        # Sync to linked ApplicationData if requested (역방향 동기화)
-        if sync_to_applications:
-            from app.models.application import ApplicationData, Application
-
-            # 1. competency_id로 직접 연결된 ApplicationData 찾기
-            app_data_result = await db.execute(
-                select(ApplicationData).where(
-                    ApplicationData.competency_id == competency_id
-                )
-            )
-            linked_app_data = list(app_data_result.scalars().all())
-
-            # 2. competency_id가 없는 기존 데이터도 item_id + user's applications으로 찾기
-            # (backward compatibility for data created before competency_id link was added)
-            user_apps_result = await db.execute(
-                select(Application.application_id).where(
-                    Application.user_id == current_user.user_id
-                )
-            )
-            user_app_ids = [app_id for (app_id,) in user_apps_result.fetchall()]
-
-            if user_app_ids:
-                unlinked_result = await db.execute(
-                    select(ApplicationData).where(
-                        ApplicationData.application_id.in_(user_app_ids),
-                        ApplicationData.item_id == competency.item_id,
-                        ApplicationData.competency_id.is_(None)  # Only unlinked data
-                    )
-                )
-                unlinked_app_data = unlinked_result.scalars().all()
-
-                # Add to linked list and also set competency_id for future syncs
-                for app_data in unlinked_app_data:
-                    app_data.competency_id = competency_id  # Link for future
-                    if app_data not in linked_app_data:
-                        linked_app_data.append(app_data)
-
-            for app_data in linked_app_data:
-                # Update the snapshot values to match current competency
-                app_data.submitted_value = competency.value
-                app_data.submitted_file_id = competency.file_id
-                # Reset verification status to pending
-                app_data.verification_status = "pending"
-
-            print(f"[Sync] Updated {len(linked_app_data)} ApplicationData items for competency {competency_id}")
+        # 하이브리드 구조: sync_to_applications 로직 제거
+        # - 마감 전: 프론트엔드에서 linked_competency_value로 실시간 표시
+        # - 마감 시: freeze-applications API에서 스냅샷 저장
+        # sync_to_applications 파라미터는 backward compatibility를 위해 유지하되 무시함
 
     await db.commit()
     await db.refresh(competency)

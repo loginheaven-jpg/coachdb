@@ -7,10 +7,11 @@ from app.core.database import get_db
 from app.core.security import get_current_user, require_role
 from app.models.user import User
 from app.models.project import Project, ProjectStatus
-from app.models.application import Application
+from app.models.application import Application, ApplicationData, ApplicationStatus
+from datetime import datetime
 from app.models.custom_question import CustomQuestion, CustomQuestionAnswer
 from app.models.evaluation import CoachEvaluation
-from app.models.competency import ProjectItem, ScoringCriteria, CompetencyItem
+from app.models.competency import ProjectItem, ScoringCriteria, CompetencyItem, CoachCompetency
 from app.schemas.project import (
     ProjectCreate,
     ProjectUpdate,
@@ -1647,3 +1648,85 @@ async def unpublish_project(
         created_at=project.created_at,
         updated_at=project.updated_at
     )
+
+
+# ============================================================================
+# 응모 마감 및 스냅샷 동결 (하이브리드 구조)
+# ============================================================================
+@router.post("/{project_id}/freeze-applications", status_code=200)
+async def freeze_applications(
+    project_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER"]))
+):
+    """
+    Freeze all submitted applications for a project.
+
+    This endpoint:
+    1. Copies linked CoachCompetency data to ApplicationData.submitted_value (snapshot)
+    2. Sets Application.is_frozen = True
+    3. Sets Application.frozen_at = now()
+
+    After freezing, applications will use the snapshot data instead of real-time competency data.
+    This is typically called when recruitment ends or when admin wants to lock submissions for review.
+
+    **Required roles**: SUPER_ADMIN, PROJECT_MANAGER (only for their own projects)
+    """
+    from sqlalchemy.orm import selectinload
+
+    project = await get_project_or_404(project_id, db)
+    check_project_manager_permission(project, current_user)
+
+    # Get all submitted applications for this project
+    applications_result = await db.execute(
+        select(Application)
+        .where(
+            Application.project_id == project_id,
+            Application.status == ApplicationStatus.SUBMITTED
+        )
+        .options(selectinload(Application.application_data))
+    )
+    applications = applications_result.scalars().all()
+
+    if not applications:
+        return {
+            "message": "제출된 지원서가 없습니다.",
+            "frozen_count": 0
+        }
+
+    frozen_count = 0
+    snapshot_count = 0
+
+    for application in applications:
+        if application.is_frozen:
+            continue  # Already frozen, skip
+
+        # Process each application data item
+        for app_data in application.application_data:
+            if app_data.competency_id:
+                # Get linked competency data
+                competency_result = await db.execute(
+                    select(CoachCompetency).where(
+                        CoachCompetency.competency_id == app_data.competency_id
+                    )
+                )
+                competency = competency_result.scalar_one_or_none()
+
+                if competency:
+                    # Copy competency data to snapshot fields
+                    app_data.submitted_value = competency.value
+                    app_data.submitted_file_id = competency.file_id
+                    snapshot_count += 1
+
+        # Mark application as frozen
+        application.is_frozen = True
+        application.frozen_at = datetime.now()
+        frozen_count += 1
+
+    await db.commit()
+
+    return {
+        "message": f"{frozen_count}개 지원서가 동결되었습니다.",
+        "frozen_count": frozen_count,
+        "snapshot_count": snapshot_count
+    }

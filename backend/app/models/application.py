@@ -58,6 +58,10 @@ class Application(Base):
     submitted_at = Column(DateTime(timezone=True), nullable=True)
     last_updated = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
 
+    # 마감 후 스냅샷 동결 관련 필드
+    is_frozen = Column(Boolean, nullable=False, default=False)  # 마감 후 데이터 동결 여부
+    frozen_at = Column(DateTime(timezone=True), nullable=True)  # 동결 시점
+
     # Prevent duplicate applications to same project
     __table_args__ = (
         UniqueConstraint('project_id', 'user_id', name='uq_project_user'),

@@ -66,41 +66,59 @@ const rebuildValueWithOriginalFormat = (
   try {
     const parsed = JSON.parse(originalValue)
 
-    // 배열인 경우 (예: 자격증 목록)
+    // 배열인 경우 (예: 자격증 목록) - 첫 번째 항목만 수정하고 나머지는 유지
     if (Array.isArray(parsed) && parsed.length > 0) {
       const firstItem = parsed[0]
 
       // cert_name 형식인 경우
       if ('cert_name' in firstItem) {
-        const rebuilt: Record<string, unknown> = { cert_name: newValue }
-        if (fileId) rebuilt._file_id = fileId
-        return JSON.stringify([rebuilt])
+        const updatedArray = parsed.map((item: Record<string, unknown>, index: number) => {
+          if (index === 0) {
+            const rebuilt = { ...item, cert_name: newValue }
+            if (fileId) rebuilt._file_id = fileId
+            return rebuilt
+          }
+          return item
+        })
+        return JSON.stringify(updatedArray)
       }
 
       // text 형식인 경우
       if ('text' in firstItem) {
-        const rebuilt: Record<string, unknown> = { text: newValue }
-        if (fileId) rebuilt._file_id = fileId
-        return JSON.stringify([rebuilt])
+        const updatedArray = parsed.map((item: Record<string, unknown>, index: number) => {
+          if (index === 0) {
+            const rebuilt = { ...item, text: newValue }
+            if (fileId) rebuilt._file_id = fileId
+            return rebuilt
+          }
+          return item
+        })
+        return JSON.stringify(updatedArray)
       }
 
       // name 형식인 경우
       if ('name' in firstItem) {
-        const rebuilt: Record<string, unknown> = { name: newValue }
-        if (fileId) rebuilt._file_id = fileId
-        return JSON.stringify([rebuilt])
+        const updatedArray = parsed.map((item: Record<string, unknown>, index: number) => {
+          if (index === 0) {
+            const rebuilt = { ...item, name: newValue }
+            if (fileId) rebuilt._file_id = fileId
+            return rebuilt
+          }
+          return item
+        })
+        return JSON.stringify(updatedArray)
       }
     }
 
-    // 객체인 경우
+    // 객체인 경우 - 기존 속성을 유지하면서 특정 필드만 업데이트
     if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
       if ('cert_name' in parsed) {
-        const rebuilt: Record<string, unknown> = { cert_name: newValue }
+        const rebuilt = { ...parsed, cert_name: newValue }
         if (fileId) rebuilt._file_id = fileId
         return JSON.stringify(rebuilt)
       }
       if ('text' in parsed) {
-        const rebuilt: Record<string, unknown> = { text: newValue }
+        const rebuilt = { ...parsed, text: newValue }
         if (fileId) rebuilt._file_id = fileId
         return JSON.stringify(rebuilt)
       }

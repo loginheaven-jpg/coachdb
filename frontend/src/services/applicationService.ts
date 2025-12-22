@@ -45,6 +45,9 @@ export interface Application extends ApplicationBase {
   selection_result: string
   submitted_at: string | null
   last_updated: string | null
+  // 마감 후 스냅샷 동결 관련
+  is_frozen: boolean
+  frozen_at: string | null
 }
 
 // ============================================================================
@@ -77,6 +80,11 @@ export interface ApplicationData {
   linked_competency_file_id?: number | null
   linked_competency_file_info?: FileBasicInfo | null
   linked_competency_verification_status?: string | null
+
+  // 하이브리드 구조: is_frozen 상태에 따라 표시할 값 (백엔드에서 계산)
+  value_to_display?: string | null
+  file_id_to_display?: number | null
+  file_info_to_display?: FileBasicInfo | null
 }
 
 export interface SupplementSubmitRequest {

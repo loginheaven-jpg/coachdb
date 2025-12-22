@@ -39,6 +39,13 @@ class ApplicationDataResponse(BaseModel):
     linked_competency_file_info: Optional[FileBasicInfo] = None
     linked_competency_verification_status: Optional[str] = None
 
+    # 하이브리드 구조: is_frozen 상태에 따라 표시할 값 (편의 필드)
+    # - is_frozen=True: submitted_value (스냅샷)
+    # - is_frozen=False: linked_competency_value 우선, 없으면 submitted_value
+    value_to_display: Optional[str] = None
+    file_id_to_display: Optional[int] = None
+    file_info_to_display: Optional[FileBasicInfo] = None
+
     class Config:
         from_attributes = True
 
@@ -90,6 +97,9 @@ class ApplicationResponse(ApplicationBase):
     selection_result: str
     submitted_at: Optional[datetime] = None
     last_updated: Optional[datetime] = None
+    # 마감 후 스냅샷 동결 관련
+    is_frozen: bool = False
+    frozen_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

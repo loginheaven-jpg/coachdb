@@ -436,31 +436,45 @@ export default function ApplicationSubmitPage() {
 
           const isRepeatable = projectItem.competency_item?.is_repeatable
 
-          if (isRepeatable && data.submitted_value) {
+          // 하이브리드 구조: 마감 전에는 linked_competency_value 우선 사용 (실시간 동기화)
+          // 마감 후(is_frozen=true)에는 submitted_value 사용 (스냅샷)
+          const valueToUse = existingApp.is_frozen
+            ? data.submitted_value
+            : (data.linked_competency_value || data.submitted_value)
+
+          // 파일도 동일하게 처리
+          const fileIdToUse = existingApp.is_frozen
+            ? data.submitted_file_id
+            : (data.linked_competency_file_id || data.submitted_file_id)
+          const fileInfoToUse = existingApp.is_frozen
+            ? data.submitted_file_info
+            : (data.linked_competency_file_info || data.submitted_file_info)
+
+          if (isRepeatable && valueToUse) {
             try {
-              const entries = JSON.parse(data.submitted_value)
+              const entries = JSON.parse(valueToUse)
               initialRepeatableData[projectItem.project_item_id] = Array.isArray(entries) ? entries : [entries]
             } catch {
               initialRepeatableData[projectItem.project_item_id] = [{}]
             }
-          } else if (data.submitted_value) {
+          } else if (valueToUse) {
             // 일반 항목
             try {
               // JSON인 경우 파싱
-              formValues[`item_${projectItem.project_item_id}`] = JSON.parse(data.submitted_value)
+              formValues[`item_${projectItem.project_item_id}`] = JSON.parse(valueToUse)
             } catch {
               // 일반 문자열
-              formValues[`item_${projectItem.project_item_id}`] = data.submitted_value
+              formValues[`item_${projectItem.project_item_id}`] = valueToUse
             }
           }
 
-          // 기존 파일 정보 복원
-          if (data.submitted_file_id && data.submitted_file_info) {
+          // 기존 파일 정보 복원 (is_frozen 기반으로 적절한 소스 사용)
+          if (fileIdToUse && fileInfoToUse) {
             const fileKey = `${projectItem.project_item_id}_0`
             initialUploadedFiles[fileKey] = {
-              file_id: data.submitted_file_id,
-              filename: data.submitted_file_info.original_filename,
-              file_size: data.submitted_file_info.file_size
+              file_id: fileIdToUse,
+              filename: fileInfoToUse.original_filename,
+              file_size: fileInfoToUse.file_size
             }
           }
 

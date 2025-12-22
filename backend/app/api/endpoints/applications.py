@@ -760,6 +760,18 @@ async def get_application_data(
                     uploaded_at=item.linked_competency.file.uploaded_at
                 )
 
+        # 하이브리드 구조: is_frozen 상태에 따라 표시할 값 결정
+        # - is_frozen=True: submitted_value (스냅샷)
+        # - is_frozen=False: linked_competency_value 우선, 없으면 submitted_value
+        if application.is_frozen:
+            value_to_display = item.submitted_value
+            file_id_to_display = item.submitted_file_id
+            file_info_to_display = file_info
+        else:
+            value_to_display = linked_value if linked_value is not None else item.submitted_value
+            file_id_to_display = linked_file_id if linked_file_id is not None else item.submitted_file_id
+            file_info_to_display = linked_file_info if linked_file_info is not None else file_info
+
         responses.append(ApplicationDataResponse(
             data_id=item.data_id,
             application_id=item.application_id,
@@ -777,7 +789,11 @@ async def get_application_data(
             linked_competency_value=linked_value,
             linked_competency_file_id=linked_file_id,
             linked_competency_file_info=linked_file_info,
-            linked_competency_verification_status=linked_verification_status
+            linked_competency_verification_status=linked_verification_status,
+            # 하이브리드 구조: 표시용 필드
+            value_to_display=value_to_display,
+            file_id_to_display=file_id_to_display,
+            file_info_to_display=file_info_to_display
         ))
 
     return responses
