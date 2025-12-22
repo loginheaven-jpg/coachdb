@@ -751,10 +751,12 @@ async def get_application_data(
         return addon_codes
 
     # 3. 해당 사용자의 모든 competency를 미리 로드 (N+1 쿼리 방지)
+    # 세부정보 API와 동일하게 created_at.desc() 정렬 (최신순)
     competencies_result = await db.execute(
         select(CoachCompetency)
         .where(CoachCompetency.user_id == application.user_id)
         .options(selectinload(CoachCompetency.file))
+        .order_by(CoachCompetency.created_at.desc())
     )
     all_user_competencies = competencies_result.scalars().all()
     # item_id를 키로 하는 딕셔너리 생성 (리스트로 - 복수 항목 지원)
@@ -833,26 +835,42 @@ async def get_application_data(
                         uploaded_at=c.file.uploaded_at
                     )
             else:
-                # 복수 항목: JSON 배열로 병합
+                # 복수 항목: JSON 배열로 병합 (각 항목에 파일 정보 포함)
                 merged_entries = []
                 first_file_id = None
                 first_file_info = None
                 first_status = None
                 for c in competencies_list:
+                    # 파일 정보 준비
+                    file_info_dict = None
+                    if c.file:
+                        file_info_dict = {
+                            "file_id": c.file.file_id,
+                            "original_filename": c.file.original_filename,
+                            "file_size": c.file.file_size,
+                            "mime_type": c.file.mime_type
+                        }
                     # 각 competency의 value를 파싱하여 배열에 추가
                     if c.value:
                         try:
                             parsed = json.loads(c.value)
                             if isinstance(parsed, list):
-                                merged_entries.extend(parsed)
+                                # 리스트인 경우 각 항목에 파일 정보 추가
+                                for entry in parsed:
+                                    if isinstance(entry, dict):
+                                        entry["_file_info"] = file_info_dict
+                                        merged_entries.append(entry)
+                                    else:
+                                        merged_entries.append({"cert_name": str(entry), "_file_id": c.file_id, "_file_info": file_info_dict})
                             elif isinstance(parsed, dict):
+                                parsed["_file_info"] = file_info_dict
                                 merged_entries.append(parsed)
                             else:
                                 # 단순 문자열인 경우 cert_name으로 감싸기
-                                merged_entries.append({"cert_name": c.value, "_file_id": c.file_id})
+                                merged_entries.append({"cert_name": c.value, "_file_id": c.file_id, "_file_info": file_info_dict})
                         except json.JSONDecodeError:
                             # JSON이 아닌 경우 cert_name으로 감싸기
-                            merged_entries.append({"cert_name": c.value, "_file_id": c.file_id})
+                            merged_entries.append({"cert_name": c.value, "_file_id": c.file_id, "_file_info": file_info_dict})
                     # 첫 번째 파일 정보 저장
                     if first_file_id is None and c.file_id:
                         first_file_id = c.file_id
