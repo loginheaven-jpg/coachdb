@@ -12,9 +12,10 @@ import {
   Select,
   Space,
   Alert,
-  Divider
+  Divider,
+  Tabs
 } from 'antd'
-import { ArrowLeftOutlined, SaveOutlined, CheckCircleOutlined, WarningOutlined, UnorderedListOutlined, EditOutlined } from '@ant-design/icons'
+import { ArrowLeftOutlined, CheckCircleOutlined, WarningOutlined, FormOutlined, FileTextOutlined } from '@ant-design/icons'
 import projectService, { ProjectDetail, ProjectUpdate, ProjectStatus, ScoreValidation } from '../services/projectService'
 import SurveyBuilder from '../components/SurveyBuilder'
 import PageGuide from '../components/shared/PageGuide'
@@ -33,7 +34,7 @@ export default function ProjectEditPage() {
   const [finalizeLoading, setFinalizeLoading] = useState(false)
   const [project, setProject] = useState<ProjectDetail | null>(null)
   const [scoreValidation, setScoreValidation] = useState<ScoreValidation | null>(null)
-  const [surveyBuilderVisible, setSurveyBuilderVisible] = useState(false)
+  const [activeTab, setActiveTab] = useState('basic')
 
   // Watch project_period for reactive condition display
   const projectPeriod = Form.useWatch('project_period', form)
@@ -146,7 +147,7 @@ export default function ProjectEditPage() {
   }
 
   // 기존 handleSubmit은 임시저장으로 변경
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async () => {
     handleTempSave()
   }
 
@@ -154,9 +155,236 @@ export default function ProjectEditPage() {
     return <div className="p-8">로딩 중...</div>
   }
 
+  // 탭 아이템 정의
+  const tabItems = [
+    {
+      key: 'basic',
+      label: (
+        <span>
+          <FormOutlined />
+          기본정보
+        </span>
+      ),
+      children: (
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleSubmit}
+        >
+          <Form.Item
+            name="project_name"
+            label="과제명"
+            rules={[{ required: true, message: '과제명을 입력해주세요.' }]}
+          >
+            <Input placeholder="예: 2025년 상반기 리더코치 양성 과제" size="large" />
+          </Form.Item>
+
+          <Form.Item
+            name="description"
+            label="과제 설명"
+          >
+            <TextArea
+              rows={4}
+              placeholder="과제에 대한 설명을 입력해주세요."
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="recruitment_period"
+            label="모집 기간"
+            rules={[{ required: true, message: '모집 기간을 선택해주세요.' }]}
+          >
+            <RangePicker
+              style={{ width: '100%' }}
+              format="YYYY-MM-DD"
+              size="large"
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="project_period"
+            label="과제 기간 (예정)"
+            help="과제 진행 예정 기간입니다."
+          >
+            <RangePicker
+              style={{ width: '100%' }}
+              format="YYYY-MM-DD"
+              size="large"
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="actual_period"
+            label="과제 기간 (실제)"
+            help="실제 과제가 진행된 기간입니다."
+          >
+            <RangePicker
+              style={{ width: '100%' }}
+              format="YYYY-MM-DD"
+              size="large"
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="max_participants"
+            label="최대 참여 인원"
+            rules={[
+              { required: true, message: '최대 참여 인원을 입력해주세요.' },
+              { type: 'number', min: 1, message: '1명 이상이어야 합니다.' }
+            ]}
+          >
+            <InputNumber
+              style={{ width: '100%' }}
+              min={1}
+              max={1000}
+              size="large"
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="project_manager_id"
+            label="과제관리자 ID"
+            help="과제를 관리할 사용자의 ID를 입력해주세요."
+          >
+            <InputNumber
+              style={{ width: '100%' }}
+              min={1}
+              size="large"
+              placeholder="사용자 ID"
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="status"
+            label="과제 상태"
+            rules={[{ required: true }]}
+            help="상태 변경은 임시저장/정식저장 버튼을 사용해주세요."
+          >
+            <Select size="large">
+              <Select.Option value="draft">초안</Select.Option>
+              <Select.Option value="ready">모집개시 (정식저장)</Select.Option>
+              <Select.Option value="reviewing">심사중</Select.Option>
+              <Select.Option value="in_progress">과제진행중</Select.Option>
+              <Select.Option value="evaluating">과제평가중</Select.Option>
+              <Select.Option value="closed">종료</Select.Option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            name="overall_feedback"
+            label="과제 총평"
+            help="과제 종료 후 전체 총평을 입력할 수 있습니다."
+          >
+            <TextArea
+              rows={4}
+              placeholder="과제 전반에 대한 총평을 입력해주세요."
+            />
+          </Form.Item>
+
+          <Divider />
+
+          {/* 정식저장 조건 표시 */}
+          <div className="mb-6">
+            <Title level={5}>정식저장 조건</Title>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                {projectPeriod ? (
+                  <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                ) : (
+                  <WarningOutlined style={{ color: '#faad14' }} />
+                )}
+                <Text>과제 기간 입력: {projectPeriod ? '완료' : '미입력'}</Text>
+              </div>
+              <div className="flex items-center gap-2">
+                {scoreValidation?.is_valid ? (
+                  <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                ) : (
+                  <WarningOutlined style={{ color: '#faad14' }} />
+                )}
+                <Text>설문 점수: {scoreValidation?.total_score || 0}/100점</Text>
+                {!scoreValidation?.is_valid && (
+                  <Button
+                    type="link"
+                    onClick={() => setActiveTab('survey')}
+                    style={{ padding: 0 }}
+                  >
+                    설문항목 탭에서 구성 →
+                  </Button>
+                )}
+              </div>
+            </div>
+            {(!projectPeriod || !scoreValidation?.is_valid) && (
+              <Alert
+                type="warning"
+                className="mt-3"
+                message="정식저장을 하려면 위 조건을 모두 충족해야 합니다."
+                description={
+                  <ul className="mt-2 list-disc pl-4">
+                    {!projectPeriod && <li>과제 기간(예정)을 입력해주세요</li>}
+                    {!scoreValidation?.is_valid && (
+                      <li>설문항목 탭에서 배점을 100점으로 맞춰주세요 (현재: {scoreValidation?.total_score || 0}점)</li>
+                    )}
+                  </ul>
+                }
+              />
+            )}
+          </div>
+
+          <Form.Item className="mb-0">
+            <Space className="w-full justify-end">
+              <Button
+                size="large"
+                onClick={() => navigate(`/admin/projects/${projectId}`)}
+              >
+                취소
+              </Button>
+              <Button
+                size="large"
+                loading={loading}
+                onClick={handleTempSave}
+              >
+                임시저장 (초안)
+              </Button>
+              <Button
+                type="primary"
+                size="large"
+                loading={finalizeLoading}
+                onClick={handleFinalize}
+                icon={<CheckCircleOutlined />}
+              >
+                정식저장
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      )
+    },
+    {
+      key: 'survey',
+      label: (
+        <span>
+          <FileTextOutlined />
+          설문항목 ({scoreValidation?.total_score || 0}/100점)
+          {!scoreValidation?.is_valid && (
+            <span style={{ color: '#ff4d4f', marginLeft: 4 }}>●</span>
+          )}
+        </span>
+      ),
+      children: (
+        <SurveyBuilder
+          projectId={parseInt(projectId!)}
+          embedded={true}
+          onSave={() => {
+            loadScoreValidation()
+          }}
+        />
+      )
+    }
+  ]
+
   return (
     <div className="min-h-screen bg-gray-100 py-8">
-      <div className="max-w-4xl mx-auto px-4">
+      <div className="max-w-5xl mx-auto px-4">
         <div className="mb-4">
           <Button
             icon={<ArrowLeftOutlined />}
@@ -174,215 +402,17 @@ export default function ProjectEditPage() {
         />
 
         <Card>
-          <div className="mb-6">
-            <Title level={2} className="mb-2">과제 수정</Title>
-            <Text className="text-gray-600">
-              과제 정보를 수정할 수 있습니다.
-            </Text>
+          <div className="mb-4">
+            <Title level={2} className="mb-0">과제 수정</Title>
           </div>
 
-          <Form
-            form={form}
-            layout="vertical"
-            onFinish={handleSubmit}
-          >
-            <Form.Item
-              name="project_name"
-              label="과제명"
-              rules={[{ required: true, message: '과제명을 입력해주세요.' }]}
-            >
-              <Input placeholder="예: 2025년 상반기 리더코치 양성 과제" size="large" />
-            </Form.Item>
-
-            <Form.Item
-              name="description"
-              label="과제 설명"
-            >
-              <TextArea
-                rows={4}
-                placeholder="과제에 대한 설명을 입력해주세요."
-              />
-            </Form.Item>
-
-            <Form.Item
-              name="recruitment_period"
-              label="모집 기간"
-              rules={[{ required: true, message: '모집 기간을 선택해주세요.' }]}
-            >
-              <RangePicker
-                style={{ width: '100%' }}
-                format="YYYY-MM-DD"
-                size="large"
-              />
-            </Form.Item>
-
-            <Form.Item
-              name="project_period"
-              label="과제 기간 (예정)"
-              help="과제 진행 예정 기간입니다."
-            >
-              <RangePicker
-                style={{ width: '100%' }}
-                format="YYYY-MM-DD"
-                size="large"
-              />
-            </Form.Item>
-
-            <Form.Item
-              name="actual_period"
-              label="과제 기간 (실제)"
-              help="실제 과제가 진행된 기간입니다."
-            >
-              <RangePicker
-                style={{ width: '100%' }}
-                format="YYYY-MM-DD"
-                size="large"
-              />
-            </Form.Item>
-
-            <Form.Item
-              name="max_participants"
-              label="최대 참여 인원"
-              rules={[
-                { required: true, message: '최대 참여 인원을 입력해주세요.' },
-                { type: 'number', min: 1, message: '1명 이상이어야 합니다.' }
-              ]}
-            >
-              <InputNumber
-                style={{ width: '100%' }}
-                min={1}
-                max={1000}
-                size="large"
-              />
-            </Form.Item>
-
-            <Form.Item
-              name="project_manager_id"
-              label="과제관리자 ID"
-              help="과제를 관리할 사용자의 ID를 입력해주세요."
-            >
-              <InputNumber
-                style={{ width: '100%' }}
-                min={1}
-                size="large"
-                placeholder="사용자 ID"
-              />
-            </Form.Item>
-
-            <Form.Item
-              name="status"
-              label="과제 상태"
-              rules={[{ required: true }]}
-              help="상태 변경은 임시저장/정식저장 버튼을 사용해주세요. 직접 변경 시 ready 상태는 설문 100점이 필요합니다."
-            >
-              <Select size="large">
-                <Select.Option value="draft">초안</Select.Option>
-                <Select.Option value="ready">모집개시 (정식저장)</Select.Option>
-                <Select.Option value="reviewing">심사중</Select.Option>
-                <Select.Option value="in_progress">과제진행중</Select.Option>
-                <Select.Option value="evaluating">과제평가중</Select.Option>
-                <Select.Option value="closed">종료</Select.Option>
-              </Select>
-            </Form.Item>
-
-            <Form.Item
-              name="overall_feedback"
-              label="과제 총평"
-              help="과제 종료 후 전체 총평을 입력할 수 있습니다."
-            >
-              <TextArea
-                rows={4}
-                placeholder="과제 전반에 대한 총평을 입력해주세요."
-              />
-            </Form.Item>
-
-            <Divider />
-
-            {/* 정식저장 조건 표시 */}
-            <div className="mb-6">
-              <Title level={5}>정식저장 조건</Title>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  {projectPeriod ? (
-                    <CheckCircleOutlined style={{ color: '#52c41a' }} />
-                  ) : (
-                    <WarningOutlined style={{ color: '#faad14' }} />
-                  )}
-                  <Text>과제 기간 입력: {projectPeriod ? '완료' : '미입력'}</Text>
-                </div>
-                <div className="flex items-center gap-2">
-                  {scoreValidation?.is_valid ? (
-                    <CheckCircleOutlined style={{ color: '#52c41a' }} />
-                  ) : (
-                    <WarningOutlined style={{ color: '#faad14' }} />
-                  )}
-                  <Text>설문 점수: {scoreValidation?.total_score || 0}/100점</Text>
-                  <Button
-                    type={scoreValidation?.is_valid ? "default" : "primary"}
-                    danger={!scoreValidation?.is_valid && (scoreValidation?.total_score || 0) > 0}
-                    icon={<EditOutlined />}
-                    onClick={() => setSurveyBuilderVisible(true)}
-                    size="middle"
-                  >
-                    설문 구성 {!scoreValidation?.is_valid && `(${scoreValidation?.total_score || 0}/100)`}
-                  </Button>
-                </div>
-              </div>
-              {(!projectPeriod || !scoreValidation?.is_valid) && (
-                <Alert
-                  type="warning"
-                  className="mt-3"
-                  message="정식저장을 하려면 위 조건을 모두 충족해야 합니다."
-                  description={
-                    <ul className="mt-2 list-disc pl-4">
-                      {!projectPeriod && <li>과제 기간(예정)을 입력해주세요</li>}
-                      {!scoreValidation?.is_valid && (
-                        <li>설문 구성에서 배점을 100점으로 맞춰주세요 (현재: {scoreValidation?.total_score || 0}점)</li>
-                      )}
-                    </ul>
-                  }
-                />
-              )}
-            </div>
-
-            <Form.Item className="mb-0">
-              <Space className="w-full justify-end">
-                <Button
-                  size="large"
-                  onClick={() => navigate(`/admin/projects/${projectId}`)}
-                >
-                  취소
-                </Button>
-                <Button
-                  size="large"
-                  loading={loading}
-                  onClick={handleTempSave}
-                >
-                  임시저장 (초안)
-                </Button>
-                <Button
-                  type="primary"
-                  size="large"
-                  loading={finalizeLoading}
-                  onClick={handleFinalize}
-                  icon={<CheckCircleOutlined />}
-                >
-                  정식저장
-                </Button>
-              </Space>
-            </Form.Item>
-          </Form>
+          <Tabs
+            activeKey={activeTab}
+            onChange={setActiveTab}
+            items={tabItems}
+            size="large"
+          />
         </Card>
-
-        {/* 설문 구성 모달 */}
-        <SurveyBuilder
-          projectId={parseInt(projectId!)}
-          visible={surveyBuilderVisible}
-          onClose={() => setSurveyBuilderVisible(false)}
-          onSave={() => {
-            loadScoreValidation()
-          }}
-        />
       </div>
     </div>
   )

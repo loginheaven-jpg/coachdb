@@ -30,7 +30,6 @@ import {
 } from '@ant-design/icons'
 import projectService, {
   CompetencyItem,
-  ProjectItem,
   CustomQuestion,
   ItemTemplate,
   ProofRequiredLevel,
@@ -51,14 +50,15 @@ function debounce<T extends (...args: any[]) => any>(
   }
 }
 
-const { Title, Text } = Typography
+const { Text } = Typography
 const { Panel } = Collapse
 
 interface SurveyBuilderProps {
   projectId: number
-  visible: boolean
-  onClose: () => void
+  visible?: boolean
+  onClose?: () => void
   onSave: () => void
+  embedded?: boolean  // true면 모달 없이 직접 렌더링
 }
 
 interface ItemSelection {
@@ -73,7 +73,7 @@ interface GroupedItems {
   [category: string]: ItemSelection[]
 }
 
-export default function SurveyBuilder({ projectId, visible, onClose, onSave }: SurveyBuilderProps) {
+export default function SurveyBuilder({ projectId, visible = true, onClose, onSave, embedded = false }: SurveyBuilderProps) {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [allItems, setAllItems] = useState<CompetencyItem[]>([])
@@ -89,11 +89,11 @@ export default function SurveyBuilder({ projectId, visible, onClose, onSave }: S
   const [creatingCustom, setCreatingCustom] = useState(false)
 
   useEffect(() => {
-    if (visible) {
+    if (visible || embedded) {
       loadData()
       setHasChanges(false)
     }
-  }, [visible, projectId])
+  }, [visible, projectId, embedded])
 
   const loadData = async () => {
     setLoading(true)
@@ -369,7 +369,7 @@ export default function SurveyBuilder({ projectId, visible, onClose, onSave }: S
     if (saveSucceeded) {
       try {
         onSave()
-        onClose()
+        onClose?.()
       } catch (callbackError) {
         console.warn('저장 후 콜백 처리 중 오류 (무시됨):', callbackError)
       }
@@ -387,11 +387,11 @@ export default function SurveyBuilder({ projectId, visible, onClose, onSave }: S
         cancelText: '취소',
         onOk: () => {
           setHasChanges(false)
-          onClose()
+          onClose?.()
         }
       })
     } else {
-      onClose()
+      onClose?.()
     }
   }
 
@@ -451,45 +451,9 @@ export default function SurveyBuilder({ projectId, visible, onClose, onSave }: S
   const totalScore = calculateTotalScore()
   const isValid = totalScore === 100
 
-  return (
-    <Modal
-      title={
-        <Space>
-          <span>설문 구성</span>
-          {saving && <Tag color="processing">저장 중...</Tag>}
-        </Space>
-      }
-      open={visible}
-      onCancel={handleClose}
-      maskClosable={false}
-      keyboard={false}
-      width={1200}
-      styles={{
-        body: {
-          maxHeight: 'calc(100vh - 250px)',
-          overflowY: 'auto',
-          paddingTop: 0
-        }
-      }}
-      footer={[
-        <Button key="preview" icon={<EyeOutlined />} onClick={() => setShowPreview(true)}>
-          테스트입력
-        </Button>,
-        <Button key="cancel" onClick={handleClose}>
-          취소
-        </Button>,
-        <Button
-          key="save"
-          type="primary"
-          icon={<SaveOutlined />}
-          loading={loading}
-          onClick={handleSave}
-          disabled={!isValid}
-        >
-          저장
-        </Button>
-      ]}
-    >
+  // 설문 구성 내용 (모달/탭 공통)
+  const surveyContent = (
+    <>
       {/* Sticky Score Display */}
       <div style={{
         position: 'sticky',
@@ -633,6 +597,214 @@ export default function SurveyBuilder({ projectId, visible, onClose, onSave }: S
           })}
         </Collapse>
       </Space>
+
+      {/* 탭 모드일 때 저장 버튼 표시 */}
+      {embedded && (
+        <div style={{ marginTop: 24, textAlign: 'right' }}>
+          <Space>
+            <Button icon={<EyeOutlined />} onClick={() => setShowPreview(true)}>
+              테스트입력
+            </Button>
+            <Button
+              type="primary"
+              icon={<SaveOutlined />}
+              loading={loading}
+              onClick={handleSave}
+              disabled={!isValid}
+            >
+              저장
+            </Button>
+          </Space>
+        </div>
+      )}
+    </>
+  )
+
+  // embedded 모드: 모달 없이 직접 렌더링
+  if (embedded) {
+    return (
+      <>
+        {surveyContent}
+
+        {/* Preview Modal */}
+        <SurveyPreview
+          projectId={projectId}
+          visible={showPreview}
+          onClose={() => setShowPreview(false)}
+          selections={selections}
+          customQuestions={customQuestions}
+        />
+
+        {/* Custom Question Creation Modal */}
+        <Modal
+          title="커스텀 질문 추가"
+          open={showCustomQuestionModal}
+          onCancel={() => {
+            setShowCustomQuestionModal(false)
+            customQuestionForm.resetFields()
+          }}
+          footer={null}
+          width={600}
+        >
+          <Form
+            form={customQuestionForm}
+            layout="vertical"
+            onFinish={handleCreateCustomQuestion}
+            initialValues={{
+              template: ItemTemplate.TEXT,
+              is_repeatable: false
+            }}
+          >
+            <Form.Item
+              name="item_name"
+              label="질문 제목"
+              rules={[{ required: true, message: '질문 제목을 입력해주세요' }]}
+            >
+              <Input placeholder="예: 희망 근무 지역" />
+            </Form.Item>
+
+            <Form.Item
+              name="description"
+              label="설명 (선택)"
+            >
+              <Input.TextArea
+                placeholder="코치에게 보여줄 안내 문구를 입력하세요"
+                rows={2}
+              />
+            </Form.Item>
+
+            <Form.Item
+              name="template"
+              label="입력 유형"
+              rules={[{ required: true }]}
+            >
+              <Select>
+                <Select.Option value={ItemTemplate.TEXT}>텍스트 (짧은 답변)</Select.Option>
+                <Select.Option value={ItemTemplate.NUMBER}>숫자</Select.Option>
+                <Select.Option value={ItemTemplate.SELECT}>선택형 (단일)</Select.Option>
+                <Select.Option value={ItemTemplate.MULTISELECT}>선택형 (복수)</Select.Option>
+                <Select.Option value={ItemTemplate.FILE}>파일 업로드</Select.Option>
+                <Select.Option value={ItemTemplate.TEXT_FILE}>텍스트 + 파일</Select.Option>
+              </Select>
+            </Form.Item>
+
+            <Form.Item
+              noStyle
+              shouldUpdate={(prev, curr) => prev.template !== curr.template}
+            >
+              {({ getFieldValue }) => {
+                const template = getFieldValue('template')
+                if (template === ItemTemplate.SELECT || template === ItemTemplate.MULTISELECT) {
+                  return (
+                    <Form.Item
+                      name="field_options"
+                      label="선택 옵션 (줄바꿈으로 구분)"
+                      rules={[{ required: true, message: '선택 옵션을 입력해주세요' }]}
+                    >
+                      <Input.TextArea
+                        placeholder="옵션1&#10;옵션2&#10;옵션3"
+                        rows={4}
+                      />
+                    </Form.Item>
+                  )
+                }
+                return null
+              }}
+            </Form.Item>
+
+            <Form.Item
+              name="placeholder"
+              label="플레이스홀더 (선택)"
+            >
+              <Input placeholder="입력창에 표시할 안내 문구" />
+            </Form.Item>
+
+            <Form.Item
+              name="is_repeatable"
+              valuePropName="checked"
+            >
+              <Switch checkedChildren="복수 입력 가능" unCheckedChildren="단일 입력" />
+            </Form.Item>
+
+            <Form.Item
+              noStyle
+              shouldUpdate={(prev, curr) => prev.is_repeatable !== curr.is_repeatable}
+            >
+              {({ getFieldValue }) => {
+                if (getFieldValue('is_repeatable')) {
+                  return (
+                    <Form.Item
+                      name="max_entries"
+                      label="최대 입력 개수"
+                    >
+                      <InputNumber min={2} max={20} placeholder="제한 없음" />
+                    </Form.Item>
+                  )
+                }
+                return null
+              }}
+            </Form.Item>
+
+            <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+              <Space>
+                <Button onClick={() => {
+                  setShowCustomQuestionModal(false)
+                  customQuestionForm.resetFields()
+                }}>
+                  취소
+                </Button>
+                <Button type="primary" htmlType="submit" loading={creatingCustom}>
+                  추가
+                </Button>
+              </Space>
+            </Form.Item>
+          </Form>
+        </Modal>
+      </>
+    )
+  }
+
+  // 모달 모드: 기존 방식
+  return (
+    <Modal
+      title={
+        <Space>
+          <span>설문 구성</span>
+          {saving && <Tag color="processing">저장 중...</Tag>}
+        </Space>
+      }
+      open={visible}
+      onCancel={handleClose}
+      maskClosable={false}
+      keyboard={false}
+      width={1200}
+      styles={{
+        body: {
+          maxHeight: 'calc(100vh - 250px)',
+          overflowY: 'auto',
+          paddingTop: 0
+        }
+      }}
+      footer={[
+        <Button key="preview" icon={<EyeOutlined />} onClick={() => setShowPreview(true)}>
+          테스트입력
+        </Button>,
+        <Button key="cancel" onClick={handleClose}>
+          취소
+        </Button>,
+        <Button
+          key="save"
+          type="primary"
+          icon={<SaveOutlined />}
+          loading={loading}
+          onClick={handleSave}
+          disabled={!isValid}
+        >
+          저장
+        </Button>
+      ]}
+    >
+      {surveyContent}
 
       {/* Preview Modal - 실제 응모 화면 */}
       <SurveyPreview

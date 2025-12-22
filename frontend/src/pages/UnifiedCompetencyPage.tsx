@@ -259,7 +259,11 @@ interface EducationHistory {
   updated_at?: string
 }
 
-export default function UnifiedCompetencyPage() {
+interface UnifiedCompetencyPageProps {
+  embedded?: boolean  // true면 네비게이션 숨김
+}
+
+export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompetencyPageProps) {
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
   const [loading, setLoading] = useState(false)
@@ -983,26 +987,10 @@ export default function UnifiedCompetencyPage() {
     )
   }
 
-  return (
-    <div className="min-h-screen bg-gray-100 py-8">
-      <div className="max-w-6xl mx-auto px-4">
-        <div className="flex justify-between items-center mb-4">
-          <Button
-            icon={<ArrowLeftOutlined />}
-            onClick={() => navigate('/coach/dashboard')}
-          >
-            대시보드로 돌아가기
-          </Button>
-          <Button
-            icon={<LogoutOutlined />}
-            onClick={handleLogout}
-            size="large"
-          >
-            로그아웃
-          </Button>
-        </div>
-
-        {/* 보완필요 경고 배너 */}
+  // embedded 모드: 최소한의 래퍼로 렌더링
+  const content = (
+    <>
+      {/* 보완필요 경고 배너 */}
         {getSupplementNeededCompetencies().length > 0 && (
           <Alert
             type="warning"
@@ -1053,6 +1041,232 @@ export default function UnifiedCompetencyPage() {
             </Collapse>
           )}
         </Card>
+      </>
+    )
+
+    // embedded 모드: 네비게이션 없이 content만 렌더링
+    if (embedded) {
+      return (
+        <div>
+          {content}
+
+          {/* Competency Modal */}
+          <Modal
+            title={editingCompetency ? '역량 수정' : '역량 추가'}
+            open={isModalVisible}
+            onOk={handleModalOk}
+            onCancel={handleModalCancel}
+            confirmLoading={loading || uploading}
+            okText={editingCompetency ? '수정' : '추가'}
+            cancelText="취소"
+            width={600}
+          >
+            <Form
+              form={form}
+              layout="vertical"
+              name="competency_form"
+            >
+              <Form.Item
+                name="item_id"
+                label="역량 항목"
+                rules={[{ required: true, message: '역량 항목을 선택해주세요!' }]}
+              >
+                <Select
+                  placeholder="역량 항목 선택"
+                  disabled={!!editingCompetency}
+                  onChange={handleItemChange}
+                >
+                  {selectedCategory && groupedItems[selectedCategory]?.map(item => (
+                    <Option key={item.item_id} value={item.item_id}>
+                      {item.item_name}
+                      {item.input_type === 'file' && <FileOutlined style={{ marginLeft: 8, color: '#1890ff' }} />}
+                    </Option>
+                  ))}
+                  {!selectedCategory && competencyItems.map(item => (
+                    <Option key={item.item_id} value={item.item_id}>
+                      {item.item_name}
+                      {item.input_type === 'file' && <FileOutlined style={{ marginLeft: 8, color: '#1890ff' }} />}
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+
+              {selectedItemType === 'number' ? (
+                <Form.Item
+                  name="value"
+                  label="값"
+                  rules={[{ required: true, message: '값을 입력해주세요!' }]}
+                >
+                  <InputNumber
+                    className="w-full"
+                    placeholder="숫자를 입력하세요"
+                  />
+                </Form.Item>
+              ) : selectedItemType !== 'file' && (
+                <Form.Item
+                  name="value"
+                  label="입력값"
+                  rules={[{ required: selectedItemType !== 'file', message: '값을 입력해주세요!' }]}
+                >
+                  <TextArea
+                    rows={4}
+                    placeholder="역량 값을 입력하세요"
+                  />
+                </Form.Item>
+              )}
+
+              {selectedItemType === 'file' && (
+                <Form.Item
+                  name="value"
+                  label="설명 (선택사항)"
+                >
+                  <TextArea
+                    rows={2}
+                    placeholder="파일에 대한 간단한 설명을 입력하세요 (선택사항)"
+                  />
+                </Form.Item>
+              )}
+
+              <Form.Item
+                label={selectedItemType === 'file' ? "증빙서류 (필수)" : "증빙서류 (선택사항)"}
+                help={selectedItemType === 'file' ? "PDF, JPG, JPEG, PNG 파일만 가능 (최대 10MB)" : "증빙서류가 있다면 업로드하세요"}
+              >
+                <Upload
+                  fileList={fileList}
+                  onChange={handleFileChange}
+                  beforeUpload={beforeFileUpload}
+                  maxCount={1}
+                  accept=".pdf,.jpg,.jpeg,.png"
+                >
+                  <Button icon={<UploadOutlined />} loading={uploading}>
+                    {fileList.length > 0 ? '다른 파일 선택' : '파일 선택'}
+                  </Button>
+                </Upload>
+                {fileList.length > 0 && (
+                  <div className="mt-2">
+                    <Text type="secondary">
+                      선택된 파일: {fileList[0].name} ({(fileList[0].size! / 1024).toFixed(1)} KB)
+                    </Text>
+                  </div>
+                )}
+                {uploadedFileId && fileList.length === 0 && (
+                  <div className="mt-2">
+                    <Text type="secondary">
+                      <FileOutlined /> 기존 파일이 업로드되어 있습니다. 새 파일을 선택하면 교체됩니다.
+                    </Text>
+                  </div>
+                )}
+              </Form.Item>
+            </Form>
+          </Modal>
+
+          {/* Education Modal */}
+          <Modal
+            title={editingEducation ? '학력 수정' : '학력 추가'}
+            open={isEducationModalVisible}
+            onOk={handleEducationModalOk}
+            onCancel={handleEducationModalCancel}
+            confirmLoading={loading || uploading}
+            okText={editingEducation ? '수정' : '추가'}
+            cancelText="취소"
+            width={600}
+          >
+            <Form
+              form={educationForm}
+              layout="vertical"
+              name="education_form"
+            >
+              <Form.Item
+                name="education_name"
+                label="교육명"
+                rules={[{ required: true, message: '교육명을 입력해주세요!' }]}
+              >
+                <Input placeholder="교육명을 입력하세요" />
+              </Form.Item>
+
+              <Form.Item
+                name="institution"
+                label="교육기관"
+              >
+                <Input placeholder="교육기관을 입력하세요" />
+              </Form.Item>
+
+              <Form.Item
+                name="completion_date"
+                label="이수일"
+              >
+                <DatePicker className="w-full" placeholder="이수일을 선택하세요" />
+              </Form.Item>
+
+              <Form.Item
+                name="hours"
+                label="교육시간"
+              >
+                <InputNumber
+                  className="w-full"
+                  placeholder="교육시간을 입력하세요"
+                  min={0}
+                  addonAfter="시간"
+                />
+              </Form.Item>
+
+              <Form.Item
+                label="수료증 (선택사항)"
+                help="PDF, JPG, JPEG, PNG 파일만 가능 (최대 10MB)"
+              >
+                <Upload
+                  fileList={fileList}
+                  onChange={handleFileChange}
+                  beforeUpload={beforeFileUpload}
+                  maxCount={1}
+                  accept=".pdf,.jpg,.jpeg,.png"
+                >
+                  <Button icon={<UploadOutlined />} loading={uploading}>
+                    {fileList.length > 0 ? '다른 파일 선택' : '파일 선택'}
+                  </Button>
+                </Upload>
+                {fileList.length > 0 && (
+                  <div className="mt-2">
+                    <Text type="secondary">
+                      선택된 파일: {fileList[0].name} ({(fileList[0].size! / 1024).toFixed(1)} KB)
+                    </Text>
+                  </div>
+                )}
+                {uploadedFileId && fileList.length === 0 && (
+                  <div className="mt-2">
+                    <Text type="secondary">
+                      <FileOutlined /> 기존 파일이 업로드되어 있습니다. 새 파일을 선택하면 교체됩니다.
+                    </Text>
+                  </div>
+                )}
+              </Form.Item>
+            </Form>
+          </Modal>
+        </div>
+      )
+    }
+
+    // 일반 모드: 전체 레이아웃 렌더링
+    return (
+      <div className="min-h-screen bg-gray-100 py-8">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="flex justify-between items-center mb-4">
+            <Button
+              icon={<ArrowLeftOutlined />}
+              onClick={() => navigate('/coach/dashboard')}
+            >
+              대시보드로 돌아가기
+            </Button>
+            <Button
+              icon={<LogoutOutlined />}
+              onClick={handleLogout}
+              size="large"
+            >
+              로그아웃
+            </Button>
+          </div>
+
+          {content}
 
         {/* Competency Modal */}
         <Modal

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Form, Input, Button, Card, message, Typography, Select, InputNumber, Checkbox, Alert } from 'antd'
-import { UserOutlined, MailOutlined, PhoneOutlined, HomeOutlined, ArrowLeftOutlined, LockOutlined } from '@ant-design/icons'
+import { Form, Input, Button, Card, message, Typography, Select, InputNumber, Checkbox, Alert, Tabs } from 'antd'
+import { UserOutlined, MailOutlined, PhoneOutlined, HomeOutlined, ArrowLeftOutlined, LockOutlined, FormOutlined, FileTextOutlined } from '@ant-design/icons'
 import { useAuthStore } from '../stores/authStore'
 import authService, { UserUpdateData } from '../services/authService'
+import UnifiedCompetencyPage from './UnifiedCompetencyPage'
 
 const { Title, Text } = Typography
 const { Option } = Select
@@ -114,9 +115,256 @@ export default function ProfileEditPage() {
     }
   }
 
+  // 기본정보 탭 컨텐츠
+  const basicInfoContent = (
+    <>
+      {isRequiredMode && (
+        <Alert
+          message="프로필 정보 입력 필요"
+          description="서비스 이용을 위해 기본 정보를 입력해주세요. 새 비밀번호도 설정하실 수 있습니다."
+          type="info"
+          showIcon
+          className="mb-6"
+        />
+      )}
+
+      <Form
+        form={form}
+        name="profile-edit"
+        onFinish={onFinish}
+        layout="vertical"
+        size="large"
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+          <Form.Item
+            label="이메일"
+            name="email"
+            rules={[
+              { required: true, message: '이메일을 입력해주세요!' },
+              { type: 'email', message: '올바른 이메일 형식이 아닙니다!' }
+            ]}
+          >
+            <Input prefix={<MailOutlined />} disabled />
+          </Form.Item>
+
+          <Form.Item
+            label="이름"
+            name="name"
+            rules={[
+              { required: true, message: '이름을 입력해주세요!' },
+              { min: 2, message: '최소 2자 이상이어야 합니다!' }
+            ]}
+          >
+            <Input prefix={<UserOutlined />} placeholder="홍길동" />
+          </Form.Item>
+
+          <Form.Item
+            label="역할 (복수 선택 가능)"
+            name="roles"
+            rules={[{ required: true, message: '역할을 최소 1개 이상 선택해주세요!' }]}
+          >
+            <Select mode="multiple" placeholder="역할 선택 (복수 가능)" disabled>
+              <Option value="coach">코치</Option>
+              <Option value="staff">심사위원</Option>
+              <Option value="admin">관리자</Option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            label="전화번호"
+            name="phone"
+            rules={[{ required: true, message: '전화번호를 입력해주세요!' }]}
+          >
+            <Input prefix={<PhoneOutlined />} placeholder="010-1234-5678" />
+          </Form.Item>
+
+          <Form.Item
+            label="생년"
+            name="birth_year"
+            rules={[
+              { required: true, message: '생년을 입력해주세요!' },
+              { type: 'number', min: 1900, max: new Date().getFullYear(), message: '올바른 연도를 입력해주세요' }
+            ]}
+          >
+            <InputNumber
+              className="w-full"
+              placeholder="예: 1985"
+              min={1900}
+              max={new Date().getFullYear()}
+            />
+          </Form.Item>
+
+          <Form.Item
+            label="성별"
+            name="gender"
+            rules={[{ required: true, message: '성별을 선택해주세요!' }]}
+          >
+            <Select placeholder="성별 선택">
+              <Option value="남성">남성</Option>
+              <Option value="여성">여성</Option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            label="코치 자격증 번호 (최상위 자격)"
+            name="coach_certification_number"
+            rules={[{ required: true, message: '코치 자격증 번호를 입력해주세요!' }]}
+          >
+            <Input placeholder="최상위 자격증 번호" />
+          </Form.Item>
+        </div>
+
+        <Form.Item
+          label="주소 (시/군/구)"
+          name="address"
+          rules={[{ required: true, message: '주소를 입력해주세요!' }]}
+        >
+          <Input
+            prefix={<HomeOutlined />}
+            placeholder="시/군/구 단위로 입력해주세요 (예: 서울시 강남구)"
+          />
+        </Form.Item>
+
+        <Form.Item
+          label="대면코칭 가능 지역"
+          name="in_person_coaching_area"
+        >
+          <Input
+            placeholder="대면 코칭 가능한 지역을 입력해주세요 (예: 서울 전지역, 경기 남부)"
+          />
+        </Form.Item>
+
+        <Form.Item
+          label="코칭 분야 (복수 선택 가능)"
+          name="coaching_fields"
+          rules={[{ required: true, message: '코칭 분야를 최소 1개 이상 선택해주세요!' }]}
+        >
+          <Checkbox.Group>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {COACHING_FIELDS.map(field => (
+                <Checkbox key={field.value} value={field.value}>
+                  {field.label}
+                </Checkbox>
+              ))}
+            </div>
+          </Checkbox.Group>
+        </Form.Item>
+
+        <div className="flex gap-4">
+          {!isRequiredMode && (
+            <Button
+              type="default"
+              onClick={navigateToDashboard}
+              className="flex-1"
+              size="large"
+            >
+              취소
+            </Button>
+          )}
+          <Button
+            type="primary"
+            htmlType="submit"
+            className={isRequiredMode ? "w-full" : "flex-1"}
+            loading={loading}
+            size="large"
+          >
+            저장
+          </Button>
+        </div>
+      </Form>
+
+      {/* 비밀번호 변경 섹션 */}
+      <Card className="mt-6">
+        <Title level={4} className="mb-4">
+          비밀번호 변경
+        </Title>
+        <Text className="block text-gray-600 mb-6">
+          새로운 비밀번호를 입력하여 변경할 수 있습니다 (최소 6자 이상)
+        </Text>
+
+        <Form
+          form={passwordForm}
+          name="password-change"
+          onFinish={onPasswordChange}
+          layout="vertical"
+          size="large"
+        >
+          <Form.Item
+            label="새 비밀번호"
+            name="new_password"
+            rules={[
+              { required: true, message: '새 비밀번호를 입력해주세요!' },
+              { min: 6, message: '비밀번호는 최소 6자 이상이어야 합니다!' }
+            ]}
+          >
+            <Input.Password
+              prefix={<LockOutlined />}
+              placeholder="새 비밀번호 (최소 6자)"
+            />
+          </Form.Item>
+
+          <Form.Item
+            label="비밀번호 확인"
+            name="confirm_password"
+            dependencies={['new_password']}
+            rules={[
+              { required: true, message: '비밀번호를 다시 입력해주세요!' },
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  if (!value || getFieldValue('new_password') === value) {
+                    return Promise.resolve()
+                  }
+                  return Promise.reject(new Error('비밀번호가 일치하지 않습니다!'))
+                },
+              }),
+            ]}
+          >
+            <Input.Password
+              prefix={<LockOutlined />}
+              placeholder="비밀번호 확인"
+            />
+          </Form.Item>
+
+          <Button
+            type="primary"
+            htmlType="submit"
+            loading={passwordLoading}
+            size="large"
+          >
+            비밀번호 변경
+          </Button>
+        </Form>
+      </Card>
+    </>
+  )
+
+  // 탭 아이템 정의
+  const tabItems = [
+    {
+      key: 'basic',
+      label: (
+        <span>
+          <FormOutlined />
+          기본정보
+        </span>
+      ),
+      children: basicInfoContent
+    },
+    {
+      key: 'detail',
+      label: (
+        <span>
+          <FileTextOutlined />
+          세부정보
+        </span>
+      ),
+      children: <UnifiedCompetencyPage embedded={true} />
+    }
+  ]
+
   return (
     <div className="min-h-screen bg-gray-100 py-8">
-      <div className="max-w-4xl mx-auto px-4">
+      <div className="max-w-6xl mx-auto px-4">
         {!isRequiredMode && (
           <Button
             icon={<ArrowLeftOutlined />}
@@ -128,241 +376,23 @@ export default function ProfileEditPage() {
         )}
 
         <Card>
-          {isRequiredMode && (
-            <Alert
-              message="프로필 정보 입력 필요"
-              description="서비스 이용을 위해 기본 정보를 입력해주세요. 새 비밀번호도 설정하실 수 있습니다."
-              type="info"
-              showIcon
-              className="mb-6"
-            />
-          )}
-
-          <div className="flex justify-between items-start mb-6">
-            <div className="flex-1">
-              <Title level={2} className="text-center mb-2">
-                {isRequiredMode ? '프로필 정보 입력' : '기본정보 수정'}
-              </Title>
-              <Text className="block text-center text-gray-600">
-                {isRequiredMode
-                  ? '아래 필수 정보를 입력하고 저장해주세요'
-                  : '회원가입 시 입력한 기본정보를 수정할 수 있습니다'}
-              </Text>
-            </div>
+          <div className="flex justify-between items-start mb-4">
+            <Title level={2} className="mb-0">
+              {isRequiredMode ? '프로필 정보 입력' : '프로필 수정'}
+            </Title>
             {user?.updated_at && (
-              <div className="text-right text-gray-500 text-sm whitespace-nowrap ml-4">
+              <div className="text-right text-gray-500 text-sm whitespace-nowrap">
                 <div className="font-semibold">최종 수정일</div>
                 <div>{new Date(user.updated_at).toLocaleString('ko-KR')}</div>
               </div>
             )}
           </div>
 
-          <Form
-            form={form}
-            name="profile-edit"
-            onFinish={onFinish}
-            layout="vertical"
+          <Tabs
+            defaultActiveKey="basic"
+            items={tabItems}
             size="large"
-          >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4">
-              <Form.Item
-                label="이메일"
-                name="email"
-                rules={[
-                  { required: true, message: '이메일을 입력해주세요!' },
-                  { type: 'email', message: '올바른 이메일 형식이 아닙니다!' }
-                ]}
-              >
-                <Input prefix={<MailOutlined />} disabled />
-              </Form.Item>
-
-              <Form.Item
-                label="이름"
-                name="name"
-                rules={[
-                  { required: true, message: '이름을 입력해주세요!' },
-                  { min: 2, message: '최소 2자 이상이어야 합니다!' }
-                ]}
-              >
-                <Input prefix={<UserOutlined />} placeholder="홍길동" />
-              </Form.Item>
-
-              <Form.Item
-                label="역할 (복수 선택 가능)"
-                name="roles"
-                rules={[{ required: true, message: '역할을 최소 1개 이상 선택해주세요!' }]}
-              >
-                <Select mode="multiple" placeholder="역할 선택 (복수 가능)" disabled>
-                  <Option value="coach">코치</Option>
-                  <Option value="staff">심사위원</Option>
-                  <Option value="admin">관리자</Option>
-                </Select>
-              </Form.Item>
-
-              <Form.Item
-                label="전화번호"
-                name="phone"
-                rules={[{ required: true, message: '전화번호를 입력해주세요!' }]}
-              >
-                <Input prefix={<PhoneOutlined />} placeholder="010-1234-5678" />
-              </Form.Item>
-
-              <Form.Item
-                label="생년"
-                name="birth_year"
-                rules={[
-                  { required: true, message: '생년을 입력해주세요!' },
-                  { type: 'number', min: 1900, max: new Date().getFullYear(), message: '올바른 연도를 입력해주세요' }
-                ]}
-              >
-                <InputNumber
-                  className="w-full"
-                  placeholder="예: 1985"
-                  min={1900}
-                  max={new Date().getFullYear()}
-                />
-              </Form.Item>
-
-              <Form.Item
-                label="성별"
-                name="gender"
-                rules={[{ required: true, message: '성별을 선택해주세요!' }]}
-              >
-                <Select placeholder="성별 선택">
-                  <Option value="남성">남성</Option>
-                  <Option value="여성">여성</Option>
-                </Select>
-              </Form.Item>
-
-              <Form.Item
-                label="코치 자격증 번호 (최상위 자격)"
-                name="coach_certification_number"
-                rules={[{ required: true, message: '코치 자격증 번호를 입력해주세요!' }]}
-              >
-                <Input placeholder="최상위 자격증 번호" />
-              </Form.Item>
-            </div>
-
-            <Form.Item
-              label="주소 (시/군/구)"
-              name="address"
-              rules={[{ required: true, message: '주소를 입력해주세요!' }]}
-            >
-              <Input
-                prefix={<HomeOutlined />}
-                placeholder="시/군/구 단위로 입력해주세요 (예: 서울시 강남구)"
-              />
-            </Form.Item>
-
-            <Form.Item
-              label="대면코칭 가능 지역"
-              name="in_person_coaching_area"
-            >
-              <Input
-                placeholder="대면 코칭 가능한 지역을 입력해주세요 (예: 서울 전지역, 경기 남부)"
-              />
-            </Form.Item>
-
-            <Form.Item
-              label="코칭 분야 (복수 선택 가능)"
-              name="coaching_fields"
-              rules={[{ required: true, message: '코칭 분야를 최소 1개 이상 선택해주세요!' }]}
-            >
-              <Checkbox.Group>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {COACHING_FIELDS.map(field => (
-                    <Checkbox key={field.value} value={field.value}>
-                      {field.label}
-                    </Checkbox>
-                  ))}
-                </div>
-              </Checkbox.Group>
-            </Form.Item>
-
-            <div className="flex gap-4">
-              {!isRequiredMode && (
-                <Button
-                  type="default"
-                  onClick={navigateToDashboard}
-                  className="flex-1"
-                  size="large"
-                >
-                  취소
-                </Button>
-              )}
-              <Button
-                type="primary"
-                htmlType="submit"
-                className={isRequiredMode ? "w-full" : "flex-1"}
-                loading={loading}
-                size="large"
-              >
-                저장
-              </Button>
-            </div>
-          </Form>
-        </Card>
-
-        <Card className="mt-6">
-          <Title level={3} className="mb-4">
-            비밀번호 변경
-          </Title>
-          <Text className="block text-gray-600 mb-6">
-            새로운 비밀번호를 입력하여 변경할 수 있습니다 (최소 6자 이상)
-          </Text>
-
-          <Form
-            form={passwordForm}
-            name="password-change"
-            onFinish={onPasswordChange}
-            layout="vertical"
-            size="large"
-          >
-            <Form.Item
-              label="새 비밀번호"
-              name="new_password"
-              rules={[
-                { required: true, message: '새 비밀번호를 입력해주세요!' },
-                { min: 6, message: '비밀번호는 최소 6자 이상이어야 합니다!' }
-              ]}
-            >
-              <Input.Password
-                prefix={<LockOutlined />}
-                placeholder="새 비밀번호 (최소 6자)"
-              />
-            </Form.Item>
-
-            <Form.Item
-              label="비밀번호 확인"
-              name="confirm_password"
-              dependencies={['new_password']}
-              rules={[
-                { required: true, message: '비밀번호를 다시 입력해주세요!' },
-                ({ getFieldValue }) => ({
-                  validator(_, value) {
-                    if (!value || getFieldValue('new_password') === value) {
-                      return Promise.resolve()
-                    }
-                    return Promise.reject(new Error('비밀번호가 일치하지 않습니다!'))
-                  },
-                }),
-              ]}
-            >
-              <Input.Password
-                prefix={<LockOutlined />}
-                placeholder="비밀번호 확인"
-              />
-            </Form.Item>
-
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={passwordLoading}
-              size="large"
-            >
-              비밀번호 변경
-            </Button>
-          </Form>
+          />
         </Card>
       </div>
     </div>
