@@ -218,6 +218,9 @@ export default function ApplicationSubmitPage() {
         const newRepeatableData: Record<number, any[]> = {}
         const newLinkedCompetencyData: Record<number, ApplicationData> = {}
 
+        // 파일 정보도 uploadedFiles에 저장
+        const newUploadedFiles: Record<string, UploadedFileInfo> = {}
+
         projectItems.forEach(item => {
           const itemId = item.competency_item?.item_id
           if (!itemId) return
@@ -233,6 +236,25 @@ export default function ApplicationSubmitPage() {
                 if (Array.isArray(entries) && entries.length > 0) {
                   newRepeatableData[item.project_item_id] = entries
                   console.log(`[Pre-fill] Repeatable item ${itemId} with ${entries.length} entries`)
+
+                  // 각 entry의 파일 정보를 uploadedFiles에 저장
+                  entries.forEach((entry: any, idx: number) => {
+                    const fileKey = `${item.project_item_id}_${idx}`
+                    if (entry._file_info) {
+                      newUploadedFiles[fileKey] = {
+                        file_id: entry._file_info.file_id,
+                        filename: entry._file_info.original_filename,
+                        uploading: false
+                      }
+                      console.log(`[Pre-fill] File info for entry ${idx}: ${entry._file_info.original_filename}`)
+                    } else if (entry._file_id) {
+                      // _file_info가 없어도 _file_id가 있으면 저장 (파일명은 없음)
+                      newUploadedFiles[fileKey] = {
+                        file_id: entry._file_id,
+                        uploading: false
+                      }
+                    }
+                  })
                 } else {
                   newRepeatableData[item.project_item_id] = [{}] // 기본값
                 }
@@ -299,6 +321,12 @@ export default function ApplicationSubmitPage() {
         if (Object.keys(newLinkedCompetencyData).length > 0) {
           setLinkedCompetencyData(newLinkedCompetencyData)
           console.log('[ApplicationSubmitPage] LinkedCompetencyData pre-filled with', Object.keys(newLinkedCompetencyData).length, 'items')
+        }
+
+        // 복수 항목의 파일 정보 설정
+        if (Object.keys(newUploadedFiles).length > 0) {
+          setUploadedFiles(newUploadedFiles)
+          console.log('[ApplicationSubmitPage] UploadedFiles pre-filled with', Object.keys(newUploadedFiles).length, 'files')
         }
 
         // 기존 데이터가 있을 때만 메시지 표시
