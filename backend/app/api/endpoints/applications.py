@@ -954,45 +954,101 @@ async def save_application_data(
         # Update existing data
         existing_data.submitted_value = data_item.submitted_value
         existing_data.submitted_file_id = data_item.submitted_file_id
-        await db.commit()
-        await db.refresh(existing_data)
-        return ApplicationDataResponse(
-            data_id=existing_data.data_id,
-            application_id=existing_data.application_id,
-            item_id=existing_data.item_id,
-            competency_id=existing_data.competency_id,
-            submitted_value=existing_data.submitted_value,
-            submitted_file_id=existing_data.submitted_file_id,
-            verification_status=existing_data.verification_status,
-            item_score=float(existing_data.item_score) if existing_data.item_score else None,
-            reviewed_by=existing_data.reviewed_by,
-            reviewed_at=existing_data.reviewed_at,
-            rejection_reason=existing_data.rejection_reason
-        )
+        saved_data = existing_data
     else:
         # Create new data
-        new_data = ApplicationData(
+        saved_data = ApplicationData(
             application_id=application_id,
             item_id=data_item.item_id,
             submitted_value=data_item.submitted_value,
             submitted_file_id=data_item.submitted_file_id
         )
-        db.add(new_data)
-        await db.commit()
-        await db.refresh(new_data)
-        return ApplicationDataResponse(
-            data_id=new_data.data_id,
-            application_id=new_data.application_id,
-            item_id=new_data.item_id,
-            competency_id=new_data.competency_id,
-            submitted_value=new_data.submitted_value,
-            submitted_file_id=new_data.submitted_file_id,
-            verification_status=new_data.verification_status,
-            item_score=float(new_data.item_score) if new_data.item_score else None,
-            reviewed_by=new_data.reviewed_by,
-            reviewed_at=new_data.reviewed_at,
-            rejection_reason=new_data.rejection_reason
+        db.add(saved_data)
+
+    # ============================================================================
+    # 설문항목 → 세부정보 동기화 (CoachCompetency)
+    # ============================================================================
+    from app.models.competency import VerificationStatus
+
+    # item_code 기반 매핑: 설문 item_id → ADDON item_id
+    items_result = await db.execute(select(CompetencyItem))
+    all_items = items_result.scalars().all()
+    item_id_to_code = {item.item_id: item.item_code for item in all_items}
+    code_to_item_id = {item.item_code: item.item_id for item in all_items}
+
+    survey_item_code = item_id_to_code.get(data_item.item_id)
+    addon_item_id = None
+
+    # ADDON_* item_id 찾기
+    if survey_item_code:
+        if survey_item_code.startswith("CERT_"):
+            addon_code = "ADDON_" + survey_item_code
+            addon_item_id = code_to_item_id.get(addon_code)
+        elif survey_item_code.startswith("EXP_"):
+            addon_code = "ADDON_" + survey_item_code
+            addon_item_id = code_to_item_id.get(addon_code)
+        elif survey_item_code.startswith("DEGREE_"):
+            addon_code = "ADDON_" + survey_item_code
+            addon_item_id = code_to_item_id.get(addon_code)
+        elif survey_item_code.startswith("COACHING_"):
+            addon_code = "ADDON_" + survey_item_code
+            addon_item_id = code_to_item_id.get(addon_code)
+        elif survey_item_code.startswith("ADDON_"):
+            addon_item_id = data_item.item_id  # 이미 ADDON인 경우
+
+    # 동기화 대상 item_id 결정 (ADDON이 있으면 ADDON, 없으면 원본)
+    target_item_id = addon_item_id if addon_item_id else data_item.item_id
+
+    if data_item.submitted_value:
+        # 기존 CoachCompetency 조회
+        comp_result = await db.execute(
+            select(CoachCompetency).where(
+                CoachCompetency.user_id == application.user_id,
+                CoachCompetency.item_id == target_item_id
+            )
         )
+        existing_comp = comp_result.scalar_one_or_none()
+
+        if existing_comp:
+            # 기존 역량 업데이트
+            existing_comp.value = data_item.submitted_value
+            if data_item.submitted_file_id:
+                existing_comp.file_id = data_item.submitted_file_id
+            existing_comp.verification_status = VerificationStatus.PENDING
+            existing_comp.is_globally_verified = False
+            existing_comp.globally_verified_at = None
+            saved_data.competency_id = existing_comp.competency_id
+            logger.info(f"[save_application_data] Synced to existing CoachCompetency {existing_comp.competency_id}")
+        else:
+            # 새 역량 생성
+            new_comp = CoachCompetency(
+                user_id=application.user_id,
+                item_id=target_item_id,
+                value=data_item.submitted_value,
+                file_id=data_item.submitted_file_id,
+                verification_status=VerificationStatus.PENDING
+            )
+            db.add(new_comp)
+            await db.flush()  # competency_id 생성을 위해 flush
+            saved_data.competency_id = new_comp.competency_id
+            logger.info(f"[save_application_data] Created new CoachCompetency {new_comp.competency_id}")
+
+    await db.commit()
+    await db.refresh(saved_data)
+
+    return ApplicationDataResponse(
+        data_id=saved_data.data_id,
+        application_id=saved_data.application_id,
+        item_id=saved_data.item_id,
+        competency_id=saved_data.competency_id,
+        submitted_value=saved_data.submitted_value,
+        submitted_file_id=saved_data.submitted_file_id,
+        verification_status=saved_data.verification_status,
+        item_score=float(saved_data.item_score) if saved_data.item_score else None,
+        reviewed_by=saved_data.reviewed_by,
+        reviewed_at=saved_data.reviewed_at,
+        rejection_reason=saved_data.rejection_reason
+    )
 
 
 # ============================================================================
