@@ -580,8 +580,62 @@ async def submit_application(
             db.add(new_answer)
 
     # Save application data (survey item responses)
+    from app.models.competency import CoachCompetency, VerificationStatus
+
     for data_item in submit_data.application_data:
-        # Check if data already exists for this item
+        # ============================================================
+        # First, find or create CoachCompetency (역량 지갑)
+        # ============================================================
+        competency_id = None
+        try:
+            value_preview = data_item.submitted_value[:50] if data_item.submitted_value else None
+            print(f"[Auto-sync] Processing item_id={data_item.item_id}, value_preview={value_preview}")
+
+            # Check if user already has this competency
+            competency_result = await db.execute(
+                select(CoachCompetency).where(
+                    CoachCompetency.user_id == application.user_id,
+                    CoachCompetency.item_id == data_item.item_id
+                )
+            )
+            existing_competency = competency_result.scalar_one_or_none()
+
+            if existing_competency:
+                competency_id = existing_competency.competency_id
+                # Update existing competency if value changed
+                if data_item.submitted_value and existing_competency.value != data_item.submitted_value:
+                    print(f"[Auto-sync] Updating existing competency {existing_competency.competency_id}")
+                    existing_competency.value = data_item.submitted_value
+                    if data_item.submitted_file_id:
+                        existing_competency.file_id = data_item.submitted_file_id
+                    # Reset verification when value changes
+                    existing_competency.verification_status = VerificationStatus.PENDING
+                elif data_item.submitted_file_id and existing_competency.file_id != data_item.submitted_file_id:
+                    # Update file even if value didn't change
+                    existing_competency.file_id = data_item.submitted_file_id
+                    existing_competency.verification_status = VerificationStatus.PENDING
+            elif data_item.submitted_value:
+                # Create new competency in the wallet
+                print(f"[Auto-sync] Creating new competency for user={application.user_id}, item={data_item.item_id}")
+                new_competency = CoachCompetency(
+                    user_id=application.user_id,
+                    item_id=data_item.item_id,
+                    value=data_item.submitted_value,
+                    file_id=data_item.submitted_file_id,
+                    verification_status=VerificationStatus.PENDING
+                )
+                db.add(new_competency)
+                await db.flush()  # Flush to get the competency_id
+                competency_id = new_competency.competency_id
+                print(f"[Auto-sync] Created new competency with id={competency_id}")
+        except Exception as sync_error:
+            print(f"[Auto-sync] ERROR syncing item_id={data_item.item_id}: {str(sync_error)}")
+            import traceback
+            traceback.print_exc()
+
+        # ============================================================
+        # Then, create or update ApplicationData with competency_id link
+        # ============================================================
         existing_result = await db.execute(
             select(ApplicationData).where(
                 ApplicationData.application_id == application_id,
@@ -593,62 +647,17 @@ async def submit_application(
         if existing_data:
             existing_data.submitted_value = data_item.submitted_value
             existing_data.submitted_file_id = data_item.submitted_file_id
+            if competency_id:
+                existing_data.competency_id = competency_id  # Link to competency
         else:
             new_data = ApplicationData(
                 application_id=application_id,
                 item_id=data_item.item_id,
                 submitted_value=data_item.submitted_value,
-                submitted_file_id=data_item.submitted_file_id
+                submitted_file_id=data_item.submitted_file_id,
+                competency_id=competency_id  # Link to competency
             )
             db.add(new_data)
-
-        # ============================================================
-        # Auto-sync to CoachCompetency (역량 지갑에 자동 저장)
-        # ============================================================
-        try:
-            value_preview = data_item.submitted_value[:50] if data_item.submitted_value else None
-            print(f"[Auto-sync] Processing item_id={data_item.item_id}, value_preview={value_preview}")
-
-            if data_item.submitted_value:  # Only sync if there's a value
-                from app.models.competency import CoachCompetency, VerificationStatus
-
-                # Check if user already has this competency
-                competency_result = await db.execute(
-                    select(CoachCompetency).where(
-                        CoachCompetency.user_id == application.user_id,
-                        CoachCompetency.item_id == data_item.item_id
-                    )
-                )
-                existing_competency = competency_result.scalar_one_or_none()
-
-                if existing_competency:
-                    # Update existing competency if value changed
-                    print(f"[Auto-sync] Updating existing competency {existing_competency.competency_id}")
-                    if existing_competency.value != data_item.submitted_value:
-                        existing_competency.value = data_item.submitted_value
-                        if data_item.submitted_file_id:
-                            existing_competency.file_id = data_item.submitted_file_id
-                        # Reset verification when value changes
-                        existing_competency.verification_status = VerificationStatus.PENDING
-                else:
-                    # Create new competency in the wallet
-                    print(f"[Auto-sync] Creating new competency for user={application.user_id}, item={data_item.item_id}")
-                    new_competency = CoachCompetency(
-                        user_id=application.user_id,
-                        item_id=data_item.item_id,
-                        value=data_item.submitted_value,
-                        file_id=data_item.submitted_file_id,
-                        verification_status=VerificationStatus.PENDING
-                    )
-                    db.add(new_competency)
-                    print(f"[Auto-sync] Added new competency to session")
-            else:
-                print(f"[Auto-sync] Skipping item_id={data_item.item_id} - no submitted_value")
-        except Exception as sync_error:
-            print(f"[Auto-sync] ERROR syncing item_id={data_item.item_id}: {str(sync_error)}")
-            import traceback
-            traceback.print_exc()
-            # Don't raise - let the commit proceed with ApplicationData at least
 
     print(f"[Auto-sync] About to commit changes for application {application_id}...")
     await db.commit()

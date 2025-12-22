@@ -216,6 +216,7 @@ export default function ApplicationSubmitPage() {
         // 폼 값과 repeatableData 초기화
         const formValues: Record<string, any> = {}
         const newRepeatableData: Record<number, any[]> = {}
+        const newLinkedCompetencyData: Record<number, ApplicationData> = {}
 
         projectItems.forEach(item => {
           const itemId = item.competency_item?.item_id
@@ -243,17 +244,44 @@ export default function ApplicationSubmitPage() {
               // 기존 데이터 없으면 빈 항목 하나
               newRepeatableData[item.project_item_id] = [{}]
             }
-          } else if (existingComp && existingComp.value) {
-            // 일반 항목 (기존 데이터 있을 때만)
-            try {
-              // JSON인 경우 파싱
-              const parsedValue = JSON.parse(existingComp.value)
-              formValues[`item_${item.project_item_id}`] = parsedValue
-              console.log(`[Pre-fill] Item ${itemId} with parsed JSON value`)
-            } catch {
-              // 일반 문자열
-              formValues[`item_${item.project_item_id}`] = existingComp.value
-              console.log(`[Pre-fill] Item ${itemId} with string value: ${existingComp.value}`)
+          } else if (existingComp) {
+            // 일반 항목 - value와 file 정보 모두 처리
+            if (existingComp.value) {
+              try {
+                // JSON인 경우 파싱
+                const parsedValue = JSON.parse(existingComp.value)
+                formValues[`item_${item.project_item_id}`] = parsedValue
+                console.log(`[Pre-fill] Item ${itemId} with parsed JSON value`)
+              } catch {
+                // 일반 문자열
+                formValues[`item_${item.project_item_id}`] = existingComp.value
+                console.log(`[Pre-fill] Item ${itemId} with string value: ${existingComp.value}`)
+              }
+            }
+
+            // 파일 정보도 linkedCompetencyData에 저장 (세부정보에서 가져온 파일)
+            if (existingComp.file_info || existingComp.file_id) {
+              newLinkedCompetencyData[item.project_item_id] = {
+                data_id: 0,  // 신규 지원이므로 data_id 없음
+                application_id: 0,
+                item_id: itemId,
+                competency_id: existingComp.competency_id,
+                submitted_value: existingComp.value,
+                submitted_file_id: null,
+                verification_status: 'pending',
+                item_score: null,
+                reviewed_by: null,
+                reviewed_at: null,
+                rejection_reason: null,
+                supplement_deadline: null,
+                supplement_requested_at: null,
+                // Linked competency 정보
+                linked_competency_value: existingComp.value,
+                linked_competency_file_id: existingComp.file_id,
+                linked_competency_file_info: existingComp.file_info,
+                linked_competency_verification_status: existingComp.verification_status
+              }
+              console.log(`[Pre-fill] Item ${itemId} file info loaded: file_id=${existingComp.file_id}`)
             }
           }
         })
@@ -265,6 +293,12 @@ export default function ApplicationSubmitPage() {
         if (Object.keys(formValues).length > 0) {
           form.setFieldsValue(formValues)
           console.log('[ApplicationSubmitPage] Form pre-filled with', Object.keys(formValues).length, 'values')
+        }
+
+        // 파일 정보와 linkedCompetencyData 설정
+        if (Object.keys(newLinkedCompetencyData).length > 0) {
+          setLinkedCompetencyData(newLinkedCompetencyData)
+          console.log('[ApplicationSubmitPage] LinkedCompetencyData pre-filled with', Object.keys(newLinkedCompetencyData).length, 'items')
         }
 
         // 기존 데이터가 있을 때만 메시지 표시

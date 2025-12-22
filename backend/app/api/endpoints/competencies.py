@@ -410,14 +410,40 @@ async def update_competency(
 
         # Sync to linked ApplicationData if requested (역방향 동기화)
         if sync_to_applications:
-            from app.models.application import ApplicationData
+            from app.models.application import ApplicationData, Application
 
+            # 1. competency_id로 직접 연결된 ApplicationData 찾기
             app_data_result = await db.execute(
                 select(ApplicationData).where(
                     ApplicationData.competency_id == competency_id
                 )
             )
-            linked_app_data = app_data_result.scalars().all()
+            linked_app_data = list(app_data_result.scalars().all())
+
+            # 2. competency_id가 없는 기존 데이터도 item_id + user's applications으로 찾기
+            # (backward compatibility for data created before competency_id link was added)
+            user_apps_result = await db.execute(
+                select(Application.application_id).where(
+                    Application.user_id == current_user.user_id
+                )
+            )
+            user_app_ids = [app_id for (app_id,) in user_apps_result.fetchall()]
+
+            if user_app_ids:
+                unlinked_result = await db.execute(
+                    select(ApplicationData).where(
+                        ApplicationData.application_id.in_(user_app_ids),
+                        ApplicationData.item_id == competency.item_id,
+                        ApplicationData.competency_id.is_(None)  # Only unlinked data
+                    )
+                )
+                unlinked_app_data = unlinked_result.scalars().all()
+
+                # Add to linked list and also set competency_id for future syncs
+                for app_data in unlinked_app_data:
+                    app_data.competency_id = competency_id  # Link for future
+                    if app_data not in linked_app_data:
+                        linked_app_data.append(app_data)
 
             for app_data in linked_app_data:
                 # Update the snapshot values to match current competency
@@ -425,6 +451,8 @@ async def update_competency(
                 app_data.submitted_file_id = competency.file_id
                 # Reset verification status to pending
                 app_data.verification_status = "pending"
+
+            print(f"[Sync] Updated {len(linked_app_data)} ApplicationData items for competency {competency_id}")
 
     await db.commit()
     await db.refresh(competency)
@@ -519,8 +547,8 @@ async def check_linked_applications(
     Check if a competency has linked ApplicationData records.
     Used by frontend to determine whether to show sync confirmation dialog.
     """
-    from app.models.application import ApplicationData
-    from sqlalchemy import func
+    from app.models.application import ApplicationData, Application
+    from sqlalchemy import func, or_
 
     # Verify competency belongs to current user
     comp_result = await db.execute(
@@ -537,10 +565,25 @@ async def check_linked_applications(
             detail="Competency not found"
         )
 
-    # Count linked ApplicationData
+    # Get user's application IDs
+    user_apps_result = await db.execute(
+        select(Application.application_id).where(
+            Application.user_id == current_user.user_id
+        )
+    )
+    user_app_ids = [app_id for (app_id,) in user_apps_result.fetchall()]
+
+    # Count linked ApplicationData - both by competency_id AND by item_id (for old unlinked data)
     count_result = await db.execute(
         select(func.count(ApplicationData.data_id)).where(
-            ApplicationData.competency_id == competency_id
+            or_(
+                ApplicationData.competency_id == competency_id,
+                and_(
+                    ApplicationData.application_id.in_(user_app_ids) if user_app_ids else False,
+                    ApplicationData.item_id == competency.item_id,
+                    ApplicationData.competency_id.is_(None)
+                )
+            )
         )
     )
     linked_count = count_result.scalar() or 0
