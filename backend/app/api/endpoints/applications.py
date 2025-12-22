@@ -1000,17 +1000,18 @@ async def save_application_data(
     target_item_id = addon_item_id if addon_item_id else data_item.item_id
 
     if data_item.submitted_value:
-        # 기존 CoachCompetency 조회
+        # 기존 CoachCompetency 조회 (복수 항목 지원: first() 사용)
         comp_result = await db.execute(
             select(CoachCompetency).where(
                 CoachCompetency.user_id == application.user_id,
                 CoachCompetency.item_id == target_item_id
-            )
+            ).order_by(CoachCompetency.competency_id)
         )
-        existing_comp = comp_result.scalar_one_or_none()
+        existing_comps = comp_result.scalars().all()
 
-        if existing_comp:
-            # 기존 역량 업데이트
+        if existing_comps:
+            # 기존 역량 업데이트 (첫 번째 레코드 사용)
+            existing_comp = existing_comps[0]
             existing_comp.value = data_item.submitted_value
             if data_item.submitted_file_id:
                 existing_comp.file_id = data_item.submitted_file_id
