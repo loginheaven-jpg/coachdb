@@ -1430,13 +1430,12 @@ export default function ApplicationSubmitPage() {
                           {!isViewMode && isRepeatable && (
                             <Button
                               type="dashed"
-                              icon={<PlusOutlined />}
                               onClick={() => addRepeatableEntry(item.project_item_id, maxEntries ?? undefined)}
                               block
                               className="mb-4"
                               disabled={maxEntries ? entries.length >= maxEntries : false}
                             >
-                              {competencyItem.item_name} 추가
+                              + {competencyItem.item_name} 추가
                               {maxEntries && ` (${entries.length}/${maxEntries})`}
                             </Button>
                           )}

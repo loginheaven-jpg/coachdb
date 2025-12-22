@@ -769,10 +769,9 @@ export default function UnifiedCompetencyPage() {
                       <Button
                         type="dashed"
                         size="small"
-                        icon={<PlusOutlined />}
                         onClick={() => handleAdd(category, item)}
                       >
-                        추가
+                        + 추가
                       </Button>
                     )}
                   </div>
@@ -810,10 +809,9 @@ export default function UnifiedCompetencyPage() {
                     <Button
                       type="dashed"
                       size="small"
-                      icon={<PlusOutlined />}
                       onClick={() => handleAdd(category, item)}
                     >
-                      추가
+                      + 추가
                     </Button>
                   </div>
                 </Card>
@@ -908,13 +906,12 @@ export default function UnifiedCompetencyPage() {
           <Button
             type="primary"
             size="small"
-            icon={<PlusOutlined />}
             onClick={(e) => {
               e.stopPropagation()
               handleAddEducation()
             }}
           >
-            학력 추가
+            + 학력 추가
           </Button>
         }
       >
