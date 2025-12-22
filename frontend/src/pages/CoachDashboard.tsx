@@ -35,6 +35,11 @@ const getNotificationIcon = (type: string) => {
       return <ClockCircleOutlined style={{ color: '#ff7a45' }} />
     case 'REVIEW_COMPLETE':
       return <CheckCircleOutlined style={{ color: '#722ed1' }} />
+    // 증빙 검증 관련
+    case 'verification_supplement_request':
+      return <WarningOutlined style={{ color: '#ff4d4f' }} />
+    case 'verification_completed':
+      return <CheckCircleOutlined style={{ color: '#52c41a' }} />
     default:
       return <BellOutlined style={{ color: '#8c8c8c' }} />
   }
@@ -175,7 +180,10 @@ export default function CoachDashboard() {
                       notificationService.markAsRead(notification.notification_id)
                     }
                     // 관련 페이지로 이동
-                    if (notification.related_application_id) {
+                    if (notification.related_competency_id) {
+                      // 증빙 관련 알림 - 역량/세부정보 페이지로 이동
+                      navigate('/coach/competencies')
+                    } else if (notification.related_application_id) {
                       navigate(`/coach/my-applications`)
                     } else if (notification.related_project_id) {
                       navigate(`/coach/projects`)

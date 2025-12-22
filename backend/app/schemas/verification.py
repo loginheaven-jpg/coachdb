@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 from app.schemas.competency import FileBasicInfo
@@ -47,6 +47,11 @@ class VerificationResetRequest(BaseModel):
     reason: Optional[str] = None
 
 
+class VerificationSupplementRequest(BaseModel):
+    """증빙 보완 요청 (Verifier가 코치에게)"""
+    reason: str = Field(..., min_length=1, max_length=1000, description="보완 요청 사유")
+
+
 class PendingVerificationItem(BaseModel):
     """검증 대기 중인 증빙 항목"""
     competency_id: int
@@ -63,6 +68,8 @@ class PendingVerificationItem(BaseModel):
     verification_count: int
     required_count: int
     my_verification: Optional[VerificationRecordResponse] = None  # 현재 사용자의 컨펌 여부
+    verification_status: Optional[str] = None  # 검증 상태 (pending/rejected)
+    rejection_reason: Optional[str] = None  # 보완 요청 사유
 
     class Config:
         from_attributes = True

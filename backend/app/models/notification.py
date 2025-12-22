@@ -13,6 +13,9 @@ class NotificationType(str, enum.Enum):
     SELECTION_RESULT = "selection_result"         # 선발 결과
     PROJECT_UPDATE = "project_update"             # 과제 업데이트
     DEADLINE_REMINDER = "deadline_reminder"       # 마감 임박 알림
+    # 증빙 검증 관련
+    VERIFICATION_SUPPLEMENT_REQUEST = "verification_supplement_request"  # 증빙 보완 요청
+    VERIFICATION_COMPLETED = "verification_completed"  # 증빙 검증 완료
 
 
 class Notification(Base):
@@ -31,6 +34,7 @@ class Notification(Base):
     related_application_id = Column(BigInteger, ForeignKey("applications.application_id", ondelete="SET NULL"), nullable=True)
     related_project_id = Column(Integer, ForeignKey("projects.project_id", ondelete="SET NULL"), nullable=True)
     related_data_id = Column(BigInteger, nullable=True)  # ApplicationData ID
+    related_competency_id = Column(BigInteger, ForeignKey("coach_competencies.competency_id", ondelete="SET NULL"), nullable=True)  # CoachCompetency ID
 
     is_read = Column(Boolean, nullable=False, default=False)
     read_at = Column(DateTime(timezone=True), nullable=True)
@@ -40,6 +44,7 @@ class Notification(Base):
     user = relationship("User", back_populates="notifications")
     related_application = relationship("Application", foreign_keys=[related_application_id])
     related_project = relationship("Project", foreign_keys=[related_project_id])
+    related_competency = relationship("CoachCompetency", foreign_keys=[related_competency_id])
 
     def __repr__(self):
         return f"<Notification(notification_id={self.notification_id}, user_id={self.user_id}, type={self.type}, is_read={self.is_read})>"

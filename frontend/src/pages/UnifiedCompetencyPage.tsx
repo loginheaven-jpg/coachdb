@@ -17,7 +17,9 @@ import {
   Collapse,
   InputNumber,
   DatePicker,
-  Table
+  Table,
+  Alert,
+  Tooltip
 } from 'antd'
 import {
   PlusOutlined,
@@ -30,7 +32,9 @@ import {
   UploadOutlined,
   FileOutlined,
   DownloadOutlined,
-  LogoutOutlined
+  LogoutOutlined,
+  WarningOutlined,
+  ExclamationCircleOutlined
 } from '@ant-design/icons'
 import { useAuthStore } from '../stores/authStore'
 import authService from '../services/authService'
@@ -616,19 +620,36 @@ export default function UnifiedCompetencyPage() {
     setEditingEducation(null)
   }
 
-  const getStatusTag = (status: string) => {
+  const getStatusTag = (status: string, rejectionReason?: string | null) => {
     const statusMap: Record<string, { color: string; icon: React.ReactNode; text: string }> = {
-      pending: { color: 'orange', icon: <ClockCircleOutlined />, text: '검토중' },
-      approved: { color: 'green', icon: <CheckCircleOutlined />, text: '승인' },
-      rejected: { color: 'red', icon: <CloseCircleOutlined />, text: '반려' },
-      supplemented: { color: 'blue', icon: <ClockCircleOutlined />, text: '보완요청' }
+      pending: { color: 'gold', icon: <ClockCircleOutlined />, text: '검토중' },
+      approved: { color: 'green', icon: <CheckCircleOutlined />, text: '검증완료' },
+      rejected: { color: 'red', icon: <ExclamationCircleOutlined />, text: '보완필요' },
+      supplemented: { color: 'blue', icon: <ClockCircleOutlined />, text: '보완제출' }
     }
     const config = statusMap[status] || statusMap.pending
+
+    // 보완필요 상태이고 사유가 있으면 툴팁 표시
+    if (status === 'rejected' && rejectionReason) {
+      return (
+        <Tooltip title={`보완 사유: ${rejectionReason}`}>
+          <Tag color={config.color} icon={config.icon}>
+            {config.text}
+          </Tag>
+        </Tooltip>
+      )
+    }
+
     return (
       <Tag color={config.color} icon={config.icon}>
         {config.text}
       </Tag>
     )
+  }
+
+  // 보완이 필요한 역량 목록
+  const getSupplementNeededCompetencies = () => {
+    return competencies.filter(comp => comp.verification_status === 'rejected')
   }
 
   // 카테고리별로 역량 데이터 필터링
@@ -684,8 +705,18 @@ export default function UnifiedCompetencyPage() {
           )}
 
           <div className="mt-2">
-            {getStatusTag(comp.verification_status)}
+            {getStatusTag(comp.verification_status, comp.rejection_reason)}
           </div>
+
+          {/* 보완필요 상태일 때 사유 표시 */}
+          {comp.verification_status === 'rejected' && comp.rejection_reason && (
+            <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded">
+              <Text type="danger" className="text-sm">
+                <WarningOutlined className="mr-1" />
+                보완 사유: {comp.rejection_reason}
+              </Text>
+            </div>
+          )}
         </div>
 
         <Space>
@@ -970,6 +1001,37 @@ export default function UnifiedCompetencyPage() {
             로그아웃
           </Button>
         </div>
+
+        {/* 보완필요 경고 배너 */}
+        {getSupplementNeededCompetencies().length > 0 && (
+          <Alert
+            type="warning"
+            showIcon
+            icon={<WarningOutlined />}
+            message={`보완이 필요한 항목이 ${getSupplementNeededCompetencies().length}건 있습니다`}
+            description={
+              <div>
+                <ul className="list-disc list-inside mt-2">
+                  {getSupplementNeededCompetencies().slice(0, 3).map(comp => (
+                    <li key={comp.competency_id}>
+                      <Text strong>{comp.competency_item?.item_name}</Text>
+                      {comp.rejection_reason && (
+                        <Text type="secondary"> - {comp.rejection_reason.substring(0, 50)}{comp.rejection_reason.length > 50 ? '...' : ''}</Text>
+                      )}
+                    </li>
+                  ))}
+                  {getSupplementNeededCompetencies().length > 3 && (
+                    <li><Text type="secondary">외 {getSupplementNeededCompetencies().length - 3}건...</Text></li>
+                  )}
+                </ul>
+                <Text type="secondary" className="block mt-2">
+                  해당 항목을 수정하여 보완 서류를 제출해주세요.
+                </Text>
+              </div>
+            }
+            className="mb-4"
+          />
+        )}
 
         <Card>
           <div className="mb-6">

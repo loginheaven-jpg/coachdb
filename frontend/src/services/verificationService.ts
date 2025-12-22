@@ -37,10 +37,19 @@ export interface PendingVerificationItem {
   item_code: string
   value: string | null
   file_id: number | null
+  file_info?: {
+    file_id: number
+    original_filename: string
+    file_size: number
+    mime_type: string
+    uploaded_at: string
+  } | null
   created_at: string
   verification_count: number
   required_count: number
   my_verification: VerificationRecordResponse | null
+  verification_status: string | null  // 'pending' | 'rejected'
+  rejection_reason: string | null
 }
 
 export interface VerificationConfirmRequest {
@@ -50,6 +59,10 @@ export interface VerificationConfirmRequest {
 export interface VerificationResetRequest {
   competency_id: number
   reason?: string
+}
+
+export interface VerificationSupplementRequest {
+  reason: string
 }
 
 // ============================================================================
@@ -95,6 +108,18 @@ const verificationService = {
   async resetVerification(competencyId: number, reason?: string): Promise<void> {
     await api.post(`/verifications/${competencyId}/reset`, {
       competency_id: competencyId,
+      reason
+    })
+  },
+
+  /**
+   * 증빙 보완 요청
+   * - Verifier가 증빙이 불충분하다고 판단할 때 사용
+   * - 기존 컨펌 기록 무효화 + 상태를 REJECTED로 변경
+   * - 코치에게 알림 발송
+   */
+  async requestSupplement(competencyId: number, reason: string): Promise<void> {
+    await api.post(`/verifications/${competencyId}/request-supplement`, {
       reason
     })
   }

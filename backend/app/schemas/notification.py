@@ -12,6 +12,7 @@ class NotificationCreate(BaseModel):
     related_application_id: Optional[int] = None
     related_project_id: Optional[int] = None
     related_data_id: Optional[int] = None
+    related_competency_id: Optional[int] = None  # 증빙 검증 관련
 
 
 class NotificationResponse(BaseModel):
@@ -24,6 +25,7 @@ class NotificationResponse(BaseModel):
     related_application_id: Optional[int] = None
     related_project_id: Optional[int] = None
     related_data_id: Optional[int] = None
+    related_competency_id: Optional[int] = None  # 증빙 검증 관련
     is_read: bool
     read_at: Optional[datetime] = None
     created_at: datetime

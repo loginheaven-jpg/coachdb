@@ -15,13 +15,16 @@ from app.core.database import get_db
 from app.core.security import get_current_user, require_roles
 from app.models import (
     User, UserRole, CoachCompetency, CompetencyItem,
-    VerificationRecord, SystemConfig, ConfigKeys
+    VerificationRecord, SystemConfig, ConfigKeys,
+    Notification, NotificationType
 )
+from app.models.competency import VerificationStatus
 from app.schemas.verification import (
     VerificationRecordResponse,
     CompetencyVerificationStatus,
     VerificationConfirmRequest,
     VerificationResetRequest,
+    VerificationSupplementRequest,
     PendingVerificationItem
 )
 from app.schemas.competency import FileBasicInfo
@@ -179,7 +182,9 @@ async def get_pending_verifications(
             created_at=comp.created_at or datetime.now(timezone.utc),
             verification_count=verification_count,
             required_count=required_count,
-            my_verification=my_verification
+            my_verification=my_verification,
+            verification_status=comp.verification_status.value if comp.verification_status else "pending",
+            rejection_reason=comp.rejection_reason
         ))
 
     return items
@@ -434,5 +439,87 @@ async def reset_verification(
     return {
         "message": "증빙 검증이 리셋되었습니다",
         "invalidated_count": len(records),
+        "reason": request.reason
+    }
+
+
+@router.post("/{competency_id}/request-supplement")
+async def request_supplement(
+    competency_id: int,
+    request: VerificationSupplementRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles([UserRole.VERIFIER, UserRole.PROJECT_MANAGER, UserRole.SUPER_ADMIN]))
+):
+    """
+    증빙 보완 요청
+    - Verifier가 증빙이 불충분하다고 판단할 때 사용
+    - 기존 모든 컨펌 기록 무효화
+    - 상태를 REJECTED로 변경
+    - 코치에게 알림 발송
+    """
+    # CoachCompetency 조회
+    result = await db.execute(
+        select(CoachCompetency)
+        .options(selectinload(CoachCompetency.competency_item))
+        .where(CoachCompetency.competency_id == competency_id)
+    )
+    competency = result.scalar_one_or_none()
+
+    if not competency:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="증빙을 찾을 수 없습니다"
+        )
+
+    # 이미 전역 검증 완료된 경우 경고
+    if competency.is_globally_verified:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="이미 검증 완료된 증빙입니다. 먼저 관리자에게 리셋을 요청하세요."
+        )
+
+    # 모든 유효한 컨펌 기록 무효화
+    records_result = await db.execute(
+        select(VerificationRecord).where(
+            and_(
+                VerificationRecord.competency_id == competency_id,
+                VerificationRecord.is_valid == True
+            )
+        )
+    )
+    records = records_result.scalars().all()
+
+    invalidated_count = 0
+    for record in records:
+        record.is_valid = False
+        invalidated_count += 1
+
+    # 상태 변경
+    competency.verification_status = VerificationStatus.REJECTED
+    competency.rejection_reason = request.reason
+    competency.is_globally_verified = False
+    competency.globally_verified_at = None
+
+    # 역량 항목명 조회
+    item_name = "역량 항목"
+    if competency.competency_item:
+        item_name = competency.competency_item.item_name
+
+    # 코치에게 알림 발송
+    notification = Notification(
+        user_id=competency.user_id,
+        type=NotificationType.VERIFICATION_SUPPLEMENT_REQUEST.value,
+        title="증빙 보완 요청",
+        message=f"'{item_name}' 증빙에 대해 보완이 요청되었습니다. 사유: {request.reason}",
+        related_competency_id=competency_id
+    )
+    db.add(notification)
+
+    await db.commit()
+
+    return {
+        "message": "보완 요청이 완료되었습니다",
+        "competency_id": competency_id,
+        "invalidated_count": invalidated_count,
         "reason": request.reason
     }

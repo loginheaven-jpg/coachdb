@@ -9,6 +9,7 @@ export interface Notification {
   related_application_id: number | null
   related_project_id: number | null
   related_data_id: number | null
+  related_competency_id: number | null  // 증빙 검증 관련
   is_read: boolean
   read_at: string | null
   created_at: string

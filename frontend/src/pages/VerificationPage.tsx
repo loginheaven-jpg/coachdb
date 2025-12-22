@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Card, Table, Tag, Button, Space, Modal, Typography, message, Tooltip, Progress, Input, Badge, Descriptions, Spin } from 'antd'
-import { CheckCircleOutlined, FileOutlined, SearchOutlined, ReloadOutlined, EyeOutlined, UndoOutlined } from '@ant-design/icons'
+import { Card, Table, Tag, Button, Space, Modal, Typography, message, Tooltip, Progress, Input, Badge, Descriptions, Spin, Select } from 'antd'
+import { CheckCircleOutlined, FileOutlined, SearchOutlined, ReloadOutlined, EyeOutlined, UndoOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import verificationService, { PendingVerificationItem, CompetencyVerificationStatus } from '../services/verificationService'
 import { useAuthStore } from '../stores/authStore'
 
 const { Title, Text } = Typography
+const { TextArea } = Input
+const { Option } = Select
 
 export default function VerificationPage() {
   const { user } = useAuthStore()
@@ -19,6 +21,13 @@ export default function VerificationPage() {
   const [resetModalVisible, setResetModalVisible] = useState(false)
   const [resetReason, setResetReason] = useState('')
   const [resetCompetencyId, setResetCompetencyId] = useState<number | null>(null)
+  // 보완요청 관련 상태
+  const [supplementModalVisible, setSupplementModalVisible] = useState(false)
+  const [supplementReason, setSupplementReason] = useState('')
+  const [supplementCompetencyId, setSupplementCompetencyId] = useState<number | null>(null)
+  const [supplementLoading, setSupplementLoading] = useState(false)
+  // 상태 필터
+  const [statusFilter, setStatusFilter] = useState<string>('all')
 
   const fetchPendingVerifications = useCallback(async () => {
     setLoading(true)
@@ -110,19 +119,70 @@ export default function VerificationPage() {
     }
   }
 
+  // 보완요청 모달 열기
+  const openSupplementModal = (competencyId: number) => {
+    setSupplementCompetencyId(competencyId)
+    setSupplementReason('')
+    setSupplementModalVisible(true)
+  }
+
+  // 보완요청 처리
+  const handleSupplement = async () => {
+    if (!supplementCompetencyId) return
+    if (!supplementReason.trim()) {
+      message.warning('보완 요청 사유를 입력해주세요')
+      return
+    }
+
+    setSupplementLoading(true)
+    try {
+      await verificationService.requestSupplement(supplementCompetencyId, supplementReason)
+      message.success('보완 요청이 완료되었습니다')
+      setSupplementModalVisible(false)
+      fetchPendingVerifications()
+      if (selectedCompetency && selectedCompetency.competency_id === supplementCompetencyId) {
+        setDetailModalVisible(false)
+        setSelectedCompetency(null)
+      }
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { detail?: string } } }
+      message.error(err.response?.data?.detail || '보완 요청에 실패했습니다')
+    } finally {
+      setSupplementLoading(false)
+    }
+  }
+
   // Check if current user is admin/PM
   const isAdmin = user?.roles && (
     user.roles.includes('SUPER_ADMIN') ||
     user.roles.includes('PROJECT_MANAGER')
   )
 
-  // Filter items based on search
-  const filteredItems = pendingItems.filter(item =>
-    item.user_name.toLowerCase().includes(searchText.toLowerCase()) ||
-    item.user_email.toLowerCase().includes(searchText.toLowerCase()) ||
-    item.item_name.toLowerCase().includes(searchText.toLowerCase()) ||
-    item.item_code.toLowerCase().includes(searchText.toLowerCase())
-  )
+  // Filter items based on search and status
+  const filteredItems = pendingItems.filter(item => {
+    // Text search filter
+    const matchesSearch =
+      item.user_name.toLowerCase().includes(searchText.toLowerCase()) ||
+      item.user_email.toLowerCase().includes(searchText.toLowerCase()) ||
+      item.item_name.toLowerCase().includes(searchText.toLowerCase()) ||
+      item.item_code.toLowerCase().includes(searchText.toLowerCase())
+
+    // Status filter
+    let matchesStatus = true
+    if (statusFilter !== 'all') {
+      if (statusFilter === 'rejected') {
+        matchesStatus = item.verification_status === 'rejected'
+      } else if (statusFilter === 'pending') {
+        matchesStatus = item.verification_status !== 'rejected'
+      }
+    }
+
+    return matchesSearch && matchesStatus
+  })
+
+  // Count by status for badges
+  const rejectedCount = pendingItems.filter(item => item.verification_status === 'rejected').length
+  const pendingCount = pendingItems.filter(item => item.verification_status !== 'rejected').length
 
   const columns: ColumnsType<PendingVerificationItem> = [
     {
@@ -169,21 +229,37 @@ export default function VerificationPage() {
     {
       title: '검증 현황',
       key: 'verification',
-      width: 180,
+      width: 200,
       render: (_, record) => {
         const percent = (record.verification_count / record.required_count) * 100
+        const isRejected = record.verification_status === 'rejected'
         return (
           <div>
-            <Progress
-              percent={percent}
-              size="small"
-              format={() => `${record.verification_count}/${record.required_count}`}
-              status={percent >= 100 ? 'success' : 'active'}
-            />
-            {record.my_verification && (
-              <Tag color="green" style={{ marginTop: 4 }}>
-                <CheckCircleOutlined /> 내가 컨펌함
-              </Tag>
+            {isRejected ? (
+              <div>
+                <Tag color="red" icon={<ExclamationCircleOutlined />}>보완필요</Tag>
+                {record.rejection_reason && (
+                  <Tooltip title={record.rejection_reason}>
+                    <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 4 }} ellipsis>
+                      사유: {record.rejection_reason.substring(0, 20)}...
+                    </Text>
+                  </Tooltip>
+                )}
+              </div>
+            ) : (
+              <>
+                <Progress
+                  percent={percent}
+                  size="small"
+                  format={() => `${record.verification_count}/${record.required_count}`}
+                  status={percent >= 100 ? 'success' : 'active'}
+                />
+                {record.my_verification && (
+                  <Tag color="green" style={{ marginTop: 4 }}>
+                    <CheckCircleOutlined /> 내가 컨펌함
+                  </Tag>
+                )}
+              </>
             )}
           </div>
         )
@@ -192,10 +268,11 @@ export default function VerificationPage() {
     {
       title: '작업',
       key: 'action',
-      width: 200,
+      width: 280,
       render: (_, record) => (
-        <Space>
+        <Space wrap>
           <Button
+            size="small"
             icon={<EyeOutlined />}
             onClick={() => handleViewDetail(record.competency_id)}
           >
@@ -203,6 +280,7 @@ export default function VerificationPage() {
           </Button>
           {!record.my_verification ? (
             <Button
+              size="small"
               type="primary"
               icon={<CheckCircleOutlined />}
               loading={confirmLoading === record.competency_id}
@@ -212,12 +290,20 @@ export default function VerificationPage() {
             </Button>
           ) : (
             <Button
-              danger
+              size="small"
               onClick={() => handleCancelVerification(record.my_verification!.record_id)}
             >
               취소
             </Button>
           )}
+          <Button
+            size="small"
+            danger
+            icon={<ExclamationCircleOutlined />}
+            onClick={() => openSupplementModal(record.competency_id)}
+          >
+            보완요청
+          </Button>
         </Space>
       )
     }
@@ -247,7 +333,7 @@ export default function VerificationPage() {
           </div>
 
           <Card>
-            <div style={{ marginBottom: 16 }}>
+            <div style={{ marginBottom: 16, display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
               <Input
                 placeholder="코치명, 이메일, 항목명 검색..."
                 prefix={<SearchOutlined />}
@@ -256,6 +342,21 @@ export default function VerificationPage() {
                 style={{ width: 300 }}
                 allowClear
               />
+              <Select
+                value={statusFilter}
+                onChange={setStatusFilter}
+                style={{ width: 180 }}
+              >
+                <Option value="all">
+                  전체 ({pendingItems.length})
+                </Option>
+                <Option value="pending">
+                  <Badge color="gold" text={`검토중 (${pendingCount})`} />
+                </Option>
+                <Option value="rejected">
+                  <Badge color="red" text={`보완필요 (${rejectedCount})`} />
+                </Option>
+              </Select>
             </div>
 
             <Table
@@ -400,6 +501,30 @@ export default function VerificationPage() {
           value={resetReason}
           onChange={e => setResetReason(e.target.value)}
           rows={3}
+        />
+      </Modal>
+
+      {/* Supplement Request Modal */}
+      <Modal
+        title="보완 요청"
+        open={supplementModalVisible}
+        onOk={handleSupplement}
+        onCancel={() => setSupplementModalVisible(false)}
+        okText="보완 요청 보내기"
+        okButtonProps={{ danger: true, loading: supplementLoading }}
+        cancelText="취소"
+      >
+        <p>이 증빙이 불충분한 이유를 입력해주세요.</p>
+        <p style={{ marginBottom: 16 }}>
+          <Text type="secondary">코치에게 알림이 발송되며, 기존 컨펌 기록이 모두 무효화됩니다.</Text>
+        </p>
+        <TextArea
+          placeholder="보완 요청 사유를 입력해주세요 (필수)"
+          value={supplementReason}
+          onChange={e => setSupplementReason(e.target.value)}
+          rows={4}
+          maxLength={1000}
+          showCount
         />
       </Modal>
     </>
