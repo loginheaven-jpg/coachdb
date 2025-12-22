@@ -757,14 +757,20 @@ async def get_application_data(
         .options(selectinload(CoachCompetency.file))
     )
     all_user_competencies = competencies_result.scalars().all()
-    # item_id를 키로 하는 딕셔너리 생성
-    user_competencies_by_id = {c.item_id: c for c in all_user_competencies}
-    # item_code를 키로 하는 딕셔너리도 생성 (매핑용)
+    # item_id를 키로 하는 딕셔너리 생성 (리스트로 - 복수 항목 지원)
+    user_competencies_by_id = {}
+    for c in all_user_competencies:
+        if c.item_id not in user_competencies_by_id:
+            user_competencies_by_id[c.item_id] = []
+        user_competencies_by_id[c.item_id].append(c)
+    # item_code를 키로 하는 딕셔너리도 생성 (리스트로 - 복수 항목 지원)
     user_competencies_by_code = {}
     for c in all_user_competencies:
         item_code = item_id_to_code.get(c.item_id)
         if item_code:
-            user_competencies_by_code[item_code] = c
+            if item_code not in user_competencies_by_code:
+                user_competencies_by_code[item_code] = []
+            user_competencies_by_code[item_code].append(c)
 
     # 2. ApplicationData 조회 (linked_competency 없이 - stale link 방지)
     result = await db.execute(
@@ -788,39 +794,83 @@ async def get_application_data(
                 uploaded_at=item.submitted_file.uploaded_at
             )
 
-        # 4. item_code 기반 매핑으로 최신 competency 조회
+        # 4. item_code 기반 매핑으로 최신 competency 조회 (복수 항목 지원)
         linked_value = None
         linked_file_id = None
         linked_file_info = None
         linked_verification_status = None
 
-        # item_code 기반 매핑으로 competency 조회
+        # item_code 기반 매핑으로 competency 리스트 조회
         survey_item_code = item_id_to_code.get(item.item_id)
-        competency = None
+        competencies_list = []
 
         # 1차: 직접 item_id 매칭 시도
-        competency = user_competencies_by_id.get(item.item_id)
+        competencies_list = user_competencies_by_id.get(item.item_id, [])
 
         # 2차: ADDON_* 매핑으로 시도 (CERT_COACH → ADDON_CERT_COACH)
-        if not competency and survey_item_code:
+        if not competencies_list and survey_item_code:
             addon_codes = get_addon_item_codes(survey_item_code)
             for addon_code in addon_codes:
                 if addon_code in user_competencies_by_code:
-                    competency = user_competencies_by_code[addon_code]
+                    competencies_list = user_competencies_by_code[addon_code]
                     break
-        if competency:
-            linked_value = competency.value
-            linked_file_id = competency.file_id
-            linked_verification_status = competency.verification_status.value if competency.verification_status else None
 
-            if competency.file:
-                linked_file_info = FileBasicInfo(
-                    file_id=competency.file.file_id,
-                    original_filename=competency.file.original_filename,
-                    file_size=competency.file.file_size,
-                    mime_type=competency.file.mime_type,
-                    uploaded_at=competency.file.uploaded_at
-                )
+        # 복수 항목 처리: 여러 competency를 JSON 배열로 병합
+        if competencies_list:
+            import json
+            if len(competencies_list) == 1:
+                # 단일 항목
+                c = competencies_list[0]
+                linked_value = c.value
+                linked_file_id = c.file_id
+                linked_verification_status = c.verification_status.value if c.verification_status else None
+                if c.file:
+                    linked_file_info = FileBasicInfo(
+                        file_id=c.file.file_id,
+                        original_filename=c.file.original_filename,
+                        file_size=c.file.file_size,
+                        mime_type=c.file.mime_type,
+                        uploaded_at=c.file.uploaded_at
+                    )
+            else:
+                # 복수 항목: JSON 배열로 병합
+                merged_entries = []
+                first_file_id = None
+                first_file_info = None
+                first_status = None
+                for c in competencies_list:
+                    # 각 competency의 value를 파싱하여 배열에 추가
+                    if c.value:
+                        try:
+                            parsed = json.loads(c.value)
+                            if isinstance(parsed, list):
+                                merged_entries.extend(parsed)
+                            elif isinstance(parsed, dict):
+                                merged_entries.append(parsed)
+                            else:
+                                # 단순 문자열인 경우 cert_name으로 감싸기
+                                merged_entries.append({"cert_name": c.value, "_file_id": c.file_id})
+                        except json.JSONDecodeError:
+                            # JSON이 아닌 경우 cert_name으로 감싸기
+                            merged_entries.append({"cert_name": c.value, "_file_id": c.file_id})
+                    # 첫 번째 파일 정보 저장
+                    if first_file_id is None and c.file_id:
+                        first_file_id = c.file_id
+                        if c.file:
+                            first_file_info = FileBasicInfo(
+                                file_id=c.file.file_id,
+                                original_filename=c.file.original_filename,
+                                file_size=c.file.file_size,
+                                mime_type=c.file.mime_type,
+                                uploaded_at=c.file.uploaded_at
+                            )
+                    if first_status is None and c.verification_status:
+                        first_status = c.verification_status.value
+
+                linked_value = json.dumps(merged_entries, ensure_ascii=False) if merged_entries else None
+                linked_file_id = first_file_id
+                linked_file_info = first_file_info
+                linked_verification_status = first_status
 
         # 하이브리드 구조: is_frozen 상태에 따라 표시할 값 결정
         # - is_frozen=True: submitted_value (스냅샷)
