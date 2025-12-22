@@ -309,6 +309,7 @@ export default function SurveyBuilder({ projectId, visible, onClose, onSave }: S
     }
 
     setLoading(true)
+    let saveSucceeded = false
     try {
       // Get existing items
       const existingItems = await projectService.getProjectItems(projectId)
@@ -353,15 +354,25 @@ export default function SurveyBuilder({ projectId, visible, onClose, onSave }: S
         }
       }
 
+      // 저장 성공
+      saveSucceeded = true
       message.success('설문 구성이 저장되었습니다.')
       setHasChanges(false)
-      onSave()
-      onClose()
     } catch (error: any) {
-      console.error('저장 실패:', error)
-      message.error('저장에 실패했습니다.')
+      console.error('저장 실패:', error?.response?.data || error?.message || error)
+      message.error(error?.response?.data?.detail || '저장에 실패했습니다.')
     } finally {
       setLoading(false)
+    }
+
+    // 저장 성공 시에만 콜백 호출 (에러가 발생해도 저장 성공 메시지 유지)
+    if (saveSucceeded) {
+      try {
+        onSave()
+        onClose()
+      } catch (callbackError) {
+        console.warn('저장 후 콜백 처리 중 오류 (무시됨):', callbackError)
+      }
     }
   }
 
