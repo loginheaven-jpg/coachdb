@@ -93,6 +93,12 @@ export default function ApplicationSubmitPage() {
   const [existingApplication, setExistingApplication] = useState<any>(null)
   const [linkedCompetencyData, setLinkedCompetencyData] = useState<Record<number, ApplicationData>>({})
   const [_detailedProfile, setDetailedProfile] = useState<DetailedProfile | null>(null)
+
+  // 모달 상태
+  const [isItemModalVisible, setIsItemModalVisible] = useState(false)
+  const [editingProjectItemId, setEditingProjectItemId] = useState<number | null>(null)
+  const [editingEntryIndex, setEditingEntryIndex] = useState<number | null>(null)
+  const [modalForm] = Form.useForm()
   const [profileLoaded, setProfileLoaded] = useState(false)
   const [competenciesLoaded, setCompetenciesLoaded] = useState(false)
   const { user, setUser } = useAuthStore()
@@ -443,18 +449,6 @@ export default function ApplicationSubmitPage() {
     }
   }
 
-  // 반복 항목 추가
-  const addRepeatableEntry = (projectItemId: number, maxEntries?: number) => {
-    setRepeatableData(prev => {
-      const current = prev[projectItemId] || [{}]
-      if (maxEntries && current.length >= maxEntries) {
-        message.warning(`최대 ${maxEntries}개까지 추가할 수 있습니다.`)
-        return prev
-      }
-      return { ...prev, [projectItemId]: [...current, {}] }
-    })
-  }
-
   // 반복 항목 삭제
   const removeRepeatableEntry = (projectItemId: number, entryIndex: number) => {
     setRepeatableData(prev => {
@@ -464,26 +458,62 @@ export default function ApplicationSubmitPage() {
     })
   }
 
-  // 반복 항목 값 업데이트
-  const updateRepeatableEntry = (projectItemId: number, entryIndex: number, fieldName: string, value: any) => {
-    console.log('[updateRepeatableEntry] Called:', { projectItemId, entryIndex, fieldName, value, valueType: typeof value })
+  // 모달 열기 (새 항목 추가)
+  const openAddModal = (projectItemId: number) => {
+    const projectItem = projectItems.find(i => i.project_item_id === projectItemId)
+    if (!projectItem) return
 
-    // Don't update if value is undefined (could be from blur events)
-    if (value === undefined) {
-      console.log('[updateRepeatableEntry] Skipping undefined value update')
-      return
+    setEditingProjectItemId(projectItemId)
+    setEditingEntryIndex(null) // null = 새 항목 추가
+    modalForm.resetFields()
+    setIsItemModalVisible(true)
+  }
+
+  // 모달 열기 (기존 항목 편집)
+  const openEditModal = (projectItemId: number, entryIndex: number, entry: any) => {
+    setEditingProjectItemId(projectItemId)
+    setEditingEntryIndex(entryIndex)
+    modalForm.setFieldsValue(entry)
+    setIsItemModalVisible(true)
+  }
+
+  // 모달 닫기
+  const closeItemModal = () => {
+    setIsItemModalVisible(false)
+    setEditingProjectItemId(null)
+    setEditingEntryIndex(null)
+    modalForm.resetFields()
+  }
+
+  // 모달 확인 (저장)
+  const handleItemModalOk = async () => {
+    try {
+      const values = await modalForm.validateFields()
+      if (editingProjectItemId === null) return
+
+      if (editingEntryIndex === null) {
+        // 새 항목 추가
+        setRepeatableData(prev => {
+          const current = prev[editingProjectItemId] || []
+          return { ...prev, [editingProjectItemId]: [...current, values] }
+        })
+        message.success('항목이 추가되었습니다.')
+      } else {
+        // 기존 항목 수정
+        setRepeatableData(prev => {
+          const current = prev[editingProjectItemId] || []
+          const updated = current.map((entry, idx) =>
+            idx === editingEntryIndex ? { ...entry, ...values } : entry
+          )
+          return { ...prev, [editingProjectItemId]: updated }
+        })
+        message.success('항목이 수정되었습니다.')
+      }
+
+      closeItemModal()
+    } catch (error) {
+      console.error('모달 저장 실패:', error)
     }
-
-    setRepeatableData(prev => {
-      const prevEntries = prev[projectItemId] || [{}]
-      const current = prevEntries.map((entry, idx) =>
-        idx === entryIndex ? { ...entry, [fieldName]: value } : entry
-      )
-      const newState = { ...prev, [projectItemId]: current }
-      console.log('[updateRepeatableEntry] Previous:', prev[projectItemId])
-      console.log('[updateRepeatableEntry] New state for', projectItemId, ':', current)
-      return newState
-    })
   }
 
   // 파일 검증
@@ -580,190 +610,6 @@ export default function ApplicationSubmitPage() {
       return JSON.parse(configJson)
     } catch {
       return {}
-    }
-  }
-
-  // DB 필드 옵션 파싱
-  const parseFieldOptions = (optionsJson: string | null): string[] => {
-    if (!optionsJson) return []
-    try {
-      return JSON.parse(optionsJson)
-    } catch {
-      return []
-    }
-  }
-
-  // 단일 필드 렌더링 (DB 기반)
-  const renderSingleField = (
-    field: { field_name: string; field_label: string; field_type: string; field_options: string | null; placeholder: string | null },
-    value: any,
-    onChange: (value: any) => void
-  ) => {
-    const options = parseFieldOptions(field.field_options)
-
-    switch (field.field_type) {
-      case 'select':
-        console.log('[renderSingleField] Select field:', field.field_name, 'current value:', value, 'type:', typeof value)
-        return (
-          <Select
-            placeholder={field.placeholder || `${field.field_label} 선택`}
-            value={value !== undefined && value !== null && value !== '' ? value : undefined}
-            onChange={(val) => {
-              console.log('[Select onChange]', field.field_name, 'new value:', val, 'previous:', value)
-              onChange(val)
-            }}
-            onBlur={() => {
-              console.log('[Select onBlur]', field.field_name, 'value at blur:', value)
-            }}
-            style={{ width: '100%' }}
-            getPopupContainer={(trigger) => trigger.parentNode as HTMLElement}
-          >
-            {options.map(opt => (
-              <Select.Option key={opt} value={opt}>{opt}</Select.Option>
-            ))}
-          </Select>
-        )
-
-      case 'number':
-        return (
-          <InputNumber
-            placeholder={field.placeholder || field.field_label}
-            value={value}
-            onChange={onChange}
-            style={{ width: '100%' }}
-          />
-        )
-
-      case 'textarea':
-        return (
-          <TextArea
-            rows={3}
-            placeholder={field.placeholder || field.field_label}
-            value={value || ''}
-            onChange={(e) => onChange(e.target.value)}
-          />
-        )
-
-      case 'file':
-        // 파일은 별도 Upload 컴포넌트로 처리 (카드 하단에 표시)
-        return null
-
-      case 'text':
-      default:
-        return (
-          <Input
-            placeholder={field.placeholder || field.field_label}
-            value={value || ''}
-            onChange={(e) => onChange(e.target.value)}
-          />
-        )
-    }
-  }
-
-  // DB 필드 기반 동적 렌더링 (repeatable용)
-  const renderDynamicFields = (
-    fields: { field_name: string; field_label: string; field_type: string; field_options: string | null; placeholder: string | null; display_order: number }[],
-    entry: any,
-    updateField: (fieldName: string, value: any) => void
-  ) => {
-    console.log('[renderDynamicFields] entry object:', JSON.stringify(entry))
-    console.log('[renderDynamicFields] entry keys:', Object.keys(entry || {}))
-    // file 타입 필드 제외하고 정렬
-    const sortedFields = [...fields]
-      .filter(f => f.field_type !== 'file')
-      .sort((a, b) => a.display_order - b.display_order)
-
-    // 기간 필드 예시 표시 여부 확인
-    const isPeriodField = (fieldName: string, fieldLabel: string) =>
-      fieldName === '기간' || fieldName === '근무기간' ||
-      fieldLabel === '기간' || fieldLabel === '근무기간'
-
-    // 2열 그리드로 표시 (textarea는 전체 너비)
-    return (
-      <div className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
-          {sortedFields.filter(f => f.field_type !== 'textarea').map(field => (
-            <div key={field.field_name}>
-              <label className="block text-sm text-gray-600 mb-1">
-                {field.field_label}
-                {isPeriodField(field.field_name, field.field_label) && (
-                  <span className="text-gray-400 ml-2 text-xs">(예시: 2020년1월-2022년12월)</span>
-                )}
-              </label>
-              {renderSingleField(field, entry[field.field_name], (val) => updateField(field.field_name, val))}
-            </div>
-          ))}
-        </div>
-        {sortedFields.filter(f => f.field_type === 'textarea').map(field => (
-          <div key={field.field_name}>
-            <label className="block text-sm text-gray-600 mb-1">
-              {field.field_label}
-              {isPeriodField(field.field_name, field.field_label) && (
-                <span className="text-gray-400 ml-2 text-xs">(예시: 2020년1월-2022년12월)</span>
-              )}
-            </label>
-            {renderSingleField(field, entry[field.field_name], (val) => updateField(field.field_name, val))}
-          </div>
-        ))}
-      </div>
-    )
-  }
-
-  // Render repeatable input field
-  const renderRepeatableInputField = (item: ProjectItem, entryIndex: number, entry: any) => {
-    const competencyItem = item.competency_item
-    if (!competencyItem) return null
-
-    const template = competencyItem.template
-    const config = parseTemplateConfig(competencyItem.template_config)
-    const fields = competencyItem.fields || []
-
-    const updateField = (fieldName: string, value: any) => {
-      updateRepeatableEntry(item.project_item_id, entryIndex, fieldName, value)
-    }
-
-    // DB에 필드가 정의되어 있으면 동적 렌더링 사용
-    if (fields.length > 0) {
-      return renderDynamicFields(fields, entry, updateField)
-    }
-
-    // DB에 필드가 없으면 기존 하드코딩된 로직 (fallback)
-    switch (template) {
-      case ItemTemplate.TEXT:
-        return (
-          <TextArea
-            rows={3}
-            placeholder={competencyItem.description || '답변을 입력해주세요.'}
-            value={entry.text || ''}
-            onChange={(e) => updateField('text', e.target.value)}
-            maxLength={config.maxLength}
-            showCount={!!config.maxLength}
-          />
-        )
-
-      case ItemTemplate.NUMBER:
-        return (
-          <InputNumber
-            size="large"
-            style={{ width: '100%' }}
-            placeholder={competencyItem.description || '숫자를 입력해주세요.'}
-            value={entry.number}
-            onChange={(val) => updateField('number', val)}
-            min={config.min}
-            max={config.max}
-            addonAfter={config.unit}
-          />
-        )
-
-      default:
-        return (
-          <TextArea
-            rows={3}
-            placeholder={competencyItem.description || '답변을 입력해주세요.'}
-            value={entry.text || ''}
-            onChange={(e) => updateField('text', e.target.value)}
-          />
-        )
     }
   }
 
@@ -1267,7 +1113,7 @@ export default function ApplicationSubmitPage() {
                                 <Button
                                   type="dashed"
                                   size="small"
-                                  onClick={() => addRepeatableEntry(item.project_item_id, maxEntries ?? undefined)}
+                                  onClick={() => openAddModal(item.project_item_id)}
                                 >
                                   + 추가
                                 </Button>
@@ -1294,20 +1140,45 @@ export default function ApplicationSubmitPage() {
                                     <span className="font-medium">#{entryIndex + 1}</span>
                                   }
                                   extra={
-                                    !isViewMode && entries.length > 1 && (
-                                      <Button
-                                        type="text"
-                                        danger
-                                        size="small"
-                                        icon={<DeleteOutlined />}
-                                        onClick={() => removeRepeatableEntry(item.project_item_id, entryIndex)}
-                                      />
+                                    !isViewMode && (
+                                      <Space size="small">
+                                        <Button
+                                          type="text"
+                                          size="small"
+                                          icon={<EditOutlined />}
+                                          onClick={() => openEditModal(item.project_item_id, entryIndex, entry)}
+                                        />
+                                        {entries.length > 1 && (
+                                          <Button
+                                            type="text"
+                                            danger
+                                            size="small"
+                                            icon={<DeleteOutlined />}
+                                            onClick={() => removeRepeatableEntry(item.project_item_id, entryIndex)}
+                                          />
+                                        )}
+                                      </Space>
                                     )
                                   }
                                 >
-                                  {/* Input field */}
+                                  {/* 데이터 요약 표시 (읽기 전용) */}
                                   <div className="mb-3">
-                                    {renderRepeatableInputField(item, entryIndex, entry)}
+                                    {competencyItem.fields && competencyItem.fields.length > 0 ? (
+                                      <div className="grid grid-cols-2 gap-2 text-sm">
+                                        {competencyItem.fields
+                                          .filter(f => f.field_type !== 'file')
+                                          .sort((a, b) => a.display_order - b.display_order)
+                                          .map(field => (
+                                            <div key={field.field_name}>
+                                              <Text type="secondary">{field.field_label}: </Text>
+                                              <Text>{entry[field.field_name] || '-'}</Text>
+                                            </div>
+                                          ))
+                                        }
+                                      </div>
+                                    ) : (
+                                      <Text>{entry.text || entry.number || '-'}</Text>
+                                    )}
                                   </div>
 
                                   {/* 증빙첨부 */}
@@ -1596,6 +1467,83 @@ export default function ApplicationSubmitPage() {
                 </Space>
               </Form.Item>
             </Form>
+
+            {/* 항목 편집 모달 */}
+            <Modal
+              title={editingEntryIndex === null ? '항목 추가' : '항목 수정'}
+              open={isItemModalVisible}
+              onOk={handleItemModalOk}
+              onCancel={closeItemModal}
+              okText={editingEntryIndex === null ? '추가' : '수정'}
+              cancelText="취소"
+              width={600}
+            >
+              <Form
+                form={modalForm}
+                layout="vertical"
+                name="item_modal_form"
+              >
+                {(() => {
+                  if (!editingProjectItemId) return null
+                  const projectItem = projectItems.find(i => i.project_item_id === editingProjectItemId)
+                  if (!projectItem?.competency_item) return null
+
+                  const competencyItem = projectItem.competency_item
+                  const fields = competencyItem.fields || []
+
+                  if (fields.length > 0) {
+                    return fields
+                      .filter(f => f.field_type !== 'file')
+                      .sort((a, b) => a.display_order - b.display_order)
+                      .map(field => {
+                        const options = field.field_options ? JSON.parse(field.field_options) : []
+                        return (
+                          <Form.Item
+                            key={field.field_name}
+                            name={field.field_name}
+                            label={field.field_label}
+                            rules={[{ required: field.is_required, message: `${field.field_label}을(를) 입력해주세요` }]}
+                          >
+                            {field.field_type === 'select' ? (
+                              <Select placeholder={field.placeholder || `${field.field_label} 선택`}>
+                                {options.map((opt: string) => (
+                                  <Select.Option key={opt} value={opt}>{opt}</Select.Option>
+                                ))}
+                              </Select>
+                            ) : field.field_type === 'number' ? (
+                              <InputNumber
+                                className="w-full"
+                                placeholder={field.placeholder || field.field_label}
+                              />
+                            ) : field.field_type === 'textarea' ? (
+                              <Input.TextArea
+                                rows={3}
+                                placeholder={field.placeholder || field.field_label}
+                              />
+                            ) : (
+                              <Input placeholder={field.placeholder || field.field_label} />
+                            )}
+                          </Form.Item>
+                        )
+                      })
+                  }
+
+                  // 필드 정의가 없으면 기본 텍스트 입력
+                  return (
+                    <Form.Item
+                      name="text"
+                      label="값"
+                      rules={[{ required: true, message: '값을 입력해주세요' }]}
+                    >
+                      <Input.TextArea
+                        rows={4}
+                        placeholder={competencyItem.description || '답변을 입력해주세요.'}
+                      />
+                    </Form.Item>
+                  )
+                })()}
+              </Form>
+            </Modal>
           </Card>
         )}
       </div>
