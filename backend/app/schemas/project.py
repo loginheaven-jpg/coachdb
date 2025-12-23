@@ -1,10 +1,13 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List
-from datetime import date, datetime
+from datetime import date, datetime, timezone, timedelta
 from decimal import Decimal
 from app.models.project import ProjectStatus
 from app.models.competency import ProofRequiredLevel
 from app.schemas.competency import ProjectItemCreate
+
+# 한국 시간대 (UTC+9)
+KST = timezone(timedelta(hours=9))
 
 
 def calculate_display_status(
@@ -14,6 +17,7 @@ def calculate_display_status(
 ) -> str:
     """
     DB 상태와 날짜를 기반으로 표시용 상태를 계산합니다.
+    한국 시간대(KST)를 기준으로 계산합니다.
 
     - draft → "draft" (초안)
     - ready + 오늘 < 모집시작일 → "pending" (모집대기)
@@ -25,7 +29,8 @@ def calculate_display_status(
         # 날짜가 없으면 기본 상태 반환
         if not recruitment_start_date or not recruitment_end_date:
             return status.value
-        today = date.today()
+        # 한국 시간대 기준으로 오늘 날짜 계산
+        today = datetime.now(KST).date()
         if today < recruitment_start_date:
             return "pending"  # 모집대기
         elif today <= recruitment_end_date:

@@ -15,9 +15,10 @@ import {
   Alert,
   Tag,
   Descriptions,
-  Modal
+  Modal,
+  Tabs
 } from 'antd'
-import { ArrowLeftOutlined, SendOutlined, UploadOutlined, InfoCircleOutlined, UserOutlined, CheckCircleOutlined, SaveOutlined, DeleteOutlined, LoadingOutlined, EditOutlined, ClockCircleOutlined, DownloadOutlined, CloseCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
+import { ArrowLeftOutlined, SendOutlined, UploadOutlined, InfoCircleOutlined, UserOutlined, CheckCircleOutlined, SaveOutlined, DeleteOutlined, LoadingOutlined, EditOutlined, ClockCircleOutlined, DownloadOutlined, CloseCircleOutlined, ExclamationCircleOutlined, FileTextOutlined } from '@ant-design/icons'
 import projectService, { ProjectDetail, ProjectItem, ItemTemplate } from '../services/projectService'
 import applicationService, { ApplicationSubmitRequest, ApplicationDataSubmit, ApplicationData } from '../services/applicationService'
 import authService, { UserUpdateData } from '../services/authService'
@@ -101,6 +102,7 @@ export default function ApplicationSubmitPage() {
   const [modalForm] = Form.useForm()
   const [profileLoaded, setProfileLoaded] = useState(false)
   const [competenciesLoaded, setCompetenciesLoaded] = useState(false)
+  const [activeTab, setActiveTab] = useState('personal')
   const { user, setUser } = useAuthStore()
 
   // 수정 모드로 전환
@@ -1121,69 +1123,82 @@ export default function ApplicationSubmitPage() {
               scrollToFirstError={{ behavior: 'smooth', block: 'center' }}
               disabled={isViewMode}
             >
-              {/* Personal info from user profile - editable */}
-              <Card
-                size="small"
-                title={<><UserOutlined className="mr-2" />개인 정보</>}
-                className="mb-4"
-                extra={
-                  !isViewMode && profileChanged && (
-                    <Button
-                      type="primary"
-                      size="small"
-                      icon={<SaveOutlined />}
-                      loading={savingProfile}
-                      onClick={handleSaveProfile}
-                    >
-                      기본정보에 반영
-                    </Button>
-                  )
-                }
-              >
-                {!isViewMode && (
-                  <Alert
-                    type="info"
-                    message="회원정보에서 자동으로 불러옵니다. 수정하면 '기본정보에 반영' 버튼이 활성화됩니다."
-                    className="mb-4"
-                    showIcon
-                  />
-                )}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Form.Item label="이름" name="profile_name">
-                    <Input onChange={handleProfileFieldChange} />
-                  </Form.Item>
-                  <Form.Item label="이메일">
-                    <Input value={user?.email || ''} disabled />
-                  </Form.Item>
-                  <Form.Item label="전화번호" name="profile_phone">
-                    <Input onChange={handleProfileFieldChange} />
-                  </Form.Item>
-                  <Form.Item label="생년" name="profile_birth_year">
-                    <InputNumber
-                      className="w-full"
-                      min={1900}
-                      max={new Date().getFullYear()}
-                      onChange={handleProfileFieldChange}
-                    />
-                  </Form.Item>
-                  <Form.Item label="성별" name="profile_gender">
-                    <Select onChange={handleProfileFieldChange}>
-                      <Select.Option value="남성">남성</Select.Option>
-                      <Select.Option value="여성">여성</Select.Option>
-                      <Select.Option value="기타">기타</Select.Option>
-                    </Select>
-                  </Form.Item>
-                  <Form.Item label="주소" name="profile_address">
-                    <Input onChange={handleProfileFieldChange} />
-                  </Form.Item>
-                  <Form.Item label="대면코칭 가능지역" name="profile_in_person_coaching_area" className="md:col-span-2">
-                    <Input onChange={handleProfileFieldChange} placeholder="예: 서울 전지역, 경기 남부" />
-                  </Form.Item>
-                </div>
-              </Card>
-
-              {/* Basic application info */}
-              <Card size="small" title="기본 정보" className="mb-4">
+              <Tabs
+                activeKey={activeTab}
+                onChange={setActiveTab}
+                type="card"
+                items={[
+                  {
+                    key: 'personal',
+                    label: (
+                      <span>
+                        <UserOutlined />
+                        개인정보
+                      </span>
+                    ),
+                    children: (
+                      <Card size="small" className="mb-4">
+                        <div className="flex justify-between items-center mb-4">
+                          <span className="text-gray-600">회원정보에서 자동으로 불러옵니다.</span>
+                          {!isViewMode && profileChanged && (
+                            <Button
+                              type="primary"
+                              size="small"
+                              icon={<SaveOutlined />}
+                              loading={savingProfile}
+                              onClick={handleSaveProfile}
+                            >
+                              기본정보에 반영
+                            </Button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <Form.Item label="이름" name="profile_name">
+                            <Input onChange={handleProfileFieldChange} />
+                          </Form.Item>
+                          <Form.Item label="이메일">
+                            <Input value={user?.email || ''} disabled />
+                          </Form.Item>
+                          <Form.Item label="전화번호" name="profile_phone">
+                            <Input onChange={handleProfileFieldChange} />
+                          </Form.Item>
+                          <Form.Item label="생년" name="profile_birth_year">
+                            <InputNumber
+                              className="w-full"
+                              min={1900}
+                              max={new Date().getFullYear()}
+                              onChange={handleProfileFieldChange}
+                            />
+                          </Form.Item>
+                          <Form.Item label="성별" name="profile_gender">
+                            <Select onChange={handleProfileFieldChange}>
+                              <Select.Option value="남성">남성</Select.Option>
+                              <Select.Option value="여성">여성</Select.Option>
+                              <Select.Option value="기타">기타</Select.Option>
+                            </Select>
+                          </Form.Item>
+                          <Form.Item label="주소" name="profile_address">
+                            <Input onChange={handleProfileFieldChange} />
+                          </Form.Item>
+                          <Form.Item label="대면코칭 가능지역" name="profile_in_person_coaching_area" className="md:col-span-2">
+                            <Input onChange={handleProfileFieldChange} placeholder="예: 서울 전지역, 경기 남부" />
+                          </Form.Item>
+                        </div>
+                      </Card>
+                    )
+                  },
+                  {
+                    key: 'survey',
+                    label: (
+                      <span>
+                        <FileTextOutlined />
+                        설문항목
+                      </span>
+                    ),
+                    children: (
+                      <>
+                        {/* Basic application info */}
+                        <Card size="small" title="기본 정보" className="mb-4">
                 <Form.Item
                   name="applied_role"
                   label="신청 역할"
@@ -1603,20 +1618,25 @@ export default function ApplicationSubmitPage() {
               ) : null
               })()}
 
-              {/* Show message if no survey items (after filtering out user profile items) */}
-              {projectItems.filter(item =>
-                item.competency_item && !USER_PROFILE_ITEM_CODES.includes(item.competency_item.item_code)
-              ).length === 0 && (
-                <Alert
-                  type="info"
-                  message="추가 설문 항목 없음"
-                  description="이 과제에는 추가로 입력할 설문 항목이 없습니다. 개인 정보와 기본 정보만 확인 후 제출해주세요."
-                  className="mb-4"
-                  showIcon
-                />
-              )}
+                        {/* Show message if no survey items */}
+                        {projectItems.filter(item =>
+                          item.competency_item && !USER_PROFILE_ITEM_CODES.includes(item.competency_item.item_code)
+                        ).length === 0 && (
+                          <Alert
+                            type="info"
+                            message="추가 설문 항목 없음"
+                            description="이 과제에는 추가로 입력할 설문 항목이 없습니다. 기본 정보만 확인 후 제출해주세요."
+                            className="mb-4"
+                            showIcon
+                          />
+                        )}
+                      </>
+                    )
+                  }
+                ]}
+              />
 
-              <Form.Item className="mb-0">
+              <Form.Item className="mb-0 mt-4">
                 <Space className="w-full justify-end">
                   <Button
                     size="large"
