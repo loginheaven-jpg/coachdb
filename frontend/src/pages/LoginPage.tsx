@@ -1,16 +1,34 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Form, Input, Button, Card, message, Typography } from 'antd'
+import { Form, Input, Button, Card, message, Typography, Checkbox } from 'antd'
 import { UserOutlined, LockOutlined } from '@ant-design/icons'
 import authService from '../services/authService'
 import { useAuthStore } from '../stores/authStore'
 
 const { Title } = Typography
 
+const SAVED_CREDENTIALS_KEY = 'saved_login_credentials'
+
 export default function LoginPage() {
   const [loading, setLoading] = useState(false)
+  const [rememberMe, setRememberMe] = useState(false)
+  const [form] = Form.useForm()
   const navigate = useNavigate()
   const { login } = useAuthStore()
+
+  // Load saved credentials on mount
+  useEffect(() => {
+    const savedCredentials = localStorage.getItem(SAVED_CREDENTIALS_KEY)
+    if (savedCredentials) {
+      try {
+        const { email, password } = JSON.parse(savedCredentials)
+        form.setFieldsValue({ email, password })
+        setRememberMe(true)
+      } catch (e) {
+        localStorage.removeItem(SAVED_CREDENTIALS_KEY)
+      }
+    }
+  }, [form])
 
   const onFinish = async (values: { email: string; password: string }) => {
     setLoading(true)
@@ -18,6 +36,16 @@ export default function LoginPage() {
       const response = await authService.login(values)
       console.log('로그인 응답:', response)
       login(response.user, response.access_token, response.refresh_token)
+
+      // Save or remove credentials based on rememberMe
+      if (rememberMe) {
+        localStorage.setItem(SAVED_CREDENTIALS_KEY, JSON.stringify({
+          email: values.email,
+          password: values.password
+        }))
+      } else {
+        localStorage.removeItem(SAVED_CREDENTIALS_KEY)
+      }
 
       // 토큰 저장 확인
       console.log('저장된 access_token:', localStorage.getItem('access_token'))
@@ -68,6 +96,7 @@ export default function LoginPage() {
         </Title>
 
         <Form
+          form={form}
           name="login"
           onFinish={onFinish}
           layout="vertical"
@@ -96,6 +125,15 @@ export default function LoginPage() {
               placeholder="비밀번호"
               autoComplete="current-password"
             />
+          </Form.Item>
+
+          <Form.Item className="mb-2">
+            <Checkbox
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+            >
+              로그인 정보 저장
+            </Checkbox>
           </Form.Item>
 
           <Form.Item>
