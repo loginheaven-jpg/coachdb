@@ -19,7 +19,7 @@ from app.models import (
     Notification, NotificationType
 )
 from app.services.notification_service import send_verification_supplement_notification
-from app.models.competency import VerificationStatus
+from app.models.competency import VerificationStatus, ItemTemplate
 from app.schemas.verification import (
     VerificationRecordResponse,
     CompetencyVerificationStatus,
@@ -119,8 +119,14 @@ async def get_pending_verifications(
         .where(
             and_(
                 CoachCompetency.is_globally_verified == False,
-                # 값이나 파일이 있는 증빙만
-                (CoachCompetency.value.isnot(None)) | (CoachCompetency.file_id.isnot(None))
+                # 파일이 첨부된 증빙만 (파일 요구 템플릿에서)
+                CoachCompetency.file_id.isnot(None),
+                CompetencyItem.template.in_([
+                    ItemTemplate.FILE,
+                    ItemTemplate.TEXT_FILE,
+                    ItemTemplate.DEGREE,
+                    ItemTemplate.COACHING_HISTORY
+                ])
             )
         )
         .order_by(CoachCompetency.updated_at.desc())

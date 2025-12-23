@@ -281,6 +281,7 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
   const [selectedItemType, setSelectedItemType] = useState<string>('')
   const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [originalValue, setOriginalValue] = useState<string | null>(null)
+  const [isDegreeItem, setIsDegreeItem] = useState<boolean>(false)
   const [form] = Form.useForm()
   const [educationForm] = Form.useForm()
 
@@ -342,9 +343,11 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
 
     if (item) {
       setSelectedItemType(item.input_type)
+      setIsDegreeItem(item.template === 'degree')
       form.setFieldsValue({ item_id: item.item_id })
     } else {
       setSelectedItemType('')
+      setIsDegreeItem(false)
       form.resetFields()
     }
 
@@ -358,10 +361,32 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
     setSelectedItemType(record.competency_item?.input_type || '')
     setSelectedCategory(record.competency_item?.category || 'DETAIL')
     setOriginalValue(record.value || null)
-    form.setFieldsValue({
-      item_id: record.item_id,
-      value: extractEditableValue(record.value)
-    })
+
+    // 학위 항목인지 확인
+    const template = record.competency_item?.template
+    const isDegree = template === 'degree'
+    setIsDegreeItem(isDegree)
+
+    if (isDegree) {
+      // 학위 항목인 경우 각 필드 개별 설정
+      try {
+        const parsed = JSON.parse(record.value || '{}')
+        form.setFieldsValue({
+          item_id: record.item_id,
+          degree_type: parsed.degree_type,
+          major: parsed.major,
+          school: parsed.school,
+          graduation_year: parsed.graduation_year
+        })
+      } catch {
+        form.setFieldsValue({ item_id: record.item_id })
+      }
+    } else {
+      form.setFieldsValue({
+        item_id: record.item_id,
+        value: extractEditableValue(record.value)
+      })
+    }
     setIsModalVisible(true)
   }
 
@@ -379,6 +404,7 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
   const handleItemChange = (itemId: number) => {
     const selected = competencyItems.find(item => item.item_id === itemId)
     setSelectedItemType(selected?.input_type || '')
+    setIsDegreeItem(selected?.template === 'degree')
   }
 
   const handleFileChange = (info: { fileList: UploadFile[] }) => {
@@ -496,9 +522,22 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
         fileId = newFileId
       }
 
+      // 학위 항목인 경우 JSON으로 조합
+      let valueToSave = values.value
+      if (isDegreeItem) {
+        valueToSave = JSON.stringify({
+          degree_type: values.degree_type,
+          major: values.major,
+          school: values.school,
+          graduation_year: values.graduation_year
+        })
+      }
+
       if (editingCompetency) {
-        // 원래 JSON 형식으로 재구성하여 저장
-        const valueToSave = rebuildValueWithOriginalFormat(values.value, originalValue, fileId)
+        // 학위 항목이 아닌 경우에만 원래 JSON 형식으로 재구성
+        if (!isDegreeItem) {
+          valueToSave = rebuildValueWithOriginalFormat(values.value, originalValue, fileId)
+        }
         await competencyService.updateCompetency(editingCompetency.competency_id, {
           value: valueToSave,
           file_id: fileId
@@ -507,7 +546,7 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
       } else {
         await competencyService.createCompetency({
           item_id: values.item_id,
-          value: values.value,
+          value: valueToSave,
           file_id: fileId
         })
         message.success('역량이 추가되었습니다.')
@@ -535,6 +574,7 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
     setEditingCompetency(null)
     setSelectedItemType('')
     setOriginalValue(null)
+    setIsDegreeItem(false)
   }
 
   const handleAddEducation = () => {
@@ -1092,7 +1132,46 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
                 </Select>
               </Form.Item>
 
-              {selectedItemType === 'number' ? (
+              {/* 학위 항목 전용 폼 */}
+              {isDegreeItem ? (
+                <div className="grid grid-cols-2 gap-4">
+                  <Form.Item
+                    name="degree_type"
+                    label="학위 유형"
+                    rules={[{ required: true, message: '학위 유형을 선택해주세요!' }]}
+                  >
+                    <Select placeholder="학위 유형 선택">
+                      <Option value="associate">전문학사</Option>
+                      <Option value="bachelor">학사</Option>
+                      <Option value="master">석사</Option>
+                      <Option value="doctorate">박사</Option>
+                    </Select>
+                  </Form.Item>
+                  <Form.Item
+                    name="major"
+                    label="전공"
+                  >
+                    <Input placeholder="전공명을 입력하세요" />
+                  </Form.Item>
+                  <Form.Item
+                    name="school"
+                    label="학교명"
+                  >
+                    <Input placeholder="학교명을 입력하세요" />
+                  </Form.Item>
+                  <Form.Item
+                    name="graduation_year"
+                    label="졸업년도"
+                  >
+                    <InputNumber
+                      className="w-full"
+                      placeholder="예: 2020"
+                      min={1950}
+                      max={2100}
+                    />
+                  </Form.Item>
+                </div>
+              ) : selectedItemType === 'number' ? (
                 <Form.Item
                   name="value"
                   label="값"
@@ -1116,7 +1195,7 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
                 </Form.Item>
               )}
 
-              {selectedItemType === 'file' && (
+              {selectedItemType === 'file' && !isDegreeItem && (
                 <Form.Item
                   name="value"
                   label="설명 (선택사항)"
