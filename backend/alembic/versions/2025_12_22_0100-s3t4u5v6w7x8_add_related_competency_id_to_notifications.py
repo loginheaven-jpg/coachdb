@@ -19,20 +19,27 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Add related_competency_id column to notifications table
-    op.add_column(
-        'notifications',
-        sa.Column('related_competency_id', sa.BigInteger(), nullable=True)
-    )
-    # Add foreign key constraint
-    op.create_foreign_key(
-        'fk_notifications_competency_id',
-        'notifications',
-        'coach_competencies',
-        ['related_competency_id'],
-        ['competency_id'],
-        ondelete='SET NULL'
-    )
+    # Check if column already exists
+    conn = op.get_bind()
+    result = conn.execute(sa.text("""
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name='notifications' AND column_name='related_competency_id'
+    """))
+    if result.fetchone() is None:
+        # Add related_competency_id column to notifications table
+        op.add_column(
+            'notifications',
+            sa.Column('related_competency_id', sa.BigInteger(), nullable=True)
+        )
+        # Add foreign key constraint
+        op.create_foreign_key(
+            'fk_notifications_competency_id',
+            'notifications',
+            'coach_competencies',
+            ['related_competency_id'],
+            ['competency_id'],
+            ondelete='SET NULL'
+        )
 
 
 def downgrade() -> None:

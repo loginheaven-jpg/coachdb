@@ -7,7 +7,8 @@ from jose import jwt, JWTError
 
 from app.core.database import get_db
 from app.core.config import settings
-from app.core.email import send_password_reset_email
+from app.core.email import send_password_reset_email, send_email
+from app.core.config import settings as app_settings
 from app.core.security import (
     get_password_hash,
     verify_password,
@@ -590,3 +591,62 @@ async def preregister_users(
         "roles": ["PROJECT_MANAGER", "VERIFIER", "COACH"],
         "details": results
     }
+
+
+@router.post("/test-email")
+async def test_email(
+    to_email: str,
+    secret_key: str
+):
+    """
+    이메일 발송 테스트 엔드포인트
+    - SMTP 설정 및 발송 테스트용
+    """
+    if secret_key != "coachdb2024!":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid secret key"
+        )
+
+    # Check SMTP configuration
+    smtp_config = {
+        "SMTP_HOST": app_settings.SMTP_HOST,
+        "SMTP_PORT": app_settings.SMTP_PORT,
+        "SMTP_USER": app_settings.SMTP_USER[:5] + "***" if app_settings.SMTP_USER else None,
+        "SMTP_PASSWORD": "***" if app_settings.SMTP_PASSWORD else None,
+        "SMTP_FROM_EMAIL": app_settings.SMTP_FROM_EMAIL,
+        "SMTP_FROM_NAME": app_settings.SMTP_FROM_NAME,
+    }
+
+    # Try to send test email
+    try:
+        html_content = """
+        <html>
+        <body>
+            <h2>CoachDB 이메일 테스트</h2>
+            <p>이 이메일은 SMTP 설정 테스트용입니다.</p>
+            <p>설정이 정상적으로 작동하고 있습니다!</p>
+        </body>
+        </html>
+        """
+        success = await send_email(
+            to_email=to_email,
+            subject="[CoachDB] 이메일 테스트",
+            html_content=html_content,
+            text_content="CoachDB 이메일 테스트입니다."
+        )
+
+        return {
+            "success": success,
+            "to_email": to_email,
+            "smtp_config": smtp_config,
+            "message": "이메일 발송 성공!" if success else "이메일 발송 실패"
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "to_email": to_email,
+            "smtp_config": smtp_config,
+            "error": str(e),
+            "message": "이메일 발송 중 예외 발생"
+        }

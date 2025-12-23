@@ -17,9 +17,24 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Add email_sent and email_sent_at columns to notifications table
-    op.add_column('notifications', sa.Column('email_sent', sa.Boolean(), nullable=False, server_default='false'))
-    op.add_column('notifications', sa.Column('email_sent_at', sa.DateTime(timezone=True), nullable=True))
+    # Check if columns already exist
+    conn = op.get_bind()
+
+    # Check email_sent column
+    result = conn.execute(sa.text("""
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name='notifications' AND column_name='email_sent'
+    """))
+    if result.fetchone() is None:
+        op.add_column('notifications', sa.Column('email_sent', sa.Boolean(), nullable=False, server_default='false'))
+
+    # Check email_sent_at column
+    result = conn.execute(sa.text("""
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name='notifications' AND column_name='email_sent_at'
+    """))
+    if result.fetchone() is None:
+        op.add_column('notifications', sa.Column('email_sent_at', sa.DateTime(timezone=True), nullable=True))
 
 
 def downgrade() -> None:
