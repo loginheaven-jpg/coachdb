@@ -1,0 +1,37 @@
+{
+  "name": "coachdb",
+  "version": "1.0.0",
+  "description": "A comprehensive coach competency management and project matching platform built with FastAPI, PostgreSQL, and React TypeScript.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "npx playwright test",
+    "test:ui": "npx playwright test --ui",
+    "test:headed": "npx playwright test --headed",
+    "test:debug": "npx playwright test --debug",
+    "test:auth": "npx playwright test auth.spec.ts",
+    "test:profile": "npx playwright test profile.spec.ts",
+    "test:projects": "npx playwright test projects.spec.ts",
+    "test:verifications": "npx playwright test verifications.spec.ts",
+    "test:admin": "npx playwright test admin.spec.ts",
+    "test:e2e": "npx playwright test e2e-flow.spec.ts",
+    "test:report": "npx playwright show-report"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/loginheaven-jpg/coachdb.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/loginheaven-jpg/coachdb/issues"
+  },
+  "homepage": "https://github.com/loginheaven-jpg/coachdb#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "@types/node": "^25.0.3"
+  }
+}
