@@ -1,13 +1,69 @@
-import { Typography, Card, Row, Col, Button, Statistic } from 'antd'
+import { Typography, Card, Row, Col, Button, Statistic, Timeline, Spin, Empty } from 'antd'
 import { useAuthStore } from '../stores/authStore'
-import { FolderOpenOutlined, UserOutlined, FileTextOutlined, CheckCircleOutlined, SettingOutlined, SafetyCertificateOutlined } from '@ant-design/icons'
+import {
+  FolderOpenOutlined, UserOutlined, FileTextOutlined, CheckCircleOutlined,
+  SettingOutlined, SafetyCertificateOutlined, WarningOutlined, BellOutlined,
+  SendOutlined, EditOutlined, TrophyOutlined, ClockCircleOutlined
+} from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import notificationService, { Notification } from '../services/notificationService'
+import dayjs from 'dayjs'
+import relativeTime from 'dayjs/plugin/relativeTime'
+import 'dayjs/locale/ko'
+
+dayjs.extend(relativeTime)
+dayjs.locale('ko')
 
 const { Title, Text } = Typography
+
+// 알림 타입별 아이콘 매핑
+const getNotificationIcon = (type: string) => {
+  switch (type) {
+    case 'APPLICATION_SUBMITTED':
+      return <SendOutlined style={{ color: '#52c41a' }} />
+    case 'APPLICATION_UPDATED':
+      return <EditOutlined style={{ color: '#1890ff' }} />
+    case 'SELECTION_RESULT':
+      return <TrophyOutlined style={{ color: '#faad14' }} />
+    case 'SUPPLEMENT_REQUEST':
+      return <WarningOutlined style={{ color: '#ff4d4f' }} />
+    case 'SUPPLEMENT_SUBMITTED':
+      return <CheckCircleOutlined style={{ color: '#52c41a' }} />
+    case 'DEADLINE_REMINDER':
+      return <ClockCircleOutlined style={{ color: '#ff7a45' }} />
+    case 'REVIEW_COMPLETE':
+      return <CheckCircleOutlined style={{ color: '#722ed1' }} />
+    case 'verification_supplement_request':
+      return <WarningOutlined style={{ color: '#ff4d4f' }} />
+    case 'verification_completed':
+      return <CheckCircleOutlined style={{ color: '#52c41a' }} />
+    default:
+      return <BellOutlined style={{ color: '#8c8c8c' }} />
+  }
+}
 
 export default function AdminDashboard() {
   const { user } = useAuthStore()
   const navigate = useNavigate()
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [loadingNotifications, setLoadingNotifications] = useState(true)
+
+  // 최근 활동 (알림) 로드
+  useEffect(() => {
+    const loadNotifications = async () => {
+      try {
+        setLoadingNotifications(true)
+        const data = await notificationService.getMyNotifications(false, 10)
+        setNotifications(data)
+      } catch (error) {
+        console.error('알림 로드 실패:', error)
+      } finally {
+        setLoadingNotifications(false)
+      }
+    }
+    loadNotifications()
+  }, [])
 
   const getUserRoles = (): string[] => {
     try {
@@ -118,7 +174,47 @@ export default function AdminDashboard() {
 
         <Col xs={24} md={12}>
           <Card title="최근 활동">
-            <Text className="text-gray-500">아직 활동 내역이 없습니다.</Text>
+            {loadingNotifications ? (
+              <div className="text-center py-8">
+                <Spin />
+              </div>
+            ) : notifications.length === 0 ? (
+              <Empty
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description="아직 활동 내역이 없습니다."
+              />
+            ) : (
+              <Timeline
+                items={notifications.map((notification) => ({
+                  dot: getNotificationIcon(notification.type),
+                  children: (
+                    <div
+                      className={`cursor-pointer hover:bg-gray-50 p-2 rounded ${!notification.is_read ? 'bg-blue-50' : ''}`}
+                      onClick={async () => {
+                        if (!notification.is_read) {
+                          await notificationService.markAsRead(notification.notification_id)
+                          setNotifications(prev =>
+                            prev.map(n =>
+                              n.notification_id === notification.notification_id
+                                ? { ...n, is_read: true }
+                                : n
+                            )
+                          )
+                        }
+                      }}
+                    >
+                      <Text strong={!notification.is_read}>{notification.title}</Text>
+                      {notification.message && (
+                        <Text className="block text-gray-500 text-sm">{notification.message}</Text>
+                      )}
+                      <Text className="block text-gray-400 text-xs mt-1">
+                        {dayjs(notification.created_at).fromNow()}
+                      </Text>
+                    </div>
+                  ),
+                }))}
+              />
+            )}
           </Card>
         </Col>
       </Row>
