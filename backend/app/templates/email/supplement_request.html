@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2 style="color: #333;">서류 보충 요청</h2>
+<p style="color: #666; line-height: 1.6;">
+    안녕하세요{% if user_name %}, <strong>{{ user_name }}</strong>님{% endif %}.
+</p>
+<p style="color: #666; line-height: 1.6;">
+    {{ title }}
+</p>
+{% if message %}
+<div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #667eea;">
+    <p style="color: #333; margin: 0; white-space: pre-line;">{{ message }}</p>
+</div>
+{% endif %}
+{% if project_name %}
+<p style="color: #666; font-size: 14px;">
+    <strong>과제:</strong> {{ project_name }}
+</p>
+{% endif %}
+{% if deadline %}
+<p style="color: #e74c3c; font-size: 14px;">
+    <strong>보충 기한:</strong> {{ deadline }}
+</p>
+{% endif %}
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ action_url }}"
+       style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              color: white;
+              padding: 15px 40px;
+              text-decoration: none;
+              border-radius: 5px;
+              font-weight: bold;
+              display: inline-block;">
+        서류 보충하기
+    </a>
+</div>
+{% endblock %}

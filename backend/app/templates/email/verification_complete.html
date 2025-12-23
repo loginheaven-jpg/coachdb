@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2 style="color: #333;">증빙 검증 완료</h2>
+<p style="color: #666; line-height: 1.6;">
+    안녕하세요{% if user_name %}, <strong>{{ user_name }}</strong>님{% endif %}.
+</p>
+<p style="color: #666; line-height: 1.6;">
+    {{ title }}
+</p>
+{% if status == 'approved' %}
+<div style="background: #d4edda; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #28a745; text-align: center;">
+    <p style="color: #155724; margin: 0; font-size: 16px;">
+        <strong>승인 완료</strong><br>
+        제출하신 증빙 서류가 검증되었습니다.
+    </p>
+</div>
+{% elif status == 'rejected' %}
+<div style="background: #f8d7da; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #dc3545; text-align: center;">
+    <p style="color: #721c24; margin: 0; font-size: 16px;">
+        <strong>반려</strong><br>
+        증빙 서류 검토 결과 보완이 필요합니다.
+    </p>
+</div>
+{% endif %}
+{% if message %}
+<div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+    <p style="color: #333; margin: 0; white-space: pre-line;">{{ message }}</p>
+</div>
+{% endif %}
+{% if item_name %}
+<p style="color: #666; font-size: 14px;">
+    <strong>항목:</strong> {{ item_name }}
+</p>
+{% endif %}
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ action_url }}"
+       style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              color: white;
+              padding: 15px 40px;
+              text-decoration: none;
+              border-radius: 5px;
+              font-weight: bold;
+              display: inline-block;">
+        내 프로필에서 확인
+    </a>
+</div>
+{% endblock %}

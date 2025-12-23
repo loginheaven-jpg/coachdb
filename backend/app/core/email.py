@@ -1,32 +1,106 @@
 """
-Email service for sending password reset emails
+Email service for sending various notification emails
 """
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from typing import Optional
+from typing import Optional, Dict, Any
+from pathlib import Path
 import logging
+
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Setup Jinja2 template environment
+TEMPLATE_DIR = Path(__file__).parent.parent / "templates" / "email"
+jinja_env = Environment(
+    loader=FileSystemLoader(str(TEMPLATE_DIR)),
+    autoescape=select_autoescape(["html", "xml"])
+)
 
-async def send_password_reset_email(email: str, reset_token: str, user_name: Optional[str] = None) -> bool:
+
+def render_template(template_name: str, **context) -> str:
+    """Render an email template with the given context"""
+    template = jinja_env.get_template(template_name)
+    return template.render(**context)
+
+
+async def send_email(
+    to_email: str,
+    subject: str,
+    html_content: str,
+    text_content: Optional[str] = None
+) -> bool:
+    """
+    Send an email using SMTP
+
+    Args:
+        to_email: Recipient email address
+        subject: Email subject
+        html_content: HTML email body
+        text_content: Plain text email body (optional)
+
+    Returns:
+        True if email was sent successfully, False otherwise
+    """
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL}>"
+        msg["To"] = to_email
+
+        # Plain text version (fallback)
+        if text_content:
+            msg.attach(MIMEText(text_content, "plain", "utf-8"))
+
+        # HTML version
+        msg.attach(MIMEText(html_content, "html", "utf-8"))
+
+        # Check if SMTP is configured
+        if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
+            logger.warning(f"SMTP not configured. Email to {to_email} not sent.")
+            print(f"\n{'='*50}")
+            print(f"EMAIL (SMTP not configured)")
+            print(f"To: {to_email}")
+            print(f"Subject: {subject}")
+            print(f"{'='*50}\n")
+            return True  # Return True for development
+
+        # Send email
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+            server.starttls()
+            server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+            server.send_message(msg)
+
+        logger.info(f"Email sent to {to_email}: {subject}")
+        return True
+
+    except Exception as e:
+        logger.error(f"Failed to send email to {to_email}: {str(e)}")
+        return False
+
+
+async def send_password_reset_email(
+    email: str,
+    reset_token: str,
+    user_name: Optional[str] = None
+) -> bool:
     """
     Send password reset email with reset link
     """
-    try:
-        reset_link = f"{settings.FRONTEND_URL}/reset-password?token={reset_token}"
+    reset_link = f"{settings.FRONTEND_URL}/reset-password?token={reset_token}"
 
-        # Create message
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = "[CoachDB] 비밀번호 재설정 안내"
-        msg["From"] = f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL}>"
-        msg["To"] = email
+    html_content = render_template(
+        "password_reset.html",
+        user_name=user_name,
+        reset_link=reset_link,
+        expire_hours=settings.PASSWORD_RESET_TOKEN_EXPIRE_HOURS
+    )
 
-        # Plain text version
-        text = f"""
+    text_content = f"""
 안녕하세요{', ' + user_name + '님' if user_name else ''},
 
 비밀번호 재설정을 요청하셨습니다.
@@ -42,76 +116,111 @@ async def send_password_reset_email(email: str, reset_token: str, user_name: Opt
 CoachDB 팀
 """
 
-        # HTML version
-        html = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-</head>
-<body style="font-family: 'Malgun Gothic', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0;">
-        <h1 style="color: white; margin: 0; text-align: center;">CoachDB</h1>
-    </div>
-    <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e0e0e0; border-top: none;">
-        <h2 style="color: #333;">비밀번호 재설정</h2>
-        <p style="color: #666; line-height: 1.6;">
-            안녕하세요{', <strong>' + user_name + '</strong>님' if user_name else ''}.
-        </p>
-        <p style="color: #666; line-height: 1.6;">
-            비밀번호 재설정을 요청하셨습니다. 아래 버튼을 클릭하여 새 비밀번호를 설정해주세요.
-        </p>
-        <div style="text-align: center; margin: 30px 0;">
-            <a href="{reset_link}"
-               style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                      color: white;
-                      padding: 15px 40px;
-                      text-decoration: none;
-                      border-radius: 5px;
-                      font-weight: bold;
-                      display: inline-block;">
-                비밀번호 재설정
-            </a>
-        </div>
-        <p style="color: #999; font-size: 12px;">
-            이 링크는 {settings.PASSWORD_RESET_TOKEN_EXPIRE_HOURS}시간 동안 유효합니다.
-        </p>
-        <p style="color: #999; font-size: 12px;">
-            비밀번호 재설정을 요청하지 않으셨다면 이 이메일을 무시해주세요.
-        </p>
-        <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
-        <p style="color: #999; font-size: 11px; text-align: center;">
-            버튼이 작동하지 않으면 아래 링크를 복사하여 브라우저에 붙여넣으세요:<br>
-            <a href="{reset_link}" style="color: #667eea;">{reset_link}</a>
-        </p>
-    </div>
-</body>
-</html>
+    return await send_email(
+        to_email=email,
+        subject="[CoachDB] 비밀번호 재설정 안내",
+        html_content=html_content,
+        text_content=text_content
+    )
+
+
+# Email template mapping for notification types
+NOTIFICATION_EMAIL_CONFIG = {
+    "supplement_request": {
+        "template": "supplement_request.html",
+        "subject": "[CoachDB] 서류 보충이 필요합니다"
+    },
+    "supplement_submitted": {
+        "template": "supplement_request.html",  # Reuse template
+        "subject": "[CoachDB] 보충 서류가 제출되었습니다"
+    },
+    "review_complete": {
+        "template": "review_complete.html",
+        "subject": "[CoachDB] 심사가 완료되었습니다"
+    },
+    "selection_result": {
+        "template": "selection_result.html",
+        "subject": "[CoachDB] 선발 결과 안내"
+    },
+    "verification_supplement_request": {
+        "template": "verification_request.html",
+        "subject": "[CoachDB] 증빙 보완이 필요합니다"
+    },
+    "verification_completed": {
+        "template": "verification_complete.html",
+        "subject": "[CoachDB] 증빙 검증이 완료되었습니다"
+    }
+}
+
+
+async def send_notification_email(
+    to_email: str,
+    notification_type: str,
+    title: str,
+    message: Optional[str] = None,
+    user_name: Optional[str] = None,
+    **extra_context
+) -> bool:
+    """
+    Send notification email based on notification type
+
+    Args:
+        to_email: Recipient email address
+        notification_type: Type of notification (from NotificationType enum)
+        title: Notification title
+        message: Notification message content
+        user_name: User's name for personalization
+        **extra_context: Additional context for the template
+            - action_url: URL for the action button
+            - project_name: Related project name
+            - item_name: Related item name
+            - deadline: Deadline for supplement
+            - result: Selection result ('selected' or 'rejected')
+            - status: Verification status ('approved' or 'rejected')
+
+    Returns:
+        True if email was sent successfully, False otherwise
+    """
+    config = NOTIFICATION_EMAIL_CONFIG.get(notification_type)
+
+    if not config:
+        logger.warning(f"No email template configured for notification type: {notification_type}")
+        return False
+
+    # Default action URL
+    action_url = extra_context.get("action_url", settings.FRONTEND_URL)
+
+    try:
+        html_content = render_template(
+            config["template"],
+            user_name=user_name,
+            title=title,
+            message=message,
+            action_url=action_url,
+            **extra_context
+        )
+
+        # Generate plain text version
+        text_content = f"""
+안녕하세요{', ' + user_name + '님' if user_name else ''},
+
+{title}
+
+{message if message else ''}
+
+자세한 내용은 CoachDB에서 확인해주세요: {action_url}
+
+감사합니다.
+CoachDB 팀
 """
 
-        msg.attach(MIMEText(text, "plain", "utf-8"))
-        msg.attach(MIMEText(html, "html", "utf-8"))
-
-        # Check if SMTP is configured
-        if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
-            logger.warning(f"SMTP not configured. Reset link for {email}: {reset_link}")
-            # For development, just log the link
-            print(f"\n{'='*50}")
-            print(f"PASSWORD RESET LINK (SMTP not configured)")
-            print(f"Email: {email}")
-            print(f"Link: {reset_link}")
-            print(f"{'='*50}\n")
-            return True
-
-        # Send email
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
-            server.starttls()
-            server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-            server.send_message(msg)
-
-        logger.info(f"Password reset email sent to {email}")
-        return True
+        return await send_email(
+            to_email=to_email,
+            subject=config["subject"],
+            html_content=html_content,
+            text_content=text_content
+        )
 
     except Exception as e:
-        logger.error(f"Failed to send password reset email to {email}: {str(e)}")
+        logger.error(f"Failed to send notification email: {str(e)}")
         return False

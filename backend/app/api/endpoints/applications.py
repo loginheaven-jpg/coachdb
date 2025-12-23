@@ -17,6 +17,7 @@ from app.models.competency import CoachCompetency, CompetencyItem
 from app.models.project import Project, ProjectStatus
 from app.models.custom_question import CustomQuestion, CustomQuestionAnswer
 from app.models.notification import Notification, NotificationType
+from app.services.notification_service import send_supplement_request_notification
 from app.schemas.application import (
     ParticipationProjectResponse,
     ApplicationCreate,
@@ -1126,6 +1127,16 @@ async def request_supplement(
     )
     project = project_result.scalar_one_or_none()
 
+    # Get item name for notification
+    item_name = "서류"
+    if app_data.item_id:
+        item_result = await db.execute(
+            select(CompetencyItem).where(CompetencyItem.item_id == app_data.item_id)
+        )
+        item = item_result.scalar_one_or_none()
+        if item:
+            item_name = item.item_name
+
     # Update application data
     now = datetime.now()
     app_data.verification_status = 'supplement_requested'
@@ -1135,17 +1146,18 @@ async def request_supplement(
     app_data.reviewed_by = current_user.user_id
     app_data.reviewed_at = now
 
-    # Create notification for applicant
-    notification = Notification(
+    # Create notification with email for applicant
+    await send_supplement_request_notification(
+        db=db,
         user_id=application.user_id,
-        type=NotificationType.SUPPLEMENT_REQUEST.value,
-        title=f"서류 보충 요청 - {project.project_name if project else '과제'}",
-        message=f"제출하신 서류에 보충이 필요합니다. 사유: {request.rejection_reason}. 기한: {request.deadline_days}일 이내",
-        related_application_id=application_id,
-        related_project_id=application.project_id,
-        related_data_id=data_id
+        application_id=application_id,
+        project_id=application.project_id,
+        data_id=data_id,
+        item_name=item_name,
+        reason=request.rejection_reason,
+        project_name=project.project_name if project else None,
+        deadline=app_data.supplement_deadline.strftime("%Y-%m-%d") if app_data.supplement_deadline else None
     )
-    db.add(notification)
 
     await db.commit()
     await db.refresh(app_data)

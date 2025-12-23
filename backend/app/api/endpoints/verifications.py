@@ -18,6 +18,7 @@ from app.models import (
     VerificationRecord, SystemConfig, ConfigKeys,
     Notification, NotificationType
 )
+from app.services.notification_service import send_verification_supplement_notification
 from app.models.competency import VerificationStatus
 from app.schemas.verification import (
     VerificationRecordResponse,
@@ -505,15 +506,14 @@ async def request_supplement(
     if competency.competency_item:
         item_name = competency.competency_item.item_name
 
-    # 코치에게 알림 발송
-    notification = Notification(
+    # 코치에게 알림 및 이메일 발송
+    await send_verification_supplement_notification(
+        db=db,
         user_id=competency.user_id,
-        type=NotificationType.VERIFICATION_SUPPLEMENT_REQUEST.value,
-        title="증빙 보완 요청",
-        message=f"'{item_name}' 증빙에 대해 보완이 요청되었습니다. 사유: {request.reason}",
-        related_competency_id=competency_id
+        competency_id=competency_id,
+        item_name=item_name,
+        reason=request.reason
     )
-    db.add(notification)
 
     await db.commit()
 

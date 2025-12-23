@@ -40,6 +40,10 @@ class Notification(Base):
     read_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
+    # Email notification tracking
+    email_sent = Column(Boolean, nullable=False, default=False)
+    email_sent_at = Column(DateTime(timezone=True), nullable=True)
+
     # Relationships
     user = relationship("User", back_populates="notifications")
     related_application = relationship("Application", foreign_keys=[related_application_id])
