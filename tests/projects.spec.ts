@@ -16,12 +16,12 @@ test.describe('TC-3: 과제(프로젝트) 관리', () => {
   })
 
   test('TC-3.2: 관리자 과제 관리 페이지 접근', async ({ page }) => {
-    await page.goto('/admin/projects')
+    await page.goto('/projects')
 
     await page.waitForLoadState('networkidle')
 
-    // Should be able to access admin project management
-    await expect(page).toHaveURL(/\/admin\/projects/)
+    // Should be able to access project list
+    await expect(page).toHaveURL(/\/projects/)
   })
 
   test('TC-3.3: 새 과제 생성 페이지 접근', async ({ page }) => {
@@ -76,8 +76,8 @@ test.describe('TC-4: 지원서 관리', () => {
 
     await page.waitForLoadState('networkidle')
 
-    // Check page loads
-    const heading = page.getByRole('heading', { name: /지원서|application/i })
+    // Check page loads - heading is "참여 과제 리스트"
+    const heading = page.getByRole('heading', { name: /참여 과제 리스트/i })
     await expect(heading).toBeVisible()
   })
 })

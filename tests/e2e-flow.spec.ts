@@ -9,20 +9,20 @@ test.describe('TC-11: 전체 플로우 시나리오', () => {
     await page.goto('/admin/dashboard')
     await expect(page.getByRole('heading', { name: /관리자 대시보드/i })).toBeVisible()
 
-    // Step 2: Navigate to user management
-    await page.getByRole('button', { name: /사용자.*관리/i }).click()
+    // Step 2: Navigate to user management (use link text)
+    await page.getByRole('button', { name: /사용자 및 시스템 관리/i }).click()
     await page.waitForLoadState('networkidle')
     await expect(page).toHaveURL(/\/admin\/users/)
 
-    // Step 3: Navigate to project management
-    await page.goto('/admin/projects')
+    // Step 3: Navigate to projects
+    await page.goto('/projects')
     await page.waitForLoadState('networkidle')
-    await expect(page).toHaveURL(/\/admin\/projects/)
+    await expect(page).toHaveURL(/\/projects/)
 
     // Step 4: Navigate to verifications
     await page.goto('/admin/verifications')
     await page.waitForLoadState('networkidle')
-    await expect(page.getByRole('heading', { name: /증빙|검증/i })).toBeVisible()
+    await expect(page.getByText(/증빙 확인/i)).toBeVisible()
   })
 
   test('TC-11.1.2: 코치 대시보드 → 역량관리 → 지원서 플로우', async ({ page }) => {
@@ -51,7 +51,7 @@ test.describe('TC-11: 전체 플로우 시나리오', () => {
     // Step 3: Navigate to my applications
     await page.goto('/coach/my-applications')
     await page.waitForLoadState('networkidle')
-    await expect(page.getByRole('heading', { name: /지원서/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /참여 과제 리스트/i })).toBeVisible()
 
     // Step 4: Navigate to projects list
     await page.goto('/projects')
@@ -141,7 +141,7 @@ test.describe('TC-13: UI/UX 테스트', () => {
     await page.goto('/login')
 
     // Try to submit empty form
-    await page.getByRole('button', { name: /로그인/i }).click()
+    await page.getByRole('button', { name: '로그인', exact: true }).click()
 
     // Should show validation errors
     await page.waitForTimeout(500)

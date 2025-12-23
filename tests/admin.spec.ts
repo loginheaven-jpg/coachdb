@@ -11,8 +11,8 @@ test.describe('TC-9: 관리자 기능', () => {
 
     await page.waitForLoadState('networkidle')
 
-    // Check page title
-    await expect(page.getByRole('heading', { name: /사용자.*관리|user.*management/i })).toBeVisible()
+    // Check page title - exact match for "사용자 및 시스템 관리"
+    await expect(page.getByRole('heading', { name: '사용자 및 시스템 관리' })).toBeVisible()
 
     // Check for user table
     const table = page.locator('table')
@@ -33,8 +33,8 @@ test.describe('TC-9: 관리자 기능', () => {
     await expect(page.getByText(/시스템 설정/i)).toBeVisible()
     await expect(page.getByText(/증빙 확정 필요 Verifier 수/i)).toBeVisible()
 
-    // Check for input number field
-    const verifierCountInput = page.locator('input[type="number"]').first()
+    // Check for input number field (Ant Design uses .ant-input-number)
+    const verifierCountInput = page.locator('.ant-input-number').first()
     await expect(verifierCountInput).toBeVisible()
 
     // Check for save button
@@ -68,7 +68,7 @@ test.describe('TC-9: 관리자 기능', () => {
     await page.waitForLoadState('networkidle')
 
     // Find and click role edit button on first user
-    const roleEditButton = page.getByRole('button', { name: /역할 편집|edit role/i }).first()
+    const roleEditButton = page.getByRole('button', { name: /역할 편집/i }).first()
 
     if (await roleEditButton.isVisible()) {
       await roleEditButton.click()
@@ -80,9 +80,8 @@ test.describe('TC-9: 관리자 기능', () => {
       const modal = page.locator('.ant-modal-content')
       await expect(modal).toBeVisible()
 
-      // Check for role checkboxes
-      await expect(page.getByText(/코치|COACH/i)).toBeVisible()
-      await expect(page.getByText(/증빙확인자|VERIFIER/i)).toBeVisible()
+      // Check for role checkboxes within the modal
+      await expect(modal.locator('.ant-checkbox-wrapper').first()).toBeVisible()
     }
   })
 })

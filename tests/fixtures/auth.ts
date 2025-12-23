@@ -23,8 +23,8 @@ export async function login(page: Page, email: string, password: string) {
   await page.getByPlaceholder(/이메일|email/i).fill(email)
   await page.getByPlaceholder(/비밀번호|password/i).fill(password)
 
-  // Click login button
-  await page.getByRole('button', { name: /로그인/i }).click()
+  // Click login button (use exact match to avoid matching header login link)
+  await page.getByRole('button', { name: '로그인', exact: true }).click()
 
   // Wait for navigation away from login page
   await expect(page).not.toHaveURL(/\/login/)
