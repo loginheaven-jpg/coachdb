@@ -12,6 +12,14 @@ export interface VerificationRecordResponse {
   is_valid: boolean
 }
 
+export interface ActivityRecord {
+  activity_type: 'confirm' | 'supplement_request' | 'reset'
+  actor_name: string
+  message: string | null
+  created_at: string
+  is_valid: boolean
+}
+
 export interface CompetencyVerificationStatus {
   competency_id: number
   user_id: number
@@ -32,6 +40,7 @@ export interface CompetencyVerificationStatus {
   verification_count: number
   required_count: number
   records: VerificationRecordResponse[]
+  activities: ActivityRecord[]
 }
 
 export interface PendingVerificationItem {

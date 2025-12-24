@@ -20,6 +20,7 @@ class NotificationType(str, enum.Enum):
     # 증빙 검증 관련
     VERIFICATION_SUPPLEMENT_REQUEST = "verification_supplement_request"  # 증빙 보완 요청
     VERIFICATION_COMPLETED = "verification_completed"  # 증빙 검증 완료
+    VERIFICATION_RESET = "verification_reset"  # 검증 리셋 (활동 기록용)
 
 
 class Notification(Base):

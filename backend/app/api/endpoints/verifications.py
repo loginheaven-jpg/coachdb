@@ -26,7 +26,8 @@ from app.schemas.verification import (
     VerificationConfirmRequest,
     VerificationResetRequest,
     VerificationSupplementRequest,
-    PendingVerificationItem
+    PendingVerificationItem,
+    ActivityRecord
 )
 from app.schemas.competency import FileBasicInfo
 
@@ -225,10 +226,10 @@ async def get_verification_status(
             detail="증빙을 찾을 수 없습니다"
         )
 
-    # 유효한 검증 기록만 조회
+    # 유효한 검증 기록만 조회 (records 필드용)
     valid_records = [r for r in competency.verification_records if r.is_valid]
 
-    # verifier 이름 조회
+    # verifier 이름 조회 및 VerificationRecordResponse 생성
     records_with_names = []
     for record in valid_records:
         verifier_result = await db.execute(
@@ -244,6 +245,53 @@ async def get_verification_status(
             verified_at=record.verified_at,
             is_valid=record.is_valid
         ))
+
+    # ============================================================================
+    # 활동 기록 생성 (컨펌 + 보완요청 + 리셋)
+    # ============================================================================
+    activities = []
+
+    # 1. 모든 컨펌 기록 (유효/무효 모두)
+    for record in competency.verification_records:
+        verifier_result = await db.execute(
+            select(User.name).where(User.user_id == record.verifier_id)
+        )
+        verifier_name = verifier_result.scalar_one_or_none() or "Unknown"
+
+        activities.append(ActivityRecord(
+            activity_type="confirm",
+            actor_name=verifier_name,
+            message=None,
+            created_at=record.verified_at,
+            is_valid=record.is_valid
+        ))
+
+    # 2. 보완요청/리셋 알림 조회
+    activity_notifications_result = await db.execute(
+        select(Notification)
+        .where(
+            Notification.related_competency_id == competency_id,
+            Notification.type.in_([
+                NotificationType.VERIFICATION_SUPPLEMENT_REQUEST.value,
+                NotificationType.VERIFICATION_RESET.value
+            ])
+        )
+        .order_by(Notification.created_at.desc())
+    )
+    activity_notifications = activity_notifications_result.scalars().all()
+
+    for notif in activity_notifications:
+        activity_type = "reset" if "reset" in notif.type else "supplement_request"
+        activities.append(ActivityRecord(
+            activity_type=activity_type,
+            actor_name="관리자" if activity_type == "reset" else "검토자",
+            message=notif.message,
+            created_at=notif.created_at,
+            is_valid=True
+        ))
+
+    # 시간순 정렬 (최신순)
+    activities.sort(key=lambda x: x.created_at, reverse=True)
 
     # Build file info if file exists
     file_info = None
@@ -269,7 +317,8 @@ async def get_verification_status(
         globally_verified_at=competency.globally_verified_at,
         verification_count=len(valid_records),
         required_count=required_count,
-        records=records_with_names
+        records=records_with_names,
+        activities=activities
     )
 
 
@@ -411,9 +460,11 @@ async def reset_verification(
     - 관리자/PM만 가능
     - 모든 컨펌 기록 무효화 + 전역 검증 해제
     """
-    # CoachCompetency 조회
+    # CoachCompetency 조회 (활동 기록용 item_name 포함)
     result = await db.execute(
-        select(CoachCompetency).where(CoachCompetency.competency_id == competency_id)
+        select(CoachCompetency)
+        .options(selectinload(CoachCompetency.competency_item))
+        .where(CoachCompetency.competency_id == competency_id)
     )
     competency = result.scalar_one_or_none()
 
@@ -440,6 +491,18 @@ async def reset_verification(
     # 전역 검증 상태 해제
     competency.is_globally_verified = False
     competency.globally_verified_at = None
+
+    # 리셋 활동 기록용 알림 생성 (코치에게는 보내지 않고 기록용으로만)
+    item_name = competency.competency_item.item_name if competency.competency_item else "항목"
+    reset_notification = Notification(
+        user_id=competency.user_id,
+        type=NotificationType.VERIFICATION_RESET.value,
+        title=f"검증 리셋: {item_name}",
+        message=request.reason,
+        related_competency_id=competency_id,
+        email_sent=False
+    )
+    db.add(reset_notification)
 
     await db.commit()
 

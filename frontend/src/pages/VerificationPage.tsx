@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Card, Table, Tag, Button, Space, Modal, Typography, message, Progress, Input, Badge, Descriptions, Spin, Select } from 'antd'
+import { Card, Table, Tag, Button, Space, Modal, Typography, message, Progress, Input, Badge, Descriptions, Spin, Select, Timeline } from 'antd'
 import { CheckCircleOutlined, SearchOutlined, ReloadOutlined, EyeOutlined, UndoOutlined, ExclamationCircleOutlined, DownloadOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
-import verificationService, { PendingVerificationItem, CompetencyVerificationStatus } from '../services/verificationService'
+import verificationService, { PendingVerificationItem, CompetencyVerificationStatus, ActivityRecord } from '../services/verificationService'
 import { useAuthStore } from '../stores/authStore'
 import api from '../services/api'
 
@@ -530,39 +530,45 @@ export default function VerificationPage() {
             </Descriptions>
 
             <div style={{ marginTop: 24 }}>
-              <Title level={5}>컨펌 기록</Title>
-              {selectedCompetency.records.length > 0 ? (
-                <Table
-                  size="small"
-                  dataSource={selectedCompetency.records}
-                  rowKey="record_id"
-                  pagination={false}
-                  columns={[
-                    {
-                      title: '확인자',
-                      dataIndex: 'verifier_name',
-                      key: 'verifier_name'
-                    },
-                    {
-                      title: '확인 시각',
-                      dataIndex: 'verified_at',
-                      key: 'verified_at',
-                      render: (val) => new Date(val).toLocaleString()
-                    },
-                    {
-                      title: '상태',
-                      dataIndex: 'is_valid',
-                      key: 'is_valid',
-                      render: (val) => val ? (
-                        <Tag color="green">유효</Tag>
-                      ) : (
-                        <Tag color="red">무효화됨</Tag>
-                      )
-                    }
-                  ]}
+              <Title level={5}>최근 활동</Title>
+              {selectedCompetency.activities && selectedCompetency.activities.length > 0 ? (
+                <Timeline
+                  items={selectedCompetency.activities.map((activity: ActivityRecord, index: number) => ({
+                    key: index,
+                    color: activity.activity_type === 'confirm'
+                      ? (activity.is_valid ? 'green' : 'gray')
+                      : activity.activity_type === 'reset'
+                      ? 'orange'
+                      : 'red',
+                    dot: activity.activity_type === 'confirm'
+                      ? <CheckCircleOutlined />
+                      : activity.activity_type === 'reset'
+                      ? <UndoOutlined />
+                      : <ExclamationCircleOutlined />,
+                    children: (
+                      <div>
+                        <Text strong>
+                          {activity.activity_type === 'confirm' ? '컨펌' :
+                           activity.activity_type === 'reset' ? '검증 리셋' : '보완요청'}
+                        </Text>
+                        {!activity.is_valid && activity.activity_type === 'confirm' && (
+                          <Tag color="gray" style={{ marginLeft: 8 }}>무효</Tag>
+                        )}
+                        <Text type="secondary"> - {activity.actor_name}</Text>
+                        {activity.message && (
+                          <div style={{ marginTop: 4, color: '#666', fontStyle: 'italic' }}>
+                            "{activity.message}"
+                          </div>
+                        )}
+                        <div style={{ fontSize: 12, color: '#999' }}>
+                          {new Date(activity.created_at).toLocaleString()}
+                        </div>
+                      </div>
+                    )
+                  }))}
                 />
               ) : (
-                <Text type="secondary">아직 컨펌 기록이 없습니다</Text>
+                <Text type="secondary">아직 활동 내역이 없습니다</Text>
               )}
             </div>
           </div>
