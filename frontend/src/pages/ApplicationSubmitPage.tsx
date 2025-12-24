@@ -205,7 +205,8 @@ export default function ApplicationSubmitPage() {
           const defaultRepeatableData: Record<number, any[]> = {}
           projectItems.forEach(item => {
             if (item.competency_item?.is_repeatable) {
-              defaultRepeatableData[item.project_item_id] = [{}]
+              // 빈 배열로 시작 (세부정보 화면과 동일하게)
+              defaultRepeatableData[item.project_item_id] = []
             }
           })
           setRepeatableData(defaultRepeatableData)
@@ -389,7 +390,7 @@ export default function ApplicationSubmitPage() {
         const defaultRepeatableData: Record<number, any[]> = {}
         projectItems.forEach(item => {
           if (item.competency_item?.is_repeatable) {
-            defaultRepeatableData[item.project_item_id] = [{}]
+            defaultRepeatableData[item.project_item_id] = []
           }
         })
         setRepeatableData(defaultRepeatableData)
@@ -465,7 +466,7 @@ export default function ApplicationSubmitPage() {
       const initialRepeatableData: Record<number, any[]> = {}
       sortedItems.forEach(item => {
         if (item.competency_item?.is_repeatable) {
-          initialRepeatableData[item.project_item_id] = [{}] // Start with one empty entry
+          initialRepeatableData[item.project_item_id] = [] // Start empty, user adds entries via "추가" button
         }
       })
 
@@ -550,7 +551,7 @@ export default function ApplicationSubmitPage() {
                 }
               })
             } catch {
-              initialRepeatableData[projectItem.project_item_id] = [{}]
+              initialRepeatableData[projectItem.project_item_id] = []
             }
           } else if (valueToUse) {
             // 일반 항목
