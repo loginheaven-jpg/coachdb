@@ -18,7 +18,7 @@ import {
   Modal,
   Tabs
 } from 'antd'
-import { ArrowLeftOutlined, SendOutlined, UploadOutlined, InfoCircleOutlined, UserOutlined, CheckCircleOutlined, SaveOutlined, DeleteOutlined, LoadingOutlined, EditOutlined, ClockCircleOutlined, DownloadOutlined, CloseCircleOutlined, ExclamationCircleOutlined, FileTextOutlined } from '@ant-design/icons'
+import { ArrowLeftOutlined, SendOutlined, UploadOutlined, InfoCircleOutlined, UserOutlined, CheckCircleOutlined, SaveOutlined, DeleteOutlined, LoadingOutlined, EditOutlined, ClockCircleOutlined, DownloadOutlined, CloseCircleOutlined, ExclamationCircleOutlined, FileTextOutlined, PlusOutlined } from '@ant-design/icons'
 import projectService, { ProjectDetail, ProjectItem, ItemTemplate } from '../services/projectService'
 import applicationService, { ApplicationSubmitRequest, ApplicationDataSubmit, ApplicationData } from '../services/applicationService'
 import authService, { UserUpdateData } from '../services/authService'
@@ -100,6 +100,9 @@ export default function ApplicationSubmitPage() {
   const [editingProjectItemId, setEditingProjectItemId] = useState<number | null>(null)
   const [editingEntryIndex, setEditingEntryIndex] = useState<number | null>(null)
   const [modalForm] = Form.useForm()
+  const [modalFileList, setModalFileList] = useState<any[]>([])
+  const [modalFileId, setModalFileId] = useState<number | null>(null)
+  const [modalUploading, setModalUploading] = useState(false)
   const [profileLoaded, setProfileLoaded] = useState(false)
   const [competenciesLoaded, setCompetenciesLoaded] = useState(false)
   const [activeTab, setActiveTab] = useState('personal')
@@ -606,6 +609,8 @@ export default function ApplicationSubmitPage() {
     setEditingProjectItemId(projectItemId)
     setEditingEntryIndex(null) // null = 새 항목 추가
     modalForm.resetFields()
+    setModalFileList([])
+    setModalFileId(null)
     setIsItemModalVisible(true)
   }
 
@@ -614,6 +619,22 @@ export default function ApplicationSubmitPage() {
     setEditingProjectItemId(projectItemId)
     setEditingEntryIndex(entryIndex)
     modalForm.setFieldsValue(entry)
+
+    // 기존 파일 정보 로드
+    const fileKey = `${projectItemId}_${entryIndex}`
+    const existingFile = uploadedFiles[fileKey]
+    if (existingFile?.file_id) {
+      setModalFileId(existingFile.file_id)
+      setModalFileList([{
+        uid: '-1',
+        name: existingFile.filename || existingFile.file?.name || '기존 파일',
+        status: 'done',
+      }])
+    } else {
+      setModalFileList([])
+      setModalFileId(null)
+    }
+
     setIsItemModalVisible(true)
   }
 
@@ -623,6 +644,47 @@ export default function ApplicationSubmitPage() {
     setEditingProjectItemId(null)
     setEditingEntryIndex(null)
     modalForm.resetFields()
+    setModalFileList([])
+    setModalFileId(null)
+  }
+
+  // 모달 파일 업로드 핸들러
+  const handleModalFileUpload = async (file: File) => {
+    const validation = validateFile(file)
+    if (!validation.valid) {
+      message.error(validation.message)
+      return false
+    }
+
+    setModalUploading(true)
+    try {
+      const response = await fileService.uploadFile(file, 'proof')
+      setModalFileId(response.file_id)
+      setModalFileList([{
+        uid: '-1',
+        name: file.name,
+        status: 'done',
+      }])
+      message.success(`${file.name} 파일이 업로드되었습니다.`)
+    } catch (error: any) {
+      message.error(error.response?.data?.detail || '파일 업로드에 실패했습니다.')
+    } finally {
+      setModalUploading(false)
+    }
+    return false
+  }
+
+  // 모달 파일 삭제 핸들러
+  const handleModalFileRemove = async () => {
+    if (modalFileId) {
+      try {
+        await fileService.deleteFile(modalFileId)
+      } catch (error) {
+        console.error('파일 삭제 실패:', error)
+      }
+    }
+    setModalFileList([])
+    setModalFileId(null)
   }
 
   // 모달 확인 (저장)
@@ -631,15 +693,28 @@ export default function ApplicationSubmitPage() {
       const values = await modalForm.validateFields()
       if (editingProjectItemId === null) return
 
+      // 증빙 필수 항목인데 파일 없으면 경고
+      const projectItem = projectItems.find(i => i.project_item_id === editingProjectItemId)
+      const proofLevel = (projectItem?.proof_required_level || '').toLowerCase()
+      if (proofLevel === 'required' && !modalFileId) {
+        message.error('증빙서류 첨부가 필수입니다.')
+        return
+      }
+
+      let newEntryIndex: number
+
       if (editingEntryIndex === null) {
         // 새 항목 추가
         setRepeatableData(prev => {
           const current = prev[editingProjectItemId] || []
+          newEntryIndex = current.length
           return { ...prev, [editingProjectItemId]: [...current, values] }
         })
+        newEntryIndex = (repeatableData[editingProjectItemId] || []).length
         message.success('항목이 추가되었습니다.')
       } else {
         // 기존 항목 수정
+        newEntryIndex = editingEntryIndex
         setRepeatableData(prev => {
           const current = prev[editingProjectItemId] || []
           const updated = current.map((entry, idx) =>
@@ -648,6 +723,26 @@ export default function ApplicationSubmitPage() {
           return { ...prev, [editingProjectItemId]: updated }
         })
         message.success('항목이 수정되었습니다.')
+      }
+
+      // 파일 정보를 uploadedFiles에 저장
+      const fileKey = `${editingProjectItemId}_${newEntryIndex}`
+      if (modalFileId) {
+        setUploadedFiles(prev => ({
+          ...prev,
+          [fileKey]: {
+            file_id: modalFileId,
+            filename: modalFileList[0]?.name || '첨부파일',
+            uploading: false
+          }
+        }))
+      } else {
+        // 파일이 없으면 해당 키 제거
+        setUploadedFiles(prev => {
+          const newFiles = { ...prev }
+          delete newFiles[fileKey]
+          return newFiles
+        })
       }
 
       closeItemModal()
@@ -1285,7 +1380,6 @@ export default function ApplicationSubmitPage() {
                               const fileKey = `${item.project_item_id}_${entryIndex}`
                               const fileInfo = uploadedFiles[fileKey]
                               const hasFile = !!fileInfo
-                              const isUploading = fileInfo?.uploading
                               // 증빙첨부 레벨 확인 (IIFE 밖에서 미리 계산)
                               const proofLevel = (item.proof_required_level || '').toLowerCase()
                               const showProofUpload = proofLevel === 'required' || proofLevel === 'optional'
@@ -1340,64 +1434,17 @@ export default function ApplicationSubmitPage() {
                                     )}
                                   </div>
 
-                                  {/* 증빙첨부 - proof_required_level이 required 또는 optional인 경우에만 표시 */}
+                                  {/* 증빙첨부 상태 표시 (파일 업로드는 모달에서 처리) */}
                                   {showProofUpload && (
                                     <div className="flex items-center gap-2 pt-2 border-t">
-                                      {isViewMode ? (
-                                        hasFile ? (
-                                          <Tag color="green" icon={<CheckCircleOutlined />}>
-                                            {fileInfo?.file?.name || fileInfo?.filename || '첨부파일'}
-                                          </Tag>
-                                        ) : (
-                                          <Text type="secondary">첨부파일 없음</Text>
-                                        )
+                                      {hasFile ? (
+                                        <Tag color="green" icon={<CheckCircleOutlined />}>
+                                          {fileInfo?.file?.name || fileInfo?.filename || '첨부파일'}
+                                        </Tag>
                                       ) : (
-                                        <>
-                                          {!hasFile ? (
-                                            <Upload
-                                              maxCount={1}
-                                              showUploadList={false}
-                                              beforeUpload={(file) => {
-                                                handleFileUpload(fileKey, file)
-                                                return false
-                                              }}
-                                            >
-                                              <Button icon={<UploadOutlined />} size="small">
-                                                {proofLevel === 'required' ? '증빙첨부 (필수)' : '증빙첨부 (선택)'}
-                                              </Button>
-                                            </Upload>
-                                          ) : isUploading ? (
-                                            <Tag color="processing" icon={<LoadingOutlined />}>
-                                              {fileInfo?.file?.name || fileInfo?.filename} 업로드 중...
-                                            </Tag>
-                                          ) : (
-                                            <div className="flex items-center gap-2">
-                                              <Tag color="green" icon={<CheckCircleOutlined />}>
-                                                {fileInfo?.file?.name || fileInfo?.filename}
-                                              </Tag>
-                                              <Button
-                                                type="text"
-                                                danger
-                                                size="small"
-                                                icon={<DeleteOutlined />}
-                                                onClick={async () => {
-                                                  if (fileInfo?.file_id) {
-                                                    try {
-                                                      await fileService.deleteFile(fileInfo.file_id)
-                                                    } catch (error) {
-                                                      console.error('파일 삭제 실패:', error)
-                                                    }
-                                                  }
-                                                  setUploadedFiles(prev => {
-                                                    const newFiles = { ...prev }
-                                                    delete newFiles[fileKey]
-                                                    return newFiles
-                                                  })
-                                                }}
-                                              />
-                                            </div>
-                                          )}
-                                        </>
+                                        <Tag color={proofLevel === 'required' ? 'orange' : 'default'} icon={<UploadOutlined />}>
+                                          {proofLevel === 'required' ? '증빙첨부 (필수)' : '증빙첨부 (선택)'}
+                                        </Tag>
                                       )}
                                     </div>
                                   )}
@@ -1417,11 +1464,24 @@ export default function ApplicationSubmitPage() {
                               )
                             })}
 
-                            {/* 항목이 없을 때 */}
+                            {/* 항목이 없을 때 - 명확한 빈 상태 표시 */}
                             {entries.length === 0 && (
-                              <Card size="small" className="border-dashed">
-                                <div className="text-center py-2">
-                                  <Text type="secondary">등록된 항목이 없습니다.</Text>
+                              <Card size="small" className="border-dashed border-2 border-gray-300 bg-gray-50">
+                                <div className="text-center py-4">
+                                  <Text type="secondary" className="text-base">등록된 항목이 없습니다.</Text>
+                                  {!isViewMode && (
+                                    <div className="mt-2">
+                                      <Button
+                                        type="primary"
+                                        ghost
+                                        size="small"
+                                        icon={<PlusOutlined />}
+                                        onClick={() => openAddModal(item.project_item_id)}
+                                      >
+                                        첫 번째 항목 추가
+                                      </Button>
+                                    </div>
+                                  )}
                                 </div>
                               </Card>
                             )}
@@ -1741,6 +1801,37 @@ export default function ApplicationSubmitPage() {
                         rows={4}
                         placeholder={`${competencyItem.item_name || '내용'}을(를) 입력해주세요`}
                       />
+                    </Form.Item>
+                  )
+                })()}
+
+                {/* 증빙서류 업로드 - proof_required_level에 따라 표시 */}
+                {(() => {
+                  if (!editingProjectItemId) return null
+                  const projectItem = projectItems.find(i => i.project_item_id === editingProjectItemId)
+                  const proofLevel = (projectItem?.proof_required_level || '').toLowerCase()
+                  const showProofUpload = proofLevel === 'required' || proofLevel === 'optional'
+
+                  if (!showProofUpload) return null
+
+                  return (
+                    <Form.Item
+                      label={proofLevel === 'required' ? '증빙서류 (필수)' : '증빙서류 (선택사항)'}
+                      help="PDF, JPG, JPEG, PNG 파일만 가능 (최대 10MB)"
+                    >
+                      <Upload
+                        fileList={modalFileList}
+                        beforeUpload={handleModalFileUpload}
+                        onRemove={handleModalFileRemove}
+                        maxCount={1}
+                        accept=".pdf,.jpg,.jpeg,.png"
+                      >
+                        {modalFileList.length === 0 && (
+                          <Button icon={<UploadOutlined />} loading={modalUploading}>
+                            파일 선택
+                          </Button>
+                        )}
+                      </Upload>
                     </Form.Item>
                   )
                 })()}
