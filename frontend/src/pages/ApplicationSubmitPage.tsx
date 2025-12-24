@@ -308,11 +308,12 @@ export default function ApplicationSubmitPage() {
                   }
                 })
               } else {
-                newRepeatableData[item.project_item_id] = [{}]
+                // 파싱된 항목이 없으면 빈 배열 (세부정보 화면과 동일)
+                newRepeatableData[item.project_item_id] = []
               }
             } else {
-              // 기존 데이터 없으면 빈 항목 하나
-              newRepeatableData[item.project_item_id] = [{}]
+              // 기존 데이터 없으면 빈 배열 (세부정보 화면과 동일)
+              newRepeatableData[item.project_item_id] = []
             }
           } else if (existingComps.length > 0) {
             const existingComp = existingComps[0]  // 단일 항목은 첫 번째 사용
