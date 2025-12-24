@@ -1808,19 +1808,17 @@ export default function ApplicationSubmitPage() {
                   )
                 })()}
 
-                {/* 증빙서류 업로드 - proof_required_level에 따라 표시 */}
+                {/* 증빙서류 업로드 - 항상 표시 (세부정보 화면과 동일) */}
                 {(() => {
                   if (!editingProjectItemId) return null
                   const projectItem = projectItems.find(i => i.project_item_id === editingProjectItemId)
                   const proofLevel = (projectItem?.proof_required_level || '').toLowerCase()
-                  const showProofUpload = proofLevel === 'required' || proofLevel === 'optional'
-
-                  if (!showProofUpload) return null
+                  const isRequired = proofLevel === 'required'
 
                   return (
                     <Form.Item
-                      label={proofLevel === 'required' ? '증빙서류 (필수)' : '증빙서류 (선택사항)'}
-                      help="PDF, JPG, JPEG, PNG 파일만 가능 (최대 10MB)"
+                      label={isRequired ? '증빙서류 (필수)' : '증빙서류 (선택사항)'}
+                      help="증빙서류가 있다면 업로드하세요"
                     >
                       <Upload
                         fileList={modalFileList}
@@ -1829,12 +1827,17 @@ export default function ApplicationSubmitPage() {
                         maxCount={1}
                         accept=".pdf,.jpg,.jpeg,.png"
                       >
-                        {modalFileList.length === 0 && (
-                          <Button icon={<UploadOutlined />} loading={modalUploading}>
-                            파일 선택
-                          </Button>
-                        )}
+                        <Button icon={<UploadOutlined />} loading={modalUploading}>
+                          {modalFileList.length > 0 ? '다른 파일 선택' : '파일 선택'}
+                        </Button>
                       </Upload>
+                      {modalFileList.length > 0 && (
+                        <div className="mt-2">
+                          <Text type="secondary">
+                            선택된 파일: {modalFileList[0]?.name}
+                          </Text>
+                        </div>
+                      )}
                     </Form.Item>
                   )
                 })()}
