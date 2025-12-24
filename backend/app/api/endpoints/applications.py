@@ -17,7 +17,12 @@ from app.models.competency import CoachCompetency, CompetencyItem
 from app.models.project import Project, ProjectStatus
 from app.models.custom_question import CustomQuestion, CustomQuestionAnswer
 from app.models.notification import Notification, NotificationType
-from app.services.notification_service import send_supplement_request_notification
+from app.services.notification_service import (
+    send_supplement_request_notification,
+    send_application_draft_notification,
+    send_application_submit_notification,
+    cleanup_old_notifications
+)
 from app.schemas.application import (
     ParticipationProjectResponse,
     ApplicationCreate,
@@ -665,6 +670,30 @@ async def submit_application(
     print(f"[Auto-sync] Commit successful for application {application_id}!")
     await db.refresh(application)
 
+    # ============================================================================
+    # 제출완료 알림 생성
+    # ============================================================================
+    try:
+        # Get project name for notification
+        project_result = await db.execute(
+            select(Project).where(Project.project_id == application.project_id)
+        )
+        project = project_result.scalar_one_or_none()
+        project_name = project.project_name if project else "과제"
+
+        await send_application_submit_notification(
+            db=db,
+            user_id=application.user_id,
+            application_id=application.application_id,
+            project_id=application.project_id,
+            project_name=project_name
+        )
+        await cleanup_old_notifications(db, application.user_id)
+        await db.commit()
+        logger.info(f"[submit_application] Notification sent for application {application_id}")
+    except Exception as e:
+        logger.error(f"[submit_application] Failed to send notification: {str(e)}")
+
     return ApplicationResponse(
         application_id=application.application_id,
         project_id=application.project_id,
@@ -960,6 +989,18 @@ async def save_application_data(
             detail="Not enough permissions"
         )
 
+    # ============================================================================
+    # 첫 저장 여부 확인 (임시저장 알림용)
+    # ============================================================================
+    from sqlalchemy import func
+    count_result = await db.execute(
+        select(func.count(ApplicationData.data_id)).where(
+            ApplicationData.application_id == application_id
+        )
+    )
+    existing_data_count = count_result.scalar() or 0
+    is_first_save = existing_data_count == 0
+
     # Check if data already exists
     existing_result = await db.execute(
         select(ApplicationData).where(
@@ -1055,6 +1096,31 @@ async def save_application_data(
 
     await db.commit()
     await db.refresh(saved_data)
+
+    # ============================================================================
+    # 첫 저장 시 임시저장 알림 생성
+    # ============================================================================
+    if is_first_save:
+        try:
+            # Get project name for notification
+            project_result = await db.execute(
+                select(Project).where(Project.project_id == application.project_id)
+            )
+            project = project_result.scalar_one_or_none()
+            project_name = project.project_name if project else "과제"
+
+            await send_application_draft_notification(
+                db=db,
+                user_id=application.user_id,
+                application_id=application.application_id,
+                project_id=application.project_id,
+                project_name=project_name
+            )
+            await cleanup_old_notifications(db, application.user_id)
+            await db.commit()
+            logger.info(f"[save_application_data] First save notification sent for application {application_id}")
+        except Exception as e:
+            logger.error(f"[save_application_data] Failed to send notification: {str(e)}")
 
     return ApplicationDataResponse(
         data_id=saved_data.data_id,

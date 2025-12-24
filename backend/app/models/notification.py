@@ -7,6 +7,10 @@ from app.core.database import Base
 
 class NotificationType(str, enum.Enum):
     """알림 유형"""
+    # 응모 관련
+    APPLICATION_DRAFT_SAVED = "application_draft_saved"  # 응모 임시저장
+    APPLICATION_SUBMITTED = "application_submitted"      # 응모 제출완료
+    # 서류 보충 관련
     SUPPLEMENT_REQUEST = "supplement_request"     # 서류 보충 요청
     SUPPLEMENT_SUBMITTED = "supplement_submitted"  # 보충 서류 제출됨 (Staff용)
     REVIEW_COMPLETE = "review_complete"           # 심사 완료

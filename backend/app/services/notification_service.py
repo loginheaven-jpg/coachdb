@@ -234,3 +234,98 @@ async def send_selection_result_notification(
         project_name=project_name,
         result=result
     )
+
+
+async def send_application_draft_notification(
+    db: AsyncSession,
+    user_id: int,
+    application_id: int,
+    project_id: int,
+    project_name: str
+) -> Notification:
+    """Send notification for application draft save (응모 임시저장)"""
+    title = f"응모 임시저장: {project_name}"
+    message = f"{project_name} 과제에 응모하고 임시저장하였습니다. 아직 제출된 상태는 아닙니다."
+
+    return await create_notification_with_email(
+        db=db,
+        user_id=user_id,
+        notification_type=NotificationType.APPLICATION_DRAFT_SAVED,
+        title=title,
+        message=message,
+        related_application_id=application_id,
+        related_project_id=project_id,
+        send_email=False,  # 임시저장은 이메일 발송 안 함
+        action_url=f"{settings.FRONTEND_URL}/coach/projects/{project_id}/apply?applicationId={application_id}",
+        project_name=project_name
+    )
+
+
+async def send_application_submit_notification(
+    db: AsyncSession,
+    user_id: int,
+    application_id: int,
+    project_id: int,
+    project_name: str
+) -> Notification:
+    """Send notification for application submission (응모 제출완료)"""
+    title = f"응모 제출완료: {project_name}"
+    message = f"{project_name} 과제에 응모하고 제출완료하였습니다. 모집기간동안에는 수정할 수 있습니다."
+
+    return await create_notification_with_email(
+        db=db,
+        user_id=user_id,
+        notification_type=NotificationType.APPLICATION_SUBMITTED,
+        title=title,
+        message=message,
+        related_application_id=application_id,
+        related_project_id=project_id,
+        send_email=False,  # 제출완료도 이메일 발송 안 함 (필요 시 True로 변경)
+        action_url=f"{settings.FRONTEND_URL}/coach/projects/{project_id}/apply?applicationId={application_id}&mode=view",
+        project_name=project_name
+    )
+
+
+async def cleanup_old_notifications(
+    db: AsyncSession,
+    user_id: int,
+    max_count: int = 20
+) -> int:
+    """
+    Delete old notifications if user has more than max_count
+
+    Returns:
+        Number of deleted notifications
+    """
+    from sqlalchemy import func, delete
+
+    # Count total notifications for user
+    count_result = await db.execute(
+        select(func.count(Notification.notification_id)).where(
+            Notification.user_id == user_id
+        )
+    )
+    total_count = count_result.scalar() or 0
+
+    if total_count <= max_count:
+        return 0
+
+    # Find notification IDs to keep (most recent max_count)
+    keep_query = select(Notification.notification_id).where(
+        Notification.user_id == user_id
+    ).order_by(Notification.created_at.desc()).limit(max_count)
+
+    keep_result = await db.execute(keep_query)
+    keep_ids = [row[0] for row in keep_result.fetchall()]
+
+    # Delete old notifications
+    delete_count = total_count - max_count
+    delete_stmt = delete(Notification).where(
+        Notification.user_id == user_id,
+        Notification.notification_id.notin_(keep_ids)
+    )
+
+    await db.execute(delete_stmt)
+    logger.info(f"Deleted {delete_count} old notifications for user {user_id}")
+
+    return delete_count

@@ -21,19 +21,29 @@ const { Title, Text } = Typography
 // 알림 타입별 아이콘 매핑
 const getNotificationIcon = (type: string) => {
   switch (type) {
+    // 응모 관련
+    case 'application_draft_saved':
+      return <EditOutlined style={{ color: '#8c8c8c' }} />
+    case 'application_submitted':
     case 'APPLICATION_SUBMITTED':
       return <SendOutlined style={{ color: '#52c41a' }} />
     case 'APPLICATION_UPDATED':
       return <EditOutlined style={{ color: '#1890ff' }} />
+    // 선발 관련
     case 'SELECTION_RESULT':
+    case 'selection_result':
       return <TrophyOutlined style={{ color: '#faad14' }} />
+    // 보충 요청
     case 'SUPPLEMENT_REQUEST':
+    case 'supplement_request':
       return <WarningOutlined style={{ color: '#ff4d4f' }} />
     case 'SUPPLEMENT_SUBMITTED':
       return <CheckCircleOutlined style={{ color: '#52c41a' }} />
     case 'DEADLINE_REMINDER':
       return <ClockCircleOutlined style={{ color: '#ff7a45' }} />
+    // 심사/검증 관련
     case 'REVIEW_COMPLETE':
+    case 'review_complete':
       return <CheckCircleOutlined style={{ color: '#722ed1' }} />
     case 'verification_supplement_request':
       return <WarningOutlined style={{ color: '#ff4d4f' }} />
@@ -73,7 +83,7 @@ export default function AdminDashboard() {
     const loadNotifications = async () => {
       try {
         setLoadingNotifications(true)
-        const data = await notificationService.getMyNotifications(false, 10)
+        const data = await notificationService.getMyNotifications(false, 20)
         setNotifications(data)
       } catch (error) {
         console.error('알림 로드 실패:', error)
@@ -203,36 +213,38 @@ export default function AdminDashboard() {
                 description="아직 활동 내역이 없습니다."
               />
             ) : (
-              <Timeline
-                items={notifications.map((notification) => ({
-                  dot: getNotificationIcon(notification.type),
-                  children: (
-                    <div
-                      className={`cursor-pointer hover:bg-gray-50 p-2 rounded ${!notification.is_read ? 'bg-blue-50' : ''}`}
-                      onClick={async () => {
-                        if (!notification.is_read) {
-                          await notificationService.markAsRead(notification.notification_id)
-                          setNotifications(prev =>
-                            prev.map(n =>
-                              n.notification_id === notification.notification_id
-                                ? { ...n, is_read: true }
-                                : n
+              <div style={{ maxHeight: '400px', overflowY: 'auto', paddingRight: '8px' }}>
+                <Timeline
+                  items={notifications.map((notification) => ({
+                    dot: getNotificationIcon(notification.type),
+                    children: (
+                      <div
+                        className={`cursor-pointer hover:bg-gray-50 p-2 rounded ${!notification.is_read ? 'bg-blue-50' : ''}`}
+                        onClick={async () => {
+                          if (!notification.is_read) {
+                            await notificationService.markAsRead(notification.notification_id)
+                            setNotifications(prev =>
+                              prev.map(n =>
+                                n.notification_id === notification.notification_id
+                                  ? { ...n, is_read: true }
+                                  : n
+                              )
                             )
-                          )
-                        }
-                      }}
-                    >
-                      <Text strong={!notification.is_read}>{notification.title}</Text>
-                      {notification.message && (
-                        <Text className="block text-gray-500 text-sm">{notification.message}</Text>
-                      )}
-                      <Text className="block text-gray-400 text-xs mt-1">
-                        {dayjs(notification.created_at).fromNow()}
-                      </Text>
-                    </div>
-                  ),
-                }))}
-              />
+                          }
+                        }}
+                      >
+                        <Text strong={!notification.is_read}>{notification.title}</Text>
+                        {notification.message && (
+                          <Text className="block text-gray-500 text-sm">{notification.message}</Text>
+                        )}
+                        <Text className="block text-gray-400 text-xs mt-1">
+                          {dayjs(notification.created_at).fromNow()}
+                        </Text>
+                      </div>
+                    ),
+                  }))}
+                />
+              </div>
             )}
           </Card>
         </Col>
