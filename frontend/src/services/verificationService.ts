@@ -20,6 +20,13 @@ export interface CompetencyVerificationStatus {
   item_name: string | null
   value: string | null
   file_id: number | null
+  file_info?: {
+    file_id: number
+    original_filename: string
+    file_size: number
+    mime_type: string
+    uploaded_at: string
+  } | null
   is_globally_verified: boolean
   globally_verified_at: string | null
   verification_count: number

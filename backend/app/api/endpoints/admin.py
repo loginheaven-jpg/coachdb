@@ -1,14 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from typing import List
 from datetime import datetime
 import json
+from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.security import get_current_user, require_role
 from app.core.utils import get_user_roles
-from app.models.user import User, UserRole
+from app.models.user import User, UserRole, UserStatus
+from app.models.project import Project
+from app.models.application import Application
 from app.models.system_config import SystemConfig, ConfigKeys
 from app.models.role_request import RoleRequest, RoleRequestStatus
 from app.schemas.admin import (
@@ -23,6 +26,62 @@ from app.schemas.admin import (
 )
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+# ============================================================================
+# Dashboard Statistics
+# ============================================================================
+class DashboardStatsResponse(BaseModel):
+    """Dashboard statistics"""
+    total_projects: int
+    total_coaches: int
+    total_applications: int
+    selected_count: int
+
+
+@router.get("/stats", response_model=DashboardStatsResponse)
+async def get_dashboard_stats(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER", "VERIFIER", "REVIEWER"]))
+):
+    """
+    Get dashboard statistics for admin users
+
+    Returns counts for:
+    - Total projects
+    - Total registered coaches
+    - Total applications
+    - Selection completed count
+    """
+    # Count projects
+    projects_result = await db.execute(select(func.count(Project.project_id)))
+    total_projects = projects_result.scalar() or 0
+
+    # Count coaches (users with COACH role)
+    users_result = await db.execute(
+        select(User).where(User.status == UserStatus.ACTIVE)
+    )
+    all_users = users_result.scalars().all()
+    total_coaches = sum(1 for u in all_users if 'COACH' in get_user_roles(u) or 'coach' in get_user_roles(u))
+
+    # Count applications
+    applications_result = await db.execute(select(func.count(Application.application_id)))
+    total_applications = applications_result.scalar() or 0
+
+    # Count selected applications
+    selected_result = await db.execute(
+        select(func.count(Application.application_id)).where(
+            Application.selection_result == "selected"
+        )
+    )
+    selected_count = selected_result.scalar() or 0
+
+    return DashboardStatsResponse(
+        total_projects=total_projects,
+        total_coaches=total_coaches,
+        total_applications=total_applications,
+        selected_count=selected_count
+    )
 
 
 # ============================================================================

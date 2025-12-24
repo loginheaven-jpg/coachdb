@@ -56,6 +56,13 @@ export interface RoleRequestCount {
   pending_count: number
 }
 
+export interface DashboardStats {
+  total_projects: number
+  total_coaches: number
+  total_applications: number
+  selected_count: number
+}
+
 // ============================================================================
 // Available Roles
 // ============================================================================
@@ -94,6 +101,12 @@ export const CONFIG_KEYS = {
 // API Service
 // ============================================================================
 const adminService = {
+  // Dashboard Stats
+  async getDashboardStats(): Promise<DashboardStats> {
+    const response = await api.get<DashboardStats>('/admin/stats')
+    return response.data
+  },
+
   // System Config
   async getConfigs(): Promise<SystemConfig[]> {
     const response = await api.get<SystemConfig[]>('/admin/config')

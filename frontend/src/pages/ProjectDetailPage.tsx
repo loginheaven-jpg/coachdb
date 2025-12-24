@@ -466,14 +466,41 @@ export default function ProjectDetailPage() {
             tab={
               <span>
                 <TeamOutlined />
-                지원자 목록
+                지원자 목록 ({project.application_count || 0}명)
               </span>
             }
             key="applications"
           >
             <Card>
-              <Title level={4}>지원자 관리</Title>
-              <Text type="secondary">지원자 관리 기능은 추후 구현 예정입니다.</Text>
+              <div className="flex justify-between items-center mb-4">
+                <div>
+                  <Title level={4} className="mb-1">지원자 현황</Title>
+                  <Space size="large">
+                    <Text>전체 지원: <Text strong>{project.application_count || 0}명</Text></Text>
+                    <Text>선발 완료: <Text strong>{project.selected_count || 0}명</Text></Text>
+                    <Text>모집 정원: <Text strong>{project.max_participants}명</Text></Text>
+                  </Space>
+                </div>
+                <Button
+                  type="primary"
+                  icon={<TeamOutlined />}
+                  onClick={() => navigate(`/admin/projects/${projectId}/applications`)}
+                  size="large"
+                >
+                  지원자 상세 보기
+                </Button>
+              </div>
+              {(project.application_count || 0) === 0 ? (
+                <div className="text-center py-8">
+                  <Text type="secondary">아직 지원자가 없습니다.</Text>
+                </div>
+              ) : (
+                <div className="bg-blue-50 p-4 rounded">
+                  <Text>
+                    지원자 목록에서 각 응모자의 상세 정보 확인, 서류 검토, 심사 등을 진행할 수 있습니다.
+                  </Text>
+                </div>
+              )}
             </Card>
           </TabPane>
 

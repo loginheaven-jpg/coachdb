@@ -7,6 +7,7 @@ import ResetPasswordPage from './pages/ResetPasswordPage'
 import ProfileEditPage from './pages/ProfileEditPage'
 import UnifiedCompetencyPage from './pages/UnifiedCompetencyPage'
 import MyApplicationsPage from './pages/MyApplicationsPage'
+import DashboardPage from './pages/DashboardPage'
 import CoachDashboard from './pages/CoachDashboard'
 import StaffDashboard from './pages/StaffDashboard'
 import AdminDashboard from './pages/AdminDashboard'
@@ -14,6 +15,7 @@ import ProjectListPage from './pages/ProjectListPage'
 import ProjectCreatePage from './pages/ProjectCreatePage'
 import ProjectDetailPage from './pages/ProjectDetailPage'
 import ProjectEditPage from './pages/ProjectEditPage'
+import ProjectApplicationsPage from './pages/ProjectApplicationsPage'
 import ProjectEvaluationCreatePage from './pages/ProjectEvaluationCreatePage'
 import ApplicationSubmitPage from './pages/ApplicationSubmitPage'
 import AdminCompetencyItemsPage from './pages/AdminCompetencyItemsPage'
@@ -35,9 +37,8 @@ const ALL_ROLES = [...ADMIN_ROLES, ...COACH_ROLES]
 function getDefaultDashboard(roles: string): string {
   try {
     const userRoles = JSON.parse(roles) as string[]
-    if (userRoles.some(r => ['SUPER_ADMIN', 'PROJECT_MANAGER', 'admin'].includes(r))) return '/admin/dashboard'
-    if (userRoles.some(r => ['VERIFIER', 'REVIEWER', 'staff'].includes(r))) return '/admin/dashboard'
-    if (userRoles.some(r => ['COACH', 'coach'].includes(r))) return '/coach/dashboard'
+    // All authenticated users go to unified dashboard
+    if (userRoles.length > 0) return '/dashboard'
     return '/login'
   } catch {
     return '/login'
@@ -93,6 +94,16 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={ALL_ROLES}>
               <ProfileEditPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Unified Dashboard - accessible to all authenticated users */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={ALL_ROLES}>
+              <DashboardPage />
             </ProtectedRoute>
           }
         />
@@ -197,6 +208,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={ADMIN_ROLES}>
               <ProjectEditPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/projects/:projectId/applications"
+          element={
+            <ProtectedRoute allowedRoles={ADMIN_ROLES}>
+              <ProjectApplicationsPage />
             </ProtectedRoute>
           }
         />

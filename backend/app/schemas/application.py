@@ -147,3 +147,37 @@ class ParticipationProjectResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ============================================================================
+# Project Application List Item (for admin/reviewer view)
+# ============================================================================
+class ApplicantInfo(BaseModel):
+    """응모자 정보"""
+    user_id: int
+    name: str
+    email: str
+    phone: Optional[str] = None
+
+
+class ProjectApplicationListItem(BaseModel):
+    """과제별 지원서 목록 아이템 (관리자/심사자용)"""
+    application_id: int
+    project_id: int
+    user_id: int
+    applicant: ApplicantInfo
+    status: str  # draft, submitted, reviewing, completed
+    auto_score: Optional[float] = None
+    final_score: Optional[float] = None
+    selection_result: str  # pending, selected, rejected
+    applied_role: Optional[str] = None
+    submitted_at: Optional[datetime] = None
+    last_updated: Optional[datetime] = None
+    is_frozen: bool = False
+    frozen_at: Optional[datetime] = None
+    # 서류 검토 상태 요약
+    document_verification_status: str  # pending, partial, approved, rejected, supplement_requested
+    supplement_count: int = 0
+
+    class Config:
+        from_attributes = True

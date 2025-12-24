@@ -292,6 +292,34 @@ export interface CoachEvaluation extends CoachEvaluationBase {
 }
 
 // ============================================================================
+// Project Applications (응모자 목록)
+// ============================================================================
+export interface ApplicantInfo {
+  user_id: number
+  name: string
+  email: string
+  phone: string | null
+}
+
+export interface ProjectApplicationListItem {
+  application_id: number
+  project_id: number
+  user_id: number
+  applicant: ApplicantInfo
+  status: string  // draft, submitted, reviewing, completed
+  auto_score: number | null
+  final_score: number | null
+  selection_result: string  // pending, selected, rejected
+  applied_role: string | null
+  submitted_at: string | null
+  last_updated: string | null
+  is_frozen: boolean
+  frozen_at: string | null
+  document_verification_status: string  // pending, partial, approved, rejected, supplement_requested
+  supplement_count: number
+}
+
+// ============================================================================
 // API Service
 // ============================================================================
 const projectService = {
@@ -511,6 +539,27 @@ const projectService = {
    */
   async deleteCustomCompetencyItem(itemId: number): Promise<void> {
     await api.delete(`/competencies/items/${itemId}`)
+  },
+
+  // ============================================================================
+  // Project Applications (응모자 목록)
+  // ============================================================================
+
+  /**
+   * Get all applications for a project
+   */
+  async getProjectApplications(projectId: number, statusFilter?: string): Promise<ProjectApplicationListItem[]> {
+    const params = statusFilter ? { status_filter: statusFilter } : undefined
+    const response = await api.get(`/projects/${projectId}/applications`, { params })
+    return response.data
+  },
+
+  /**
+   * Freeze all submitted applications for a project (스냅샷 동결)
+   */
+  async freezeApplications(projectId: number): Promise<{ message: string; frozen_count: number; snapshot_count: number }> {
+    const response = await api.post(`/projects/${projectId}/freeze-applications`)
+    return response.data
   }
 }
 

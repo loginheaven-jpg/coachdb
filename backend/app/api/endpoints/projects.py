@@ -1730,3 +1730,127 @@ async def freeze_applications(
         "frozen_count": frozen_count,
         "snapshot_count": snapshot_count
     }
+
+
+# ============================================================================
+# Project Applications List (응모자 목록)
+# ============================================================================
+from app.schemas.application import ProjectApplicationListItem, ApplicantInfo
+
+
+@router.get("/{project_id}/applications", response_model=List[ProjectApplicationListItem])
+async def get_project_applications(
+    project_id: int,
+    status_filter: Optional[str] = Query(None, description="Filter by status: draft, submitted, reviewing, completed"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get all applications for a project (응모자 목록)
+
+    **Permissions**: SUPER_ADMIN, PROJECT_MANAGER (their own projects), VERIFIER, REVIEWER
+
+    This endpoint returns a list of all applications for a project,
+    including applicant information and document verification status.
+    This is used by admins to view applicants and by reviewers for evaluation.
+    """
+    from app.core.utils import get_user_roles
+
+    # Check project exists
+    project = await get_project_or_404(project_id, db)
+
+    # Check permissions
+    user_roles = get_user_roles(current_user)
+    has_access = False
+
+    if "SUPER_ADMIN" in user_roles:
+        has_access = True
+    elif "PROJECT_MANAGER" in user_roles:
+        if project.project_manager_id == current_user.user_id or project.created_by == current_user.user_id:
+            has_access = True
+    elif any(r in user_roles for r in ["VERIFIER", "REVIEWER"]):
+        has_access = True
+
+    if not has_access:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions to view applications"
+        )
+
+    # Build query
+    query = select(Application).where(Application.project_id == project_id)
+
+    # Apply status filter
+    if status_filter:
+        query = query.where(Application.status == status_filter)
+
+    # Order by submitted_at desc
+    query = query.order_by(Application.submitted_at.desc().nullslast(), Application.application_id.desc())
+
+    result = await db.execute(query)
+    applications = result.scalars().all()
+
+    # Build response
+    response_list = []
+    for application in applications:
+        # Get applicant info
+        user_result = await db.execute(
+            select(User).where(User.user_id == application.user_id)
+        )
+        applicant = user_result.scalar_one_or_none()
+
+        if not applicant:
+            continue
+
+        # Get application data for document verification status
+        app_data_result = await db.execute(
+            select(ApplicationData).where(
+                ApplicationData.application_id == application.application_id
+            )
+        )
+        app_data_items = app_data_result.scalars().all()
+
+        # Calculate document verification status
+        supplement_count = 0
+        if not app_data_items:
+            doc_verification_status = "pending"
+        else:
+            statuses = [item.verification_status for item in app_data_items]
+            supplement_count = sum(1 for s in statuses if s == "supplement_requested")
+
+            if supplement_count > 0:
+                doc_verification_status = "supplement_requested"
+            elif all(s == "approved" for s in statuses):
+                doc_verification_status = "approved"
+            elif any(s == "rejected" for s in statuses):
+                doc_verification_status = "rejected"
+            elif any(s == "approved" for s in statuses):
+                doc_verification_status = "partial"
+            else:
+                doc_verification_status = "pending"
+
+        response_item = ProjectApplicationListItem(
+            application_id=application.application_id,
+            project_id=application.project_id,
+            user_id=application.user_id,
+            applicant=ApplicantInfo(
+                user_id=applicant.user_id,
+                name=applicant.name,
+                email=applicant.email,
+                phone=applicant.phone
+            ),
+            status=application.status.value,
+            auto_score=float(application.auto_score) if application.auto_score else None,
+            final_score=float(application.final_score) if application.final_score else None,
+            selection_result=application.selection_result.value,
+            applied_role=application.applied_role.value if application.applied_role else None,
+            submitted_at=application.submitted_at,
+            last_updated=application.last_updated,
+            is_frozen=application.is_frozen,
+            frozen_at=application.frozen_at,
+            document_verification_status=doc_verification_status,
+            supplement_count=supplement_count
+        )
+        response_list.append(response_item)
+
+    return response_list

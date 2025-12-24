@@ -78,7 +78,7 @@ const rebuildValueWithOriginalFormat = (
       if ('cert_name' in firstItem) {
         const updatedArray = parsed.map((item: Record<string, unknown>, index: number) => {
           if (index === 0) {
-            const rebuilt = { ...item, cert_name: newValue }
+            const rebuilt: Record<string, unknown> = { ...item, cert_name: newValue }
             if (fileId) rebuilt._file_id = fileId
             return rebuilt
           }
@@ -91,7 +91,7 @@ const rebuildValueWithOriginalFormat = (
       if ('text' in firstItem) {
         const updatedArray = parsed.map((item: Record<string, unknown>, index: number) => {
           if (index === 0) {
-            const rebuilt = { ...item, text: newValue }
+            const rebuilt: Record<string, unknown> = { ...item, text: newValue }
             if (fileId) rebuilt._file_id = fileId
             return rebuilt
           }
@@ -104,7 +104,7 @@ const rebuildValueWithOriginalFormat = (
       if ('name' in firstItem) {
         const updatedArray = parsed.map((item: Record<string, unknown>, index: number) => {
           if (index === 0) {
-            const rebuilt = { ...item, name: newValue }
+            const rebuilt: Record<string, unknown> = { ...item, name: newValue }
             if (fileId) rebuilt._file_id = fileId
             return rebuilt
           }
@@ -358,7 +358,7 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
   const handleEdit = (record: CoachCompetency) => {
     setEditingCompetency(record)
     setFileList([])
-    setUploadedFileId(record.file_id)
+    setUploadedFileId(record.file_id ?? undefined)
     setSelectedItemType(record.competency_item?.input_type || '')
     setSelectedCategory(record.competency_item?.category || 'DETAIL')
     setOriginalValue(record.value || null)

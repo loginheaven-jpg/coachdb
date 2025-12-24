@@ -8,6 +8,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import notificationService, { Notification } from '../services/notificationService'
+import adminService, { DashboardStats } from '../services/adminService'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import 'dayjs/locale/ko'
@@ -48,6 +49,24 @@ export default function AdminDashboard() {
   const navigate = useNavigate()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loadingNotifications, setLoadingNotifications] = useState(true)
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [loadingStats, setLoadingStats] = useState(true)
+
+  // 대시보드 통계 로드
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        setLoadingStats(true)
+        const data = await adminService.getDashboardStats()
+        setStats(data)
+      } catch (error) {
+        console.error('통계 로드 실패:', error)
+      } finally {
+        setLoadingStats(false)
+      }
+    }
+    loadStats()
+  }, [])
 
   // 최근 활동 (알림) 로드
   useEffect(() => {
@@ -95,40 +114,40 @@ export default function AdminDashboard() {
 
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} md={6}>
-          <Card>
+          <Card loading={loadingStats}>
             <Statistic
               title="전체 과제"
-              value={0}
+              value={stats?.total_projects ?? 0}
               prefix={<FolderOpenOutlined />}
             />
           </Card>
         </Col>
 
         <Col xs={24} sm={12} md={6}>
-          <Card>
+          <Card loading={loadingStats}>
             <Statistic
               title="등록된 응모자"
-              value={0}
+              value={stats?.total_coaches ?? 0}
               prefix={<UserOutlined />}
             />
           </Card>
         </Col>
 
         <Col xs={24} sm={12} md={6}>
-          <Card>
+          <Card loading={loadingStats}>
             <Statistic
               title="전체 지원서"
-              value={0}
+              value={stats?.total_applications ?? 0}
               prefix={<FileTextOutlined />}
             />
           </Card>
         </Col>
 
         <Col xs={24} sm={12} md={6}>
-          <Card>
+          <Card loading={loadingStats}>
             <Statistic
               title="선발 완료"
-              value={0}
+              value={stats?.selected_count ?? 0}
               prefix={<CheckCircleOutlined />}
             />
           </Card>
