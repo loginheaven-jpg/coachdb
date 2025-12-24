@@ -392,6 +392,7 @@ export default function ProfileEditPage() {
             defaultActiveKey="basic"
             items={tabItems}
             size="large"
+            className="application-tabs"
           />
         </Card>
       </div>

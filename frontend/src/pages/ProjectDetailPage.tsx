@@ -471,7 +471,7 @@ export default function ProjectDetailPage() {
           </Space>
         </div>
 
-        <Tabs defaultActiveKey="applications">
+        <Tabs defaultActiveKey="applications" className="application-tabs">
           <TabPane
             tab={
               <span>

@@ -411,6 +411,7 @@ export default function ProjectEditPage() {
             onChange={setActiveTab}
             items={tabItems}
             size="large"
+            className="application-tabs"
           />
         </Card>
       </div>
