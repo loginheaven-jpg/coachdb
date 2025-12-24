@@ -29,41 +29,26 @@ export default function AppLayout({ children }: AppLayoutProps) {
   // 역할별 메뉴 아이템 생성
   const menuItems: MenuProps['items'] = []
 
-  // Admin 메뉴
-  if (userRoles.includes('admin')) {
+  // 대시보드 메뉴 (모든 로그인 사용자)
+  if (userRoles.length > 0) {
     menuItems.push({
-      key: 'admin-dashboard',
-      label: '관리자 대시보드',
-      onClick: () => navigate('/admin/dashboard')
-    })
-    menuItems.push({
-      key: 'admin-projects',
-      label: '과제 관리',
-      onClick: () => navigate('/admin/projects')
+      key: 'dashboard',
+      label: '대시보드',
+      onClick: () => navigate('/dashboard')
     })
   }
 
-  // Staff 메뉴
-  if (userRoles.includes('staff')) {
+  // Admin/Coach 공통 - 과제 목록
+  if (userRoles.length > 0) {
     menuItems.push({
-      key: 'staff-dashboard',
-      label: '심사위원 대시보드',
-      onClick: () => navigate('/staff/dashboard')
+      key: 'projects',
+      label: '과제 목록',
+      onClick: () => navigate('/projects')
     })
   }
 
-  // Coach 메뉴
-  if (userRoles.includes('coach')) {
-    menuItems.push({
-      key: 'coach-dashboard',
-      label: '응모자 대시보드',
-      onClick: () => navigate('/coach/dashboard')
-    })
-    menuItems.push({
-      key: 'coach-projects',
-      label: '과제 지원',
-      onClick: () => navigate('/coach/projects')
-    })
+  // Coach 메뉴 - 내 지원서
+  if (userRoles.includes('coach') || userRoles.includes('COACH')) {
     menuItems.push({
       key: 'coach-applications',
       label: '내 지원서',
@@ -74,11 +59,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
   // 현재 경로에서 선택된 메뉴 키 결정
   const getSelectedKey = () => {
     const path = location.pathname
-    if (path.startsWith('/admin/dashboard')) return 'admin-dashboard'
-    if (path.startsWith('/admin/projects')) return 'admin-projects'
-    if (path.startsWith('/staff/dashboard')) return 'staff-dashboard'
-    if (path.startsWith('/coach/dashboard')) return 'coach-dashboard'
-    if (path.startsWith('/coach/projects')) return 'coach-projects'
+    if (path === '/dashboard' || path.startsWith('/admin/dashboard') || path.startsWith('/coach/dashboard') || path.startsWith('/staff/dashboard')) return 'dashboard'
+    if (path.startsWith('/projects') || path.startsWith('/admin/projects') || path.startsWith('/coach/projects')) return 'projects'
     if (path.startsWith('/coach/my-applications')) return 'coach-applications'
     return ''
   }
@@ -132,14 +114,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
             onClick={() => {
               if (!user) {
                 navigate('/')
-              } else if (userRoles.includes('admin')) {
-                navigate('/admin/dashboard')
-              } else if (userRoles.includes('staff')) {
-                navigate('/staff/dashboard')
-              } else if (userRoles.includes('coach')) {
-                navigate('/coach/dashboard')
               } else {
-                navigate('/')
+                // 통합 대시보드로 이동
+                navigate('/dashboard')
               }
             }}
           >

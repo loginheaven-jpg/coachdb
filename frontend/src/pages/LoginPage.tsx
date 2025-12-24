@@ -60,22 +60,8 @@ export default function LoginPage() {
         return
       }
 
-      // 역할별로 다른 페이지로 이동
-      const userRoles = JSON.parse(response.user.roles) as string[]
-      console.log('사용자 역할:', userRoles)
-
-      // 관리자 역할 (SUPER_ADMIN, PROJECT_MANAGER 또는 레거시 admin)
-      if (userRoles.includes('SUPER_ADMIN') || userRoles.includes('admin')) {
-        navigate('/admin/dashboard')
-      } else if (userRoles.includes('PROJECT_MANAGER')) {
-        navigate('/admin/dashboard')
-      } else if (userRoles.includes('VERIFIER') || userRoles.includes('REVIEWER') || userRoles.includes('staff')) {
-        navigate('/admin/dashboard')
-      } else if (userRoles.includes('COACH') || userRoles.includes('coach')) {
-        navigate('/coach/dashboard')
-      } else {
-        navigate('/')
-      }
+      // 통합 대시보드로 이동 (역할별 탭이 자동 선택됨)
+      navigate('/dashboard')
     } catch (error: any) {
       console.error('로그인 에러:', error)
       message.error(error.response?.data?.detail || '로그인에 실패했습니다.')

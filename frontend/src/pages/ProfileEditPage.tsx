@@ -37,18 +37,8 @@ export default function ProfileEditPage() {
       navigate('/')
       return
     }
-    const userRoles = JSON.parse(user.roles) as string[]
-    if (userRoles.includes('SUPER_ADMIN') || userRoles.includes('admin')) {
-      navigate('/admin/dashboard')
-    } else if (userRoles.includes('PROJECT_MANAGER')) {
-      navigate('/admin/dashboard')
-    } else if (userRoles.includes('VERIFIER') || userRoles.includes('REVIEWER') || userRoles.includes('staff')) {
-      navigate('/admin/dashboard')
-    } else if (userRoles.includes('COACH') || userRoles.includes('coach')) {
-      navigate('/coach/dashboard')
-    } else {
-      navigate('/')
-    }
+    // 통합 대시보드로 이동
+    navigate('/dashboard')
   }
 
   useEffect(() => {

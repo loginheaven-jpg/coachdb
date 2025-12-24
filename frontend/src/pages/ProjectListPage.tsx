@@ -204,10 +204,20 @@ export default function ProjectListPage() {
     {
       title: '정원',
       key: 'participants',
-      width: '8%',
-      render: (_: any, record: ProjectListItem) => (
-        <span>{record.current_participants || 0} / {record.max_participants}</span>
-      ),
+      width: '10%',
+      render: (_: any, record: ProjectListItem) => {
+        const appCount = record.application_count || 0
+        const selectedCount = record.current_participants || 0
+        // 선발 완료 상태 (IN_PROGRESS, EVALUATING, CLOSED, COMPLETED)
+        const selectionComplete = ['in_progress', 'evaluating', 'closed', 'completed'].includes(record.status)
+
+        if (selectionComplete) {
+          // 선발 완료: 응모자(선발)/정원
+          return <span>{appCount}({selectedCount}) / {record.max_participants}</span>
+        }
+        // 모집/심사 중: 응모자/정원
+        return <span>{appCount} / {record.max_participants}</span>
+      },
     },
     {
       title: '작업',
@@ -296,16 +306,13 @@ export default function ProjectListPage() {
     totalParticipants: projects.reduce((sum, p) => sum + (p.current_participants || 0), 0)
   }
 
-  // 대시보드 경로 결정
-  const dashboardPath = isAdmin ? '/admin/dashboard' : '/coach/dashboard'
-
   return (
     <div className="min-h-screen bg-gray-100 py-8">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex justify-between items-center mb-4">
           <Button
             icon={<ArrowLeftOutlined />}
-            onClick={() => navigate(dashboardPath)}
+            onClick={() => navigate('/dashboard')}
           >
             대시보드로 돌아가기
           </Button>

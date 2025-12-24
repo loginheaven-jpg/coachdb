@@ -60,7 +60,7 @@ export interface DashboardStats {
   total_projects: number
   total_coaches: number
   total_applications: number
-  selected_count: number
+  pending_review_count: number  // 심사 대기 (제출됨 + 선발 대기)
 }
 
 // ============================================================================

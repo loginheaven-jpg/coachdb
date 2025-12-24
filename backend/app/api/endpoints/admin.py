@@ -36,7 +36,7 @@ class DashboardStatsResponse(BaseModel):
     total_projects: int
     total_coaches: int
     total_applications: int
-    selected_count: int
+    pending_review_count: int  # 심사 대기 (제출됨 + 선발 대기)
 
 
 @router.get("/stats", response_model=DashboardStatsResponse)
@@ -68,19 +68,20 @@ async def get_dashboard_stats(
     applications_result = await db.execute(select(func.count(Application.application_id)))
     total_applications = applications_result.scalar() or 0
 
-    # Count selected applications
-    selected_result = await db.execute(
+    # Count pending review applications (submitted + pending selection)
+    pending_review_result = await db.execute(
         select(func.count(Application.application_id)).where(
-            Application.selection_result == "selected"
+            Application.status == "submitted",
+            Application.selection_result == "pending"
         )
     )
-    selected_count = selected_result.scalar() or 0
+    pending_review_count = pending_review_result.scalar() or 0
 
     return DashboardStatsResponse(
         total_projects=total_projects,
         total_coaches=total_coaches,
         total_applications=total_applications,
-        selected_count=selected_count
+        pending_review_count=pending_review_count
     )
 
 

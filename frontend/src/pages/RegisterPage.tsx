@@ -65,15 +65,8 @@ export default function RegisterPage() {
         message.success('회원가입이 완료되었습니다!')
       }
 
-      // 역할별로 다른 페이지로 이동 (현재 부여된 역할 기준)
-      const userRoles = JSON.parse(response.user.roles)
-      if (userRoles.includes('SUPER_ADMIN')) {
-        navigate('/admin/dashboard')
-      } else if (userRoles.includes('PROJECT_MANAGER') || userRoles.includes('VERIFIER') || userRoles.includes('REVIEWER')) {
-        navigate('/admin/dashboard')
-      } else {
-        navigate('/coach/dashboard')
-      }
+      // 통합 대시보드로 이동
+      navigate('/dashboard')
     } catch (error: any) {
       message.error(error.response?.data?.detail || '회원가입에 실패했습니다.')
     } finally {

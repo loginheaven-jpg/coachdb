@@ -148,7 +148,7 @@ export default function DetailedProfilePage() {
       })
 
       message.success('세부정보가 저장되었습니다!')
-      navigate('/coach/dashboard')
+      navigate('/dashboard')
     } catch (error: any) {
       console.error('Save failed:', error)
       message.error(error.response?.data?.detail || '세부정보 저장에 실패했습니다.')
@@ -428,7 +428,7 @@ export default function DetailedProfilePage() {
             <Form.Item className="flex-1 mb-0">
               <Button
                 type="default"
-                onClick={() => navigate('/coach/dashboard')}
+                onClick={() => navigate('/dashboard')}
                 className="w-full"
                 size="large"
               >

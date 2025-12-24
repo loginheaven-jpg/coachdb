@@ -341,7 +341,7 @@ export default function CompetencyManagementPage() {
       <div className="max-w-6xl mx-auto px-4">
         <Button
           icon={<ArrowLeftOutlined />}
-          onClick={() => navigate('/coach/dashboard')}
+          onClick={() => navigate('/dashboard')}
           className="mb-4"
         >
           대시보드로 돌아가기

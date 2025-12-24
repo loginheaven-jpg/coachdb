@@ -146,9 +146,9 @@ export default function AdminDashboard() {
         <Col xs={24} sm={12} md={6}>
           <Card loading={loadingStats}>
             <Statistic
-              title="선발 완료"
-              value={stats?.selected_count ?? 0}
-              prefix={<CheckCircleOutlined />}
+              title="심사 대기"
+              value={stats?.pending_review_count ?? 0}
+              prefix={<ClockCircleOutlined />}
             />
           </Card>
         </Col>

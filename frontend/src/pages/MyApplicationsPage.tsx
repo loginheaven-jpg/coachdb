@@ -206,7 +206,7 @@ export default function MyApplicationsPage() {
         <div className="flex justify-between items-center mb-4">
           <Button
             icon={<ArrowLeftOutlined />}
-            onClick={() => navigate('/coach/dashboard')}
+            onClick={() => navigate('/dashboard')}
           >
             대시보드로 돌아가기
           </Button>
