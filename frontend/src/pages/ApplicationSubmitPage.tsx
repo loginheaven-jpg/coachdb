@@ -242,7 +242,7 @@ export default function ApplicationSubmitPage() {
               const allEntries: any[] = []
 
               // 각 competency에서 entries와 file_info 추출
-              existingComps.forEach((comp, compIdx) => {
+              existingComps.forEach((comp) => {
                 if (comp.value) {
                   try {
                     const parsed = JSON.parse(comp.value)

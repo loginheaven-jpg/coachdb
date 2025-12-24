@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { User, UserRole } from '@/types'
+import { User } from '@/types'
 
 interface AuthState {
   user: User | null
@@ -9,7 +9,7 @@ interface AuthState {
   setLoading: (loading: boolean) => void
   login: (user: User, accessToken: string, refreshToken: string) => void
   logout: () => void
-  hasRole: (role: UserRole | UserRole[]) => boolean
+  hasRole: (role: string | string[]) => boolean
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -36,7 +36,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   hasRole: (role) => {
     const { user } = get()
     if (!user) return false
-    const userRoles = JSON.parse(user.roles) as UserRole[]
+    const userRoles = JSON.parse(user.roles) as string[]
     if (Array.isArray(role)) {
       return role.some(r => userRoles.includes(r))
     }

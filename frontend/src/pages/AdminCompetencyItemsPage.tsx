@@ -14,7 +14,6 @@ import {
   Input,
   Switch,
   InputNumber,
-  Collapse,
   Popconfirm
 } from 'antd'
 import {
@@ -33,7 +32,6 @@ import competencyService, {
 } from '../services/competencyService'
 
 const { Title, Text } = Typography
-const { Panel } = Collapse
 
 const CATEGORY_OPTIONS = [
   { label: '기본정보', value: 'BASIC' },

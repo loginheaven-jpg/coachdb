@@ -3,7 +3,6 @@
  *
  * CompetencyItemField 기반으로 템플릿별 입력 필드를 동적으로 렌더링
  */
-import { useState } from 'react'
 import { Input, InputNumber, Select, Upload, Button, Space, Card, Typography } from 'antd'
 import { PlusOutlined, MinusCircleOutlined, UploadOutlined } from '@ant-design/icons'
 import { CompetencyItem, CompetencyItemField } from '../services/projectService'

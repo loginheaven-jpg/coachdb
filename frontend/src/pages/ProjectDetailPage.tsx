@@ -8,7 +8,6 @@ import {
   Tag,
   message,
   Space,
-  Divider,
   Table,
   Modal,
   Form,
@@ -17,27 +16,19 @@ import {
   Switch,
   InputNumber,
   Tabs,
-  List,
-  Dropdown,
-  Badge
+  Dropdown
 } from 'antd'
 import {
   ArrowLeftOutlined,
   EditOutlined,
   PlusOutlined,
   DeleteOutlined,
-  FileTextOutlined,
   TeamOutlined,
   BarChartOutlined,
   UnorderedListOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
-  DownOutlined,
-  SettingOutlined,
-  FormOutlined,
-  SearchOutlined,
-  PlayCircleOutlined,
-  StarOutlined
+  DownOutlined
 } from '@ant-design/icons'
 import projectService, {
   ProjectDetail,
@@ -47,7 +38,6 @@ import projectService, {
   CoachEvaluation,
   ProjectItem,
   CompetencyItem,
-  ProofRequiredLevel,
   ScoreValidation
 } from '../services/projectService'
 import SurveyBuilder from '../components/SurveyBuilder'
@@ -314,7 +304,7 @@ export default function ProjectDetailPage() {
       title: '코치명',
       dataIndex: 'coach_name',
       key: 'coach_name',
-      render: (_: any, record: CoachEvaluation) => record.coach?.name || '-'
+      render: (_: any, record: CoachEvaluation) => record.coach?.full_name || record.coach?.username || '-'
     },
     {
       title: '참여 점수',
@@ -618,7 +608,7 @@ export default function ProjectDetailPage() {
 
         {/* Survey Builder */}
         <SurveyBuilder
-          projectId={parseInt(projectId)}
+          projectId={parseInt(projectId || '0')}
           visible={surveyBuilderVisible}
           onClose={() => setSurveyBuilderVisible(false)}
           onSave={() => {

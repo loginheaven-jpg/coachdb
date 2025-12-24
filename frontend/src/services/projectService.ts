@@ -103,6 +103,7 @@ export interface ProjectDetail extends Project {
   project_manager: UserBasicInfo | null
   application_count: number | null
   selected_count: number | null
+  current_participants?: number  // 확정된 참여자 수
 }
 
 export interface ProjectListItem {

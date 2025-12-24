@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Modal,
   Card,
@@ -30,7 +30,6 @@ import {
 } from '@ant-design/icons'
 import projectService, {
   ProjectDetail,
-  ProjectItem,
   CustomQuestion,
   CompetencyItem,
   ProofRequiredLevel

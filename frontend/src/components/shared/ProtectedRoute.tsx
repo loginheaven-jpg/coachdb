@@ -1,11 +1,10 @@
 import { Navigate } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
-import { UserRole } from '../../types'
 import { Spin } from 'antd'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
-  allowedRoles?: UserRole[]
+  allowedRoles?: string[]  // Accept string array for flexibility with role names
 }
 
 export default function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {

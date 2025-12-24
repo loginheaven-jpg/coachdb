@@ -191,7 +191,7 @@ export default function CompetencyManagementPage() {
         // Update
         await competencyService.updateCompetency(editingCompetency.competency_id, {
           value: values.value,
-          file_id: fileId
+          file_id: fileId ?? undefined  // Convert null to undefined
         })
         message.success('역량이 수정되었습니다.')
       } else {
@@ -199,7 +199,7 @@ export default function CompetencyManagementPage() {
         await competencyService.createCompetency({
           item_id: values.item_id,
           value: values.value,
-          file_id: fileId
+          file_id: fileId ?? undefined  // Convert null to undefined
         })
         message.success('역량이 추가되었습니다.')
       }

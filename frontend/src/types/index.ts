@@ -1,12 +1,20 @@
 // User and Authentication Types
 export enum UserRole {
-  COACH = 'coach',
-  STAFF = 'staff',
-  ADMIN = 'admin',
+  // New role system
+  SUPER_ADMIN = 'SUPER_ADMIN',
+  PROJECT_MANAGER = 'PROJECT_MANAGER',
+  VERIFIER = 'VERIFIER',
+  REVIEWER = 'REVIEWER',
+  COACH = 'COACH',
+  // Legacy roles (for backward compatibility)
+  admin = 'admin',
+  staff = 'staff',
+  coach = 'coach',
 }
 
 export enum UserStatus {
   ACTIVE = 'active',
+  PENDING = 'pending',
   DELETED = 'deleted',
 }
 
@@ -15,15 +23,16 @@ export interface User {
   name: string
   email: string
   phone?: string
-  birthdate?: string
+  birth_year?: number  // 4-digit year (was: birthdate)
   gender?: string
   address: string
+  in_person_coaching_area?: string  // 대면코칭 가능지역
   roles: string  // JSON string array of roles
-  status: UserStatus
+  status: string  // string to accept backend values
   coach_certification_number?: string
   coaching_fields?: string  // JSON string array of coaching fields
   created_at: string
-  updated_at: string
+  updated_at?: string
   deleted_at?: string
 }
 

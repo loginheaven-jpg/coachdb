@@ -8,9 +8,7 @@ import {
   Tag,
   message,
   Space,
-  Select,
-  Row,
-  Col
+  Select
 } from 'antd'
 import {
   ArrowLeftOutlined,
@@ -33,7 +31,7 @@ export default function ProjectBrowsePage() {
   const [loading, setLoading] = useState(false)
   const [projects, setProjects] = useState<ProjectListItem[]>([])
   const [myApplications, setMyApplications] = useState<ParticipationProject[]>([])
-  const [statusFilter, setStatusFilter] = useState<ProjectStatus | undefined>('recruiting')
+  const [statusFilter, setStatusFilter] = useState<ProjectStatus | undefined>(ProjectStatus.RECRUITING)
 
   useEffect(() => {
     loadData()
@@ -78,14 +76,17 @@ export default function ProjectBrowsePage() {
   }
 
   const getStatusTag = (status: ProjectStatus) => {
-    const statusMap: Record<ProjectStatus, { color: string; text: string }> = {
+    const statusMap: Record<string, { color: string; text: string }> = {
       draft: { color: 'default', text: '초안' },
+      ready: { color: 'gold', text: '모집대기' },
       recruiting: { color: 'blue', text: '모집중' },
       reviewing: { color: 'orange', text: '심사중' },
+      in_progress: { color: 'cyan', text: '과제진행중' },
+      evaluating: { color: 'geekblue', text: '과제평가중' },
       completed: { color: 'green', text: '완료' },
       closed: { color: 'red', text: '종료' }
     }
-    const config = statusMap[status]
+    const config = statusMap[status] || { color: 'default', text: status }
     return <Tag color={config.color}>{config.text}</Tag>
   }
 

@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react'
 import { Form, Button, Space, Card, Typography, Divider, message } from 'antd'
 import { SaveOutlined, SendOutlined } from '@ant-design/icons'
 import DynamicFieldRenderer from './DynamicFieldRenderer'
-import projectService, { ProjectItem, CompetencyItem } from '../services/projectService'
+import projectService, { ProjectItem } from '../services/projectService'
 
 const { Title, Text } = Typography
 
