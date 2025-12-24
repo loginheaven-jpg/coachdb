@@ -5,7 +5,12 @@ export const TEST_ACCOUNTS = {
   SUPER_ADMIN: {
     email: 'loginheaven@gmail.com',
     password: '1234qwer',
-    roles: ['SUPER_ADMIN', 'PROJECT_MANAGER', 'VERIFIER', 'COACH']
+    roles: ['SUPER_ADMIN', 'PROJECT_MANAGER', 'VERIFIER', 'REVIEWER', 'COACH']
+  },
+  COACH: {
+    email: 'viproject@naver.com',
+    password: '111111',
+    roles: ['COACH']
   },
   // Add more test accounts as needed
 }
