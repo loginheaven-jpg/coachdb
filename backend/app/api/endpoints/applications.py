@@ -118,6 +118,63 @@ async def migrate_applications_to_competencies(
     }
 
 
+@router.get("/my/stats")
+async def get_my_stats(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get current user's application statistics for coach dashboard"""
+    from sqlalchemy import func
+    from app.schemas.application import CoachStats
+
+    # 전체 지원서 수
+    total_result = await db.execute(
+        select(func.count(Application.application_id)).where(
+            Application.user_id == current_user.user_id
+        )
+    )
+    total_applications = total_result.scalar() or 0
+
+    # 선발된 과제 수
+    selected_result = await db.execute(
+        select(func.count(Application.application_id)).where(
+            Application.user_id == current_user.user_id,
+            Application.selection_result == "selected"
+        )
+    )
+    selected_count = selected_result.scalar() or 0
+
+    # 심사 대기중 (submitted 상태이면서 selection_result가 pending인 것)
+    pending_result = await db.execute(
+        select(func.count(Application.application_id)).where(
+            Application.user_id == current_user.user_id,
+            Application.status == "submitted",
+            Application.selection_result == "pending"
+        )
+    )
+    pending_count = pending_result.scalar() or 0
+
+    # 보완 필요 항목 수 (ApplicationData에서 supplement_requested 상태인 것)
+    supplement_result = await db.execute(
+        select(func.count(ApplicationData.data_id)).where(
+            ApplicationData.application_id.in_(
+                select(Application.application_id).where(
+                    Application.user_id == current_user.user_id
+                )
+            ),
+            ApplicationData.verification_status == "supplement_requested"
+        )
+    )
+    supplement_count = supplement_result.scalar() or 0
+
+    return CoachStats(
+        total_applications=total_applications,
+        selected_count=selected_count,
+        pending_count=pending_count,
+        supplement_count=supplement_count
+    )
+
+
 @router.get("/my", response_model=List[ParticipationProjectResponse])
 async def get_my_applications(
     db: AsyncSession = Depends(get_db),

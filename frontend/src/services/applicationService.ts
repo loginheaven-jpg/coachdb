@@ -118,10 +118,26 @@ export interface CustomQuestionAnswer {
   updated_at: string | null
 }
 
+// 응모자 대시보드용 개인 통계
+export interface CoachStats {
+  total_applications: number  // 전체 지원서 수
+  selected_count: number  // 선발된 과제 수
+  pending_count: number  // 심사 대기중 수
+  supplement_count: number  // 보완 필요 항목 수
+}
+
 // ============================================================================
 // API Service
 // ============================================================================
 const applicationService = {
+  /**
+   * Get current user's application statistics for coach dashboard
+   */
+  async getMyStats(): Promise<CoachStats> {
+    const response = await api.get('/applications/my/stats')
+    return response.data
+  },
+
   /**
    * Get current user's participation project list
    */

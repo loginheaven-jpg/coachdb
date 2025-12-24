@@ -181,3 +181,14 @@ class ProjectApplicationListItem(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ============================================================================
+# Coach Stats (응모자 대시보드용 개인 통계)
+# ============================================================================
+class CoachStats(BaseModel):
+    """응모자 개인 통계"""
+    total_applications: int  # 전체 지원서 수
+    selected_count: int  # 선발된 과제 수
+    pending_count: int  # 심사 대기중 수
+    supplement_count: int  # 보완 필요 항목 수

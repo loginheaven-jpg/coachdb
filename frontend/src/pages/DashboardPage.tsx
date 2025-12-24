@@ -77,15 +77,14 @@ export default function DashboardPage() {
     })
   }
 
-  if (hasVerifierAccess && !hasAdminAccess) {
-    // Only show if user has verifier role but NOT admin role
-    // (to avoid duplicate when admin can already see admin dashboard)
+  if (hasVerifierAccess) {
+    // Verifier/Reviewer 역할이 있으면 항상 탭 표시
     tabs.push({
       key: 'staff',
       label: (
         <span>
           <AuditOutlined />
-          심사위원 대시보드
+          검토자 대시보드
         </span>
       ),
       children: <StaffDashboardContent />

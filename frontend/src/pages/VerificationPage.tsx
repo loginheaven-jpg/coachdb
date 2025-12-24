@@ -1,13 +1,96 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Card, Table, Tag, Button, Space, Modal, Typography, message, Tooltip, Progress, Input, Badge, Descriptions, Spin, Select } from 'antd'
-import { CheckCircleOutlined, FileOutlined, SearchOutlined, ReloadOutlined, EyeOutlined, UndoOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
+import { Card, Table, Tag, Button, Space, Modal, Typography, message, Progress, Input, Badge, Descriptions, Spin, Select } from 'antd'
+import { CheckCircleOutlined, SearchOutlined, ReloadOutlined, EyeOutlined, UndoOutlined, ExclamationCircleOutlined, DownloadOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import verificationService, { PendingVerificationItem, CompetencyVerificationStatus } from '../services/verificationService'
 import { useAuthStore } from '../stores/authStore'
+import api from '../services/api'
 
 const { Title, Text } = Typography
 const { TextArea } = Input
 const { Option } = Select
+
+// JSON 값을 읽기 좋은 형태로 변환하는 함수
+const renderCompetencyValue = (value: string | null, itemCode: string) => {
+  if (!value) return '-'
+
+  try {
+    const parsed = JSON.parse(value)
+
+    // 학위 정보 (DEGREE)
+    if (itemCode.includes('DEGREE')) {
+      const degreeTypes: Record<string, string> = {
+        'bachelor': '학사', 'master': '석사', 'doctor': '박사',
+        'associate': '전문학사', 'high_school': '고졸'
+      }
+      return (
+        <Descriptions size="small" column={1} bordered>
+          <Descriptions.Item label="학위">{degreeTypes[parsed.degree_type] || parsed.degree_type}</Descriptions.Item>
+          <Descriptions.Item label="전공">{parsed.major}</Descriptions.Item>
+          <Descriptions.Item label="학교">{parsed.school}</Descriptions.Item>
+          <Descriptions.Item label="졸업년도">{parsed.graduation_year}</Descriptions.Item>
+        </Descriptions>
+      )
+    }
+
+    // 자격증 정보 (CERT)
+    if (itemCode.includes('CERT')) {
+      if (Array.isArray(parsed)) {
+        return (
+          <Space wrap>
+            {parsed.map((cert, i) => (
+              <Tag key={i} color="blue">{cert.cert_name || cert}</Tag>
+            ))}
+          </Space>
+        )
+      }
+      return <Tag color="blue">{parsed.cert_name || value}</Tag>
+    }
+
+    // 경력 정보 (EXP)
+    if (itemCode.includes('EXP')) {
+      if (Array.isArray(parsed)) {
+        return (
+          <div>
+            {parsed.map((exp, i) => (
+              <div key={i} style={{ marginBottom: 8, padding: 8, background: '#f5f5f5', borderRadius: 4 }}>
+                <div><strong>{exp.company}</strong> - {exp.position}</div>
+                <div style={{ fontSize: 12, color: '#666' }}>
+                  {exp.start_date} ~ {exp.end_date || '현재'} ({exp.duration || '-'})
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      }
+    }
+
+    // 코칭 실적 (COACHING)
+    if (itemCode.includes('COACHING')) {
+      return (
+        <Descriptions size="small" column={1} bordered>
+          <Descriptions.Item label="코칭 유형">{parsed.coaching_type}</Descriptions.Item>
+          <Descriptions.Item label="시간">{parsed.hours}시간</Descriptions.Item>
+          <Descriptions.Item label="기관">{parsed.organization}</Descriptions.Item>
+        </Descriptions>
+      )
+    }
+
+    // 기타: JSON 보기 좋게 표시
+    if (typeof parsed === 'object') {
+      return (
+        <pre style={{ margin: 0, fontSize: 12, background: '#f5f5f5', padding: 8, borderRadius: 4, maxHeight: 200, overflow: 'auto' }}>
+          {JSON.stringify(parsed, null, 2)}
+        </pre>
+      )
+    }
+
+    return value
+  } catch {
+    // JSON이 아니면 원본 표시
+    return <Text>{value}</Text>
+  }
+}
 
 export default function VerificationPage() {
   const { user } = useAuthStore()
@@ -16,6 +99,7 @@ export default function VerificationPage() {
   const [searchText, setSearchText] = useState('')
   const [detailModalVisible, setDetailModalVisible] = useState(false)
   const [selectedCompetency, setSelectedCompetency] = useState<CompetencyVerificationStatus | null>(null)
+  const [selectedItemCode, setSelectedItemCode] = useState<string>('')
   const [detailLoading, setDetailLoading] = useState(false)
   const [confirmLoading, setConfirmLoading] = useState<number | null>(null)
   const [resetModalVisible, setResetModalVisible] = useState(false)
@@ -46,9 +130,32 @@ export default function VerificationPage() {
     fetchPendingVerifications()
   }, [fetchPendingVerifications])
 
-  const handleViewDetail = async (competencyId: number) => {
+  // 파일 다운로드 핸들러 (인증 문제 해결)
+  const handleDownloadFile = async (fileId: number, filename: string) => {
+    try {
+      const response = await api.get(`/files/${fileId}`, {
+        responseType: 'blob'
+      })
+
+      // Blob URL 생성 후 다운로드
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', filename)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('File download failed:', error)
+      message.error('파일 다운로드에 실패했습니다.')
+    }
+  }
+
+  const handleViewDetail = async (competencyId: number, itemCode: string) => {
     setDetailLoading(true)
     setDetailModalVisible(true)
+    setSelectedItemCode(itemCode)
     try {
       const status = await verificationService.getVerificationStatus(competencyId)
       setSelectedCompetency(status)
@@ -164,8 +271,7 @@ export default function VerificationPage() {
     const matchesSearch =
       item.user_name.toLowerCase().includes(searchText.toLowerCase()) ||
       item.user_email.toLowerCase().includes(searchText.toLowerCase()) ||
-      item.item_name.toLowerCase().includes(searchText.toLowerCase()) ||
-      item.item_code.toLowerCase().includes(searchText.toLowerCase())
+      item.item_name.toLowerCase().includes(searchText.toLowerCase())
 
     // Status filter
     let matchesStatus = true
@@ -184,6 +290,12 @@ export default function VerificationPage() {
   const rejectedCount = pendingItems.filter(item => item.verification_status === 'rejected').length
   const pendingCount = pendingItems.filter(item => item.verification_status !== 'rejected').length
 
+  // 내 컨펌 여부 확인을 위한 헬퍼 함수
+  const getMyVerification = (competencyId: number) => {
+    const item = pendingItems.find(i => i.competency_id === competencyId)
+    return item?.my_verification
+  }
+
   const columns: ColumnsType<PendingVerificationItem> = [
     {
       title: '응모자',
@@ -198,33 +310,7 @@ export default function VerificationPage() {
     {
       title: '역량항목',
       key: 'item',
-      render: (_, record) => (
-        <div>
-          <Tag color="blue">{record.item_code}</Tag>
-          <span style={{ marginLeft: 8 }}>{record.item_name}</span>
-        </div>
-      )
-    },
-    {
-      title: '증빙',
-      key: 'evidence',
-      render: (_, record) => (
-        <Space>
-          {record.value && (
-            <Tooltip title={record.value}>
-              <Tag>텍스트</Tag>
-            </Tooltip>
-          )}
-          {record.file_id && (
-            <Tooltip title={record.file_info?.original_filename || '첨부파일'}>
-              <Tag icon={<FileOutlined />} color="processing">파일</Tag>
-            </Tooltip>
-          )}
-          {!record.value && !record.file_id && (
-            <Tag>없음</Tag>
-          )}
-        </Space>
-      )
+      render: (_, record) => record.item_name
     },
     {
       title: '검증 현황',
@@ -236,16 +322,7 @@ export default function VerificationPage() {
         return (
           <div>
             {isRejected ? (
-              <div>
-                <Tag color="red" icon={<ExclamationCircleOutlined />}>보완필요</Tag>
-                {record.rejection_reason && (
-                  <Tooltip title={record.rejection_reason}>
-                    <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 4 }} ellipsis>
-                      사유: {record.rejection_reason.substring(0, 20)}...
-                    </Text>
-                  </Tooltip>
-                )}
-              </div>
+              <Tag color="red" icon={<ExclamationCircleOutlined />}>보완필요</Tag>
             ) : (
               <>
                 <Progress
@@ -268,43 +345,15 @@ export default function VerificationPage() {
     {
       title: '작업',
       key: 'action',
-      width: 280,
+      width: 100,
       render: (_, record) => (
-        <Space wrap>
-          <Button
-            size="small"
-            icon={<EyeOutlined />}
-            onClick={() => handleViewDetail(record.competency_id)}
-          >
-            상세
-          </Button>
-          {!record.my_verification ? (
-            <Button
-              size="small"
-              type="primary"
-              icon={<CheckCircleOutlined />}
-              loading={confirmLoading === record.competency_id}
-              onClick={() => handleConfirm(record.competency_id)}
-            >
-              컨펌
-            </Button>
-          ) : (
-            <Button
-              size="small"
-              onClick={() => handleCancelVerification(record.my_verification!.record_id)}
-            >
-              취소
-            </Button>
-          )}
-          <Button
-            size="small"
-            danger
-            icon={<ExclamationCircleOutlined />}
-            onClick={() => openSupplementModal(record.competency_id)}
-          >
-            보완요청
-          </Button>
-        </Space>
+        <Button
+          size="small"
+          icon={<EyeOutlined />}
+          onClick={() => handleViewDetail(record.competency_id, record.item_code)}
+        >
+          상세
+        </Button>
       )
     }
   ]
@@ -381,6 +430,39 @@ export default function VerificationPage() {
         onCancel={() => setDetailModalVisible(false)}
         width={700}
         footer={[
+          // 컨펌/취소 버튼
+          selectedCompetency && !getMyVerification(selectedCompetency.competency_id) ? (
+            <Button
+              key="confirm"
+              type="primary"
+              icon={<CheckCircleOutlined />}
+              loading={confirmLoading === selectedCompetency.competency_id}
+              onClick={() => handleConfirm(selectedCompetency.competency_id)}
+            >
+              컨펌
+            </Button>
+          ) : selectedCompetency && getMyVerification(selectedCompetency.competency_id) ? (
+            <Button
+              key="cancel"
+              onClick={() => handleCancelVerification(getMyVerification(selectedCompetency.competency_id)!.record_id)}
+            >
+              컨펌 취소
+            </Button>
+          ) : null,
+
+          // 보완요청 버튼
+          selectedCompetency && (
+            <Button
+              key="supplement"
+              danger
+              icon={<ExclamationCircleOutlined />}
+              onClick={() => openSupplementModal(selectedCompetency.competency_id)}
+            >
+              보완요청
+            </Button>
+          ),
+
+          // 검증 리셋 버튼 (Admin만)
           isAdmin && selectedCompetency && (
             <Button
               key="reset"
@@ -391,10 +473,11 @@ export default function VerificationPage() {
               검증 리셋
             </Button>
           ),
+
           <Button key="close" onClick={() => setDetailModalVisible(false)}>
             닫기
           </Button>
-        ]}
+        ].filter(Boolean)}
       >
         {detailLoading ? (
           <div style={{ textAlign: 'center', padding: 40 }}>
@@ -404,23 +487,27 @@ export default function VerificationPage() {
           <div>
             <Descriptions bordered column={1} size="small">
               <Descriptions.Item label="응모자">
-                {selectedCompetency.user_name} (ID: {selectedCompetency.user_id})
+                {selectedCompetency.user_name}
               </Descriptions.Item>
               <Descriptions.Item label="역량항목">
-                {selectedCompetency.item_name} (ID: {selectedCompetency.item_id})
+                {selectedCompetency.item_name}
               </Descriptions.Item>
-              <Descriptions.Item label="증빙 값">
-                {selectedCompetency.value || '-'}
+              <Descriptions.Item label="입력 내용">
+                {renderCompetencyValue(selectedCompetency.value, selectedItemCode)}
               </Descriptions.Item>
               <Descriptions.Item label="첨부파일">
                 {selectedCompetency.file_id ? (
-                  <a
-                    href={`/api/files/${selectedCompetency.file_id}`}
-                    target="_blank"
-                    rel="noreferrer"
+                  <Button
+                    type="link"
+                    icon={<DownloadOutlined />}
+                    onClick={() => handleDownloadFile(
+                      selectedCompetency.file_id!,
+                      selectedCompetency.file_info?.original_filename || 'file'
+                    )}
+                    style={{ padding: 0 }}
                   >
-                    {selectedCompetency.file_info?.original_filename || `파일 ID: ${selectedCompetency.file_id}`}
-                  </a>
+                    {selectedCompetency.file_info?.original_filename || `파일 다운로드`}
+                  </Button>
                 ) : '-'}
               </Descriptions.Item>
               <Descriptions.Item label="전역 검증 상태">
