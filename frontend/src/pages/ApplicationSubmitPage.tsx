@@ -18,7 +18,7 @@ import {
   Modal,
   Tabs
 } from 'antd'
-import { ArrowLeftOutlined, SendOutlined, UploadOutlined, InfoCircleOutlined, UserOutlined, CheckCircleOutlined, SaveOutlined, DeleteOutlined, LoadingOutlined, EditOutlined, ClockCircleOutlined, DownloadOutlined, CloseCircleOutlined, ExclamationCircleOutlined, FileTextOutlined, PlusOutlined } from '@ant-design/icons'
+import { ArrowLeftOutlined, SendOutlined, UploadOutlined, InfoCircleOutlined, UserOutlined, CheckCircleOutlined, SaveOutlined, DeleteOutlined, LoadingOutlined, EditOutlined, ClockCircleOutlined, DownloadOutlined, CloseCircleOutlined, ExclamationCircleOutlined, FileTextOutlined, PlusOutlined, InboxOutlined } from '@ant-design/icons'
 import projectService, { ProjectDetail, ProjectItem, ItemTemplate } from '../services/projectService'
 import applicationService, { ApplicationSubmitRequest, ApplicationDataSubmit, ApplicationData } from '../services/applicationService'
 import authService, { UserUpdateData } from '../services/authService'
@@ -1194,7 +1194,7 @@ export default function ApplicationSubmitPage() {
                     ? '제출한 지원서 내용입니다.'
                     : (isEditMode
                       ? '제출한 지원서를 수정할 수 있습니다. 수정 후 다시 제출해주세요.'
-                      : '모든 필수 항목을 입력한 후 제출해주세요.')}
+                      : <span><Text style={{ color: '#1890ff', fontWeight: 500 }}>'개인정보와 역량정보'</Text> 모두 입력한 후 제출해주세요.</span>)}
                 </Text>
                 {isViewMode && existingApplication && (
                   <div className="mt-2">
@@ -1282,6 +1282,15 @@ export default function ApplicationSubmitPage() {
                             <Input onChange={handleProfileFieldChange} placeholder="예: 서울 전지역, 경기 남부" />
                           </Form.Item>
                         </div>
+                        {!isViewMode && (
+                          <Alert
+                            type="info"
+                            showIcon
+                            message="다음 단계"
+                            description="개인정보 입력 후 '역량 정보' 탭에서 자격 및 경력을 입력해주세요."
+                            className="mt-4"
+                          />
+                        )}
                       </Card>
                     )
                   },
@@ -1290,7 +1299,7 @@ export default function ApplicationSubmitPage() {
                     label: (
                       <span>
                         <FileTextOutlined />
-                        설문항목
+                        역량 정보
                       </span>
                     ),
                     children: (
@@ -1367,7 +1376,7 @@ export default function ApplicationSubmitPage() {
                                   size="small"
                                   onClick={() => openAddModal(item.project_item_id)}
                                 >
-                                  + 추가
+                                  + 항목 추가
                                 </Button>
                               )}
                             </div>
@@ -1739,7 +1748,7 @@ export default function ApplicationSubmitPage() {
               open={isItemModalVisible}
               onOk={handleItemModalOk}
               onCancel={closeItemModal}
-              okText={editingEntryIndex === null ? '추가' : '수정'}
+              okText={editingEntryIndex === null ? '등록' : '수정'}
               cancelText="취소"
               width={600}
             >
@@ -1820,26 +1829,26 @@ export default function ApplicationSubmitPage() {
                   return (
                     <Form.Item
                       label={proofLevel === 'required' ? '증빙서류 (필수)' : '증빙서류 (선택사항)'}
-                      help="PDF, JPG, JPEG, PNG 파일만 가능 (최대 10MB)"
                     >
-                      <Upload
+                      <Upload.Dragger
                         fileList={modalFileList}
                         beforeUpload={handleModalFileUpload}
                         onRemove={handleModalFileRemove}
                         maxCount={1}
                         accept=".pdf,.jpg,.jpeg,.png"
+                        disabled={modalUploading}
+                        style={{ padding: '20px' }}
                       >
-                        <Button icon={<UploadOutlined />} loading={modalUploading}>
-                          {modalFileList.length > 0 ? '다른 파일 선택' : '파일 선택'}
-                        </Button>
-                      </Upload>
-                      {modalFileList.length > 0 && (
-                        <div className="mt-2">
-                          <Text type="secondary">
-                            선택된 파일: {modalFileList[0]?.name}
-                          </Text>
-                        </div>
-                      )}
+                        <p className="ant-upload-drag-icon">
+                          <InboxOutlined />
+                        </p>
+                        <p className="ant-upload-text">
+                          {modalFileList.length > 0 ? '파일을 드래그하여 변경' : '클릭 또는 파일을 드래그하세요'}
+                        </p>
+                        <p className="ant-upload-hint">
+                          PDF, JPG, PNG (최대 10MB)
+                        </p>
+                      </Upload.Dragger>
                     </Form.Item>
                   )
                 })()}
