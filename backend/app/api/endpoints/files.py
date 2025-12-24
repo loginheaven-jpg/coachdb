@@ -200,7 +200,7 @@ async def download_file(
         )
 
     # Check permission: user can only download their own files
-    # or staff/admin can download any file
+    # or staff/admin/verifier can download any file
     from app.models.user import User as UserModel
     result = await db.execute(
         select(UserModel).where(UserModel.user_id == current_user.user_id)
@@ -208,7 +208,9 @@ async def download_file(
     user = result.scalar_one()
     user_roles = get_user_roles(user)
 
-    if db_file.uploaded_by != current_user.user_id and not any(role in ['staff', 'admin'] for role in user_roles):
+    # 허용된 역할: staff, admin (레거시) + VERIFIER, REVIEWER, PROJECT_MANAGER, SUPER_ADMIN
+    allowed_roles = ['staff', 'admin', 'VERIFIER', 'REVIEWER', 'PROJECT_MANAGER', 'SUPER_ADMIN']
+    if db_file.uploaded_by != current_user.user_id and not any(role in allowed_roles for role in user_roles):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to access this file"
@@ -336,6 +338,7 @@ async def delete_file(
         )
 
     # Check permission: user can only delete their own files
+    # or staff/admin/PM can delete any file
     if db_file.uploaded_by != current_user.user_id:
         from app.models.user import User as UserModel
         result = await db.execute(
@@ -344,7 +347,9 @@ async def delete_file(
         user = result.scalar_one()
         user_roles = get_user_roles(user)
 
-        if not any(role in ['staff', 'admin'] for role in user_roles):
+        # 허용된 역할: staff, admin (레거시) + PROJECT_MANAGER, SUPER_ADMIN
+        allowed_roles = ['staff', 'admin', 'PROJECT_MANAGER', 'SUPER_ADMIN']
+        if not any(role in allowed_roles for role in user_roles):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have permission to delete this file"
