@@ -2,7 +2,7 @@ import { Typography, Card, Row, Col, Button, Statistic, Timeline, Spin, Empty } 
 import { useAuthStore } from '../stores/authStore'
 import {
   FolderOpenOutlined, UserOutlined, FileTextOutlined, CheckCircleOutlined,
-  SettingOutlined, SafetyCertificateOutlined, WarningOutlined, BellOutlined,
+  SettingOutlined, WarningOutlined, BellOutlined,
   SendOutlined, EditOutlined, TrophyOutlined, ClockCircleOutlined
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
@@ -107,12 +107,6 @@ export default function AdminDashboard() {
     return getUserRoles().includes('SUPER_ADMIN')
   }
 
-  // Check if user can verify (SUPER_ADMIN, PROJECT_MANAGER, or VERIFIER)
-  const canVerify = () => {
-    const roles = getUserRoles()
-    return roles.some(r => ['SUPER_ADMIN', 'PROJECT_MANAGER', 'VERIFIER'].includes(r))
-  }
-
   return (
     <div className="p-8">
         <div className="mb-4">
@@ -174,15 +168,6 @@ export default function AdminDashboard() {
               <Button block onClick={() => navigate('/admin/projects')}>
                 과제 관리
               </Button>
-              {canVerify() && (
-                <Button
-                  block
-                  icon={<SafetyCertificateOutlined />}
-                  onClick={() => navigate('/admin/verifications')}
-                >
-                  증빙 확인
-                </Button>
-              )}
               {isSuperAdmin() && (
                 <Button block onClick={() => navigate('/admin/users')}>
                   사용자 및 시스템 관리
