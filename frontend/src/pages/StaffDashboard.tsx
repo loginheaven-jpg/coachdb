@@ -221,9 +221,11 @@ export default function StaffDashboard() {
 
   // 파일 다운로드
   const handleDownloadFile = async (fileId: number, filename: string) => {
+    const hideLoading = message.loading('파일 다운로드 중...', 0)
     try {
       const response = await api.get(`/files/${fileId}`, {
-        responseType: 'blob'
+        responseType: 'blob',
+        timeout: 120000  // 2분 타임아웃 (큰 파일용)
       })
       const url = window.URL.createObjectURL(new Blob([response.data]))
       const link = document.createElement('a')
@@ -233,9 +235,12 @@ export default function StaffDashboard() {
       link.click()
       link.remove()
       window.URL.revokeObjectURL(url)
+      hideLoading()
+      message.success('파일 다운로드 완료')
     } catch (error) {
+      hideLoading()
       console.error('File download error:', error)
-      message.error('파일 다운로드에 실패했습니다.')
+      message.error('파일 다운로드에 실패했습니다. 잠시 후 다시 시도해주세요.')
     }
   }
 
