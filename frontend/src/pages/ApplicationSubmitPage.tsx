@@ -1808,17 +1808,19 @@ export default function ApplicationSubmitPage() {
                   )
                 })()}
 
-                {/* 증빙서류 업로드 - 항상 표시 (세부정보 화면과 동일) */}
+                {/* 증빙서류 업로드 - proof_required_level에 따라 표시 */}
                 {(() => {
                   if (!editingProjectItemId) return null
                   const projectItem = projectItems.find(i => i.project_item_id === editingProjectItemId)
                   const proofLevel = (projectItem?.proof_required_level || '').toLowerCase()
-                  const isRequired = proofLevel === 'required'
+                  const showProofUpload = proofLevel === 'required' || proofLevel === 'optional'
+
+                  if (!showProofUpload) return null
 
                   return (
                     <Form.Item
-                      label={isRequired ? '증빙서류 (필수)' : '증빙서류 (선택사항)'}
-                      help="증빙서류가 있다면 업로드하세요"
+                      label={proofLevel === 'required' ? '증빙서류 (필수)' : '증빙서류 (선택사항)'}
+                      help="PDF, JPG, JPEG, PNG 파일만 가능 (최대 10MB)"
                     >
                       <Upload
                         fileList={modalFileList}
