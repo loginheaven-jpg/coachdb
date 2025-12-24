@@ -56,7 +56,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   if (userRoles.includes('coach')) {
     menuItems.push({
       key: 'coach-dashboard',
-      label: '코치 대시보드',
+      label: '응모자 대시보드',
       onClick: () => navigate('/coach/dashboard')
     })
     menuItems.push({

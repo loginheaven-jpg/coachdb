@@ -8,13 +8,13 @@ import { useAuthStore } from '../stores/authStore'
 const { Title, Text } = Typography
 const { Option } = Select
 
-// 역할 옵션 - 코치 외 역할은 관리자 승인 필요
+// 역할 옵션 - 응모자 외 역할은 관리자 승인 필요
 const ROLE_OPTIONS = [
-  { value: 'COACH', label: '코치', requiresApproval: false },
-  { value: 'VERIFIER', label: '증빙확인자 (Verifier)', requiresApproval: true },
-  { value: 'REVIEWER', label: '응모심사자 (Reviewer)', requiresApproval: true },
-  { value: 'PROJECT_MANAGER', label: '과제관리자 (ProjectManager)', requiresApproval: true },
-  { value: 'SUPER_ADMIN', label: '시스템관리자 (Admin)', requiresApproval: true }
+  { value: 'COACH', label: '응모자', requiresApproval: false },
+  { value: 'VERIFIER', label: '검토자', requiresApproval: true },
+  { value: 'REVIEWER', label: '심사자', requiresApproval: true },
+  { value: 'PROJECT_MANAGER', label: '과제관리자', requiresApproval: true },
+  { value: 'SUPER_ADMIN', label: '어드민', requiresApproval: true }
 ]
 
 // 코칭 분야 옵션
@@ -158,7 +158,7 @@ export default function RegisterPage() {
               rules={[{ required: true, message: '역할을 최소 1개 이상 선택해주세요!' }]}
               extra={hasApprovalRequiredRoles && (
                 <Alert
-                  message="코치 외 역할(증빙확인자, 응모심사자, 과제관리자, 시스템관리자)은 관리자 승인 후 활성화됩니다."
+                  message="응모자 외 역할(검토자, 심사자, 과제관리자, 어드민)은 관리자 승인 후 활성화됩니다."
                   type="info"
                   showIcon
                   className="mt-2"

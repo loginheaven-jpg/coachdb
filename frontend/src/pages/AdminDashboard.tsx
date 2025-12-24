@@ -107,7 +107,7 @@ export default function AdminDashboard() {
         <Col xs={24} sm={12} md={6}>
           <Card>
             <Statistic
-              title="등록된 코치"
+              title="등록된 응모자"
               value={0}
               prefix={<UserOutlined />}
             />

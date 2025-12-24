@@ -186,7 +186,7 @@ export default function VerificationPage() {
 
   const columns: ColumnsType<PendingVerificationItem> = [
     {
-      title: '코치',
+      title: '응모자',
       key: 'coach',
       render: (_, record) => (
         <div>
@@ -316,7 +316,7 @@ export default function VerificationPage() {
           <div className="flex justify-between items-center mb-6">
             <div>
               <Title level={2} style={{ margin: 0 }}>증빙 확인</Title>
-              <Text type="secondary">코치들이 제출한 증빙서류를 확인하고 컨펌합니다</Text>
+              <Text type="secondary">응모자들이 제출한 증빙서류를 확인하고 컨펌합니다</Text>
             </div>
             <Space>
               <Badge count={pendingItems.length} showZero>
@@ -335,7 +335,7 @@ export default function VerificationPage() {
           <Card>
             <div style={{ marginBottom: 16, display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
               <Input
-                placeholder="코치명, 이메일, 항목명 검색..."
+                placeholder="응모자명, 이메일, 항목명 검색..."
                 prefix={<SearchOutlined />}
                 value={searchText}
                 onChange={e => setSearchText(e.target.value)}
@@ -403,7 +403,7 @@ export default function VerificationPage() {
         ) : selectedCompetency ? (
           <div>
             <Descriptions bordered column={1} size="small">
-              <Descriptions.Item label="코치">
+              <Descriptions.Item label="응모자">
                 {selectedCompetency.user_name} (ID: {selectedCompetency.user_id})
               </Descriptions.Item>
               <Descriptions.Item label="역량항목">
@@ -516,7 +516,7 @@ export default function VerificationPage() {
       >
         <p>이 증빙이 불충분한 이유를 입력해주세요.</p>
         <p style={{ marginBottom: 16 }}>
-          <Text type="secondary">코치에게 알림이 발송되며, 기존 컨펌 기록이 모두 무효화됩니다.</Text>
+          <Text type="secondary">응모자에게 알림이 발송되며, 기존 컨펌 기록이 모두 무효화됩니다.</Text>
         </p>
         <TextArea
           placeholder="보완 요청 사유를 입력해주세요 (필수)"

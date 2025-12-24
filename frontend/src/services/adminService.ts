@@ -68,11 +68,11 @@ export const USER_ROLES = {
 } as const
 
 export const ROLE_LABELS: Record<string, string> = {
-  SUPER_ADMIN: '수퍼어드민',
-  PROJECT_MANAGER: '프로젝트 관리자',
+  SUPER_ADMIN: '어드민',
+  PROJECT_MANAGER: '과제관리자',
   REVIEWER: '심사자',
-  VERIFIER: '증빙확인자',
-  COACH: '코치'
+  VERIFIER: '검토자',
+  COACH: '응모자'
 }
 
 export const ROLE_COLORS: Record<string, string> = {

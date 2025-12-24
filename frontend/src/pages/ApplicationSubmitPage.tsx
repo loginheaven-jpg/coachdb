@@ -1127,6 +1127,7 @@ export default function ApplicationSubmitPage() {
                 activeKey={activeTab}
                 onChange={setActiveTab}
                 type="card"
+                className="application-tabs"
                 items={[
                   {
                     key: 'personal',

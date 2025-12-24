@@ -79,7 +79,7 @@ export default function CoachDashboard() {
   return (
     <div className="p-8">
         <div className="mb-4">
-          <Title level={2} className="mb-0">코치 대시보드</Title>
+          <Title level={2} className="mb-0">응모자 대시보드</Title>
           <Text className="block text-gray-600">
             환영합니다, {user?.name}님! - PPMS (Project & coach Profile Management System)
           </Text>

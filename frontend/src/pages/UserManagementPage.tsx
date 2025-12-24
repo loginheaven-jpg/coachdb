@@ -323,7 +323,7 @@ export default function UserManagementPage() {
         <Card title={<><SettingOutlined /> 시스템 설정</>} className="mb-6">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <Text>증빙 확정 필요 Verifier 수:</Text>
+              <Text>증빙 확정 필요 검토자 수:</Text>
               <InputNumber
                 min={1}
                 max={10}
@@ -343,7 +343,7 @@ export default function UserManagementPage() {
             </Button>
           </div>
           <Text type="secondary" className="mt-2 block">
-            * 지정된 수 이상의 Verifier가 컨펌하면 증빙이 확정됩니다.
+            * 지정된 수 이상의 검토자가 컨펌하면 증빙이 확정됩니다.
           </Text>
         </Card>
 
@@ -439,7 +439,7 @@ export default function UserManagementPage() {
                   </Checkbox>
                   {value === 'PROJECT_MANAGER' && (
                     <Text type="secondary" className="ml-2">
-                      (Verifier 권한 자동 포함)
+                      (검토자 권한 자동 포함)
                     </Text>
                   )}
                   {value === 'SUPER_ADMIN' && (
