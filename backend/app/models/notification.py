@@ -21,6 +21,9 @@ class NotificationType(str, enum.Enum):
     VERIFICATION_SUPPLEMENT_REQUEST = "verification_supplement_request"  # 증빙 보완 요청
     VERIFICATION_COMPLETED = "verification_completed"  # 증빙 검증 완료
     VERIFICATION_RESET = "verification_reset"  # 검증 리셋 (활동 기록용)
+    # 과제 승인 관련
+    PROJECT_APPROVED = "project_approved"         # 과제 승인됨
+    PROJECT_REJECTED = "project_rejected"         # 과제 반려됨
 
 
 class Notification(Base):

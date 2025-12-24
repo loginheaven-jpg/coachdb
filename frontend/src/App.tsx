@@ -187,10 +187,11 @@ function App() {
           path="/admin/projects"
           element={<Navigate to="/projects" replace />}
         />
+        {/* Project management - accessible to all authenticated users (backend checks ownership) */}
         <Route
           path="/admin/projects/create"
           element={
-            <ProtectedRoute allowedRoles={ADMIN_ROLES}>
+            <ProtectedRoute allowedRoles={ALL_ROLES}>
               <ProjectCreatePage />
             </ProtectedRoute>
           }
@@ -198,7 +199,7 @@ function App() {
         <Route
           path="/admin/projects/:projectId"
           element={
-            <ProtectedRoute allowedRoles={ADMIN_ROLES}>
+            <ProtectedRoute allowedRoles={ALL_ROLES}>
               <ProjectDetailPage />
             </ProtectedRoute>
           }
@@ -206,7 +207,7 @@ function App() {
         <Route
           path="/admin/projects/:projectId/edit"
           element={
-            <ProtectedRoute allowedRoles={ADMIN_ROLES}>
+            <ProtectedRoute allowedRoles={ALL_ROLES}>
               <ProjectEditPage />
             </ProtectedRoute>
           }
@@ -214,7 +215,7 @@ function App() {
         <Route
           path="/admin/projects/:projectId/applications"
           element={
-            <ProtectedRoute allowedRoles={ADMIN_ROLES}>
+            <ProtectedRoute allowedRoles={ALL_ROLES}>
               <ProjectApplicationsPage />
             </ProtectedRoute>
           }

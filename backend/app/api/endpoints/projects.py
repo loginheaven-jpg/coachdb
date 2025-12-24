@@ -240,7 +240,7 @@ async def get_project_or_404(project_id: int, db: AsyncSession) -> Project:
 
 
 def check_project_manager_permission(project: Project, current_user: User):
-    """Check if user is project manager or super admin"""
+    """Check if user has permission to manage this project"""
     from app.core.utils import get_user_roles
     user_roles = get_user_roles(current_user)
 
@@ -248,14 +248,17 @@ def check_project_manager_permission(project: Project, current_user: User):
     if "SUPER_ADMIN" in user_roles:
         return
 
-    # Project manager can access their own projects
-    if "PROJECT_MANAGER" in user_roles:
-        if project.project_manager_id == current_user.user_id or project.created_by == current_user.user_id:
-            return
+    # Anyone can access their own created projects
+    if project.created_by == current_user.user_id:
+        return
+
+    # Project manager can access projects they manage
+    if project.project_manager_id == current_user.user_id:
+        return
 
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
-        detail="Not enough permissions to access this project"
+        detail="본인이 생성한 과제만 관리할 수 있습니다."
     )
 
 
@@ -266,16 +269,17 @@ def check_project_manager_permission(project: Project, current_user: User):
 async def create_project(
     project_data: ProjectCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER"]))
+    current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER", "VERIFIER", "REVIEWER", "COACH"]))
 ):
     """
     Create a new project
 
-    **Required roles**: SUPER_ADMIN, PROJECT_MANAGER
+    **Required roles**: 모든 인증된 사용자
 
     **Notes**:
     - 새 과제는 항상 DRAFT(초안) 상태로 생성됩니다.
-    - READY 상태로 전환하려면 /finalize 엔드포인트를 사용하세요. (100점 검증 필요)
+    - 승인요청을 위해서는 /finalize 엔드포인트를 사용하세요. (100점 검증 필요)
+    - SUPER_ADMIN 승인 후 모집시작일에 공개됩니다.
     - project_manager_id가 제공되지 않으면 현재 사용자 ID로 설정됩니다.
     """
     from app.schemas.project import calculate_display_status
@@ -362,39 +366,24 @@ async def list_projects(
         today = date.today()
 
         if "SUPER_ADMIN" not in user_roles:
-            if "PROJECT_MANAGER" in user_roles:
-                # Project managers can see:
-                # 1. Their own projects (any status) - for management
-                # 2. Recruiting projects - for reference
-                query = query.where(
-                    or_(
-                        # Own projects (any status)
-                        Project.project_manager_id == current_user.user_id,
-                        Project.created_by == current_user.user_id,
-                        # Currently recruiting projects (READY or legacy RECRUITING status)
-                        (
-                            (Project.status == ProjectStatus.READY) &
-                            (Project.recruitment_start_date <= today) &
-                            (Project.recruitment_end_date >= today)
-                        ),
-                        # Legacy: RECRUITING status (backward compatibility)
-                        Project.status == ProjectStatus.RECRUITING
-                    )
+            # All users can see:
+            # 1. Their own projects (any status) - for management
+            # 2. Approved & recruiting projects - for application
+            query = query.where(
+                or_(
+                    # Own projects (any status)
+                    Project.created_by == current_user.user_id,
+                    Project.project_manager_id == current_user.user_id,
+                    # Approved (READY) + within recruitment dates = public
+                    (
+                        (Project.status == ProjectStatus.READY) &
+                        (Project.recruitment_start_date <= today) &
+                        (Project.recruitment_end_date >= today)
+                    ),
+                    # Legacy: RECRUITING status (backward compatibility)
+                    Project.status == ProjectStatus.RECRUITING
                 )
-            else:
-                # Regular coaches only see currently recruiting projects
-                query = query.where(
-                    or_(
-                        # READY status + within recruitment dates = display_status "recruiting"
-                        (
-                            (Project.status == ProjectStatus.READY) &
-                            (Project.recruitment_start_date <= today) &
-                            (Project.recruitment_end_date >= today)
-                        ),
-                        # Legacy: RECRUITING status (backward compatibility)
-                        Project.status == ProjectStatus.RECRUITING
-                    )
-                )
+            )
 
         # Apply additional filters
         if status:
@@ -1489,16 +1478,18 @@ async def validate_project_score(
 async def finalize_project(
     project_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER"]))
+    current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER", "VERIFIER", "REVIEWER", "COACH"]))
 ):
     """
-    정식저장 - 모든 조건 검증 후 ready 상태로 전환
+    승인요청 - 모든 조건 검증 후 PENDING 상태로 전환 (SUPER_ADMIN 승인 대기)
 
-    **Required roles**: SUPER_ADMIN, PROJECT_MANAGER (only for their own projects)
+    **Required roles**: 모든 인증된 사용자 (본인 과제만)
 
     조건:
     1. 과제 기간 입력 완료 (project_start_date, project_end_date)
     2. 설문 점수 100점
+
+    Note: SUPER_ADMIN은 바로 READY 상태로 전환됩니다.
     """
     from app.schemas.project import calculate_display_status
 
@@ -1556,8 +1547,242 @@ async def finalize_project(
             detail=f"설문 점수가 100점이 아닙니다. 현재: {total_score}점"
         )
 
-    # 3. 상태를 ready로 변경
+    # 3. 상태 변경 - SUPER_ADMIN은 바로 READY, 그 외는 PENDING
+    from app.core.utils import get_user_roles
+    user_roles = get_user_roles(current_user)
+
+    if "SUPER_ADMIN" in user_roles:
+        project.status = ProjectStatus.READY
+    else:
+        project.status = ProjectStatus.PENDING
+
+    await db.commit()
+    await db.refresh(project)
+
+    # display_status 계산
+    display_status = calculate_display_status(
+        project.status,
+        project.recruitment_start_date,
+        project.recruitment_end_date
+    )
+
+    return ProjectResponse(
+        project_id=project.project_id,
+        project_name=project.project_name,
+        description=project.description,
+        support_program_name=project.support_program_name,
+        recruitment_start_date=project.recruitment_start_date,
+        recruitment_end_date=project.recruitment_end_date,
+        project_start_date=project.project_start_date,
+        project_end_date=project.project_end_date,
+        max_participants=project.max_participants,
+        project_manager_id=project.project_manager_id,
+        status=project.status,
+        display_status=display_status,
+        actual_start_date=project.actual_start_date,
+        actual_end_date=project.actual_end_date,
+        overall_feedback=project.overall_feedback,
+        created_by=project.created_by,
+        created_at=project.created_at,
+        updated_at=project.updated_at
+    )
+
+
+# ============================================================================
+# Project Approval API (SUPER_ADMIN only)
+# ============================================================================
+
+from pydantic import BaseModel as PydanticBaseModel
+
+class ProjectApprovalRequest(PydanticBaseModel):
+    """과제 승인/반려 요청"""
+    reason: Optional[str] = None  # 반려 사유 (반려 시 필수)
+
+
+@router.post("/{project_id}/approve", response_model=ProjectResponse)
+async def approve_project(
+    project_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(["SUPER_ADMIN"]))
+):
+    """
+    과제 승인 - PENDING 상태를 READY로 변경
+
+    **Required roles**: SUPER_ADMIN only
+
+    승인 시 과제 생성자에게 알림과 이메일이 발송됩니다.
+    """
+    from app.schemas.project import calculate_display_status
+    from app.models.notification import Notification, NotificationType
+
+    project = await get_project_or_404(project_id, db)
+
+    # Only PENDING status can be approved
+    if project.status != ProjectStatus.PENDING:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"승인대기 상태의 과제만 승인할 수 있습니다. 현재 상태: {project.status.value}"
+        )
+
+    # Change status to READY
     project.status = ProjectStatus.READY
+    await db.commit()
+    await db.refresh(project)
+
+    # 과제 생성자에게 알림 생성
+    notification = Notification(
+        user_id=project.created_by,
+        type=NotificationType.PROJECT_APPROVED.value if hasattr(NotificationType, 'PROJECT_APPROVED') else "project_approved",
+        title="과제가 승인되었습니다",
+        message=f"'{project.project_name}' 과제가 승인되어 모집시작일에 공개됩니다.",
+        related_project_id=project.project_id,
+        email_sent=False
+    )
+    db.add(notification)
+    await db.commit()
+
+    # display_status 계산
+    display_status = calculate_display_status(
+        project.status,
+        project.recruitment_start_date,
+        project.recruitment_end_date
+    )
+
+    return ProjectResponse(
+        project_id=project.project_id,
+        project_name=project.project_name,
+        description=project.description,
+        support_program_name=project.support_program_name,
+        recruitment_start_date=project.recruitment_start_date,
+        recruitment_end_date=project.recruitment_end_date,
+        project_start_date=project.project_start_date,
+        project_end_date=project.project_end_date,
+        max_participants=project.max_participants,
+        project_manager_id=project.project_manager_id,
+        status=project.status,
+        display_status=display_status,
+        actual_start_date=project.actual_start_date,
+        actual_end_date=project.actual_end_date,
+        overall_feedback=project.overall_feedback,
+        created_by=project.created_by,
+        created_at=project.created_at,
+        updated_at=project.updated_at
+    )
+
+
+@router.post("/{project_id}/reject", response_model=ProjectResponse)
+async def reject_project(
+    project_id: int,
+    request: ProjectApprovalRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(["SUPER_ADMIN"]))
+):
+    """
+    과제 반려 - PENDING 상태를 REJECTED로 변경
+
+    **Required roles**: SUPER_ADMIN only
+
+    반려 시 과제 생성자에게 알림과 이메일이 발송됩니다.
+    생성자는 과제를 수정 후 다시 승인요청할 수 있습니다.
+    """
+    from app.schemas.project import calculate_display_status
+    from app.models.notification import Notification, NotificationType
+
+    project = await get_project_or_404(project_id, db)
+
+    # Only PENDING status can be rejected
+    if project.status != ProjectStatus.PENDING:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"승인대기 상태의 과제만 반려할 수 있습니다. 현재 상태: {project.status.value}"
+        )
+
+    # 반려 사유 필수
+    if not request.reason:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="반려 사유를 입력해주세요."
+        )
+
+    # Change status to REJECTED
+    project.status = ProjectStatus.REJECTED
+    await db.commit()
+    await db.refresh(project)
+
+    # 과제 생성자에게 알림 생성
+    notification = Notification(
+        user_id=project.created_by,
+        type=NotificationType.PROJECT_REJECTED.value if hasattr(NotificationType, 'PROJECT_REJECTED') else "project_rejected",
+        title="과제가 반려되었습니다",
+        message=f"'{project.project_name}' 과제가 반려되었습니다. 사유: {request.reason}",
+        related_project_id=project.project_id,
+        email_sent=False
+    )
+    db.add(notification)
+    await db.commit()
+
+    # display_status 계산
+    display_status = calculate_display_status(
+        project.status,
+        project.recruitment_start_date,
+        project.recruitment_end_date
+    )
+
+    return ProjectResponse(
+        project_id=project.project_id,
+        project_name=project.project_name,
+        description=project.description,
+        support_program_name=project.support_program_name,
+        recruitment_start_date=project.recruitment_start_date,
+        recruitment_end_date=project.recruitment_end_date,
+        project_start_date=project.project_start_date,
+        project_end_date=project.project_end_date,
+        max_participants=project.max_participants,
+        project_manager_id=project.project_manager_id,
+        status=project.status,
+        display_status=display_status,
+        actual_start_date=project.actual_start_date,
+        actual_end_date=project.actual_end_date,
+        overall_feedback=project.overall_feedback,
+        created_by=project.created_by,
+        created_at=project.created_at,
+        updated_at=project.updated_at
+    )
+
+
+@router.post("/{project_id}/resubmit", response_model=ProjectResponse)
+async def resubmit_project(
+    project_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER", "VERIFIER", "REVIEWER", "COACH"]))
+):
+    """
+    재상신 - REJECTED 상태를 PENDING으로 변경
+
+    **Required roles**: 과제 생성자만
+
+    반려된 과제를 수정 후 다시 승인요청합니다.
+    """
+    from app.schemas.project import calculate_display_status
+
+    project = await get_project_or_404(project_id, db)
+
+    # 본인 과제만 재상신 가능
+    if project.created_by != current_user.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="본인이 생성한 과제만 재상신할 수 있습니다."
+        )
+
+    # Only REJECTED status can be resubmitted
+    if project.status != ProjectStatus.REJECTED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"반려된 과제만 재상신할 수 있습니다. 현재 상태: {project.status.value}"
+        )
+
+    # Change status to PENDING
+    project.status = ProjectStatus.PENDING
     await db.commit()
     await db.refresh(project)
 

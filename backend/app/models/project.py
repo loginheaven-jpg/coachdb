@@ -7,8 +7,10 @@ from app.core.database import Base
 
 class ProjectStatus(str, enum.Enum):
     DRAFT = "draft"              # 초안 (임시저장, 비공개)
-    READY = "ready"              # 정식저장 완료 (모집대기/모집중은 날짜로 계산)
-    RECRUITING = "recruiting"    # 접수중 (legacy, 호환용)
+    PENDING = "pending"          # 승인대기 (SUPER_ADMIN 승인 필요)
+    REJECTED = "rejected"        # 반려됨 (수정 후 재상신 가능)
+    READY = "ready"              # 승인완료 (모집대기/모집중은 날짜로 계산)
+    RECRUITING = "recruiting"    # 접수중 (legacy, 호환용 - 사용하지 않음)
     REVIEWING = "reviewing"      # 심사중
     IN_PROGRESS = "in_progress"  # 과제진행중
     EVALUATING = "evaluating"    # 과제평가중

@@ -5,7 +5,9 @@ import api from './api'
 // ============================================================================
 export enum ProjectStatus {
   DRAFT = 'draft',              // 초안 (임시저장, 비공개)
-  READY = 'ready',              // 정식저장 완료 (모집대기/모집중은 날짜로 계산)
+  PENDING = 'pending',          // 승인대기 (SUPER_ADMIN 승인 필요)
+  REJECTED = 'rejected',        // 반려됨 (수정 후 재상신 가능)
+  READY = 'ready',              // 승인완료 (모집대기/모집중은 날짜로 계산)
   RECRUITING = 'recruiting',    // 접수중 (legacy)
   REVIEWING = 'reviewing',      // 심사중
   IN_PROGRESS = 'in_progress',  // 과제진행중
@@ -499,6 +501,37 @@ const projectService = {
    */
   async finalizeProject(projectId: number): Promise<Project> {
     const response = await api.post(`/projects/${projectId}/finalize`)
+    return response.data
+  },
+
+  // ============================================================================
+  // Project Approval (SUPER_ADMIN only)
+  // ============================================================================
+
+  /**
+   * 과제 승인 (SUPER_ADMIN only)
+   * PENDING 상태의 과제를 READY로 변경
+   */
+  async approveProject(projectId: number): Promise<Project> {
+    const response = await api.post(`/projects/${projectId}/approve`)
+    return response.data
+  },
+
+  /**
+   * 과제 반려 (SUPER_ADMIN only)
+   * PENDING 상태의 과제를 REJECTED로 변경
+   */
+  async rejectProject(projectId: number, reason: string): Promise<Project> {
+    const response = await api.post(`/projects/${projectId}/reject`, { reason })
+    return response.data
+  },
+
+  /**
+   * 과제 재상신 (과제 생성자만)
+   * REJECTED 상태의 과제를 PENDING으로 변경
+   */
+  async resubmitProject(projectId: number): Promise<Project> {
+    const response = await api.post(`/projects/${projectId}/resubmit`)
     return response.data
   },
 

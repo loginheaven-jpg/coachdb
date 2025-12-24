@@ -2,22 +2,23 @@ import { useState, useEffect } from 'react'
 import { Typography, Tabs } from 'antd'
 import {
   UserOutlined,
-  TeamOutlined,
-  AuditOutlined
+  FolderOutlined,
+  AuditOutlined,
+  SettingOutlined
 } from '@ant-design/icons'
 import { useAuthStore } from '../stores/authStore'
 
-// Import existing dashboard content components
-import AdminDashboardContent from './AdminDashboard'
+// Import dashboard content components
 import CoachDashboardContent from './CoachDashboard'
+import ProjectManagementDashboard from './ProjectManagementDashboard'
 import StaffDashboardContent from './StaffDashboard'
+import SuperAdminDashboard from './SuperAdminDashboard'
 
 const { Title, Text } = Typography
 
 // Role groups
-const ADMIN_ROLES = ['SUPER_ADMIN', 'PROJECT_MANAGER', 'admin']
 const VERIFIER_ROLES = ['VERIFIER', 'REVIEWER', 'staff']
-const COACH_ROLES = ['COACH', 'coach']
+const SUPER_ADMIN_ROLES = ['SUPER_ADMIN']
 
 export default function DashboardPage() {
   const { user } = useAuthStore()
@@ -35,63 +36,87 @@ export default function DashboardPage() {
   const userRoles = getUserRoles()
 
   // Determine which tabs to show based on user roles
-  const hasAdminAccess = userRoles.some(r => ADMIN_ROLES.includes(r))
   const hasVerifierAccess = userRoles.some(r => VERIFIER_ROLES.includes(r))
-  const hasCoachAccess = userRoles.some(r => COACH_ROLES.includes(r))
+  const hasSuperAdminAccess = userRoles.some(r => SUPER_ADMIN_ROLES.includes(r))
 
   // Set default tab on mount
   useEffect(() => {
     if (!activeTab) {
-      if (hasAdminAccess) setActiveTab('admin')
-      else if (hasVerifierAccess) setActiveTab('staff')
-      else if (hasCoachAccess) setActiveTab('coach')
+      // 기본값: 과제참여 탭
+      setActiveTab('participation')
     }
-  }, [hasAdminAccess, hasVerifierAccess, hasCoachAccess, activeTab])
+  }, [activeTab])
 
   // Build tabs array based on user roles
+  // 탭 구조: 과제참여 | 과제관리 | 증빙검토 | 과제심사(다음phase) | 수퍼어드민
   const tabs = []
 
-  if (hasCoachAccess) {
-    tabs.push({
-      key: 'coach',
-      label: (
-        <span>
-          <UserOutlined />
-          응모자 대시보드
-        </span>
-      ),
-      children: <CoachDashboardContent />
-    })
-  }
+  // 1. 과제참여 (모든 코치)
+  tabs.push({
+    key: 'participation',
+    label: (
+      <span>
+        <UserOutlined />
+        과제참여
+      </span>
+    ),
+    children: <CoachDashboardContent />
+  })
 
-  if (hasAdminAccess) {
-    tabs.push({
-      key: 'admin',
-      label: (
-        <span>
-          <TeamOutlined />
-          관리자 대시보드
-        </span>
-      ),
-      children: <AdminDashboardContent />
-    })
-  }
+  // 2. 과제관리 (모든 코치 - 본인 과제만 / SUPER_ADMIN - 전체)
+  tabs.push({
+    key: 'project-management',
+    label: (
+      <span>
+        <FolderOutlined />
+        과제관리
+      </span>
+    ),
+    children: <ProjectManagementDashboard />
+  })
 
-  if (hasVerifierAccess) {
-    // Verifier/Reviewer 역할이 있으면 항상 탭 표시
+  // 3. 증빙검토 (VERIFIER)
+  if (hasVerifierAccess || hasSuperAdminAccess) {
     tabs.push({
-      key: 'staff',
+      key: 'verification',
       label: (
         <span>
           <AuditOutlined />
-          검토자 대시보드
+          증빙검토
         </span>
       ),
       children: <StaffDashboardContent />
     })
   }
 
-  // If user has only one role, don't show tabs - just show the dashboard directly
+  // 4. 과제심사 (다음 phase - placeholder)
+  // 다음 버전에서 구현 예정
+  // tabs.push({
+  //   key: 'evaluation',
+  //   label: (
+  //     <span>
+  //       <TrophyOutlined />
+  //       과제심사
+  //     </span>
+  //   ),
+  //   children: <EvaluationDashboard />
+  // })
+
+  // 5. 수퍼어드민 (SUPER_ADMIN only)
+  if (hasSuperAdminAccess) {
+    tabs.push({
+      key: 'super-admin',
+      label: (
+        <span>
+          <SettingOutlined />
+          수퍼어드민
+        </span>
+      ),
+      children: <SuperAdminDashboard />
+    })
+  }
+
+  // If only one tab, don't show tabs - just show the dashboard directly
   if (tabs.length === 1) {
     return tabs[0].children
   }
