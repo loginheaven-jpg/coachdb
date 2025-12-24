@@ -279,6 +279,7 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
   const [fileList, setFileList] = useState<UploadFile[]>([])
   const [uploadedFileId, setUploadedFileId] = useState<number | undefined>(undefined)
   const [selectedItemType, setSelectedItemType] = useState<string>('')
+  const [selectedItemName, setSelectedItemName] = useState<string>('')
   const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [originalValue, setOriginalValue] = useState<string | null>(null)
   const [isDegreeItem, setIsDegreeItem] = useState<boolean>(false)
@@ -404,6 +405,7 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
   const handleItemChange = (itemId: number) => {
     const selected = competencyItems.find(item => item.item_id === itemId)
     setSelectedItemType(selected?.input_type || '')
+    setSelectedItemName(selected?.item_name || '')
     setIsDegreeItem(selected?.template === 'degree')
   }
 
@@ -1185,12 +1187,12 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
               ) : selectedItemType !== 'file' && (
                 <Form.Item
                   name="value"
-                  label="입력값"
-                  rules={[{ required: selectedItemType !== 'file', message: '값을 입력해주세요!' }]}
+                  label={selectedItemName || '상세 내용'}
+                  rules={[{ required: selectedItemType !== 'file', message: `${selectedItemName || '내용'}을(를) 입력해주세요!` }]}
                 >
                   <TextArea
                     rows={4}
-                    placeholder="역량 값을 입력하세요"
+                    placeholder={`${selectedItemName || '내용'}을(를) 입력해주세요`}
                   />
                 </Form.Item>
               )}
@@ -1392,23 +1394,23 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
             {selectedItemType === 'number' ? (
               <Form.Item
                 name="value"
-                label="값"
-                rules={[{ required: true, message: '값을 입력해주세요!' }]}
+                label={selectedItemName || '값'}
+                rules={[{ required: true, message: `${selectedItemName || '값'}을(를) 입력해주세요!` }]}
               >
                 <InputNumber
                   className="w-full"
-                  placeholder="숫자를 입력하세요"
+                  placeholder={`${selectedItemName || '숫자'}를 입력하세요`}
                 />
               </Form.Item>
             ) : selectedItemType !== 'file' && (
               <Form.Item
                 name="value"
-                label="입력값"
-                rules={[{ required: selectedItemType !== 'file', message: '값을 입력해주세요!' }]}
+                label={selectedItemName || '상세 내용'}
+                rules={[{ required: selectedItemType !== 'file', message: `${selectedItemName || '내용'}을(를) 입력해주세요!` }]}
               >
                 <TextArea
                   rows={4}
-                  placeholder="역량 값을 입력하세요"
+                  placeholder={`${selectedItemName || '내용'}을(를) 입력해주세요`}
                 />
               </Form.Item>
             )}

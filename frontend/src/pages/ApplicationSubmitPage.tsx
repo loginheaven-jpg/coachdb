@@ -1734,12 +1734,12 @@ export default function ApplicationSubmitPage() {
                   return (
                     <Form.Item
                       name="text"
-                      label="값"
-                      rules={[{ required: true, message: '값을 입력해주세요' }]}
+                      label={competencyItem.item_name || '상세 내용'}
+                      rules={[{ required: true, message: `${competencyItem.item_name || '내용'}을(를) 입력해주세요` }]}
                     >
                       <Input.TextArea
                         rows={4}
-                        placeholder={competencyItem.description || '답변을 입력해주세요.'}
+                        placeholder={`${competencyItem.item_name || '내용'}을(를) 입력해주세요`}
                       />
                     </Form.Item>
                   )
