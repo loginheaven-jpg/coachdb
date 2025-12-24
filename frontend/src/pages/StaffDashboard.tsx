@@ -219,24 +219,42 @@ export default function StaffDashboard() {
     }
   }
 
-  // 파일 다운로드
+  // 파일 다운로드 (Presigned URL 사용 - R2에서 직접 다운로드)
   const handleDownloadFile = async (fileId: number, filename: string) => {
-    const hideLoading = message.loading('파일 다운로드 중...', 0)
+    const hideLoading = message.loading('다운로드 준비 중...', 0)
     try {
-      const response = await api.get(`/files/${fileId}`, {
-        responseType: 'blob',
-        timeout: 120000  // 2분 타임아웃 (큰 파일용)
-      })
-      const url = window.URL.createObjectURL(new Blob([response.data]))
-      const link = document.createElement('a')
-      link.href = url
-      link.setAttribute('download', filename)
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-      window.URL.revokeObjectURL(url)
+      // 1. Presigned URL 요청 (빠름)
+      const response = await api.get(`/files/${fileId}/download-url`)
+      const { download_url, is_local } = response.data
+
       hideLoading()
-      message.success('파일 다운로드 완료')
+
+      if (is_local) {
+        // 로컬 스토리지: 기존 방식 사용
+        const blobResponse = await api.get(`/files/${fileId}`, {
+          responseType: 'blob',
+          timeout: 120000
+        })
+        const url = window.URL.createObjectURL(new Blob([blobResponse.data]))
+        const link = document.createElement('a')
+        link.href = url
+        link.setAttribute('download', filename)
+        document.body.appendChild(link)
+        link.click()
+        link.remove()
+        window.URL.revokeObjectURL(url)
+      } else {
+        // R2/MinIO: Presigned URL로 직접 다운로드
+        const link = document.createElement('a')
+        link.href = download_url
+        link.setAttribute('download', filename)
+        link.target = '_blank'
+        document.body.appendChild(link)
+        link.click()
+        link.remove()
+      }
+
+      message.success('파일 다운로드 시작')
     } catch (error) {
       hideLoading()
       console.error('File download error:', error)

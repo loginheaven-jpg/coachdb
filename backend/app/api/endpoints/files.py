@@ -314,6 +314,93 @@ async def get_file_info(
     )
 
 
+@router.get("/{file_id}/download-url")
+async def get_download_url(
+    file_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get a presigned URL for direct file download from R2/MinIO storage.
+    This is more efficient than proxying through the backend.
+
+    - **file_id**: The ID of the file
+
+    Returns a presigned URL valid for 1 hour.
+    """
+    # Get file metadata from database
+    result = await db.execute(
+        select(FileModel).where(FileModel.file_id == file_id)
+    )
+    db_file = result.scalar_one_or_none()
+
+    if not db_file:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File not found"
+        )
+
+    # Check permission
+    from app.models.user import User as UserModel
+    result = await db.execute(
+        select(UserModel).where(UserModel.user_id == current_user.user_id)
+    )
+    user = result.scalar_one()
+    user_roles = get_user_roles(user)
+
+    allowed_roles = ['staff', 'admin', 'VERIFIER', 'REVIEWER', 'PROJECT_MANAGER', 'SUPER_ADMIN']
+    if db_file.uploaded_by != current_user.user_id and not any(role in allowed_roles for role in user_roles):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to access this file"
+        )
+
+    try:
+        if settings.FILE_STORAGE_TYPE == "r2":
+            r2_client = get_r2_client()
+            # Generate presigned URL valid for 1 hour
+            url = r2_client.presigned_get_object(
+                settings.R2_BUCKET,
+                db_file.file_path,
+                expires=timedelta(hours=1)
+            )
+            return {
+                "download_url": url,
+                "filename": db_file.original_filename,
+                "expires_in": 3600  # seconds
+            }
+        elif settings.FILE_STORAGE_TYPE == "minio":
+            minio_client = get_minio_client()
+            url = minio_client.presigned_get_object(
+                settings.MINIO_BUCKET,
+                db_file.file_path,
+                expires=timedelta(hours=1)
+            )
+            return {
+                "download_url": url,
+                "filename": db_file.original_filename,
+                "expires_in": 3600
+            }
+        else:
+            # Local storage - return the direct download endpoint
+            return {
+                "download_url": f"/api/files/{file_id}",
+                "filename": db_file.original_filename,
+                "expires_in": None,
+                "is_local": True
+            }
+    except S3Error as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate download URL: {str(e)}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate download URL: {str(e)}"
+        )
+
+
 @router.delete("/{file_id}")
 async def delete_file(
     file_id: int,
