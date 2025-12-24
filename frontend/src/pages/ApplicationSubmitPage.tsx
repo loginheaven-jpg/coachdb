@@ -1342,7 +1342,8 @@ export default function ApplicationSubmitPage() {
                       if (!competencyItem) return null
 
                       const isRepeatable = competencyItem.is_repeatable
-                      const entries = isRepeatable ? (repeatableData[item.project_item_id] || [{}]) : [{}]
+                      // 반복 가능 항목은 빈 배열로 시작 (세부정보 화면과 동일)
+                      const entries = isRepeatable ? (repeatableData[item.project_item_id] || []) : [{}]
                       const maxEntries = competencyItem.max_entries
                       const canAddMore = !maxEntries || entries.length < maxEntries
 
