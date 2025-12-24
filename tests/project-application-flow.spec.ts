@@ -58,6 +58,13 @@ async function login(page: Page, email: string, password: string) {
 }
 
 async function logout(page: Page) {
+  // 먼저 열린 모달 닫기
+  const modal = page.locator('.ant-modal-content')
+  if (await modal.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(500)
+  }
+
   // 사용자 드롭다운 찾기
   const userDropdown = page.locator('.ant-dropdown-trigger').first()
   if (await userDropdown.isVisible({ timeout: 2000 }).catch(() => false)) {
