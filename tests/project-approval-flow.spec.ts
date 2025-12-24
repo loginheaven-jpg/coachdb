@@ -101,11 +101,11 @@ test.describe('TC-PROJECT-APPROVAL: 과제 승인 워크플로우', () => {
       await expect(page.getByText('전체 사용자')).toBeVisible()
       await expect(page.getByText('활성 사용자')).toBeVisible()
       await expect(page.getByText('과제 승인대기')).toBeVisible()
-      await expect(page.getByText('역량항목')).toBeVisible()
+      await expect(page.getByText('역량항목', { exact: true })).toBeVisible()
 
       // 관리 기능 메뉴 확인
       await expect(page.getByText('관리 기능')).toBeVisible()
-      await expect(page.getByText('사용자 관리')).toBeVisible()
+      await expect(page.getByText('사용자 관리', { exact: true })).toBeVisible()
       await expect(page.getByText('역량항목 관리')).toBeVisible()
     })
 
