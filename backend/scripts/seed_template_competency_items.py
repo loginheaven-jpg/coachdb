@@ -448,7 +448,7 @@ async def seed_template_items():
                             "field_type": "text",
                             "is_required": True,
                             "display_order": 1,
-                            "placeholder": "전문 분야를 입력하세요"
+                            "placeholder": "코칭 분야(비즈니스, 라이프 등)로 표현될 수 없는 구체적인 전문성을 자유롭게 기재해 주세요."
                         }
                     ]
                 }

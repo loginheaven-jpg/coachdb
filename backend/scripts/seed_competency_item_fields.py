@@ -88,7 +88,7 @@ COACHING_HISTORY_FIELDS = [
         "field_options": None,
         "is_required": True,
         "display_order": 1,
-        "placeholder": "과제명 또는 프로그램명을 입력하세요"
+        "placeholder": "예) 2024년 서울시 청년 커리어 코칭, ICF ACC 인증과정 코칭 실습"
     },
     {
         "field_name": "organization",
@@ -97,7 +97,7 @@ COACHING_HISTORY_FIELDS = [
         "field_options": None,
         "is_required": True,
         "display_order": 2,
-        "placeholder": "기관명을 입력하세요"
+        "placeholder": "예) 한국코치협회, 서울시청, OO대학교 창업지원단, XX기업 인사팀"
     },
     {
         "field_name": "period",
@@ -124,7 +124,7 @@ COACHING_HISTORY_FIELDS = [
         "field_options": None,
         "is_required": False,
         "display_order": 5,
-        "placeholder": "활동 내용을 입력하세요 (선택)"
+        "placeholder": "예) 신입사원 10명 대상 1:1 커리어 코칭 월 2회 진행, 총 24회 세션 완료"
     },
     {
         "field_name": "file",
