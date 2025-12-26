@@ -6,7 +6,7 @@ from typing import List, Optional
 from app.core.database import get_db
 from app.core.security import get_current_user, require_role
 from app.models.user import User
-from app.models.project import Project, ProjectStatus
+from app.models.project import Project, ProjectStatus, ProjectStaff
 from app.models.application import Application, ApplicationData, ApplicationStatus
 from datetime import datetime
 from app.models.custom_question import CustomQuestion, CustomQuestionAnswer
@@ -28,6 +28,8 @@ from app.schemas.project import (
     CoachEvaluationCreate,
     CoachEvaluationUpdate,
     CoachEvaluationResponse,
+    ProjectStaffCreate,
+    ProjectStaffResponse,
 )
 from app.schemas.competency import (
     ProjectItemCreate,
@@ -1993,8 +1995,19 @@ async def get_project_applications(
     elif "PROJECT_MANAGER" in user_roles:
         if project.project_manager_id == current_user.user_id or project.created_by == current_user.user_id:
             has_access = True
-    elif any(r in user_roles for r in ["VERIFIER", "REVIEWER"]):
+    elif "VERIFIER" in user_roles:
+        # VERIFIER는 모든 과제의 지원자 열람 가능
         has_access = True
+    elif "REVIEWER" in user_roles:
+        # REVIEWER는 할당된 과제만 지원자 열람 가능
+        staff_result = await db.execute(
+            select(ProjectStaff).where(
+                ProjectStaff.project_id == project_id,
+                ProjectStaff.staff_user_id == current_user.user_id
+            )
+        )
+        if staff_result.scalar_one_or_none():
+            has_access = True
 
     if not has_access:
         raise HTTPException(
@@ -2079,3 +2092,214 @@ async def get_project_applications(
         response_list.append(response_item)
 
     return response_list
+
+
+# ============================================================================
+# Project Staff (심사자) Management Endpoints
+# ============================================================================
+
+@router.get(
+    "/{project_id}/staff",
+    response_model=ProjectStaffListResponse,
+    summary="과제 심사위원 목록 조회"
+)
+async def get_project_staff(
+    project_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    과제에 할당된 심사위원(REVIEWER) 목록을 조회합니다.
+
+    권한: SUPER_ADMIN만 접근 가능
+    """
+    # Check SUPER_ADMIN permission
+    user_roles = [r.value if hasattr(r, 'value') else r for r in current_user.roles]
+    if "SUPER_ADMIN" not in user_roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="심사위원 관리 권한이 없습니다"
+        )
+
+    # Check project exists
+    project_result = await db.execute(
+        select(Project).where(Project.project_id == project_id)
+    )
+    project = project_result.scalar_one_or_none()
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="과제를 찾을 수 없습니다"
+        )
+
+    # Get staff list with user info
+    staff_result = await db.execute(
+        select(ProjectStaff, User)
+        .join(User, ProjectStaff.staff_user_id == User.user_id)
+        .where(ProjectStaff.project_id == project_id)
+        .order_by(ProjectStaff.assigned_at.desc())
+    )
+    staff_rows = staff_result.all()
+
+    staff_list = []
+    for staff, user in staff_rows:
+        staff_response = ProjectStaffResponse(
+            project_id=staff.project_id,
+            staff_user_id=staff.staff_user_id,
+            assigned_at=staff.assigned_at,
+            staff_user=UserBasicInfo(
+                user_id=user.user_id,
+                username=user.username,
+                full_name=user.name
+            )
+        )
+        staff_list.append(staff_response)
+
+    return ProjectStaffListResponse(
+        staff_list=staff_list,
+        total_count=len(staff_list)
+    )
+
+
+@router.post(
+    "/{project_id}/staff",
+    response_model=ProjectStaffResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="과제 심사위원 추가"
+)
+async def add_project_staff(
+    project_id: int,
+    staff_data: ProjectStaffCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    과제에 심사위원(REVIEWER)을 추가합니다.
+
+    권한: SUPER_ADMIN만 접근 가능
+    """
+    # Check SUPER_ADMIN permission
+    user_roles = [r.value if hasattr(r, 'value') else r for r in current_user.roles]
+    if "SUPER_ADMIN" not in user_roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="심사위원 관리 권한이 없습니다"
+        )
+
+    # Check project exists
+    project_result = await db.execute(
+        select(Project).where(Project.project_id == project_id)
+    )
+    project = project_result.scalar_one_or_none()
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="과제를 찾을 수 없습니다"
+        )
+
+    # Check user exists and has REVIEWER role
+    user_result = await db.execute(
+        select(User).where(User.user_id == staff_data.staff_user_id)
+    )
+    staff_user = user_result.scalar_one_or_none()
+    if not staff_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="사용자를 찾을 수 없습니다"
+        )
+
+    staff_user_roles = [r.value if hasattr(r, 'value') else r for r in staff_user.roles]
+    if "REVIEWER" not in staff_user_roles:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="해당 사용자에게 REVIEWER 역할이 없습니다"
+        )
+
+    # Check if already assigned
+    existing_result = await db.execute(
+        select(ProjectStaff).where(
+            ProjectStaff.project_id == project_id,
+            ProjectStaff.staff_user_id == staff_data.staff_user_id
+        )
+    )
+    if existing_result.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="이미 해당 과제에 할당된 심사위원입니다"
+        )
+
+    # Create new staff assignment
+    new_staff = ProjectStaff(
+        project_id=project_id,
+        staff_user_id=staff_data.staff_user_id
+    )
+    db.add(new_staff)
+    await db.commit()
+    await db.refresh(new_staff)
+
+    return ProjectStaffResponse(
+        project_id=new_staff.project_id,
+        staff_user_id=new_staff.staff_user_id,
+        assigned_at=new_staff.assigned_at,
+        staff_user=UserBasicInfo(
+            user_id=staff_user.user_id,
+            username=staff_user.username,
+            full_name=staff_user.name
+        )
+    )
+
+
+@router.delete(
+    "/{project_id}/staff/{staff_user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="과제 심사위원 제거"
+)
+async def remove_project_staff(
+    project_id: int,
+    staff_user_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    과제에서 심사위원(REVIEWER)을 제거합니다.
+
+    권한: SUPER_ADMIN만 접근 가능
+    """
+    # Check SUPER_ADMIN permission
+    user_roles = [r.value if hasattr(r, 'value') else r for r in current_user.roles]
+    if "SUPER_ADMIN" not in user_roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="심사위원 관리 권한이 없습니다"
+        )
+
+    # Check project exists
+    project_result = await db.execute(
+        select(Project).where(Project.project_id == project_id)
+    )
+    project = project_result.scalar_one_or_none()
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="과제를 찾을 수 없습니다"
+        )
+
+    # Check staff assignment exists
+    staff_result = await db.execute(
+        select(ProjectStaff).where(
+            ProjectStaff.project_id == project_id,
+            ProjectStaff.staff_user_id == staff_user_id
+        )
+    )
+    staff = staff_result.scalar_one_or_none()
+    if not staff:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="해당 심사위원 할당을 찾을 수 없습니다"
+        )
+
+    # Delete staff assignment
+    await db.delete(staff)
+    await db.commit()
+
+    return None

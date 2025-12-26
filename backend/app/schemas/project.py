@@ -302,3 +302,28 @@ class CoachEvaluationResponse(CoachEvaluationBase):
 
     class Config:
         from_attributes = True
+
+
+# ============================================================================
+# Project Staff (심사자) Schemas
+# ============================================================================
+class ProjectStaffCreate(BaseModel):
+    """Schema for adding a staff member (REVIEWER) to a project"""
+    staff_user_id: int
+
+
+class ProjectStaffResponse(BaseModel):
+    """Response schema for project staff"""
+    project_id: int
+    staff_user_id: int
+    assigned_at: datetime
+    staff_user: Optional[UserBasicInfo] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ProjectStaffListResponse(BaseModel):
+    """List of project staff members"""
+    staff_list: List[ProjectStaffResponse]
+    total_count: int

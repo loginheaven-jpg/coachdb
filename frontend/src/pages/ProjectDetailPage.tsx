@@ -28,8 +28,11 @@ import {
   UnorderedListOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
-  DownOutlined
+  DownOutlined,
+  UsergroupAddOutlined
 } from '@ant-design/icons'
+import { useAuthStore } from '../stores/authStore'
+import ProjectStaffModal from '../components/ProjectStaffModal'
 import projectService, {
   ProjectDetail,
   ProjectStatus,
@@ -50,6 +53,7 @@ const { TabPane } = Tabs
 export default function ProjectDetailPage() {
   const navigate = useNavigate()
   const { projectId } = useParams<{ projectId: string }>()
+  const { user } = useAuthStore()
   const [loading, setLoading] = useState(false)
   const [project, setProject] = useState<ProjectDetail | null>(null)
   const [questions, setQuestions] = useState<CustomQuestion[]>([])
@@ -60,7 +64,11 @@ export default function ProjectDetailPage() {
   const [questionModalVisible, setQuestionModalVisible] = useState(false)
   const [surveyBuilderVisible, setSurveyBuilderVisible] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const [staffModalVisible, setStaffModalVisible] = useState(false)
   const [questionForm] = Form.useForm()
+
+  // SUPER_ADMIN 권한 체크
+  const isSuperAdmin = user?.roles?.includes('SUPER_ADMIN')
 
   useEffect(() => {
     if (projectId) {
@@ -344,6 +352,15 @@ export default function ProjectDetailPage() {
             과제 목록으로 돌아가기
           </Button>
           <Space>
+            {/* 심사위원 관리 버튼 - SUPER_ADMIN 전용 */}
+            {isSuperAdmin && (
+              <Button
+                icon={<UsergroupAddOutlined />}
+                onClick={() => setStaffModalVisible(true)}
+              >
+                심사위원 관리
+              </Button>
+            )}
             <Button
               type="primary"
               icon={<EditOutlined />}
@@ -642,6 +659,14 @@ export default function ProjectDetailPage() {
             loadProjectItems()
             validateScore()
           }}
+        />
+
+        {/* Project Staff Modal - 심사위원 관리 (SUPER_ADMIN 전용) */}
+        <ProjectStaffModal
+          visible={staffModalVisible}
+          projectId={parseInt(projectId || '0')}
+          projectName={project?.project_name || ''}
+          onClose={() => setStaffModalVisible(false)}
         />
       </div>
     </div>

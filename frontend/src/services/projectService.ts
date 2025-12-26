@@ -322,6 +322,21 @@ export interface ProjectApplicationListItem {
 }
 
 // ============================================================================
+// Project Staff (심사위원) Types
+// ============================================================================
+export interface ProjectStaffResponse {
+  project_id: number
+  staff_user_id: number
+  assigned_at: string
+  staff_user: UserBasicInfo | null
+}
+
+export interface ProjectStaffListResponse {
+  staff_list: ProjectStaffResponse[]
+  total_count: number
+}
+
+// ============================================================================
 // API Service
 // ============================================================================
 const projectService = {
@@ -593,6 +608,33 @@ const projectService = {
   async freezeApplications(projectId: number): Promise<{ message: string; frozen_count: number; snapshot_count: number }> {
     const response = await api.post(`/projects/${projectId}/freeze-applications`)
     return response.data
+  },
+
+  // ============================================================================
+  // Project Staff (심사위원) Management - SUPER_ADMIN only
+  // ============================================================================
+
+  /**
+   * Get list of staff (reviewers) assigned to a project
+   */
+  async getProjectStaff(projectId: number): Promise<ProjectStaffListResponse> {
+    const response = await api.get(`/projects/${projectId}/staff`)
+    return response.data
+  },
+
+  /**
+   * Add a reviewer to a project
+   */
+  async addProjectStaff(projectId: number, staffUserId: number): Promise<ProjectStaffResponse> {
+    const response = await api.post(`/projects/${projectId}/staff`, { staff_user_id: staffUserId })
+    return response.data
+  },
+
+  /**
+   * Remove a reviewer from a project
+   */
+  async removeProjectStaff(projectId: number, staffUserId: number): Promise<void> {
+    await api.delete(`/projects/${projectId}/staff/${staffUserId}`)
   }
 }
 
