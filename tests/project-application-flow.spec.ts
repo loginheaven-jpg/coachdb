@@ -220,10 +220,10 @@ test.describe.serial('과제 개설 → 응모 → 검토 → 승인 전체 플�
         await motivationTextarea.fill('E2E 테스트: 지원 동기 및 기여점 입력')
       }
 
-      // 설문항목 탭으로 이동 (있는 경우)
-      const surveyTab = page.locator('text=설문항목').first()
-      if (await surveyTab.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await surveyTab.click()
+      // 역량 정보 탭으로 이동 (있는 경우)
+      const competencyTab = page.getByRole('tab', { name: /역량 정보/i })
+      if (await competencyTab.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await competencyTab.click()
         await page.waitForTimeout(1000)
       }
 
