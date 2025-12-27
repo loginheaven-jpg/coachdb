@@ -16,9 +16,10 @@ import {
   Upload,
   UploadFile
 } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, ArrowLeftOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, UploadOutlined, FileOutlined, DownloadOutlined } from '@ant-design/icons'
+import { PlusOutlined, EditOutlined, DeleteOutlined, ArrowLeftOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, UploadOutlined, FileOutlined, DownloadOutlined, EyeOutlined } from '@ant-design/icons'
 import competencyService, { CoachCompetency, CompetencyItem } from '../services/competencyService'
 import fileService from '../services/fileService'
+import FilePreviewModal, { useFilePreview } from '../components/FilePreviewModal'
 
 const { Title, Text } = Typography
 const { Option } = Select
@@ -36,6 +37,8 @@ export default function CompetencyManagementPage() {
   const [uploadedFileId, setUploadedFileId] = useState<number | null>(null)
   const [selectedItemType, setSelectedItemType] = useState<string>('')
   const [form] = Form.useForm()
+  // 파일 미리보기
+  const { previewState, openPreview, closePreview } = useFilePreview()
 
   useEffect(() => {
     loadData()
@@ -274,7 +277,7 @@ export default function CompetencyManagementPage() {
         const fileInfo = record.file_info
         const fileSizeKB = (fileInfo.file_size / 1024).toFixed(1)
         return (
-          <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <Button
               type="link"
               size="small"
@@ -283,11 +286,16 @@ export default function CompetencyManagementPage() {
             >
               {fileInfo.original_filename}
             </Button>
-            <div>
-              <Text type="secondary" style={{ fontSize: '11px' }}>
-                {fileSizeKB} KB
-              </Text>
-            </div>
+            <Text type="secondary" style={{ fontSize: '11px' }}>
+              ({fileSizeKB} KB)
+            </Text>
+            <Button
+              type="text"
+              size="small"
+              icon={<EyeOutlined />}
+              onClick={() => openPreview(file_id, fileInfo.original_filename)}
+              title="미리보기"
+            />
           </div>
         )
       }
@@ -465,6 +473,14 @@ export default function CompetencyManagementPage() {
             </Form.Item>
           </Form>
         </Modal>
+
+        {/* File Preview Modal */}
+        <FilePreviewModal
+          visible={previewState.visible}
+          fileId={previewState.fileId}
+          filename={previewState.filename}
+          onClose={closePreview}
+        />
       </div>
     </div>
   )
