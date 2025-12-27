@@ -1056,6 +1056,11 @@ export default function ApplicationSubmitPage() {
               }
             })
             submittedValue = JSON.stringify(entriesWithFiles)
+
+            // 🔧 반복 가능 항목에서도 첫 번째 entry의 file_id를 submitted_file_id로 전달
+            const firstFileKey = `${item.project_item_id}_0`
+            const firstFileInfo = uploadedFiles[firstFileKey]
+            submittedFileId = firstFileInfo?.file_id || null
           }
         } else {
           // 일반 항목은 form values에서 가져옴

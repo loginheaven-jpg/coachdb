@@ -654,6 +654,24 @@ async def submit_application(
             value_preview = data_item.submitted_value[:50] if data_item.submitted_value else None
             print(f"[Auto-sync] Processing item_id={data_item.item_id}, value_preview={value_preview}")
 
+            # 🔧 반복 가능 항목의 경우 JSON에서 _file_id 추출
+            # 프론트엔드에서 반복 가능 항목은 submitted_file_id가 null로 오고
+            # _file_id가 JSON 문자열 안에 포함되어 있음
+            effective_file_id = data_item.submitted_file_id
+            if not effective_file_id and data_item.submitted_value:
+                try:
+                    import json
+                    parsed = json.loads(data_item.submitted_value)
+                    if isinstance(parsed, list) and len(parsed) > 0:
+                        # 첫 번째 entry의 _file_id 사용
+                        effective_file_id = parsed[0].get('_file_id')
+                        if effective_file_id:
+                            print(f"[Auto-sync] Extracted _file_id={effective_file_id} from JSON for item_id={data_item.item_id}")
+                except (json.JSONDecodeError, TypeError, AttributeError):
+                    pass
+
+            print(f"[Auto-sync] effective_file_id={effective_file_id}, submitted_file_id={data_item.submitted_file_id}")
+
             # Check if user already has this competency
             competency_result = await db.execute(
                 select(CoachCompetency).where(
@@ -669,22 +687,22 @@ async def submit_application(
                 if data_item.submitted_value and existing_competency.value != data_item.submitted_value:
                     print(f"[Auto-sync] Updating existing competency {existing_competency.competency_id}")
                     existing_competency.value = data_item.submitted_value
-                    if data_item.submitted_file_id:
-                        existing_competency.file_id = data_item.submitted_file_id
+                    if effective_file_id:
+                        existing_competency.file_id = effective_file_id
                     # Reset verification when value changes
                     existing_competency.verification_status = VerificationStatus.PENDING
-                elif data_item.submitted_file_id and existing_competency.file_id != data_item.submitted_file_id:
+                elif effective_file_id and existing_competency.file_id != effective_file_id:
                     # Update file even if value didn't change
-                    existing_competency.file_id = data_item.submitted_file_id
+                    existing_competency.file_id = effective_file_id
                     existing_competency.verification_status = VerificationStatus.PENDING
-            elif data_item.submitted_value:
-                # Create new competency in the wallet
+            elif data_item.submitted_value or effective_file_id:
+                # Create new competency in the wallet (value OR file이 있으면 생성)
                 print(f"[Auto-sync] Creating new competency for user={application.user_id}, item={data_item.item_id}")
                 new_competency = CoachCompetency(
                     user_id=application.user_id,
                     item_id=data_item.item_id,
                     value=data_item.submitted_value,
-                    file_id=data_item.submitted_file_id,
+                    file_id=effective_file_id,
                     verification_status=VerificationStatus.PENDING
                 )
                 db.add(new_competency)
