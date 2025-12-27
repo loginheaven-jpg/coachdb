@@ -23,59 +23,78 @@ export default function FilePreviewModal({
   const [fileUrl, setFileUrl] = useState<string | null>(null)
   const [mimeType, setMimeType] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
+  const [isPresignedUrl, setIsPresignedUrl] = useState(false)
+  const [imageLoadFailed, setImageLoadFailed] = useState(false)
 
   useEffect(() => {
     if (visible && fileId) {
       loadFile()
     }
     return () => {
-      // Cleanup object URL when modal closes
-      if (fileUrl) {
+      // Cleanup object URL when modal closes (only for blob URLs, not presigned URLs)
+      if (fileUrl && !isPresignedUrl) {
         URL.revokeObjectURL(fileUrl)
-        setFileUrl(null)
       }
+      setFileUrl(null)
+      setIsPresignedUrl(false)
+      setImageLoadFailed(false)
     }
   }, [visible, fileId])
 
-  const loadFile = async () => {
+  const loadFile = async (forceBlob = false) => {
     if (!fileId) return
 
     setLoading(true)
     setError(null)
     setFileUrl(null)
+    setIsPresignedUrl(false)
+    setImageLoadFailed(false)
 
     try {
-      // First try to get presigned URL (for cloud storage)
-      try {
-        const response = await api.get(`/files/${fileId}/download-url`)
-        if (response.data?.download_url) {
-          setFileUrl(response.data.download_url)
-          // Infer mime type from filename
-          const ext = filename.toLowerCase().split('.').pop()
-          if (ext === 'pdf') {
-            setMimeType('application/pdf')
-          } else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext || '')) {
-            setMimeType(`image/${ext === 'jpg' ? 'jpeg' : ext}`)
-          } else {
-            setMimeType('application/octet-stream')
+      // First try to get presigned URL (for cloud storage), unless forcing blob
+      if (!forceBlob) {
+        try {
+          const response = await api.get(`/files/${fileId}/download-url`)
+          if (response.data?.download_url) {
+            setFileUrl(response.data.download_url)
+            setIsPresignedUrl(true)
+            // Infer mime type from filename
+            const ext = filename.toLowerCase().split('.').pop()
+            if (ext === 'pdf') {
+              setMimeType('application/pdf')
+            } else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext || '')) {
+              setMimeType(`image/${ext === 'jpg' ? 'jpeg' : ext}`)
+            } else {
+              setMimeType('application/octet-stream')
+            }
+            setLoading(false)
+            return
           }
-          setLoading(false)
-          return
+        } catch {
+          // Presigned URL not available, fall back to blob download
         }
-      } catch {
-        // Presigned URL not available, fall back to blob download
       }
 
       // Fall back to blob download
       const blob = await fileService.downloadFile(fileId)
       const url = URL.createObjectURL(blob)
       setFileUrl(url)
+      setIsPresignedUrl(false)
       setMimeType(blob.type || 'application/octet-stream')
     } catch (err: any) {
       console.error('파일 로드 실패:', err)
       setError('파일을 불러오는데 실패했습니다.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Handle image load error - fall back to blob download
+  const handleImageError = () => {
+    if (isPresignedUrl && !imageLoadFailed) {
+      console.log('Presigned URL 이미지 로딩 실패, blob fallback 시도')
+      setImageLoadFailed(true)
+      loadFile(true) // Force blob download
     }
   }
 
@@ -135,6 +154,7 @@ export default function FilePreviewModal({
           src={fileUrl}
           style={{ width: '100%', height: '70vh', border: 'none' }}
           title={filename}
+          onError={handleImageError}
         />
       )
     }
@@ -147,6 +167,7 @@ export default function FilePreviewModal({
             src={fileUrl}
             alt={filename}
             style={{ maxWidth: '100%', maxHeight: '65vh', objectFit: 'contain' }}
+            onError={handleImageError}
           />
         </div>
       )
