@@ -15,6 +15,7 @@ import {
 import type { ColumnsType } from 'antd/es/table'
 import verificationService, { PendingVerificationItem, CompetencyVerificationStatus, ActivityRecord } from '../services/verificationService'
 import api from '../services/api'
+import FilePreviewModal, { useFilePreview } from '../components/FilePreviewModal'
 
 const { Title, Text } = Typography
 const { TextArea } = Input
@@ -114,6 +115,8 @@ export default function StaffDashboard() {
   const [supplementReason, setSupplementReason] = useState('')
   const [supplementTargetId, setSupplementTargetId] = useState<number | null>(null)
   const [supplementLoading, setSupplementLoading] = useState(false)
+  // 파일 미리보기
+  const { previewState, openPreview, closePreview } = useFilePreview()
 
   // 통계 계산
   const stats = {
@@ -539,6 +542,11 @@ export default function StaffDashboard() {
                       selectedCompetency.file_id!,
                       selectedCompetency.file_info?.original_filename || 'file'
                     )}
+                    onDoubleClick={() => openPreview(
+                      selectedCompetency.file_id!,
+                      selectedCompetency.file_info?.original_filename || 'file'
+                    )}
+                    title="더블클릭으로 미리보기"
                   >
                     {selectedCompetency.file_info?.original_filename || `파일 ID: ${selectedCompetency.file_id}`}
                   </Button>
@@ -610,6 +618,14 @@ export default function StaffDashboard() {
           showCount
         />
       </Modal>
+
+      {/* File Preview Modal */}
+      <FilePreviewModal
+        visible={previewState.visible}
+        fileId={previewState.fileId}
+        filename={previewState.filename}
+        onClose={closePreview}
+      />
     </div>
   )
 }

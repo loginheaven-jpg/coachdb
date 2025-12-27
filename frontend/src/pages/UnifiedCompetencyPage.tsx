@@ -41,6 +41,7 @@ import authService from '../services/authService'
 import competencyService, { CoachCompetency, CompetencyItem } from '../services/competencyService'
 import educationService from '../services/educationService'
 import fileService from '../services/fileService'
+import FilePreviewModal, { useFilePreview } from '../components/FilePreviewModal'
 import dayjs from 'dayjs'
 
 const { Title, Text } = Typography
@@ -285,6 +286,8 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
   const [isDegreeItem, setIsDegreeItem] = useState<boolean>(false)
   const [form] = Form.useForm()
   const [educationForm] = Form.useForm()
+  // 파일 미리보기
+  const { previewState, openPreview, closePreview } = useFilePreview()
 
   useEffect(() => {
     loadData()
@@ -740,7 +743,9 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
                 size="small"
                 icon={<DownloadOutlined />}
                 onClick={() => handleFileDownload(comp.file_id!, comp.file_info!.original_filename)}
+                onDoubleClick={() => openPreview(comp.file_id!, comp.file_info!.original_filename)}
                 className="p-0"
+                title="더블클릭으로 미리보기"
               >
                 {comp.file_info.original_filename}
               </Button>
@@ -1324,6 +1329,14 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
               </Form.Item>
             </Form>
           </Modal>
+
+          {/* File Preview Modal */}
+          <FilePreviewModal
+            visible={previewState.visible}
+            fileId={previewState.fileId}
+            filename={previewState.filename}
+            onClose={closePreview}
+          />
         </div>
       )
     }
@@ -1542,6 +1555,14 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
             </Form.Item>
           </Form>
         </Modal>
+
+        {/* File Preview Modal */}
+        <FilePreviewModal
+          visible={previewState.visible}
+          fileId={previewState.fileId}
+          filename={previewState.filename}
+          onClose={closePreview}
+        />
       </div>
     </div>
   )

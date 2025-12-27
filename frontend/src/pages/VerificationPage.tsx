@@ -5,6 +5,7 @@ import type { ColumnsType } from 'antd/es/table'
 import verificationService, { PendingVerificationItem, CompetencyVerificationStatus, ActivityRecord } from '../services/verificationService'
 import { useAuthStore } from '../stores/authStore'
 import api from '../services/api'
+import FilePreviewModal, { useFilePreview } from '../components/FilePreviewModal'
 
 const { Title, Text } = Typography
 const { TextArea } = Input
@@ -112,6 +113,8 @@ export default function VerificationPage() {
   const [supplementLoading, setSupplementLoading] = useState(false)
   // 상태 필터
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  // 파일 미리보기
+  const { previewState, openPreview, closePreview } = useFilePreview()
 
   const fetchPendingVerifications = useCallback(async () => {
     setLoading(true)
@@ -525,7 +528,12 @@ export default function VerificationPage() {
                       selectedCompetency.file_id!,
                       selectedCompetency.file_info?.original_filename || 'file'
                     )}
+                    onDoubleClick={() => openPreview(
+                      selectedCompetency.file_id!,
+                      selectedCompetency.file_info?.original_filename || 'file'
+                    )}
                     style={{ padding: 0 }}
+                    title="더블클릭으로 미리보기"
                   >
                     {selectedCompetency.file_info?.original_filename || `파일 다운로드`}
                   </Button>
@@ -641,6 +649,14 @@ export default function VerificationPage() {
           showCount
         />
       </Modal>
+
+      {/* File Preview Modal */}
+      <FilePreviewModal
+        visible={previewState.visible}
+        fileId={previewState.fileId}
+        filename={previewState.filename}
+        onClose={closePreview}
+      />
     </>
   )
 }

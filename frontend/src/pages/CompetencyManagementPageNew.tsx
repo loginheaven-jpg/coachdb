@@ -38,6 +38,7 @@ import competencyService, { CoachCompetency, CompetencyItem } from '../services/
 import certificationService, { CertificationListItem, CertificationType } from '../services/certificationService'
 import educationService from '../services/educationService'
 import fileService from '../services/fileService'
+import FilePreviewModal, { useFilePreview } from '../components/FilePreviewModal'
 import dayjs from 'dayjs'
 
 const { Title, Text } = Typography
@@ -109,6 +110,9 @@ export default function CompetencyManagementPageNew() {
   const [competencyForm] = Form.useForm()
   const [certificationForm] = Form.useForm()
   const [educationForm] = Form.useForm()
+
+  // 파일 미리보기
+  const { previewState, openPreview, closePreview } = useFilePreview()
 
   useEffect(() => {
     loadData()
@@ -420,6 +424,16 @@ export default function CompetencyManagementPageNew() {
     }
   }
 
+  // 파일 다운로드
+  const handleFileDownload = async (fileId: number, filename: string) => {
+    try {
+      await fileService.downloadAndSave(fileId, filename)
+      message.success('파일 다운로드 완료')
+    } catch (error) {
+      message.error('파일 다운로드에 실패했습니다.')
+    }
+  }
+
   const getStatusTag = (status: string) => {
     const statusMap: Record<string, { color: string; icon: React.ReactNode; text: string }> = {
       pending: { color: 'orange', icon: <ClockCircleOutlined />, text: '검토중' },
@@ -444,13 +458,16 @@ export default function CompetencyManagementPageNew() {
         <div className="flex-1">
           <div className="font-medium">{comp.competency_item?.item_name}</div>
           {comp.value && <div className="mt-2"><Text>{comp.value}</Text></div>}
-          {comp.file_info && (
+          {comp.file_info && comp.file_id && (
             <div className="mt-2">
               <Button
                 type="link"
                 size="small"
                 icon={<DownloadOutlined />}
                 className="p-0"
+                onClick={() => handleFileDownload(comp.file_id!, comp.file_info!.original_filename)}
+                onDoubleClick={() => openPreview(comp.file_id!, comp.file_info!.original_filename)}
+                title="더블클릭으로 미리보기"
               >
                 {comp.file_info.original_filename}
               </Button>
@@ -1019,6 +1036,14 @@ export default function CompetencyManagementPageNew() {
             </Form.Item>
           </Form>
         </Modal>
+
+        {/* File Preview Modal */}
+        <FilePreviewModal
+          visible={previewState.visible}
+          fileId={previewState.fileId}
+          filename={previewState.filename}
+          onClose={closePreview}
+        />
       </div>
     </div>
   )

@@ -26,6 +26,7 @@ import fileService from '../services/fileService'
 import profileService, { DetailedProfile } from '../services/profileService'
 import competencyService, { CoachCompetency } from '../services/competencyService'
 import { useAuthStore } from '../stores/authStore'
+import FilePreviewModal, { useFilePreview } from '../components/FilePreviewModal'
 import dayjs from 'dayjs'
 
 // 프로필 데이터와 매핑되는 설문 항목 코드
@@ -104,6 +105,9 @@ export default function ApplicationSubmitPage() {
   const [modalFileId, setModalFileId] = useState<number | null>(null)
   const [modalUploading, setModalUploading] = useState(false)
   const [profileLoaded, setProfileLoaded] = useState(false)
+
+  // 파일 미리보기 상태
+  const { previewState, openPreview, closePreview } = useFilePreview()
   const [competenciesLoaded, setCompetenciesLoaded] = useState(false)
   const [activeTab, setActiveTab] = useState('personal')
   const { user, setUser } = useAuthStore()
@@ -1571,6 +1575,8 @@ export default function ApplicationSubmitPage() {
                                         size="small"
                                         className="p-0"
                                         onClick={() => singleFileInfo?.file_id && handleFileDownload(singleFileInfo.file_id, singleFileInfo.filename || '파일')}
+                                        onDoubleClick={() => singleFileInfo?.file_id && openPreview(singleFileInfo.file_id, singleFileInfo.filename || '파일')}
+                                        title="더블클릭으로 미리보기"
                                       >
                                         {singleFileInfo?.filename || '첨부파일'}
                                       </Button>
@@ -1596,6 +1602,8 @@ export default function ApplicationSubmitPage() {
                                       size="small"
                                       className="p-0"
                                       onClick={() => uploadedFileInfo?.file_id && handleFileDownload(uploadedFileInfo.file_id, uploadedFileInfo.filename || uploadedFileInfo?.file?.name || '파일')}
+                                      onDoubleClick={() => uploadedFileInfo?.file_id && openPreview(uploadedFileInfo.file_id, uploadedFileInfo.filename || uploadedFileInfo?.file?.name || '파일')}
+                                      title="더블클릭으로 미리보기"
                                     >
                                       {uploadedFileInfo?.file?.name || uploadedFileInfo?.filename}
                                     </Button>
@@ -1634,6 +1642,8 @@ export default function ApplicationSubmitPage() {
                                       size="small"
                                       className="p-0"
                                       onClick={() => singleLinkedData?.linked_competency_file_id && handleFileDownload(singleLinkedData.linked_competency_file_id, singleLinkedFileInfo.original_filename)}
+                                      onDoubleClick={() => singleLinkedData?.linked_competency_file_id && openPreview(singleLinkedData.linked_competency_file_id, singleLinkedFileInfo.original_filename)}
+                                      title="더블클릭으로 미리보기"
                                     >
                                       {singleLinkedFileInfo.original_filename}
                                     </Button>
@@ -1856,6 +1866,14 @@ export default function ApplicationSubmitPage() {
             </Modal>
           </Card>
         )}
+
+        {/* 파일 미리보기 모달 */}
+        <FilePreviewModal
+          visible={previewState.visible}
+          fileId={previewState.fileId}
+          filename={previewState.filename}
+          onClose={closePreview}
+        />
       </div>
     </div>
   )
