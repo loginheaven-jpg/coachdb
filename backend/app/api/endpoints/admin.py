@@ -770,3 +770,123 @@ async def seed_competency_items(
         "created": created_count,
         "skipped": skipped_count
     }
+
+
+# ============================================================================
+# Reset Project Data Endpoint
+# ============================================================================
+@router.post("/reset-project-data")
+async def reset_project_data(
+    secret_key: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Reset all project-related data while keeping user accounts.
+
+    Deletes:
+    - All projects, applications, and related data
+    - All coach competencies and verification records
+    - All files (database records and R2 storage)
+    - All notifications, certifications, education history
+
+    Keeps:
+    - User accounts
+    - Competency items (master data)
+    - System configurations
+
+    WARNING: This is a destructive operation and cannot be undone!
+    """
+    if secret_key != "coachdb2024!":
+        raise HTTPException(status_code=403, detail="Invalid secret key")
+
+    from sqlalchemy import text
+    from app.core.config import settings
+
+    deleted_counts = {}
+    errors = []
+
+    try:
+        # Order matters due to foreign key constraints
+        tables_to_delete = [
+            # First: tables that reference others
+            "verification_records",
+            "custom_question_answers",
+            "application_data",
+            "coach_evaluations",
+            "review_locks",
+            "competency_reminders",
+            # Second: main tables
+            "applications",
+            "scoring_criteria",
+            "project_items",
+            "custom_questions",
+            "project_staff",
+            "projects",
+            # Third: coach data
+            "coach_competencies",
+            "certifications",
+            "coach_education_history",
+            "coach_profiles",
+            # Fourth: files and notifications
+            "notifications",
+        ]
+
+        for table in tables_to_delete:
+            try:
+                # Count before delete
+                count_result = await db.execute(text(f"SELECT count(*) FROM {table}"))
+                count = count_result.scalar() or 0
+
+                # Delete
+                await db.execute(text(f"DELETE FROM {table}"))
+                deleted_counts[table] = count
+            except Exception as e:
+                errors.append(f"{table}: {str(e)}")
+                await db.rollback()
+
+        # Handle files separately - also clean R2 storage
+        try:
+            from app.models.file import File as FileModel
+
+            # Get all files for R2 cleanup
+            files_result = await db.execute(select(FileModel))
+            all_files = files_result.scalars().all()
+            file_count = len(all_files)
+
+            # Clean R2 storage
+            if settings.FILE_STORAGE_TYPE == "r2" and all_files:
+                try:
+                    from app.api.endpoints.files import get_r2_client
+                    r2_client = get_r2_client()
+
+                    for db_file in all_files:
+                        try:
+                            r2_client.remove_object(settings.R2_BUCKET, db_file.file_path)
+                        except Exception:
+                            pass  # Ignore individual file deletion errors
+                except Exception as e:
+                    errors.append(f"R2 cleanup error: {str(e)}")
+
+            # Delete file records
+            await db.execute(text("DELETE FROM files"))
+            deleted_counts["files"] = file_count
+
+        except Exception as e:
+            errors.append(f"files: {str(e)}")
+
+        await db.commit()
+
+        return {
+            "message": "Project data reset completed",
+            "deleted_counts": deleted_counts,
+            "errors": errors if errors else None,
+            "kept_tables": ["users", "competency_items", "competency_item_fields", "system_configs", "role_requests"]
+        }
+
+    except Exception as e:
+        import traceback
+        await db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Reset failed: {str(e)}\n{traceback.format_exc()}"
+        )
