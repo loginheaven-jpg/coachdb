@@ -1454,9 +1454,24 @@ export default function ApplicationSubmitPage() {
                                   {showProofUpload && (
                                     <div className="flex items-center gap-2 pt-2 border-t">
                                       {hasFile ? (
-                                        <Tag color="green" icon={<CheckCircleOutlined />}>
-                                          {fileInfo?.file?.name || fileInfo?.filename || '첨부파일'}
-                                        </Tag>
+                                        <div className="flex items-center gap-2">
+                                          <DownloadOutlined className="text-blue-500" />
+                                          <Button
+                                            type="link"
+                                            size="small"
+                                            className="p-0"
+                                            onClick={() => fileInfo?.file_id && handleFileDownload(fileInfo.file_id, fileInfo.filename || fileInfo?.file?.name || '파일')}
+                                          >
+                                            {fileInfo?.file?.name || fileInfo?.filename || '첨부파일'}
+                                          </Button>
+                                          <Button
+                                            type="text"
+                                            size="small"
+                                            icon={<EyeOutlined />}
+                                            onClick={() => fileInfo?.file_id && openPreview(fileInfo.file_id, fileInfo.filename || fileInfo?.file?.name || '파일')}
+                                            title="미리보기"
+                                          />
+                                        </div>
                                       ) : (
                                         <Tag color={proofLevel === 'required' ? 'orange' : 'default'} icon={<UploadOutlined />}>
                                           {proofLevel === 'required' ? '증빙첨부 (필수)' : '증빙첨부 (선택)'}
