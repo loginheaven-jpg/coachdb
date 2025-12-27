@@ -615,3 +615,185 @@ async def check_orphan_files(
         "orphan_count": len(orphan_files),
         "orphan_files": orphan_files
     }
+
+
+@router.get("/admin/orphan-competencies")
+async def check_orphan_competencies(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Find CoachCompetency records that reference files missing from storage.
+    This helps identify competency records that need to be updated or deleted.
+
+    Returns competency details including user info and item info.
+    """
+    from app.models.competency import CoachCompetency, CompetencyItem
+    from sqlalchemy.orm import selectinload
+
+    # Check permission
+    from app.models.user import User as UserModel
+    result = await db.execute(
+        select(UserModel).where(UserModel.user_id == current_user.user_id)
+    )
+    user = result.scalar_one()
+    user_roles = get_user_roles(user)
+
+    allowed_roles = ['SUPER_ADMIN', 'PROJECT_MANAGER']
+    if not any(role in allowed_roles for role in user_roles):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="관리자만 접근할 수 있습니다."
+        )
+
+    # Get all competencies with file_id
+    result = await db.execute(
+        select(CoachCompetency)
+        .options(
+            selectinload(CoachCompetency.competency_item),
+            selectinload(CoachCompetency.user),
+            selectinload(CoachCompetency.file)
+        )
+        .where(CoachCompetency.file_id.isnot(None))
+    )
+    competencies = result.scalars().all()
+
+    orphan_competencies = []
+
+    if settings.FILE_STORAGE_TYPE == "r2":
+        r2_client = get_r2_client()
+        for comp in competencies:
+            if comp.file:
+                try:
+                    r2_client.stat_object(settings.R2_BUCKET, comp.file.file_path)
+                except S3Error as e:
+                    if e.code == "NoSuchKey":
+                        orphan_competencies.append({
+                            "competency_id": comp.competency_id,
+                            "user_id": comp.user_id,
+                            "user_name": comp.user.name if comp.user else None,
+                            "user_email": comp.user.email if comp.user else None,
+                            "item_id": comp.item_id,
+                            "item_name": comp.competency_item.item_name if comp.competency_item else None,
+                            "item_code": comp.competency_item.item_code if comp.competency_item else None,
+                            "file_id": comp.file_id,
+                            "original_filename": comp.file.original_filename if comp.file else None,
+                            "file_path": comp.file.file_path if comp.file else None,
+                            "verification_status": comp.verification_status.value if comp.verification_status else None,
+                            "is_globally_verified": comp.is_globally_verified,
+                            "created_at": comp.created_at.isoformat() if comp.created_at else None
+                        })
+    elif settings.FILE_STORAGE_TYPE == "minio":
+        minio_client = get_minio_client()
+        for comp in competencies:
+            if comp.file:
+                try:
+                    minio_client.stat_object(settings.MINIO_BUCKET, comp.file.file_path)
+                except S3Error as e:
+                    if e.code == "NoSuchKey":
+                        orphan_competencies.append({
+                            "competency_id": comp.competency_id,
+                            "user_id": comp.user_id,
+                            "user_name": comp.user.name if comp.user else None,
+                            "user_email": comp.user.email if comp.user else None,
+                            "item_id": comp.item_id,
+                            "item_name": comp.competency_item.item_name if comp.competency_item else None,
+                            "item_code": comp.competency_item.item_code if comp.competency_item else None,
+                            "file_id": comp.file_id,
+                            "original_filename": comp.file.original_filename if comp.file else None,
+                            "file_path": comp.file.file_path if comp.file else None,
+                            "verification_status": comp.verification_status.value if comp.verification_status else None,
+                            "is_globally_verified": comp.is_globally_verified,
+                            "created_at": comp.created_at.isoformat() if comp.created_at else None
+                        })
+
+    return {
+        "total_competencies_with_files": len(competencies),
+        "orphan_count": len(orphan_competencies),
+        "orphan_competencies": orphan_competencies,
+        "message": "고아 역량 레코드를 발견했습니다. 해당 코치에게 역량 수정을 요청하거나, /api/files/admin/delete-orphan-competency API를 사용하여 삭제할 수 있습니다." if orphan_competencies else "고아 역량 레코드가 없습니다."
+    }
+
+
+@router.delete("/admin/delete-orphan-competency/{competency_id}")
+async def delete_orphan_competency(
+    competency_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Delete a CoachCompetency record that references a missing file.
+    This is used to clean up orphan competency records.
+
+    WARNING: This will permanently delete the competency record and its associated
+    verification records. Use with caution.
+    """
+    from app.models.competency import CoachCompetency
+
+    # Check permission
+    from app.models.user import User as UserModel
+    result = await db.execute(
+        select(UserModel).where(UserModel.user_id == current_user.user_id)
+    )
+    user = result.scalar_one()
+    user_roles = get_user_roles(user)
+
+    allowed_roles = ['SUPER_ADMIN', 'PROJECT_MANAGER']
+    if not any(role in allowed_roles for role in user_roles):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="관리자만 접근할 수 있습니다."
+        )
+
+    # Get competency
+    result = await db.execute(
+        select(CoachCompetency).where(CoachCompetency.competency_id == competency_id)
+    )
+    competency = result.scalar_one_or_none()
+
+    if not competency:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="역량 레코드를 찾을 수 없습니다."
+        )
+
+    # Verify it's actually an orphan (file doesn't exist in storage)
+    if competency.file_id:
+        file_result = await db.execute(
+            select(FileModel).where(FileModel.file_id == competency.file_id)
+        )
+        db_file = file_result.scalar_one_or_none()
+
+        if db_file:
+            is_orphan = False
+            if settings.FILE_STORAGE_TYPE == "r2":
+                r2_client = get_r2_client()
+                try:
+                    r2_client.stat_object(settings.R2_BUCKET, db_file.file_path)
+                    is_orphan = False
+                except S3Error as e:
+                    if e.code == "NoSuchKey":
+                        is_orphan = True
+            elif settings.FILE_STORAGE_TYPE == "minio":
+                minio_client = get_minio_client()
+                try:
+                    minio_client.stat_object(settings.MINIO_BUCKET, db_file.file_path)
+                    is_orphan = False
+                except S3Error as e:
+                    if e.code == "NoSuchKey":
+                        is_orphan = True
+
+            if not is_orphan:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="이 역량 레코드는 고아 상태가 아닙니다. 파일이 스토리지에 존재합니다."
+                )
+
+    # Delete the competency (cascade will delete verification records)
+    await db.delete(competency)
+    await db.commit()
+
+    return {
+        "message": f"역량 레코드 (ID: {competency_id})가 삭제되었습니다.",
+        "deleted_competency_id": competency_id
+    }

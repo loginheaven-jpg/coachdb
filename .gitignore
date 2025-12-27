@@ -83,3 +83,10 @@ nginx/logs/
 # Test Data
 test_data/
 *.dump
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
