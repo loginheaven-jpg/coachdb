@@ -905,3 +905,269 @@ async def reset_project_data(
             status_code=500,
             detail=f"Reset failed: {str(e)}\n{traceback.format_exc()}"
         )
+
+
+# ============================================================================
+# Reset Project Only (과제초기화) - Keep user competency data
+# ============================================================================
+@router.post("/reset-project-only")
+async def reset_project_only(
+    secret_key: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    과제초기화: Reset project data only, keeping all user competency data.
+
+    Deletes:
+    - All projects, applications, and related data
+    - Verification records, project items, scoring criteria
+    - Project-related files only
+
+    Keeps:
+    - User accounts and profiles
+    - Coach competencies (역량정보)
+    - Competency items (master data)
+    - Files attached to competencies
+    - System configurations
+
+    WARNING: This is a destructive operation and cannot be undone!
+    """
+    if secret_key != "coachdb2024!":
+        raise HTTPException(status_code=403, detail="Invalid secret key")
+
+    from sqlalchemy import text
+    from app.core.config import settings
+
+    deleted_counts = {}
+    errors = []
+
+    try:
+        # Tables to delete - project-related only
+        # Note: coach_competencies, certifications, coach_education_history are KEPT
+        tables_to_delete = [
+            # First: tables that reference projects/applications
+            "verification_records",
+            "custom_question_answers",
+            "application_data",
+            "coach_evaluations",
+            "review_locks",
+            # Second: main project tables
+            "applications",
+            "scoring_criteria",
+            "project_items",
+            "custom_questions",
+            "project_staff",
+            "projects",
+            # Notifications (project-related)
+            "notifications",
+        ]
+
+        for table in tables_to_delete:
+            try:
+                count_result = await db.execute(text(f"SELECT count(*) FROM {table}"))
+                count = count_result.scalar() or 0
+                await db.execute(text(f"DELETE FROM {table}"))
+                deleted_counts[table] = count
+            except Exception as e:
+                errors.append(f"{table}: {str(e)}")
+                await db.rollback()
+
+        # Handle files - only delete files NOT linked to competencies
+        try:
+            from app.models.file import File as FileModel
+            from app.models.coach import CoachCompetency
+
+            # Get all file IDs that are referenced in coach_competencies
+            competency_result = await db.execute(select(CoachCompetency))
+            all_competencies = competency_result.scalars().all()
+
+            # Extract file_ids from competency data (stored in JSON)
+            competency_file_ids = set()
+            for comp in all_competencies:
+                if comp.data and isinstance(comp.data, dict):
+                    file_id = comp.data.get('file_id')
+                    if file_id:
+                        competency_file_ids.add(file_id)
+
+            # Get all files
+            files_result = await db.execute(select(FileModel))
+            all_files = files_result.scalars().all()
+
+            # Separate files to delete vs keep
+            files_to_delete = [f for f in all_files if f.id not in competency_file_ids]
+            files_to_keep = [f for f in all_files if f.id in competency_file_ids]
+
+            # Clean R2 storage for files to delete
+            if settings.FILE_STORAGE_TYPE == "r2" and files_to_delete:
+                try:
+                    from app.api.endpoints.files import get_r2_client
+                    r2_client = get_r2_client()
+
+                    for db_file in files_to_delete:
+                        try:
+                            r2_client.remove_object(settings.R2_BUCKET, db_file.file_path)
+                        except Exception:
+                            pass
+                except Exception as e:
+                    errors.append(f"R2 cleanup error: {str(e)}")
+
+            # Delete only non-competency files from database
+            for f in files_to_delete:
+                await db.execute(text(f"DELETE FROM files WHERE id = {f.id}"))
+
+            deleted_counts["files"] = len(files_to_delete)
+            deleted_counts["files_kept (competency)"] = len(files_to_keep)
+
+        except Exception as e:
+            errors.append(f"files: {str(e)}")
+
+        await db.commit()
+
+        return {
+            "message": "과제초기화 완료 (Project data reset, competencies kept)",
+            "deleted_counts": deleted_counts,
+            "errors": errors if errors else None,
+            "kept_tables": [
+                "users", "coach_competencies", "certifications",
+                "coach_education_history", "coach_profiles",
+                "competency_items", "competency_item_fields",
+                "files (linked to competencies)"
+            ]
+        }
+
+    except Exception as e:
+        import traceback
+        await db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Reset failed: {str(e)}\n{traceback.format_exc()}"
+        )
+
+
+# ============================================================================
+# Reset Full (기본초기화) - Reset competencies too
+# ============================================================================
+@router.post("/reset-full")
+async def reset_full(
+    secret_key: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    기본초기화: Reset all data except basic user info.
+
+    Deletes:
+    - All projects, applications, and related data
+    - All coach competencies and verification records
+    - All competency items (master data)
+    - All files (database records and R2 storage)
+    - All notifications, certifications, education history
+
+    Keeps:
+    - User accounts (basic info only)
+    - System configurations
+    - Role requests
+
+    WARNING: This is a destructive operation and cannot be undone!
+    """
+    if secret_key != "coachdb2024!":
+        raise HTTPException(status_code=403, detail="Invalid secret key")
+
+    from sqlalchemy import text
+    from app.core.config import settings
+
+    deleted_counts = {}
+    errors = []
+
+    try:
+        # Order matters due to foreign key constraints
+        tables_to_delete = [
+            # First: tables that reference others
+            "verification_records",
+            "custom_question_answers",
+            "application_data",
+            "coach_evaluations",
+            "review_locks",
+            "competency_reminders",
+            # Second: main tables
+            "applications",
+            "scoring_criteria",
+            "project_items",
+            "custom_questions",
+            "project_staff",
+            "projects",
+            # Third: coach data (INCLUDING competencies)
+            "coach_competencies",
+            "certifications",
+            "coach_education_history",
+            "coach_profiles",
+            # Fourth: files and notifications
+            "notifications",
+        ]
+
+        for table in tables_to_delete:
+            try:
+                count_result = await db.execute(text(f"SELECT count(*) FROM {table}"))
+                count = count_result.scalar() or 0
+                await db.execute(text(f"DELETE FROM {table}"))
+                deleted_counts[table] = count
+            except Exception as e:
+                errors.append(f"{table}: {str(e)}")
+                await db.rollback()
+
+        # Delete competency items (master data) - fields first due to FK
+        try:
+            count_result = await db.execute(text("SELECT count(*) FROM competency_item_fields"))
+            field_count = count_result.scalar() or 0
+            await db.execute(text("DELETE FROM competency_item_fields"))
+            deleted_counts["competency_item_fields"] = field_count
+
+            count_result = await db.execute(text("SELECT count(*) FROM competency_items"))
+            item_count = count_result.scalar() or 0
+            await db.execute(text("DELETE FROM competency_items"))
+            deleted_counts["competency_items"] = item_count
+        except Exception as e:
+            errors.append(f"competency_items: {str(e)}")
+
+        # Handle files - delete ALL and clean R2 storage
+        try:
+            from app.models.file import File as FileModel
+
+            files_result = await db.execute(select(FileModel))
+            all_files = files_result.scalars().all()
+            file_count = len(all_files)
+
+            if settings.FILE_STORAGE_TYPE == "r2" and all_files:
+                try:
+                    from app.api.endpoints.files import get_r2_client
+                    r2_client = get_r2_client()
+
+                    for db_file in all_files:
+                        try:
+                            r2_client.remove_object(settings.R2_BUCKET, db_file.file_path)
+                        except Exception:
+                            pass
+                except Exception as e:
+                    errors.append(f"R2 cleanup error: {str(e)}")
+
+            await db.execute(text("DELETE FROM files"))
+            deleted_counts["files"] = file_count
+
+        except Exception as e:
+            errors.append(f"files: {str(e)}")
+
+        await db.commit()
+
+        return {
+            "message": "기본초기화 완료 (Full reset, only basic user info kept)",
+            "deleted_counts": deleted_counts,
+            "errors": errors if errors else None,
+            "kept_tables": ["users", "system_configs", "role_requests"]
+        }
+
+    except Exception as e:
+        import traceback
+        await db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Reset failed: {str(e)}\n{traceback.format_exc()}"
+        )
