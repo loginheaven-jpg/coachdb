@@ -271,6 +271,12 @@ async def download_file(
             )
 
     except S3Error as e:
+        # NoSuchKey means the file doesn't exist in storage
+        if e.code == "NoSuchKey":
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"File not found in storage: {db_file.file_path}"
+            )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to download file from storage: {str(e)}"
@@ -358,6 +364,16 @@ async def get_download_url(
     try:
         if settings.FILE_STORAGE_TYPE == "r2":
             r2_client = get_r2_client()
+            # Check if file exists before generating presigned URL
+            try:
+                r2_client.stat_object(settings.R2_BUCKET, db_file.file_path)
+            except S3Error as stat_error:
+                if stat_error.code == "NoSuchKey":
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=f"File not found in storage: {db_file.file_path}"
+                    )
+                raise
             # Generate presigned URL valid for 1 hour
             url = r2_client.presigned_get_object(
                 settings.R2_BUCKET,
@@ -371,6 +387,16 @@ async def get_download_url(
             }
         elif settings.FILE_STORAGE_TYPE == "minio":
             minio_client = get_minio_client()
+            # Check if file exists before generating presigned URL
+            try:
+                minio_client.stat_object(settings.MINIO_BUCKET, db_file.file_path)
+            except S3Error as stat_error:
+                if stat_error.code == "NoSuchKey":
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=f"File not found in storage: {db_file.file_path}"
+                    )
+                raise
             url = minio_client.presigned_get_object(
                 settings.MINIO_BUCKET,
                 db_file.file_path,
@@ -382,13 +408,20 @@ async def get_download_url(
                 "expires_in": 3600
             }
         else:
-            # Local storage - return the direct download endpoint
+            # Local storage - check if file exists and return the direct download endpoint
+            if not os.path.exists(db_file.file_path):
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"File not found in storage: {db_file.file_path}"
+                )
             return {
                 "download_url": f"/api/files/{file_id}",
                 "filename": db_file.original_filename,
                 "expires_in": None,
                 "is_local": True
             }
+    except HTTPException:
+        raise
     except S3Error as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

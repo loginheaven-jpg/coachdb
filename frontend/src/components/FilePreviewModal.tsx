@@ -70,8 +70,14 @@ export default function FilePreviewModal({
             setLoading(false)
             return
           }
-        } catch {
-          // Presigned URL not available, fall back to blob download
+        } catch (presignErr: any) {
+          // Check if file doesn't exist in storage (404)
+          if (presignErr.response?.status === 404) {
+            setError('파일이 스토리지에서 삭제되었거나 찾을 수 없습니다.')
+            setLoading(false)
+            return
+          }
+          // Other errors - fall back to blob download
         }
       }
 
@@ -83,7 +89,12 @@ export default function FilePreviewModal({
       setMimeType(blob.type || 'application/octet-stream')
     } catch (err: any) {
       console.error('파일 로드 실패:', err)
-      setError('파일을 불러오는데 실패했습니다.')
+      // Check for specific error types
+      if (err.response?.status === 404) {
+        setError('파일이 스토리지에서 삭제되었거나 찾을 수 없습니다.')
+      } else {
+        setError('파일을 불러오는데 실패했습니다.')
+      }
     } finally {
       setLoading(false)
     }
