@@ -257,7 +257,7 @@ async def get_user(
         status=user.status.value,
         created_at=user.created_at,
         birth_year=user.birth_year,
-        gender=user.gender.value if user.gender else None,
+        gender=user.gender,
         address=user.address
     )
 
@@ -312,7 +312,7 @@ async def update_user_roles(
         status=user.status.value,
         created_at=user.created_at,
         birth_year=user.birth_year,
-        gender=user.gender.value if user.gender else None,
+        gender=user.gender,
         address=user.address
     )
 
