@@ -30,6 +30,7 @@ from app.schemas.project import (
     CoachEvaluationResponse,
     ProjectStaffCreate,
     ProjectStaffResponse,
+    ProjectStaffListResponse,
 )
 from app.schemas.competency import (
     ProjectItemCreate,
