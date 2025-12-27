@@ -786,13 +786,14 @@ async def reset_project_data(
     Deletes:
     - All projects, applications, and related data
     - All coach competencies and verification records
+    - All competency items (master data)
     - All files (database records and R2 storage)
     - All notifications, certifications, education history
 
     Keeps:
-    - User accounts
-    - Competency items (master data)
+    - User accounts (basic info only)
     - System configurations
+    - Role requests
 
     WARNING: This is a destructive operation and cannot be undone!
     """
@@ -844,6 +845,20 @@ async def reset_project_data(
                 errors.append(f"{table}: {str(e)}")
                 await db.rollback()
 
+        # Delete competency items (master data) - fields first due to FK
+        try:
+            count_result = await db.execute(text("SELECT count(*) FROM competency_item_fields"))
+            field_count = count_result.scalar() or 0
+            await db.execute(text("DELETE FROM competency_item_fields"))
+            deleted_counts["competency_item_fields"] = field_count
+
+            count_result = await db.execute(text("SELECT count(*) FROM competency_items"))
+            item_count = count_result.scalar() or 0
+            await db.execute(text("DELETE FROM competency_items"))
+            deleted_counts["competency_items"] = item_count
+        except Exception as e:
+            errors.append(f"competency_items: {str(e)}")
+
         # Handle files separately - also clean R2 storage
         try:
             from app.models.file import File as FileModel
@@ -880,7 +895,7 @@ async def reset_project_data(
             "message": "Project data reset completed",
             "deleted_counts": deleted_counts,
             "errors": errors if errors else None,
-            "kept_tables": ["users", "competency_items", "competency_item_fields", "system_configs", "role_requests"]
+            "kept_tables": ["users", "system_configs", "role_requests"]
         }
 
     except Exception as e:
