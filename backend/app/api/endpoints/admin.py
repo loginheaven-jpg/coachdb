@@ -975,7 +975,7 @@ async def reset_project_only(
         # Handle files - only delete files NOT linked to competencies
         try:
             from app.models.file import File as FileModel
-            from app.models.coach import CoachCompetency
+            from app.models.competency import CoachCompetency
 
             # Get all file IDs that are referenced in coach_competencies
             competency_result = await db.execute(select(CoachCompetency))
@@ -1053,17 +1053,17 @@ async def reset_full(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    기본초기화: Reset all data except basic user info.
+    기본초기화: Reset all user-entered data except basic user info.
 
     Deletes:
     - All projects, applications, and related data
-    - All coach competencies and verification records
-    - All competency items (master data)
+    - All coach competencies (user-entered competency data)
     - All files (database records and R2 storage)
     - All notifications, certifications, education history
 
     Keeps:
     - User accounts (basic info only)
+    - Competency items (master data structure)
     - System configurations
     - Role requests
 
@@ -1114,20 +1114,6 @@ async def reset_full(
                 errors.append(f"{table}: {str(e)}")
                 await db.rollback()
 
-        # Delete competency items (master data) - fields first due to FK
-        try:
-            count_result = await db.execute(text("SELECT count(*) FROM competency_item_fields"))
-            field_count = count_result.scalar() or 0
-            await db.execute(text("DELETE FROM competency_item_fields"))
-            deleted_counts["competency_item_fields"] = field_count
-
-            count_result = await db.execute(text("SELECT count(*) FROM competency_items"))
-            item_count = count_result.scalar() or 0
-            await db.execute(text("DELETE FROM competency_items"))
-            deleted_counts["competency_items"] = item_count
-        except Exception as e:
-            errors.append(f"competency_items: {str(e)}")
-
         # Handle files - delete ALL and clean R2 storage
         try:
             from app.models.file import File as FileModel
@@ -1161,7 +1147,10 @@ async def reset_full(
             "message": "기본초기화 완료 (Full reset, only basic user info kept)",
             "deleted_counts": deleted_counts,
             "errors": errors if errors else None,
-            "kept_tables": ["users", "system_configs", "role_requests"]
+            "kept_tables": [
+                "users", "competency_items", "competency_item_fields",
+                "system_configs", "role_requests"
+            ]
         }
 
     except Exception as e:
