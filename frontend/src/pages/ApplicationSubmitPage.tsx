@@ -1454,24 +1454,14 @@ export default function ApplicationSubmitPage() {
                                   {showProofUpload && (
                                     <div className="flex items-center gap-2 pt-2 border-t">
                                       {hasFile ? (
-                                        <div className="flex items-center gap-2">
-                                          <DownloadOutlined className="text-blue-500" />
-                                          <Button
-                                            type="link"
-                                            size="small"
-                                            className="p-0"
-                                            onClick={() => fileInfo?.file_id && handleFileDownload(fileInfo.file_id, fileInfo.filename || fileInfo?.file?.name || '파일')}
-                                          >
-                                            {fileInfo?.file?.name || fileInfo?.filename || '첨부파일'}
-                                          </Button>
-                                          <Button
-                                            type="text"
-                                            size="small"
-                                            icon={<EyeOutlined />}
-                                            onClick={() => fileInfo?.file_id && openPreview(fileInfo.file_id, fileInfo.filename || fileInfo?.file?.name || '파일')}
-                                            title="미리보기"
-                                          />
-                                        </div>
+                                        <Button
+                                          type="link"
+                                          size="small"
+                                          className="p-0"
+                                          onClick={() => fileInfo?.file_id && openPreview(fileInfo.file_id, fileInfo.filename || fileInfo?.file?.name || '파일')}
+                                        >
+                                          {fileInfo?.file?.name || fileInfo?.filename || '첨부파일'}
+                                        </Button>
                                       ) : (
                                         <Tag color={proofLevel === 'required' ? 'orange' : 'default'} icon={<UploadOutlined />}>
                                           {proofLevel === 'required' ? '증빙첨부 (필수)' : '증빙첨부 (선택)'}
@@ -1583,29 +1573,14 @@ export default function ApplicationSubmitPage() {
                               <div className="flex items-center gap-2 pt-2 border-t">
                                 {isViewMode ? (
                                   singleHasFile ? (
-                                    <div className="flex items-center gap-2">
-                                      <DownloadOutlined className="text-blue-500" />
-                                      <Button
-                                        type="link"
-                                        size="small"
-                                        className="p-0"
-                                        onClick={() => singleFileInfo?.file_id && handleFileDownload(singleFileInfo.file_id, singleFileInfo.filename || '파일')}
-                                      >
-                                        {singleFileInfo?.filename || '첨부파일'}
-                                      </Button>
-                                      {singleFileInfo?.file_size && (
-                                        <Text type="secondary" className="text-xs">
-                                          ({(singleFileInfo.file_size / 1024).toFixed(1)} KB)
-                                        </Text>
-                                      )}
-                                      <Button
-                                        type="text"
-                                        size="small"
-                                        icon={<EyeOutlined />}
-                                        onClick={() => singleFileInfo?.file_id && openPreview(singleFileInfo.file_id, singleFileInfo.filename || '파일')}
-                                        title="미리보기"
-                                      />
-                                    </div>
+                                    <Button
+                                      type="link"
+                                      size="small"
+                                      className="p-0"
+                                      onClick={() => singleFileInfo?.file_id && openPreview(singleFileInfo.file_id, singleFileInfo.filename || '파일')}
+                                    >
+                                      {singleFileInfo?.filename || '첨부파일'}
+                                    </Button>
                                   ) : (
                                     <Text type="secondary">첨부파일 없음</Text>
                                   )
@@ -1616,27 +1591,14 @@ export default function ApplicationSubmitPage() {
                                 ) : hasUploadedFile ? (
                                   // 새로 업로드한 파일 표시
                                   <div className="flex items-center gap-2">
-                                    <DownloadOutlined className="text-blue-500" />
                                     <Button
                                       type="link"
                                       size="small"
                                       className="p-0"
-                                      onClick={() => uploadedFileInfo?.file_id && handleFileDownload(uploadedFileInfo.file_id, uploadedFileInfo.filename || uploadedFileInfo?.file?.name || '파일')}
+                                      onClick={() => uploadedFileInfo?.file_id && openPreview(uploadedFileInfo.file_id, uploadedFileInfo.filename || uploadedFileInfo?.file?.name || '파일')}
                                     >
                                       {uploadedFileInfo?.file?.name || uploadedFileInfo?.filename}
                                     </Button>
-                                    {uploadedFileInfo?.file_size && (
-                                      <Text type="secondary" className="text-xs">
-                                        ({(uploadedFileInfo.file_size / 1024).toFixed(1)} KB)
-                                      </Text>
-                                    )}
-                                    <Button
-                                      type="text"
-                                      size="small"
-                                      icon={<EyeOutlined />}
-                                      onClick={() => uploadedFileInfo?.file_id && openPreview(uploadedFileInfo.file_id, uploadedFileInfo.filename || uploadedFileInfo?.file?.name || '파일')}
-                                      title="미리보기"
-                                    />
                                     <Button
                                       type="text"
                                       danger
@@ -1661,25 +1623,14 @@ export default function ApplicationSubmitPage() {
                                 ) : hasLinkedFile ? (
                                   // 세부정보에서 가져온 파일 표시 (삭제 불가, 대체만 가능)
                                   <div className="flex items-center gap-2">
-                                    <DownloadOutlined className="text-blue-500" />
                                     <Button
                                       type="link"
                                       size="small"
                                       className="p-0"
-                                      onClick={() => singleLinkedData?.linked_competency_file_id && handleFileDownload(singleLinkedData.linked_competency_file_id, singleLinkedFileInfo.original_filename)}
+                                      onClick={() => singleLinkedData?.linked_competency_file_id && openPreview(singleLinkedData.linked_competency_file_id, singleLinkedFileInfo.original_filename)}
                                     >
                                       {singleLinkedFileInfo.original_filename}
                                     </Button>
-                                    <Text type="secondary" className="text-xs">
-                                      ({(singleLinkedFileInfo.file_size / 1024).toFixed(1)} KB)
-                                    </Text>
-                                    <Button
-                                      type="text"
-                                      size="small"
-                                      icon={<EyeOutlined />}
-                                      onClick={() => singleLinkedData?.linked_competency_file_id && openPreview(singleLinkedData.linked_competency_file_id, singleLinkedFileInfo.original_filename)}
-                                      title="미리보기"
-                                    />
                                     <Upload
                                       maxCount={1}
                                       showUploadList={false}

@@ -31,11 +31,9 @@ import {
   CloseCircleOutlined,
   UploadOutlined,
   FileOutlined,
-  DownloadOutlined,
   LogoutOutlined,
   WarningOutlined,
-  ExclamationCircleOutlined,
-  EyeOutlined
+  ExclamationCircleOutlined
 } from '@ant-design/icons'
 import { useAuthStore } from '../stores/authStore'
 import authService from '../services/authService'
@@ -738,26 +736,15 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
           )}
 
           {comp.file_info && (
-            <div className="mt-2 flex items-center gap-2">
+            <div className="mt-2">
               <Button
                 type="link"
                 size="small"
-                icon={<DownloadOutlined />}
-                onClick={() => handleFileDownload(comp.file_id!, comp.file_info!.original_filename)}
+                onClick={() => openPreview(comp.file_id!, comp.file_info!.original_filename)}
                 className="p-0"
               >
                 {comp.file_info.original_filename}
               </Button>
-              <Text type="secondary" className="text-xs">
-                ({(comp.file_info.file_size / 1024).toFixed(1)} KB)
-              </Text>
-              <Button
-                type="text"
-                size="small"
-                icon={<EyeOutlined />}
-                onClick={() => openPreview(comp.file_id!, comp.file_info!.original_filename)}
-                title="미리보기"
-              />
             </div>
           )}
 

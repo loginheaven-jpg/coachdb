@@ -16,7 +16,7 @@ import {
   Upload,
   UploadFile
 } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, ArrowLeftOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, UploadOutlined, FileOutlined, DownloadOutlined, EyeOutlined } from '@ant-design/icons'
+import { PlusOutlined, EditOutlined, DeleteOutlined, ArrowLeftOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, UploadOutlined, FileOutlined } from '@ant-design/icons'
 import competencyService, { CoachCompetency, CompetencyItem } from '../services/competencyService'
 import fileService from '../services/fileService'
 import FilePreviewModal, { useFilePreview } from '../components/FilePreviewModal'
@@ -275,28 +275,14 @@ export default function CompetencyManagementPage() {
       render: (file_id: number | null, record: CoachCompetency) => {
         if (!file_id || !record.file_info) return '-'
         const fileInfo = record.file_info
-        const fileSizeKB = (fileInfo.file_size / 1024).toFixed(1)
         return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <Button
-              type="link"
-              size="small"
-              icon={<DownloadOutlined />}
-              onClick={() => handleFileDownload(file_id, fileInfo.original_filename)}
-            >
-              {fileInfo.original_filename}
-            </Button>
-            <Text type="secondary" style={{ fontSize: '11px' }}>
-              ({fileSizeKB} KB)
-            </Text>
-            <Button
-              type="text"
-              size="small"
-              icon={<EyeOutlined />}
-              onClick={() => openPreview(file_id, fileInfo.original_filename)}
-              title="미리보기"
-            />
-          </div>
+          <Button
+            type="link"
+            size="small"
+            onClick={() => openPreview(file_id, fileInfo.original_filename)}
+          >
+            {fileInfo.original_filename}
+          </Button>
         )
       }
     },

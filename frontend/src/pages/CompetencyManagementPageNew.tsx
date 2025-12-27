@@ -29,9 +29,7 @@ import {
   CloseCircleOutlined,
   UploadOutlined,
   FileOutlined,
-  DownloadOutlined,
-  LogoutOutlined,
-  EyeOutlined
+  LogoutOutlined
 } from '@ant-design/icons'
 import { useAuthStore } from '../stores/authStore'
 import authService from '../services/authService'
@@ -460,23 +458,15 @@ export default function CompetencyManagementPageNew() {
           <div className="font-medium">{comp.competency_item?.item_name}</div>
           {comp.value && <div className="mt-2"><Text>{comp.value}</Text></div>}
           {comp.file_info && comp.file_id && (
-            <div className="mt-2 flex items-center gap-2">
+            <div className="mt-2">
               <Button
                 type="link"
                 size="small"
-                icon={<DownloadOutlined />}
                 className="p-0"
-                onClick={() => handleFileDownload(comp.file_id!, comp.file_info!.original_filename)}
+                onClick={() => openPreview(comp.file_id!, comp.file_info!.original_filename)}
               >
                 {comp.file_info.original_filename}
               </Button>
-              <Button
-                type="text"
-                size="small"
-                icon={<EyeOutlined />}
-                onClick={() => openPreview(comp.file_id!, comp.file_info!.original_filename)}
-                title="미리보기"
-              />
             </div>
           )}
           <div className="mt-2">{getStatusTag(comp.verification_status)}</div>

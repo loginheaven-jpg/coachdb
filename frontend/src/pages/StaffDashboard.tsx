@@ -9,8 +9,7 @@ import {
   ExclamationCircleOutlined,
   UndoOutlined,
   ReloadOutlined,
-  SearchOutlined,
-  DownloadOutlined
+  SearchOutlined
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import verificationService, { PendingVerificationItem, CompetencyVerificationStatus, ActivityRecord } from '../services/verificationService'
@@ -534,32 +533,16 @@ export default function StaffDashboard() {
             {selectedCompetency.file_id && (
               <>
                 <Title level={5}>첨부파일</Title>
-                <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ marginBottom: 16 }}>
                   <Button
                     type="link"
-                    icon={<DownloadOutlined />}
-                    onClick={() => handleDownloadFile(
+                    onClick={() => openPreview(
                       selectedCompetency.file_id!,
                       selectedCompetency.file_info?.original_filename || 'file'
                     )}
                   >
                     {selectedCompetency.file_info?.original_filename || `파일 ID: ${selectedCompetency.file_id}`}
                   </Button>
-                  {selectedCompetency.file_info && (
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      ({(selectedCompetency.file_info.file_size / 1024).toFixed(1)} KB)
-                    </Text>
-                  )}
-                  <Button
-                    type="text"
-                    size="small"
-                    icon={<EyeOutlined />}
-                    onClick={() => openPreview(
-                      selectedCompetency.file_id!,
-                      selectedCompetency.file_info?.original_filename || 'file'
-                    )}
-                    title="미리보기"
-                  />
                 </div>
               </>
             )}
