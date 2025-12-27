@@ -18,7 +18,7 @@ import {
   Modal,
   Tabs
 } from 'antd'
-import { ArrowLeftOutlined, SendOutlined, UploadOutlined, InfoCircleOutlined, UserOutlined, CheckCircleOutlined, SaveOutlined, DeleteOutlined, LoadingOutlined, EditOutlined, ClockCircleOutlined, DownloadOutlined, CloseCircleOutlined, ExclamationCircleOutlined, FileTextOutlined, PlusOutlined, InboxOutlined } from '@ant-design/icons'
+import { ArrowLeftOutlined, SendOutlined, UploadOutlined, InfoCircleOutlined, UserOutlined, CheckCircleOutlined, SaveOutlined, DeleteOutlined, LoadingOutlined, EditOutlined, ClockCircleOutlined, DownloadOutlined, CloseCircleOutlined, ExclamationCircleOutlined, FileTextOutlined, PlusOutlined, InboxOutlined, EyeOutlined } from '@ant-design/icons'
 import projectService, { ProjectDetail, ProjectItem, ItemTemplate } from '../services/projectService'
 import applicationService, { ApplicationSubmitRequest, ApplicationDataSubmit, ApplicationData } from '../services/applicationService'
 import authService, { UserUpdateData } from '../services/authService'
@@ -1575,8 +1575,6 @@ export default function ApplicationSubmitPage() {
                                         size="small"
                                         className="p-0"
                                         onClick={() => singleFileInfo?.file_id && handleFileDownload(singleFileInfo.file_id, singleFileInfo.filename || '파일')}
-                                        onDoubleClick={() => singleFileInfo?.file_id && openPreview(singleFileInfo.file_id, singleFileInfo.filename || '파일')}
-                                        title="더블클릭으로 미리보기"
                                       >
                                         {singleFileInfo?.filename || '첨부파일'}
                                       </Button>
@@ -1585,6 +1583,13 @@ export default function ApplicationSubmitPage() {
                                           ({(singleFileInfo.file_size / 1024).toFixed(1)} KB)
                                         </Text>
                                       )}
+                                      <Button
+                                        type="text"
+                                        size="small"
+                                        icon={<EyeOutlined />}
+                                        onClick={() => singleFileInfo?.file_id && openPreview(singleFileInfo.file_id, singleFileInfo.filename || '파일')}
+                                        title="미리보기"
+                                      />
                                     </div>
                                   ) : (
                                     <Text type="secondary">첨부파일 없음</Text>
@@ -1602,8 +1607,6 @@ export default function ApplicationSubmitPage() {
                                       size="small"
                                       className="p-0"
                                       onClick={() => uploadedFileInfo?.file_id && handleFileDownload(uploadedFileInfo.file_id, uploadedFileInfo.filename || uploadedFileInfo?.file?.name || '파일')}
-                                      onDoubleClick={() => uploadedFileInfo?.file_id && openPreview(uploadedFileInfo.file_id, uploadedFileInfo.filename || uploadedFileInfo?.file?.name || '파일')}
-                                      title="더블클릭으로 미리보기"
                                     >
                                       {uploadedFileInfo?.file?.name || uploadedFileInfo?.filename}
                                     </Button>
@@ -1612,6 +1615,13 @@ export default function ApplicationSubmitPage() {
                                         ({(uploadedFileInfo.file_size / 1024).toFixed(1)} KB)
                                       </Text>
                                     )}
+                                    <Button
+                                      type="text"
+                                      size="small"
+                                      icon={<EyeOutlined />}
+                                      onClick={() => uploadedFileInfo?.file_id && openPreview(uploadedFileInfo.file_id, uploadedFileInfo.filename || uploadedFileInfo?.file?.name || '파일')}
+                                      title="미리보기"
+                                    />
                                     <Button
                                       type="text"
                                       danger
@@ -1642,14 +1652,19 @@ export default function ApplicationSubmitPage() {
                                       size="small"
                                       className="p-0"
                                       onClick={() => singleLinkedData?.linked_competency_file_id && handleFileDownload(singleLinkedData.linked_competency_file_id, singleLinkedFileInfo.original_filename)}
-                                      onDoubleClick={() => singleLinkedData?.linked_competency_file_id && openPreview(singleLinkedData.linked_competency_file_id, singleLinkedFileInfo.original_filename)}
-                                      title="더블클릭으로 미리보기"
                                     >
                                       {singleLinkedFileInfo.original_filename}
                                     </Button>
                                     <Text type="secondary" className="text-xs">
                                       ({(singleLinkedFileInfo.file_size / 1024).toFixed(1)} KB)
                                     </Text>
+                                    <Button
+                                      type="text"
+                                      size="small"
+                                      icon={<EyeOutlined />}
+                                      onClick={() => singleLinkedData?.linked_competency_file_id && openPreview(singleLinkedData.linked_competency_file_id, singleLinkedFileInfo.original_filename)}
+                                      title="미리보기"
+                                    />
                                     <Upload
                                       maxCount={1}
                                       showUploadList={false}

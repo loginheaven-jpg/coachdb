@@ -521,22 +521,29 @@ export default function VerificationPage() {
               </Descriptions.Item>
               <Descriptions.Item label="첨부파일">
                 {selectedCompetency.file_id ? (
-                  <Button
-                    type="link"
-                    icon={<DownloadOutlined />}
-                    onClick={() => handleDownloadFile(
-                      selectedCompetency.file_id!,
-                      selectedCompetency.file_info?.original_filename || 'file'
-                    )}
-                    onDoubleClick={() => openPreview(
-                      selectedCompetency.file_id!,
-                      selectedCompetency.file_info?.original_filename || 'file'
-                    )}
-                    style={{ padding: 0 }}
-                    title="더블클릭으로 미리보기"
-                  >
-                    {selectedCompetency.file_info?.original_filename || `파일 다운로드`}
-                  </Button>
+                  <Space>
+                    <Button
+                      type="link"
+                      icon={<DownloadOutlined />}
+                      onClick={() => handleDownloadFile(
+                        selectedCompetency.file_id!,
+                        selectedCompetency.file_info?.original_filename || 'file'
+                      )}
+                      style={{ padding: 0 }}
+                    >
+                      {selectedCompetency.file_info?.original_filename || `파일 다운로드`}
+                    </Button>
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<EyeOutlined />}
+                      onClick={() => openPreview(
+                        selectedCompetency.file_id!,
+                        selectedCompetency.file_info?.original_filename || 'file'
+                      )}
+                      title="미리보기"
+                    />
+                  </Space>
                 ) : '-'}
               </Descriptions.Item>
               <Descriptions.Item label="전역 검증 상태">
