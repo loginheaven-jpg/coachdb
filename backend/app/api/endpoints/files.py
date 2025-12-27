@@ -119,6 +119,15 @@ async def upload_file(
                 length=len(file_content),
                 content_type=file.content_type
             )
+
+            # Verify upload was successful
+            try:
+                r2_client.stat_object(settings.R2_BUCKET, file_path)
+            except S3Error as verify_error:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"파일 업로드 검증 실패: 파일이 스토리지에 저장되지 않았습니다. ({verify_error.code})"
+                )
         elif settings.FILE_STORAGE_TYPE == "minio":
             # MinIO
             minio_client = get_minio_client()
@@ -132,11 +141,27 @@ async def upload_file(
                 length=len(file_content),
                 content_type=file.content_type
             )
+
+            # Verify upload was successful
+            try:
+                minio_client.stat_object(settings.MINIO_BUCKET, file_path)
+            except S3Error as verify_error:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"파일 업로드 검증 실패: 파일이 스토리지에 저장되지 않았습니다. ({verify_error.code})"
+                )
         else:
             # Local file storage
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
             with open(file_path, "wb") as f:
                 f.write(file_content)
+
+            # Verify upload was successful
+            if not os.path.exists(file_path):
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="파일 업로드 검증 실패: 파일이 로컬 스토리지에 저장되지 않았습니다."
+                )
 
         # Save file metadata to database
         db_file = FileModel(
@@ -512,3 +537,81 @@ async def delete_file(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete file: {str(e)}"
         )
+
+
+@router.get("/admin/check-orphans")
+async def check_orphan_files(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Check for orphan files - files that exist in database but not in storage.
+    Only accessible by SUPER_ADMIN or PROJECT_MANAGER.
+
+    Returns a list of file records that have missing files in storage.
+    """
+    # Check permission
+    from app.models.user import User as UserModel
+    result = await db.execute(
+        select(UserModel).where(UserModel.user_id == current_user.user_id)
+    )
+    user = result.scalar_one()
+    user_roles = get_user_roles(user)
+
+    allowed_roles = ['SUPER_ADMIN', 'PROJECT_MANAGER']
+    if not any(role in allowed_roles for role in user_roles):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="관리자만 접근할 수 있습니다."
+        )
+
+    # Get all files from database
+    result = await db.execute(select(FileModel))
+    all_files = result.scalars().all()
+
+    orphan_files = []
+
+    if settings.FILE_STORAGE_TYPE == "r2":
+        r2_client = get_r2_client()
+        for db_file in all_files:
+            try:
+                r2_client.stat_object(settings.R2_BUCKET, db_file.file_path)
+            except S3Error as e:
+                if e.code == "NoSuchKey":
+                    orphan_files.append({
+                        "file_id": db_file.file_id,
+                        "original_filename": db_file.original_filename,
+                        "file_path": db_file.file_path,
+                        "uploaded_at": db_file.uploaded_at.isoformat() if db_file.uploaded_at else None,
+                        "uploaded_by": db_file.uploaded_by
+                    })
+    elif settings.FILE_STORAGE_TYPE == "minio":
+        minio_client = get_minio_client()
+        for db_file in all_files:
+            try:
+                minio_client.stat_object(settings.MINIO_BUCKET, db_file.file_path)
+            except S3Error as e:
+                if e.code == "NoSuchKey":
+                    orphan_files.append({
+                        "file_id": db_file.file_id,
+                        "original_filename": db_file.original_filename,
+                        "file_path": db_file.file_path,
+                        "uploaded_at": db_file.uploaded_at.isoformat() if db_file.uploaded_at else None,
+                        "uploaded_by": db_file.uploaded_by
+                    })
+    else:
+        for db_file in all_files:
+            if not os.path.exists(db_file.file_path):
+                orphan_files.append({
+                    "file_id": db_file.file_id,
+                    "original_filename": db_file.original_filename,
+                    "file_path": db_file.file_path,
+                    "uploaded_at": db_file.uploaded_at.isoformat() if db_file.uploaded_at else None,
+                    "uploaded_by": db_file.uploaded_by
+                })
+
+    return {
+        "total_files": len(all_files),
+        "orphan_count": len(orphan_files),
+        "orphan_files": orphan_files
+    }
