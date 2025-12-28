@@ -1,7 +1,7 @@
 import { Layout, Menu, Dropdown, Button, Avatar } from 'antd'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
-import { UserOutlined, LogoutOutlined, SettingOutlined, LoginOutlined, TeamOutlined } from '@ant-design/icons'
+import { UserOutlined, LogoutOutlined, SettingOutlined, LoginOutlined, TeamOutlined, FolderOpenOutlined, FileTextOutlined, ToolOutlined } from '@ant-design/icons'
 import authService from '../../services/authService'
 import { message } from 'antd'
 import type { MenuProps } from 'antd'
@@ -26,6 +26,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
     navigate('/login')
   }
 
+  // 역할 체크 헬퍼
+  const hasRole = (role: string) => userRoles.includes(role)
+  const isProjectManager = hasRole('SUPER_ADMIN') || hasRole('PROJECT_MANAGER') || hasRole('VERIFIER') || hasRole('REVIEWER') || hasRole('admin')
+
   // 역할별 메뉴 아이템 생성
   const menuItems: MenuProps['items'] = []
 
@@ -38,21 +42,30 @@ export default function AppLayout({ children }: AppLayoutProps) {
     })
   }
 
-  // Admin/Coach 공통 - 과제 목록
+  // 과제참여 (모든 로그인 사용자)
   if (userRoles.length > 0) {
     menuItems.push({
-      key: 'projects',
-      label: '과제 목록',
+      key: 'projects-participate',
+      label: '과제참여',
       onClick: () => navigate('/projects')
     })
   }
 
-  // Coach 메뉴 - 내 지원서
-  if (userRoles.includes('coach') || userRoles.includes('COACH')) {
+  // 과제관리 (PROJECT_MANAGER 이상)
+  if (isProjectManager) {
     menuItems.push({
-      key: 'coach-applications',
+      key: 'projects-manage',
+      label: '과제관리',
+      onClick: () => navigate('/projects/manage')
+    })
+  }
+
+  // 내 지원서 (모든 로그인 사용자)
+  if (userRoles.length > 0) {
+    menuItems.push({
+      key: 'my-applications',
       label: '내 지원서',
-      onClick: () => navigate('/coach/my-applications')
+      onClick: () => navigate('/my-applications')
     })
   }
 
@@ -60,8 +73,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const getSelectedKey = () => {
     const path = location.pathname
     if (path === '/dashboard' || path.startsWith('/admin/dashboard') || path.startsWith('/coach/dashboard') || path.startsWith('/staff/dashboard')) return 'dashboard'
-    if (path.startsWith('/projects') || path.startsWith('/admin/projects') || path.startsWith('/coach/projects')) return 'projects'
-    if (path.startsWith('/coach/my-applications')) return 'coach-applications'
+    if (path.startsWith('/projects/manage') || path.startsWith('/admin/projects')) return 'projects-manage'
+    if (path.startsWith('/projects') || path.startsWith('/coach/projects')) return 'projects-participate'
+    if (path.startsWith('/my-applications') || path.startsWith('/coach/my-applications')) return 'my-applications'
     return ''
   }
 

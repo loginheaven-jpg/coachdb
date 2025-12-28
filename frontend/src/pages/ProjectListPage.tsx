@@ -8,73 +8,42 @@ import {
   Tag,
   message,
   Space,
-  Select,
   Row,
   Col,
   Statistic
 } from 'antd'
 import {
   ArrowLeftOutlined,
-  PlusOutlined,
   EditOutlined,
   EyeOutlined,
   FolderOpenOutlined,
-  UserOutlined,
   CheckCircleOutlined,
   FileTextOutlined
 } from '@ant-design/icons'
-import projectService, { ProjectListItem, ProjectStatus, DisplayStatus } from '../services/projectService'
+import projectService, { ProjectListItem, ProjectStatus } from '../services/projectService'
 import applicationService, { ParticipationProject } from '../services/applicationService'
 import { useAuthStore } from '../stores/authStore'
 import dayjs from 'dayjs'
 
 const { Title, Text } = Typography
 
-// 관리자 역할 체크
-const isAdminRole = (roles: string[]): boolean => {
-  return roles.some(r => ['SUPER_ADMIN', 'PROJECT_MANAGER', 'admin'].includes(r))
-}
-
-// 과제 관리 권한 체크 (본인 생성 또는 PM 지정)
-const canManageProject = (project: ProjectListItem, userId: number | undefined, roles: string[]): boolean => {
-  if (!userId) return false
-  if (roles.includes('SUPER_ADMIN') || roles.includes('admin')) return true
-  return project.created_by === userId || project.project_manager_id === userId
-}
-
 export default function ProjectListPage() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
   const [loading, setLoading] = useState(false)
-  const [testProjectLoading, setTestProjectLoading] = useState(false)
   const [projects, setProjects] = useState<ProjectListItem[]>([])
   const [myApplications, setMyApplications] = useState<ParticipationProject[]>([])
-  const [statusFilter, setStatusFilter] = useState<ProjectStatus | undefined>()
-
-  // 사용자 역할 파싱
-  const userRoles: string[] = (() => {
-    try {
-      return user?.roles ? JSON.parse(user.roles) : []
-    } catch {
-      return []
-    }
-  })()
-
-  // 관리자 여부
-  const isAdmin = isAdminRole(userRoles)
-  // 수퍼어드민 (loginheaven@gmail.com) 여부 확인
-  const isSuperAdmin = user?.email === 'loginheaven@gmail.com' || userRoles.includes('SUPER_ADMIN')
 
   useEffect(() => {
     loadData()
-  }, [statusFilter])
+  }, [])
 
   const loadData = async () => {
     setLoading(true)
     try {
-      // 과제 목록과 내 지원 목록을 병렬로 로드
+      // 과제참여 모드: 모집중인 과제만 조회
       const [projectsData, applicationsData] = await Promise.all([
-        projectService.listProjects({ status: statusFilter }),
+        projectService.listProjects({ mode: 'participate' }),
         applicationService.getMyApplications()
       ])
       setProjects(projectsData)
@@ -84,20 +53,6 @@ export default function ProjectListPage() {
       message.error('과제 목록을 불러오는데 실패했습니다.')
     } finally {
       setLoading(false)
-    }
-  }
-
-  const handleCreateTestProject = async () => {
-    setTestProjectLoading(true)
-    try {
-      const project = await projectService.createTestProject()
-      message.success(`테스트 과제가 생성되었습니다: ${project.project_name}`)
-      loadData()
-    } catch (error: any) {
-      console.error('테스트 과제 생성 실패:', error)
-      message.error('테스트 과제 생성에 실패했습니다.')
-    } finally {
-      setTestProjectLoading(false)
     }
   }
 
@@ -133,31 +88,18 @@ export default function ProjectListPage() {
     return <Tag color={config.color}>{config.text}</Tag>
   }
 
-  // 모집중인지 확인 (display_status 기준)
-  const isRecruiting = (record: ProjectListItem): boolean => {
-    return record.display_status === 'recruiting'
-  }
-
   const columns = [
     {
       title: '과제명',
       dataIndex: 'project_name',
       key: 'project_name',
-      width: '25%',
+      width: '30%',
       render: (text: string, record: ProjectListItem) => {
-        const canManage = canManageProject(record, user?.user_id, userRoles)
         const existingApp = getMyApplication(record.project_id)
 
-        // 관리자는 관리 페이지로, 지원한 과제는 지원서 보기로
-        if (canManage) {
+        if (existingApp) {
           return (
-            <a onClick={() => navigate(`/admin/projects/${record.project_id}`)}>
-              {text}
-            </a>
-          )
-        } else if (existingApp) {
-          return (
-            <a onClick={() => navigate(`/coach/projects/${record.project_id}/apply?applicationId=${existingApp.application_id}&mode=view`)}>
+            <a onClick={() => navigate(`/projects/${record.project_id}/apply?applicationId=${existingApp.application_id}&mode=view`)}>
               {text}
             </a>
           )
@@ -207,37 +149,25 @@ export default function ProjectListPage() {
       width: '10%',
       render: (_: any, record: ProjectListItem) => {
         const appCount = record.application_count || 0
-        const selectedCount = record.current_participants || 0
-        // 선발 완료 상태 (IN_PROGRESS, EVALUATING, CLOSED, COMPLETED)
-        const selectionComplete = ['in_progress', 'evaluating', 'closed', 'completed'].includes(record.status)
-
-        if (selectionComplete) {
-          // 선발 완료: 응모자(선발)/정원
-          return <span>{appCount}({selectedCount}) / {record.max_participants}</span>
-        }
-        // 모집/심사 중: 응모자/정원
         return <span>{appCount} / {record.max_participants}</span>
       },
     },
     {
       title: '작업',
       key: 'actions',
-      width: '21%',
+      width: '14%',
       render: (_: any, record: ProjectListItem) => {
         const existingApp = getMyApplication(record.project_id)
-        const canManage = canManageProject(record, user?.user_id, userRoles)
-        const recruiting = isRecruiting(record)
 
         return (
           <Space wrap>
-            {/* 지원/지원완료 버튼 */}
             {existingApp ? (
               <>
                 <Tag
                   color="green"
                   icon={<CheckCircleOutlined />}
                   style={{ cursor: 'pointer' }}
-                  onClick={() => navigate(`/coach/projects/${record.project_id}/apply?applicationId=${existingApp.application_id}&mode=view`)}
+                  onClick={() => navigate(`/projects/${record.project_id}/apply?applicationId=${existingApp.application_id}&mode=view`)}
                 >
                   지원완료
                 </Tag>
@@ -245,7 +175,7 @@ export default function ProjectListPage() {
                   type="link"
                   size="small"
                   icon={<EyeOutlined />}
-                  onClick={() => navigate(`/coach/projects/${record.project_id}/apply?applicationId=${existingApp.application_id}&mode=view`)}
+                  onClick={() => navigate(`/projects/${record.project_id}/apply?applicationId=${existingApp.application_id}&mode=view`)}
                 >
                   보기
                 </Button>
@@ -254,43 +184,21 @@ export default function ProjectListPage() {
                     type="link"
                     size="small"
                     icon={<EditOutlined />}
-                    onClick={() => navigate(`/coach/projects/${record.project_id}/apply?applicationId=${existingApp.application_id}&mode=edit`)}
+                    onClick={() => navigate(`/projects/${record.project_id}/apply?applicationId=${existingApp.application_id}&mode=edit`)}
                   >
                     수정
                   </Button>
                 )}
               </>
-            ) : recruiting ? (
+            ) : (
               <Button
                 type="primary"
                 size="small"
                 icon={<FileTextOutlined />}
-                onClick={() => navigate(`/coach/projects/${record.project_id}/apply`)}
+                onClick={() => navigate(`/projects/${record.project_id}/apply`)}
               >
                 지원하기
               </Button>
-            ) : null}
-
-            {/* 관리자 버튼들 */}
-            {canManage && (
-              <>
-                <Button
-                  type="link"
-                  size="small"
-                  icon={<EyeOutlined />}
-                  onClick={() => navigate(`/admin/projects/${record.project_id}`)}
-                >
-                  관리
-                </Button>
-                <Button
-                  type="link"
-                  size="small"
-                  icon={<EditOutlined />}
-                  onClick={() => navigate(`/admin/projects/${record.project_id}/edit`)}
-                >
-                  수정
-                </Button>
-              </>
             )}
           </Space>
         )
@@ -301,9 +209,12 @@ export default function ProjectListPage() {
   // 통계 계산
   const stats = {
     total: projects.length,
-    recruiting: projects.filter(p => p.display_status === 'recruiting').length,
-    completed: projects.filter(p => p.status === 'completed' || p.status === 'closed').length,
-    totalParticipants: projects.reduce((sum, p) => sum + (p.current_participants || 0), 0)
+    applied: myApplications.filter(app =>
+      projects.some(p => p.project_id === app.project_id)
+    ).length,
+    notApplied: projects.filter(p =>
+      !myApplications.some(app => app.project_id === p.project_id)
+    ).length
   }
 
   return (
@@ -316,67 +227,35 @@ export default function ProjectListPage() {
           >
             대시보드로 돌아가기
           </Button>
-          {isAdmin && (
-            <Space direction="vertical" align="end">
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={() => navigate('/admin/projects/create')}
-                size="large"
-              >
-                새 과제 생성
-              </Button>
-              {isSuperAdmin && (
-                <Button
-                  type="text"
-                  icon={<PlusOutlined />}
-                  onClick={handleCreateTestProject}
-                  loading={testProjectLoading}
-                  style={{ color: '#999', fontSize: '12px' }}
-                >
-                  테스트과제 생성
-                </Button>
-              )}
-            </Space>
-          )}
         </div>
 
         <Row gutter={[16, 16]} className="mb-6">
-          <Col xs={24} sm={12} md={6}>
+          <Col xs={24} sm={8}>
             <Card>
               <Statistic
-                title="전체 과제"
+                title="모집중 과제"
                 value={stats.total}
                 prefix={<FolderOpenOutlined />}
               />
             </Card>
           </Col>
-          <Col xs={24} sm={12} md={6}>
+          <Col xs={24} sm={8}>
             <Card>
               <Statistic
-                title="모집중"
-                value={stats.recruiting}
-                valueStyle={{ color: '#1890ff' }}
-                prefix={<FolderOpenOutlined />}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={12} md={6}>
-            <Card>
-              <Statistic
-                title="완료/종료"
-                value={stats.completed}
+                title="지원 완료"
+                value={stats.applied}
                 valueStyle={{ color: '#52c41a' }}
                 prefix={<CheckCircleOutlined />}
               />
             </Card>
           </Col>
-          <Col xs={24} sm={12} md={6}>
+          <Col xs={24} sm={8}>
             <Card>
               <Statistic
-                title="총 참여자"
-                value={stats.totalParticipants}
-                prefix={<UserOutlined />}
+                title="미지원"
+                value={stats.notApplied}
+                valueStyle={{ color: '#1890ff' }}
+                prefix={<FileTextOutlined />}
               />
             </Card>
           </Col>
@@ -384,33 +263,10 @@ export default function ProjectListPage() {
 
         <Card>
           <div className="mb-6">
-            <Title level={2} className="mb-2">과제 목록</Title>
+            <Title level={2} className="mb-2">과제 참여</Title>
             <Text className="text-gray-600">
-              {isAdmin
-                ? '코칭 과제를 생성하고 관리하거나, 모집중인 과제에 지원할 수 있습니다.'
-                : '참여를 원하는 과제를 선택하여 지원할 수 있습니다.'
-              }
+              현재 모집중인 과제 목록입니다. 참여를 원하는 과제를 선택하여 지원하세요.
             </Text>
-          </div>
-
-          <div className="mb-4">
-            <Space>
-              <Text>상태 필터:</Text>
-              <Select
-                style={{ width: 150 }}
-                placeholder="전체"
-                allowClear
-                value={statusFilter}
-                onChange={setStatusFilter}
-                options={[
-                  { label: '초안', value: 'draft' },
-                  { label: '모집중', value: 'recruiting' },
-                  { label: '심사중', value: 'reviewing' },
-                  { label: '완료', value: 'completed' },
-                  { label: '종료', value: 'closed' }
-                ]}
-              />
-            </Space>
           </div>
 
           <Table
@@ -424,7 +280,7 @@ export default function ProjectListPage() {
               showTotal: (total) => `총 ${total}개`
             }}
             locale={{
-              emptyText: '등록된 과제가 없습니다.'
+              emptyText: '현재 모집중인 과제가 없습니다.'
             }}
           />
         </Card>

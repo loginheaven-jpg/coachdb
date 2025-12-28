@@ -340,6 +340,7 @@ async def create_project(
 async def list_projects(
     status: Optional[ProjectStatus] = Query(None, description="Filter by project status"),
     manager_id: Optional[int] = Query(None, description="Filter by project manager ID"),
+    mode: Optional[str] = Query(None, description="Mode: 'participate' (recruiting only) or 'manage' (own projects)"),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -347,6 +348,11 @@ async def list_projects(
 ):
     """
     Get list of projects with optional filters
+
+    **Modes**:
+    - mode=participate: Show only recruiting projects (for application)
+    - mode=manage: Show own projects only (SUPER_ADMIN sees all)
+    - mode=None (default): Legacy behavior (mixed list)
 
     **Permissions**:
     - SUPER_ADMIN: Can see all projects
@@ -364,29 +370,55 @@ async def list_projects(
         # Build query
         query = select(Project)
 
-        # Apply filters based on user role
+        # Apply filters based on user role and mode
         from datetime import date
         today = date.today()
 
-        if "SUPER_ADMIN" not in user_roles:
-            # All users can see:
-            # 1. Their own projects (any status) - for management
-            # 2. Approved & recruiting projects - for application
+        if mode == "participate":
+            # 과제참여 모드: 모집중인 과제만 (모든 사용자 동일)
             query = query.where(
                 or_(
-                    # Own projects (any status)
-                    Project.created_by == current_user.user_id,
-                    Project.project_manager_id == current_user.user_id,
-                    # Approved (READY) + within recruitment dates = public
+                    # READY 상태 + 모집기간 내
                     (
                         (Project.status == ProjectStatus.READY) &
                         (Project.recruitment_start_date <= today) &
                         (Project.recruitment_end_date >= today)
                     ),
-                    # Legacy: RECRUITING status (backward compatibility)
+                    # Legacy: RECRUITING status
                     Project.status == ProjectStatus.RECRUITING
                 )
             )
+        elif mode == "manage":
+            # 과제관리 모드: 본인 과제만 (수퍼어드민은 전체)
+            if "SUPER_ADMIN" not in user_roles:
+                query = query.where(
+                    or_(
+                        Project.created_by == current_user.user_id,
+                        Project.project_manager_id == current_user.user_id
+                    )
+                )
+            # SUPER_ADMIN은 필터 없이 전체 조회
+        else:
+            # 기본 모드 (Legacy): 기존 동작 유지
+            if "SUPER_ADMIN" not in user_roles:
+                # All users can see:
+                # 1. Their own projects (any status) - for management
+                # 2. Approved & recruiting projects - for application
+                query = query.where(
+                    or_(
+                        # Own projects (any status)
+                        Project.created_by == current_user.user_id,
+                        Project.project_manager_id == current_user.user_id,
+                        # Approved (READY) + within recruitment dates = public
+                        (
+                            (Project.status == ProjectStatus.READY) &
+                            (Project.recruitment_start_date <= today) &
+                            (Project.recruitment_end_date >= today)
+                        ),
+                        # Legacy: RECRUITING status (backward compatibility)
+                        Project.status == ProjectStatus.RECRUITING
+                    )
+                )
 
         # Apply additional filters
         if status:

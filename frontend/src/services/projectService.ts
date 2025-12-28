@@ -367,6 +367,7 @@ const projectService = {
   async listProjects(params?: {
     status?: ProjectStatus
     manager_id?: number
+    mode?: 'participate' | 'manage'
     skip?: number
     limit?: number
   }): Promise<ProjectListItem[]> {
