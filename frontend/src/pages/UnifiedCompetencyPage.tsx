@@ -41,6 +41,7 @@ import competencyService, { CoachCompetency, CompetencyItem } from '../services/
 import educationService from '../services/educationService'
 import fileService from '../services/fileService'
 import FilePreviewModal, { useFilePreview } from '../components/FilePreviewModal'
+import usePreventFileDrop from '../hooks/usePreventFileDrop'
 import dayjs from 'dayjs'
 
 const { Title, Text } = Typography
@@ -264,6 +265,9 @@ interface UnifiedCompetencyPageProps {
 }
 
 export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompetencyPageProps) {
+  // 브라우저 기본 파일 드롭 동작 방지
+  usePreventFileDrop()
+
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
   const [loading, setLoading] = useState(false)

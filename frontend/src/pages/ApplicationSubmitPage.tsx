@@ -27,6 +27,7 @@ import profileService, { DetailedProfile } from '../services/profileService'
 import competencyService, { CoachCompetency } from '../services/competencyService'
 import { useAuthStore } from '../stores/authStore'
 import FilePreviewModal, { useFilePreview } from '../components/FilePreviewModal'
+import usePreventFileDrop from '../hooks/usePreventFileDrop'
 import dayjs from 'dayjs'
 
 // 프로필 데이터와 매핑되는 설문 항목 코드
@@ -68,6 +69,9 @@ const USER_PROFILE_ITEM_CODES = [
 export default function ApplicationSubmitPage() {
   // Debug: Log when component renders
   console.log('[ApplicationSubmitPage] Component rendering - v2')
+
+  // 브라우저 기본 파일 드롭 동작 방지
+  usePreventFileDrop()
 
   const navigate = useNavigate()
   const { projectId } = useParams<{ projectId: string }>()
