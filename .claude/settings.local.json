@@ -104,7 +104,10 @@
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzIiwicm9sZXMiOlsiUFJPSkVDVF9NQU5BR0VSIiwiVkVSSUZJRVIiLCJDT0FDSCIsIlJFVklFV0VSIl0sImV4cCI6MTc2NjQ4MDQxOCwidHlwZSI6ImFjY2VzcyJ9.Gn3T6gFjOEFiEg2Ff6ta5M8ExEzit6MGL9esXiQI5oY\" echo \"=== 올바른 알림 API 경로 확인 ===\" curl -s \"https://coachdbbackend-production.up.railway.app/api/notifications/\" -H \"Authorization: Bearer $TOKEN\")",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMSIsInJvbGVzIjpbIlNVUEVSX0FETUlOIiwiUFJPSkVDVF9NQU5BR0VSIiwiVkVSSUZJRVIiLCJDT0FDSCJdLCJleHAiOjE3NjY0ODQ2MzEsInR5cGUiOiJhY2Nlc3MifQ.MaqL2RBAlUf1cNrMyB6VtyN0BQUlx95ZH0QtJISvI5E\")",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMSIsInJvbGVzIjpbIlNVUEVSX0FETUlOIiwiUFJPSkVDVF9NQU5BR0VSIiwiVkVSSUZJRVIiLCJDT0FDSCJdLCJleHAiOjE3NjY0ODQ2MzEsInR5cGUiOiJhY2Nlc3MifQ.lLoUbAypeyuAQVAk8yBMtUgCJINoF-1tBZ3IkXhKqPY\")",
-      "Bash(__NEW_LINE__ echo \"=== 1. 고아 파일 탐지 API 호출 ===\")"
+      "Bash(__NEW_LINE__ echo \"=== 1. 고아 파일 탐지 API 호출 ===\")",
+      "Bash(npm install:*)",
+      "Bash(npx playwright:*)",
+      "Bash(wc:*)"
     ],
     "deny": [],
     "ask": []
