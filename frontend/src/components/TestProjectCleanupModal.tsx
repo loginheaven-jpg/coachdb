@@ -64,8 +64,10 @@ export default function TestProjectCleanupModal({
   const loadTestProjects = async () => {
     try {
       setLoading(true)
-      const data = await projectService.getTestProjects()
-      setProjects(data)
+      // 기존 과제 목록 API 사용 후 프론트엔드에서 테스트 과제만 필터링
+      const allProjects = await projectService.listProjects({ mode: 'manage' })
+      const testProjects = allProjects.filter(p => p.project_name.startsWith('[테스트]'))
+      setProjects(testProjects)
       setSelectedIds([])
     } catch (error: any) {
       console.error('Failed to load test projects:', error)
