@@ -19,6 +19,7 @@ from app.services.scoring_service import (
     finalize_project_scores,
     calculate_qualitative_score_average
 )
+from app.services.notification_service import send_selection_result_notification
 from app.schemas.reviewer_evaluation import (
     ReviewerEvaluationCreate,
     ReviewerEvaluationUpdate,
@@ -484,6 +485,10 @@ async def confirm_bulk_selection(
     Confirm selection for multiple applications
 
     **Required roles**: SUPER_ADMIN, PROJECT_MANAGER
+
+    This also:
+    - Updates application status to COMPLETED
+    - Sends notification to all applicants about their selection result
     """
     project = await db.get(Project, project_id)
     if not project:
@@ -492,6 +497,8 @@ async def confirm_bulk_selection(
     selected_count = 0
     rejected_count = 0
     errors = []
+    selected_apps = []
+    rejected_apps = []
 
     # Set selected for specified applications
     for app_id in request.application_ids:
@@ -503,7 +510,9 @@ async def confirm_bulk_selection(
         app = result.scalar_one_or_none()
         if app:
             app.selection_result = SelectionResult.SELECTED
+            app.status = ApplicationStatus.COMPLETED
             selected_count += 1
+            selected_apps.append(app)
         else:
             errors.append({"application_id": app_id, "error": "Not found or wrong project"})
 
@@ -518,7 +527,40 @@ async def confirm_bulk_selection(
     remaining = result.scalars().all()
     for app in remaining:
         app.selection_result = SelectionResult.REJECTED
+        app.status = ApplicationStatus.COMPLETED
         rejected_count += 1
+        rejected_apps.append(app)
+
+    await db.commit()
+
+    # Send notifications to all applicants
+    for app in selected_apps:
+        try:
+            await send_selection_result_notification(
+                db=db,
+                user_id=app.user_id,
+                application_id=app.application_id,
+                project_id=project_id,
+                project_name=project.project_name,
+                is_selected=True,
+                message=f"축하합니다! '{project.project_name}' 과제에 선발되었습니다."
+            )
+        except Exception as e:
+            print(f"[SELECTION] Failed to send notification to user {app.user_id}: {e}")
+
+    for app in rejected_apps:
+        try:
+            await send_selection_result_notification(
+                db=db,
+                user_id=app.user_id,
+                application_id=app.application_id,
+                project_id=project_id,
+                project_name=project.project_name,
+                is_selected=False,
+                message=f"'{project.project_name}' 과제 선발 결과를 안내드립니다. 아쉽게도 이번에는 선발되지 않았습니다."
+            )
+        except Exception as e:
+            print(f"[SELECTION] Failed to send notification to user {app.user_id}: {e}")
 
     await db.commit()
 
