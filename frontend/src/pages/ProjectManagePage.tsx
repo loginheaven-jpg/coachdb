@@ -27,6 +27,7 @@ import {
 } from '@ant-design/icons'
 import projectService, { ProjectListItem, ProjectStatus } from '../services/projectService'
 import { useAuthStore } from '../stores/authStore'
+import TestProjectCleanupModal from '../components/TestProjectCleanupModal'
 import dayjs from 'dayjs'
 
 const { Title, Text } = Typography
@@ -37,6 +38,7 @@ export default function ProjectManagePage() {
   const [loading, setLoading] = useState(false)
   const [testProjectLoading, setTestProjectLoading] = useState(false)
   const [testWithAppsLoading, setTestWithAppsLoading] = useState(false)
+  const [cleanupModalOpen, setCleanupModalOpen] = useState(false)
   const [projects, setProjects] = useState<ProjectListItem[]>([])
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | undefined>()
 
@@ -305,6 +307,14 @@ export default function ProjectManagePage() {
                   >
                     응모완료과제 생성
                   </Button>
+                  <Button
+                    type="text"
+                    icon={<DeleteOutlined />}
+                    onClick={() => setCleanupModalOpen(true)}
+                    style={{ color: '#ff4d4f', fontSize: '12px' }}
+                  >
+                    테스트과제 정리
+                  </Button>
                 </>
               )}
             </Space>
@@ -400,6 +410,12 @@ export default function ProjectManagePage() {
             }}
           />
         </Card>
+
+        <TestProjectCleanupModal
+          open={cleanupModalOpen}
+          onClose={() => setCleanupModalOpen(false)}
+          onSuccess={loadData}
+        />
       </div>
     </div>
   )

@@ -645,6 +645,26 @@ const projectService = {
    */
   async removeProjectStaff(projectId: number, staffUserId: number): Promise<void> {
     await api.delete(`/projects/${projectId}/staff/${staffUserId}`)
+  },
+
+  // ============================================================================
+  // Test Project Management - SUPER_ADMIN only
+  // ============================================================================
+
+  /**
+   * Get all test projects (projects starting with '[테스트]')
+   */
+  async getTestProjects(): Promise<ProjectListItem[]> {
+    const response = await api.get('/projects/test-projects')
+    return response.data
+  },
+
+  /**
+   * Bulk delete multiple test projects
+   */
+  async bulkDeleteProjects(projectIds: number[]): Promise<{ deleted_count: number }> {
+    const response = await api.delete('/projects/bulk-delete', { data: projectIds })
+    return response.data
   }
 }
 

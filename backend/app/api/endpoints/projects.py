@@ -934,6 +934,201 @@ async def delete_project(
 
 
 # ============================================================================
+# Test Project Management
+# ============================================================================
+@router.get("/test-projects", response_model=List[ProjectListResponse])
+async def get_test_projects(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(["SUPER_ADMIN"]))
+):
+    """
+    Get all test projects (projects starting with '[테스트]')
+
+    **Required roles**: SUPER_ADMIN only
+    """
+    from app.schemas.project import calculate_display_status
+
+    # 과제명이 '[테스트]'로 시작하는 과제만 조회
+    result = await db.execute(
+        select(Project)
+        .where(Project.project_name.like('[테스트]%'))
+        .order_by(Project.created_at.desc())
+    )
+    projects = result.scalars().all()
+
+    # 각 프로젝트에 대해 application_count와 current_participants 계산
+    response_list = []
+    for project in projects:
+        # 전체 응모 수
+        app_count_result = await db.execute(
+            select(func.count(Application.application_id))
+            .where(Application.project_id == project.project_id)
+        )
+        application_count = app_count_result.scalar() or 0
+
+        # 선발된 참여자 수
+        selected_count_result = await db.execute(
+            select(func.count(Application.application_id))
+            .where(
+                Application.project_id == project.project_id,
+                Application.selection_result == 'selected'
+            )
+        )
+        current_participants = selected_count_result.scalar() or 0
+
+        display_status = calculate_display_status(project)
+
+        response_list.append(ProjectListResponse(
+            project_id=project.project_id,
+            project_name=project.project_name,
+            recruitment_start_date=project.recruitment_start_date,
+            recruitment_end_date=project.recruitment_end_date,
+            project_start_date=project.project_start_date,
+            project_end_date=project.project_end_date,
+            status=project.status,
+            display_status=display_status,
+            max_participants=project.max_participants,
+            application_count=application_count,
+            current_participants=current_participants,
+            created_by=project.created_by,
+            project_manager_id=project.project_manager_id,
+            created_at=project.created_at
+        ))
+
+    return response_list
+
+
+@router.delete("/bulk-delete")
+async def bulk_delete_projects(
+    project_ids: List[int],
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(["SUPER_ADMIN"]))
+):
+    """
+    Bulk delete multiple projects and all related data
+
+    **Required roles**: SUPER_ADMIN only
+
+    Deletes projects and cascades to:
+    - Applications, ApplicationData
+    - Evaluations, ReviewerEvaluations
+    - ProjectItems, ScoringCriteria
+    - CustomQuestions, CustomQuestionAnswers
+    - ProjectStaff
+    - etc.
+    """
+    import traceback
+    from sqlalchemy import text
+
+    if not project_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="project_ids cannot be empty"
+        )
+
+    print(f"[BULK DELETE] Starting bulk delete for project_ids={project_ids} by user_id={current_user.user_id}")
+
+    deleted_count = 0
+
+    try:
+        for project_id in project_ids:
+            # 과제 존재 확인
+            project = await db.get(Project, project_id)
+            if not project:
+                print(f"[BULK DELETE] Skipping non-existent project_id={project_id}")
+                continue
+
+            # 테스트 과제인지 확인 (안전 체크)
+            if not project.project_name.startswith('[테스트]'):
+                print(f"[BULK DELETE] Skipping non-test project: {project.project_name}")
+                continue
+
+            print(f"[BULK DELETE] Deleting project: {project.project_name}")
+
+            # 관련 데이터 삭제 (delete_project 로직 재사용)
+            # 1. ApplicationData 삭제
+            await db.execute(text("""
+                DELETE FROM application_data
+                WHERE application_id IN (SELECT application_id FROM applications WHERE project_id = :project_id)
+            """), {"project_id": project_id})
+
+            # 2. ApplicationSnapshots 삭제
+            await db.execute(text("""
+                DELETE FROM application_snapshots
+                WHERE application_id IN (SELECT application_id FROM applications WHERE project_id = :project_id)
+            """), {"project_id": project_id})
+
+            # 3. ReviewerEvaluations 삭제
+            await db.execute(text("""
+                DELETE FROM reviewer_evaluations
+                WHERE application_id IN (SELECT application_id FROM applications WHERE project_id = :project_id)
+            """), {"project_id": project_id})
+
+            # 4. Applications 삭제
+            await db.execute(text("""
+                DELETE FROM applications WHERE project_id = :project_id
+            """), {"project_id": project_id})
+
+            # 5. CustomQuestionAnswers 삭제
+            await db.execute(text("""
+                DELETE FROM custom_question_answers
+                WHERE question_id IN (SELECT question_id FROM custom_questions WHERE project_id = :project_id)
+            """), {"project_id": project_id})
+
+            # 6. CustomQuestions 삭제
+            await db.execute(text("""
+                DELETE FROM custom_questions WHERE project_id = :project_id
+            """), {"project_id": project_id})
+
+            # 7. ScoringCriteria 삭제
+            await db.execute(text("""
+                DELETE FROM scoring_criteria
+                WHERE project_item_id IN (SELECT project_item_id FROM project_items WHERE project_id = :project_id)
+            """), {"project_id": project_id})
+
+            # 8. ProjectItems 삭제
+            await db.execute(text("""
+                DELETE FROM project_items WHERE project_id = :project_id
+            """), {"project_id": project_id})
+
+            # 9. CoachEvaluations 삭제
+            await db.execute(text("""
+                DELETE FROM coach_evaluations WHERE project_id = :project_id
+            """), {"project_id": project_id})
+
+            # 10. ProjectStaff 삭제
+            await db.execute(text("""
+                DELETE FROM project_staff WHERE project_id = :project_id
+            """), {"project_id": project_id})
+
+            # 11. Notification의 related_project_id를 NULL로 설정
+            await db.execute(text("""
+                UPDATE notifications SET related_project_id = NULL WHERE related_project_id = :project_id
+            """), {"project_id": project_id})
+
+            # 12. Project 삭제
+            await db.execute(text("""
+                DELETE FROM projects WHERE project_id = :project_id
+            """), {"project_id": project_id})
+
+            deleted_count += 1
+
+        await db.commit()
+        print(f"[BULK DELETE] Successfully deleted {deleted_count} projects")
+
+        return {"deleted_count": deleted_count}
+
+    except Exception as e:
+        print(f"[BULK DELETE ERROR] Exception: {type(e).__name__}: {str(e)}")
+        print(f"[BULK DELETE ERROR] Traceback:\n{traceback.format_exc()}")
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete projects: {str(e)}"
+        )
+
+
+# ============================================================================
 # Custom Question Endpoints
 # ============================================================================
 @router.post("/questions", response_model=CustomQuestionResponse, status_code=status.HTTP_201_CREATED)
