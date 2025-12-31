@@ -27,10 +27,10 @@ test.describe('대시보드', () => {
   test('대시보드 메뉴 표시', async ({ page }) => {
     await login(page, 'coach')
 
-    // 메뉴 항목 확인
-    await expect(page.locator('text=대시보드')).toBeVisible()
-    await expect(page.locator('text=과제참여')).toBeVisible()
-    await expect(page.locator('text=내 지원서')).toBeVisible()
+    // 사이드 메뉴 항목 확인 (ant-menu 내부)
+    await expect(page.locator('.ant-menu-item:has-text("대시보드")')).toBeVisible()
+    await expect(page.locator('.ant-menu-item:has-text("과제참여")')).toBeVisible()
+    await expect(page.locator('.ant-menu-item:has-text("내 지원서")')).toBeVisible()
   })
 
   test('사용자 드롭다운 메뉴 표시', async ({ page }) => {
@@ -39,10 +39,10 @@ test.describe('대시보드', () => {
     // 아바타 클릭
     await page.click('.ant-avatar')
 
-    // 드롭다운 메뉴 항목 확인
-    await expect(page.locator('text=프로필 수정')).toBeVisible()
-    await expect(page.locator('text=세부정보 관리')).toBeVisible()
-    await expect(page.locator('text=로그아웃')).toBeVisible()
+    // 드롭다운 메뉴 항목 확인 (ant-dropdown 내부)
+    await expect(page.locator('.ant-dropdown-menu-item:has-text("프로필 수정")')).toBeVisible()
+    await expect(page.locator('.ant-dropdown-menu-item:has-text("세부정보 관리")')).toBeVisible()
+    await expect(page.locator('.ant-dropdown-menu-item:has-text("로그아웃")')).toBeVisible()
   })
 })
 
@@ -52,8 +52,8 @@ test.describe('관리자 기능', () => {
   test('관리자 메뉴 표시', async ({ page }) => {
     await login(page, 'admin')
 
-    // 관리자 전용 메뉴 확인
-    await expect(page.locator('text=과제관리')).toBeVisible()
+    // 관리자 전용 메뉴 확인 (사이드 메뉴)
+    await expect(page.locator('.ant-menu-item:has-text("과제관리")')).toBeVisible()
   })
 })
 
@@ -80,8 +80,13 @@ test.describe('네비게이션', () => {
   })
 
   test('PPMS 로고 클릭 시 대시보드로 이동', async ({ page }) => {
-    await page.goto('/projects')
-    await page.click('text=PPMS')
+    // 과제참여 페이지로 이동 후 로드 대기
+    await page.locator('.ant-menu-item:has-text("과제참여")').click()
+    await page.waitForURL('/projects', { timeout: 10000 })
+    await page.waitForLoadState('networkidle')
+
+    // 헤더의 PPMS 로고 클릭
+    await page.locator('header .text-xl:has-text("PPMS")').click()
     await expect(page).toHaveURL(/\/dashboard/)
   })
 })

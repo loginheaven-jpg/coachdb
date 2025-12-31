@@ -18,15 +18,16 @@ test.describe('과제관리 기능 (관리자)', () => {
   })
 
   test('과제관리 메뉴가 관리자에게만 표시됨', async ({ page }) => {
-    await expect(page.locator('text=과제관리')).toBeVisible()
+    // 사이드 메뉴에서 과제관리 확인
+    await expect(page.locator('.ant-menu-item:has-text("과제관리")')).toBeVisible()
   })
 
   test('과제관리 페이지 접근 가능', async ({ page }) => {
-    await page.click('text=과제관리')
+    await page.locator('.ant-menu-item:has-text("과제관리")').click()
     await page.waitForURL('/projects/manage', { timeout: 10000 })
 
     // 페이지 제목 확인
-    await expect(page.locator('h2', { hasText: '과제 관리' })).toBeVisible()
+    await expect(page.locator('h2:has-text("과제 관리")')).toBeVisible()
   })
 
   test('새 과제 생성 버튼 표시', async ({ page }) => {
@@ -55,8 +56,8 @@ test.describe('과제관리 기능 (관리자)', () => {
       await page.locator('.ant-table-row').first().locator('text=상세').click()
       await page.waitForURL(/\/projects\/manage\/\d+/, { timeout: 10000 })
 
-      // 과제 상세 페이지 확인
-      await expect(page.locator('.ant-card')).toBeVisible()
+      // 과제 상세 페이지 확인 (첫 번째 카드)
+      await expect(page.locator('.ant-card').first()).toBeVisible()
     }
   })
 })
