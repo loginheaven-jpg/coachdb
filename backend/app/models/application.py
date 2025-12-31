@@ -73,6 +73,7 @@ class Application(Base):
     application_data = relationship("ApplicationData", back_populates="application", cascade="all, delete-orphan")
     review_locks = relationship("ReviewLock", back_populates="application", cascade="all, delete-orphan")
     custom_question_answers = relationship("CustomQuestionAnswer", back_populates="application", cascade="all, delete-orphan")
+    reviewer_evaluations = relationship("ReviewerEvaluation", back_populates="application", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Application(application_id={self.application_id}, project_id={self.project_id}, user_id={self.user_id}, status={self.status})>"

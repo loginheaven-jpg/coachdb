@@ -29,7 +29,8 @@ import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   DownOutlined,
-  UsergroupAddOutlined
+  UsergroupAddOutlined,
+  TrophyOutlined
 } from '@ant-design/icons'
 import { useAuthStore } from '../stores/authStore'
 import ProjectStaffModal from '../components/ProjectStaffModal'
@@ -498,14 +499,25 @@ export default function ProjectDetailPage() {
                     <Text>모집 정원: <Text strong>{project.max_participants}명</Text></Text>
                   </Space>
                 </div>
-                <Button
-                  type="primary"
-                  icon={<TeamOutlined />}
-                  onClick={() => navigate(`/admin/projects/${projectId}/applications`)}
-                  size="large"
-                >
-                  지원자 상세 보기
-                </Button>
+                <Space>
+                  <Button
+                    type="primary"
+                    icon={<TeamOutlined />}
+                    onClick={() => navigate(`/admin/projects/${projectId}/applications`)}
+                    size="large"
+                  >
+                    지원자 상세 보기
+                  </Button>
+                  <Button
+                    type="primary"
+                    ghost
+                    icon={<TrophyOutlined />}
+                    onClick={() => navigate(`/projects/manage/${projectId}/review`)}
+                    size="large"
+                  >
+                    심사 및 선발
+                  </Button>
+                </Space>
               </div>
               {(project.application_count || 0) === 0 ? (
                 <div className="text-center py-8">

@@ -17,6 +17,7 @@ import ProjectCreatePage from './pages/ProjectCreatePage'
 import ProjectDetailPage from './pages/ProjectDetailPage'
 import ProjectEditPage from './pages/ProjectEditPage'
 import ProjectApplicationsPage from './pages/ProjectApplicationsPage'
+import ProjectReviewPage from './pages/ProjectReviewPage'
 import ProjectEvaluationCreatePage from './pages/ProjectEvaluationCreatePage'
 import ApplicationSubmitPage from './pages/ApplicationSubmitPage'
 import AdminCompetencyItemsPage from './pages/AdminCompetencyItemsPage'
@@ -240,6 +241,15 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={ADMIN_ROLES}>
               <ProjectApplicationsPage />
+            </ProtectedRoute>
+          }
+        />
+        {/* 심사 및 선발 */}
+        <Route
+          path="/projects/manage/:projectId/review"
+          element={
+            <ProtectedRoute allowedRoles={ADMIN_ROLES}>
+              <ProjectReviewPage />
             </ProtectedRoute>
           }
         />

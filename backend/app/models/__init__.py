@@ -15,6 +15,7 @@ from app.models.custom_question import CustomQuestion, CustomQuestionAnswer
 from app.models.evaluation import CoachEvaluation
 from app.models.certification import Certification, CertificationType
 from app.models.role_request import RoleRequest, RoleRequestStatus
+from app.models.reviewer_evaluation import ReviewerEvaluation, Recommendation
 
 __all__ = [
     "User",
@@ -47,4 +48,6 @@ __all__ = [
     "CertificationType",
     "RoleRequest",
     "RoleRequestStatus",
+    "ReviewerEvaluation",
+    "Recommendation",
 ]

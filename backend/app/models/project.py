@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, BigInteger, String, Text, Enum, Date, DateTime, ForeignKey, func
+from sqlalchemy import Column, Integer, BigInteger, String, Text, Enum, Date, DateTime, ForeignKey, Numeric, func
 from sqlalchemy.orm import relationship
 import enum
 
@@ -47,6 +47,10 @@ class Project(Base):
 
     status = Column(Enum(ProjectStatus), nullable=False, default=ProjectStatus.DRAFT)
     max_participants = Column(Integer, nullable=False)
+
+    # 평가 가중치 (기본값: 정량 70%, 정성 30%)
+    quantitative_weight = Column(Numeric(5, 2), nullable=False, default=70)  # 정량평가 가중치 (0-100)
+    qualitative_weight = Column(Numeric(5, 2), nullable=False, default=30)   # 정성평가 가중치 (0-100)
 
     # 과제 관리자
     project_manager_id = Column(BigInteger, ForeignKey("users.user_id"), nullable=True)
