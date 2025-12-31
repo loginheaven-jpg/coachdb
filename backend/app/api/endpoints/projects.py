@@ -787,16 +787,22 @@ async def bulk_delete_projects(
                 WHERE application_id IN (SELECT application_id FROM applications WHERE project_id = :project_id)
             """), {"project_id": project_id})
 
-            # 2. ApplicationSnapshots 삭제
-            await db.execute(text("""
-                DELETE FROM application_snapshots
-                WHERE application_id IN (SELECT application_id FROM applications WHERE project_id = :project_id)
-            """), {"project_id": project_id})
-
-            # 3. ReviewerEvaluations 삭제
+            # 2. ReviewerEvaluations 삭제
             await db.execute(text("""
                 DELETE FROM reviewer_evaluations
                 WHERE application_id IN (SELECT application_id FROM applications WHERE project_id = :project_id)
+            """), {"project_id": project_id})
+
+            # 3-1. ReviewLocks 삭제
+            await db.execute(text("""
+                DELETE FROM review_locks
+                WHERE application_id IN (SELECT application_id FROM applications WHERE project_id = :project_id)
+            """), {"project_id": project_id})
+
+            # 3-2. Notifications의 related_application_id를 NULL로 설정 (applications 삭제 전에 수행)
+            await db.execute(text("""
+                UPDATE notifications SET related_application_id = NULL
+                WHERE related_application_id IN (SELECT application_id FROM applications WHERE project_id = :project_id)
             """), {"project_id": project_id})
 
             # 4. Applications 삭제
