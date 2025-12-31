@@ -2522,18 +2522,10 @@ async def get_project_staff(
     current_user: User = Depends(get_current_user)
 ):
     """
-    과제에 할당된 심사위원(REVIEWER) 목록을 조회합니다.
+    과제에 할당된 심사위원 목록을 조회합니다.
 
-    권한: SUPER_ADMIN만 접근 가능
+    권한: SUPER_ADMIN (모든 과제) 또는 PROJECT_MANAGER (본인 과제)
     """
-    # Check SUPER_ADMIN permission
-    user_roles = [r.value if hasattr(r, 'value') else r for r in current_user.roles]
-    if "SUPER_ADMIN" not in user_roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="심사위원 관리 권한이 없습니다"
-        )
-
     # Check project exists
     project_result = await db.execute(
         select(Project).where(Project.project_id == project_id)
@@ -2543,6 +2535,17 @@ async def get_project_staff(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="과제를 찾을 수 없습니다"
+        )
+
+    # Check permission: SUPER_ADMIN or project manager
+    user_roles = [r.value if hasattr(r, 'value') else r for r in current_user.roles]
+    is_super_admin = "SUPER_ADMIN" in user_roles
+    is_project_manager = project.manager_id == current_user.user_id
+
+    if not (is_super_admin or is_project_manager):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="심사위원 관리 권한이 없습니다"
         )
 
     # Get staff list with user info
@@ -2587,18 +2590,10 @@ async def add_project_staff(
     current_user: User = Depends(get_current_user)
 ):
     """
-    과제에 심사위원(REVIEWER)을 추가합니다.
+    과제에 심사위원을 추가합니다.
 
-    권한: SUPER_ADMIN만 접근 가능
+    권한: SUPER_ADMIN (모든 과제) 또는 PROJECT_MANAGER (본인 과제)
     """
-    # Check SUPER_ADMIN permission
-    user_roles = [r.value if hasattr(r, 'value') else r for r in current_user.roles]
-    if "SUPER_ADMIN" not in user_roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="심사위원 관리 권한이 없습니다"
-        )
-
     # Check project exists
     project_result = await db.execute(
         select(Project).where(Project.project_id == project_id)
@@ -2610,7 +2605,18 @@ async def add_project_staff(
             detail="과제를 찾을 수 없습니다"
         )
 
-    # Check user exists and has REVIEWER role
+    # Check permission: SUPER_ADMIN or project manager
+    user_roles = [r.value if hasattr(r, 'value') else r for r in current_user.roles]
+    is_super_admin = "SUPER_ADMIN" in user_roles
+    is_project_manager = project.manager_id == current_user.user_id
+
+    if not (is_super_admin or is_project_manager):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="심사위원 관리 권한이 없습니다"
+        )
+
+    # Check user exists (REVIEWER 역할 체크 제거 - 과제별 심사위원 지정으로 변경)
     user_result = await db.execute(
         select(User).where(User.user_id == staff_data.staff_user_id)
     )
@@ -2619,13 +2625,6 @@ async def add_project_staff(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="사용자를 찾을 수 없습니다"
-        )
-
-    staff_user_roles = [r.value if hasattr(r, 'value') else r for r in staff_user.roles]
-    if "REVIEWER" not in staff_user_roles:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="해당 사용자에게 REVIEWER 역할이 없습니다"
         )
 
     # Check if already assigned
@@ -2674,18 +2673,10 @@ async def remove_project_staff(
     current_user: User = Depends(get_current_user)
 ):
     """
-    과제에서 심사위원(REVIEWER)을 제거합니다.
+    과제에서 심사위원을 제거합니다.
 
-    권한: SUPER_ADMIN만 접근 가능
+    권한: SUPER_ADMIN (모든 과제) 또는 PROJECT_MANAGER (본인 과제)
     """
-    # Check SUPER_ADMIN permission
-    user_roles = [r.value if hasattr(r, 'value') else r for r in current_user.roles]
-    if "SUPER_ADMIN" not in user_roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="심사위원 관리 권한이 없습니다"
-        )
-
     # Check project exists
     project_result = await db.execute(
         select(Project).where(Project.project_id == project_id)
@@ -2695,6 +2686,17 @@ async def remove_project_staff(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="과제를 찾을 수 없습니다"
+        )
+
+    # Check permission: SUPER_ADMIN or project manager
+    user_roles = [r.value if hasattr(r, 'value') else r for r in current_user.roles]
+    is_super_admin = "SUPER_ADMIN" in user_roles
+    is_project_manager = project.manager_id == current_user.user_id
+
+    if not (is_super_admin or is_project_manager):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="심사위원 관리 권한이 없습니다"
         )
 
     # Check staff assignment exists

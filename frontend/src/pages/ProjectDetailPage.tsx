@@ -16,7 +16,8 @@ import {
   Switch,
   InputNumber,
   Tabs,
-  Dropdown
+  Dropdown,
+  Popconfirm
 } from 'antd'
 import {
   ArrowLeftOutlined,
@@ -30,7 +31,8 @@ import {
   CloseCircleOutlined,
   DownOutlined,
   UsergroupAddOutlined,
-  TrophyOutlined
+  TrophyOutlined,
+  StopOutlined
 } from '@ant-design/icons'
 import { useAuthStore } from '../stores/authStore'
 import ProjectStaffModal from '../components/ProjectStaffModal'
@@ -66,10 +68,14 @@ export default function ProjectDetailPage() {
   const [surveyBuilderVisible, setSurveyBuilderVisible] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [staffModalVisible, setStaffModalVisible] = useState(false)
+  const [freezeLoading, setFreezeLoading] = useState(false)
   const [questionForm] = Form.useForm()
 
   // SUPER_ADMIN 권한 체크
   const isSuperAdmin = user?.roles?.includes('SUPER_ADMIN')
+
+  // 과제 관리자 체크 (본인이 생성한 과제)
+  const isProjectManager = project?.project_manager_id === user?.user_id
 
   useEffect(() => {
     if (projectId) {
@@ -270,6 +276,21 @@ export default function ProjectDetailPage() {
         }
       }
     })
+  }
+
+  const handleFreezeApplications = async () => {
+    if (!projectId) return
+    setFreezeLoading(true)
+    try {
+      const result = await projectService.freezeApplications(parseInt(projectId))
+      message.success(`응모가 마감되었습니다. (${result.frozen_count}명)`)
+      loadProjectDetail()
+    } catch (error: any) {
+      console.error('응모마감 실패:', error)
+      message.error(error.response?.data?.detail || '응모마감에 실패했습니다.')
+    } finally {
+      setFreezeLoading(false)
+    }
   }
 
   const questionColumns = [
@@ -500,6 +521,26 @@ export default function ProjectDetailPage() {
                   </Space>
                 </div>
                 <Space>
+                  {/* 응모마감 버튼 - 모집중 상태일 때만 표시 */}
+                  {(project.display_status === 'recruiting' || project.status === 'recruiting') && (
+                    <Popconfirm
+                      title="응모 마감"
+                      description="응모를 마감하시겠습니까? 마감 후에는 새로운 지원을 받을 수 없습니다."
+                      onConfirm={handleFreezeApplications}
+                      okText="마감"
+                      cancelText="취소"
+                      okButtonProps={{ danger: true }}
+                    >
+                      <Button
+                        danger
+                        icon={<StopOutlined />}
+                        size="large"
+                        loading={freezeLoading}
+                      >
+                        응모마감
+                      </Button>
+                    </Popconfirm>
+                  )}
                   <Button
                     type="primary"
                     icon={<TeamOutlined />}

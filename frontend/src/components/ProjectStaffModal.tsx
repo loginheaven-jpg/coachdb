@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Modal, Table, Button, Space, message, Select, Empty, Tag, Typography } from 'antd'
-import { UserAddOutlined, DeleteOutlined } from '@ant-design/icons'
+import { Modal, Table, Button, Space, message, Select, Empty, Typography, Card, InputNumber, Divider } from 'antd'
+import { UserAddOutlined, DeleteOutlined, SettingOutlined } from '@ant-design/icons'
 import projectService, { ProjectStaffResponse, ProjectStaffListResponse } from '../services/projectService'
-import adminService, { UserListItem, ROLE_LABELS } from '../services/adminService'
+import adminService, { UserListItem } from '../services/adminService'
+import scoringService from '../services/scoringService'
 
 const { Text } = Typography
 
@@ -21,10 +22,15 @@ export default function ProjectStaffModal({
 }: ProjectStaffModalProps) {
   const [loading, setLoading] = useState(false)
   const [staffList, setStaffList] = useState<ProjectStaffResponse[]>([])
-  const [reviewers, setReviewers] = useState<UserListItem[]>([])
+  const [allUsers, setAllUsers] = useState<UserListItem[]>([])
   const [selectedUserId, setSelectedUserId] = useState<number | undefined>()
   const [adding, setAdding] = useState(false)
   const [removingId, setRemovingId] = useState<number | null>(null)
+
+  // 가중치 상태
+  const [quantWeight, setQuantWeight] = useState<number>(70)
+  const [qualWeight, setQualWeight] = useState<number>(30)
+  const [savingWeights, setSavingWeights] = useState(false)
 
   const loadStaff = useCallback(async () => {
     if (!projectId) return
@@ -40,21 +46,34 @@ export default function ProjectStaffModal({
     }
   }, [projectId])
 
-  const loadReviewers = useCallback(async () => {
+  const loadAllUsers = useCallback(async () => {
     try {
-      const data = await adminService.getUsers({ role: 'REVIEWER' })
-      setReviewers(data)
+      // 전체 사용자 목록 조회 (REVIEWER 필터 제거)
+      const data = await adminService.getUsers({})
+      setAllUsers(data)
     } catch (error: any) {
-      console.error('심사자 목록 로드 실패:', error)
+      console.error('사용자 목록 로드 실패:', error)
     }
   }, [])
+
+  const loadWeights = useCallback(async () => {
+    if (!projectId) return
+    try {
+      const data = await scoringService.getProjectWeights(projectId)
+      setQuantWeight(data.quantitative_weight || 70)
+      setQualWeight(data.qualitative_weight || 30)
+    } catch (error: any) {
+      console.error('가중치 로드 실패:', error)
+    }
+  }, [projectId])
 
   useEffect(() => {
     if (visible && projectId) {
       loadStaff()
-      loadReviewers()
+      loadAllUsers()
+      loadWeights()
     }
-  }, [visible, projectId, loadStaff, loadReviewers])
+  }, [visible, projectId, loadStaff, loadAllUsers, loadWeights])
 
   const handleAddStaff = async () => {
     if (!selectedUserId) {
@@ -90,9 +109,36 @@ export default function ProjectStaffModal({
     }
   }
 
-  // Filter out already assigned reviewers
-  const availableReviewers = reviewers.filter(
-    reviewer => !staffList.some(staff => staff.staff_user_id === reviewer.user_id)
+  const handleSaveWeights = async () => {
+    if (quantWeight + qualWeight !== 100) {
+      message.error('정량 + 정성 가중치의 합이 100이어야 합니다.')
+      return
+    }
+
+    setSavingWeights(true)
+    try {
+      await scoringService.updateProjectWeights(projectId, {
+        quantitative_weight: quantWeight,
+        qualitative_weight: qualWeight
+      })
+      message.success('가중치가 저장되었습니다.')
+    } catch (error: any) {
+      console.error('가중치 저장 실패:', error)
+      message.error(error.response?.data?.detail || '가중치 저장에 실패했습니다.')
+    } finally {
+      setSavingWeights(false)
+    }
+  }
+
+  const handleQuantWeightChange = (value: number | null) => {
+    const newQuant = value || 0
+    setQuantWeight(newQuant)
+    setQualWeight(100 - newQuant)
+  }
+
+  // Filter out already assigned users
+  const availableUsers = allUsers.filter(
+    user => !staffList.some(staff => staff.staff_user_id === user.user_id)
   )
 
   const columns = [
@@ -140,43 +186,91 @@ export default function ProjectStaffModal({
           닫기
         </Button>
       ]}
-      width={600}
+      width={650}
     >
+      {/* 가중치 설정 */}
+      <Card
+        size="small"
+        title={
+          <Space>
+            <SettingOutlined />
+            <span>평가 가중치 설정</span>
+          </Space>
+        }
+        style={{ marginBottom: 16 }}
+      >
+        <Space align="center" wrap>
+          <Text>정량평가:</Text>
+          <InputNumber
+            value={quantWeight}
+            min={0}
+            max={100}
+            onChange={handleQuantWeightChange}
+            addonAfter="%"
+            style={{ width: 100 }}
+          />
+          <Text>정성평가:</Text>
+          <InputNumber
+            value={qualWeight}
+            min={0}
+            max={100}
+            disabled
+            addonAfter="%"
+            style={{ width: 100 }}
+          />
+          <Button
+            type="primary"
+            size="small"
+            onClick={handleSaveWeights}
+            loading={savingWeights}
+          >
+            저장
+          </Button>
+        </Space>
+        <div style={{ marginTop: 8 }}>
+          <Text type="secondary">
+            정량(자동계산) + 정성(심사위원 평가) = 100%. 기본값: 70:30
+          </Text>
+        </div>
+      </Card>
+
+      <Divider style={{ margin: '16px 0' }} />
+
       {/* Add reviewer section */}
       <div style={{ marginBottom: 16 }}>
         <Text strong>심사위원 추가</Text>
         <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
           <Select
             style={{ flex: 1 }}
-            placeholder="심사위원을 선택하세요"
+            placeholder="심사위원으로 지정할 사용자를 선택하세요"
             value={selectedUserId}
             onChange={setSelectedUserId}
-            options={availableReviewers.map(reviewer => ({
-              value: reviewer.user_id,
+            options={availableUsers.map(user => ({
+              value: user.user_id,
               label: (
                 <Space>
-                  <span>{reviewer.name}</span>
-                  <Text type="secondary">({reviewer.email})</Text>
+                  <span>{user.name}</span>
+                  <Text type="secondary">({user.email})</Text>
                 </Space>
               )
             }))}
             showSearch
             filterOption={(input, option) => {
-              const reviewer = reviewers.find(r => r.user_id === option?.value)
-              if (!reviewer) return false
+              const user = allUsers.find(u => u.user_id === option?.value)
+              if (!user) return false
               const searchText = input.toLowerCase()
               return (
-                reviewer.name.toLowerCase().includes(searchText) ||
-                reviewer.email.toLowerCase().includes(searchText)
+                user.name.toLowerCase().includes(searchText) ||
+                user.email.toLowerCase().includes(searchText)
               )
             }}
             notFoundContent={
-              availableReviewers.length === 0 ? (
+              availableUsers.length === 0 ? (
                 <Empty
                   description={
-                    reviewers.length === 0
-                      ? "REVIEWER 역할을 가진 사용자가 없습니다"
-                      : "모든 심사위원이 이미 할당되었습니다"
+                    allUsers.length === 0
+                      ? "사용자가 없습니다"
+                      : "모든 사용자가 이미 심사위원으로 할당되었습니다"
                   }
                   image={Empty.PRESENTED_IMAGE_SIMPLE}
                 />

@@ -1,16 +1,14 @@
 import { useState, useEffect } from 'react'
-import { Typography, Card, Table, Tag, Button, Space, Input, Select, Modal, Checkbox, message, InputNumber, Divider, Badge, Tabs, Transfer } from 'antd'
-import { SearchOutlined, SaveOutlined, SettingOutlined, CheckOutlined, CloseOutlined, UserAddOutlined, FolderOutlined } from '@ant-design/icons'
+import { Typography, Card, Table, Tag, Button, Space, Input, Select, Modal, Checkbox, message, InputNumber, Divider, Badge } from 'antd'
+import { SearchOutlined, SaveOutlined, SettingOutlined, CheckOutlined, CloseOutlined, UserAddOutlined } from '@ant-design/icons'
 import adminService, {
   UserListItem,
-  SystemConfig,
   RoleRequest,
   USER_ROLES,
   ROLE_LABELS,
   ROLE_COLORS,
   CONFIG_KEYS
 } from '../services/adminService'
-import projectService, { ProjectListItem } from '../services/projectService'
 
 const { Title, Text } = Typography
 
@@ -21,7 +19,6 @@ export default function UserManagementPage() {
   const [roleFilter, setRoleFilter] = useState<string | undefined>(undefined)
 
   // System config state
-  const [configs, setConfigs] = useState<SystemConfig[]>([])
   const [requiredVerifierCount, setRequiredVerifierCount] = useState<number>(2)
   const [configLoading, setConfigLoading] = useState(false)
 
@@ -39,28 +36,11 @@ export default function UserManagementPage() {
   const [rejectingRequest, setRejectingRequest] = useState<RoleRequest | null>(null)
   const [rejectReason, setRejectReason] = useState('')
 
-  // Project assignment state (for REVIEWER role)
-  const [projectAssignModalVisible, setProjectAssignModalVisible] = useState(false)
-  const [projects, setProjects] = useState<ProjectListItem[]>([])
-  const [assigningUser, setAssigningUser] = useState<UserListItem | null>(null)
-  const [selectedProjectIds, setSelectedProjectIds] = useState<number[]>([])
-  const [projectAssigning, setProjectAssigning] = useState(false)
-
   useEffect(() => {
     loadUsers()
     loadConfigs()
     loadRoleRequests()
-    loadProjects()
   }, [])
-
-  const loadProjects = async () => {
-    try {
-      const data = await projectService.listProjects()
-      setProjects(data)
-    } catch (error: any) {
-      console.error('과제 목록 로드 실패:', error)
-    }
-  }
 
   const loadUsers = async () => {
     setLoading(true)
@@ -82,8 +62,6 @@ export default function UserManagementPage() {
     setConfigLoading(true)
     try {
       const data = await adminService.getConfigs()
-      setConfigs(data)
-
       // Set individual config values
       const verifierCount = data.find(c => c.key === CONFIG_KEYS.REQUIRED_VERIFIER_COUNT)
       if (verifierCount) {
@@ -179,56 +157,17 @@ export default function UserManagementPage() {
   const handleSaveRoles = async () => {
     if (!editingUser) return
 
-    // Check if REVIEWER role is being newly added
-    const isAddingReviewer = editingRoles.includes('REVIEWER') && !editingUser.roles.includes('REVIEWER')
-
     setSaving(true)
     try {
       await adminService.updateUserRoles(editingUser.user_id, editingRoles)
       message.success('역할이 업데이트되었습니다.')
       setEditModalVisible(false)
       loadUsers()
-
-      // If REVIEWER role was added, show project assignment modal
-      if (isAddingReviewer) {
-        setAssigningUser(editingUser)
-        setSelectedProjectIds([])
-        setProjectAssignModalVisible(true)
-      }
     } catch (error: any) {
       console.error('역할 업데이트 실패:', error)
       message.error(error.response?.data?.detail || '역할 업데이트에 실패했습니다.')
     } finally {
       setSaving(false)
-    }
-  }
-
-  const handleAssignProjects = async () => {
-    if (!assigningUser) return
-
-    setProjectAssigning(true)
-    try {
-      // Add staff to each selected project
-      let successCount = 0
-      for (const projectId of selectedProjectIds) {
-        try {
-          await projectService.addProjectStaff(projectId, assigningUser.user_id)
-          successCount++
-        } catch (error: any) {
-          // Already assigned or other error - continue
-          console.error(`과제 ${projectId} 할당 실패:`, error)
-        }
-      }
-
-      if (successCount > 0) {
-        message.success(`${successCount}개 과제에 심사위원으로 할당되었습니다.`)
-      }
-      setProjectAssignModalVisible(false)
-    } catch (error: any) {
-      console.error('과제 할당 실패:', error)
-      message.error('과제 할당에 실패했습니다.')
-    } finally {
-      setProjectAssigning(false)
     }
   }
 
@@ -486,7 +425,9 @@ export default function UserManagementPage() {
               이메일: {editingUser?.email}
             </Text>
             <div className="space-y-3">
-              {Object.entries(USER_ROLES).map(([key, value]) => (
+              {Object.entries(USER_ROLES)
+                .filter(([key, value]) => value !== 'REVIEWER')
+                .map(([key, value]) => (
                 <div key={key} className="flex items-center">
                   <Checkbox
                     checked={editingRoles.includes(value)}
@@ -537,78 +478,6 @@ export default function UserManagementPage() {
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
             />
-          </div>
-        </Modal>
-
-        {/* Project Assignment Modal for REVIEWER */}
-        <Modal
-          title={
-            <Space>
-              <FolderOutlined />
-              <span>과제 할당 - {assigningUser?.name}</span>
-            </Space>
-          }
-          open={projectAssignModalVisible}
-          onCancel={() => setProjectAssignModalVisible(false)}
-          onOk={handleAssignProjects}
-          confirmLoading={projectAssigning}
-          okText="할당"
-          cancelText="나중에"
-          width={600}
-        >
-          <div className="py-4">
-            <Text className="block mb-4">
-              <strong>{assigningUser?.name}</strong>님에게 REVIEWER 역할이 부여되었습니다.
-              <br />
-              심사할 과제를 선택해주세요.
-            </Text>
-            <Table
-              rowSelection={{
-                type: 'checkbox',
-                selectedRowKeys: selectedProjectIds,
-                onChange: (selectedRowKeys) => setSelectedProjectIds(selectedRowKeys as number[])
-              }}
-              columns={[
-                {
-                  title: '과제명',
-                  dataIndex: 'project_name',
-                  key: 'project_name',
-                  ellipsis: true
-                },
-                {
-                  title: '모집기간',
-                  key: 'recruitment_period',
-                  width: 180,
-                  render: (_: any, record: ProjectListItem) =>
-                    `${record.recruitment_start_date} ~ ${record.recruitment_end_date}`
-                },
-                {
-                  title: '상태',
-                  dataIndex: 'display_status',
-                  key: 'status',
-                  width: 100,
-                  render: (status: string) => {
-                    const statusLabels: Record<string, string> = {
-                      draft: '초안',
-                      pending: '모집대기',
-                      recruiting: '모집중',
-                      recruiting_ended: '모집종료',
-                      reviewing: '심사중',
-                      in_progress: '진행중',
-                      closed: '종료'
-                    }
-                    return statusLabels[status] || status
-                  }
-                }
-              ]}
-              dataSource={projects}
-              rowKey="project_id"
-              pagination={{ pageSize: 5 }}
-              size="small"
-            />
-            <Text type="secondary" className="mt-2 block">
-              * 선택하지 않으면 심사위원은 어떤 과제의 응모자도 열람할 수 없습니다.
-            </Text>
           </div>
         </Modal>
     </div>
