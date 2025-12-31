@@ -15,11 +15,6 @@ function getApiBaseUrl(): string {
     return 'https://coachdbbackend-production.up.railway.app'
   }
 
-  // Netlify production/preview
-  if (hostname.includes('netlify.app')) {
-    return 'https://coachdbbackend-production.up.railway.app'
-  }
-
   // Local development
   return 'http://localhost:8000'
 }

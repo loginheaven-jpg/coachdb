@@ -10,7 +10,7 @@ export default defineConfig({
   timeout: 60000,
 
   use: {
-    baseURL: process.env.TEST_URL || 'https://ppms.netlify.app',
+    baseURL: process.env.TEST_URL || 'https://copms.up.railway.app',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',

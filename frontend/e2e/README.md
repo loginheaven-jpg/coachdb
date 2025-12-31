@@ -49,7 +49,7 @@ npx playwright test e2e/dashboard.spec.ts
 
 ### 4. 테스트 URL 변경
 
-기본적으로 로컬 서버(http://localhost:3000)에서 테스트합니다.
+기본적으로 Railway 프로덕션 사이트(https://copms.up.railway.app)에서 테스트합니다.
 다른 URL을 사용하려면:
 
 ```bash
@@ -71,7 +71,7 @@ TEST_URL=https://your-test-server.com npm run test:e2e
 
 | 변수 | 설명 | 필수 여부 |
 |------|------|----------|
-| TEST_URL | 테스트 대상 URL | 선택 (기본: http://localhost:3000) |
+| TEST_URL | 테스트 대상 URL | 선택 (기본: https://copms.up.railway.app) |
 | TEST_COACH_EMAIL | 코치 계정 이메일 | 로그인 필요 테스트 |
 | TEST_COACH_PASSWORD | 코치 계정 비밀번호 | 로그인 필요 테스트 |
 | TEST_ADMIN_EMAIL | 관리자 계정 이메일 | 관리자 테스트 |
@@ -101,10 +101,11 @@ docker-compose up -d
 npm run build && npm run dev
 ```
 
-### 옵션 3: Netlify 배포 사이트에서 직접 테스트
+### 옵션 3: Railway 배포 사이트에서 직접 테스트 (기본값)
 
 ```bash
-TEST_URL=https://ppms.netlify.app npm run test:e2e
+# 기본 URL이 Railway이므로 별도 설정 없이 테스트 가능
+npm run test:e2e
 ```
 
 ## 테스트 리포트
