@@ -1,10 +1,18 @@
 /**
  * 과제관리 E2E 테스트
+ *
+ * 이 테스트들은 관리자 로그인이 필요하므로 환경변수로 테스트 계정을 설정해야 합니다:
+ *   TEST_ADMIN_EMAIL=<관리자 이메일>
+ *   TEST_ADMIN_PASSWORD=<관리자 비밀번호>
  */
 import { test, expect } from '@playwright/test'
-import { login } from './helpers/auth'
+import { login, hasTestCredentials } from './helpers/auth'
+
+const skipIfNoCredentials = !hasTestCredentials('admin')
 
 test.describe('과제관리 기능 (관리자)', () => {
+  test.skip(skipIfNoCredentials, '관리자 계정 미설정 - TEST_ADMIN_EMAIL, TEST_ADMIN_PASSWORD 환경변수 필요')
+
   test.beforeEach(async ({ page }) => {
     await login(page, 'admin')
   })

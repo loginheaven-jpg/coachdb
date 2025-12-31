@@ -1,10 +1,18 @@
 /**
  * 세부정보(역량) 관리 E2E 테스트
+ *
+ * 이 테스트들은 로그인이 필요하므로 환경변수로 테스트 계정을 설정해야 합니다:
+ *   TEST_COACH_EMAIL=<코치 이메일>
+ *   TEST_COACH_PASSWORD=<코치 비밀번호>
  */
 import { test, expect } from '@playwright/test'
-import { login } from './helpers/auth'
+import { login, hasTestCredentials } from './helpers/auth'
+
+const skipIfNoCredentials = !hasTestCredentials('coach')
 
 test.describe('세부정보 관리 기능', () => {
+  test.skip(skipIfNoCredentials, '코치 계정 미설정 - TEST_COACH_EMAIL, TEST_COACH_PASSWORD 환경변수 필요')
+
   test.beforeEach(async ({ page }) => {
     await login(page, 'coach')
   })

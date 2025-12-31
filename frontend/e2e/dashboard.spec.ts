@@ -1,10 +1,22 @@
 /**
  * 대시보드 E2E 테스트
+ *
+ * 이 테스트들은 로그인이 필요하므로 환경변수로 테스트 계정을 설정해야 합니다:
+ *   TEST_COACH_EMAIL=<코치 이메일>
+ *   TEST_COACH_PASSWORD=<코치 비밀번호>
+ *   TEST_ADMIN_EMAIL=<관리자 이메일>
+ *   TEST_ADMIN_PASSWORD=<관리자 비밀번호>
  */
 import { test, expect } from '@playwright/test'
-import { login } from './helpers/auth'
+import { login, hasTestCredentials } from './helpers/auth'
+
+// 코치 계정이 설정되지 않으면 테스트 스킵
+const skipIfNoCoachCredentials = !hasTestCredentials('coach')
+const skipIfNoAdminCredentials = !hasTestCredentials('admin')
 
 test.describe('대시보드', () => {
+  test.skip(skipIfNoCoachCredentials, '코치 계정 미설정 - TEST_COACH_EMAIL, TEST_COACH_PASSWORD 환경변수 필요')
+
   test('로그인 후 대시보드로 이동', async ({ page }) => {
     await login(page, 'coach')
 
@@ -21,13 +33,6 @@ test.describe('대시보드', () => {
     await expect(page.locator('text=내 지원서')).toBeVisible()
   })
 
-  test('관리자 메뉴 표시 (관리자)', async ({ page }) => {
-    await login(page, 'admin')
-
-    // 관리자 전용 메뉴 확인
-    await expect(page.locator('text=과제관리')).toBeVisible()
-  })
-
   test('사용자 드롭다운 메뉴 표시', async ({ page }) => {
     await login(page, 'coach')
 
@@ -41,7 +46,20 @@ test.describe('대시보드', () => {
   })
 })
 
+test.describe('관리자 기능', () => {
+  test.skip(skipIfNoAdminCredentials, '관리자 계정 미설정 - TEST_ADMIN_EMAIL, TEST_ADMIN_PASSWORD 환경변수 필요')
+
+  test('관리자 메뉴 표시', async ({ page }) => {
+    await login(page, 'admin')
+
+    // 관리자 전용 메뉴 확인
+    await expect(page.locator('text=과제관리')).toBeVisible()
+  })
+})
+
 test.describe('네비게이션', () => {
+  test.skip(skipIfNoCoachCredentials, '코치 계정 미설정 - TEST_COACH_EMAIL, TEST_COACH_PASSWORD 환경변수 필요')
+
   test.beforeEach(async ({ page }) => {
     await login(page, 'coach')
   })
