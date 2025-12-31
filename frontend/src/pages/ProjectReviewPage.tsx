@@ -36,6 +36,7 @@ import {
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import projectService, { ProjectDetail } from '../services/projectService'
+import { useAuthStore } from '../stores/authStore'
 import scoringService, {
   ApplicationWithScores,
   ReviewDashboardStats,
@@ -79,6 +80,7 @@ const getRoleTag = (role: string | null) => {
 export default function ProjectReviewPage() {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
+  const { user } = useAuthStore()
   const [loading, setLoading] = useState(true)
   const [project, setProject] = useState<ProjectDetail | null>(null)
   const [stats, setStats] = useState<ReviewDashboardStats | null>(null)
@@ -95,6 +97,11 @@ export default function ProjectReviewPage() {
   // Action loading states
   const [calculatingScores, setCalculatingScores] = useState(false)
   const [finalizingScores, setFinalizingScores] = useState(false)
+
+  // 권한 체크: SUPER_ADMIN 또는 과제관리자만 선발/탈락 가능
+  const isSuperAdmin = user?.roles?.includes('SUPER_ADMIN')
+  const isProjectManager = project?.project_manager_id === user?.user_id
+  const canManageSelection = isSuperAdmin || isProjectManager
 
   useEffect(() => {
     loadData()
@@ -302,37 +309,41 @@ export default function ProjectReviewPage() {
     {
       title: '작업',
       key: 'actions',
-      width: 150,
+      width: canManageSelection ? 150 : 80,
       fixed: 'right',
       render: (_, record) => (
         <Space>
-          <Tooltip title="정성평가">
+          <Tooltip title="평가">
             <Button
               size="small"
               icon={<FormOutlined />}
               onClick={() => handleOpenEvaluation(record.application_id)}
             />
           </Tooltip>
-          <Tooltip title="선발">
-            <Button
-              size="small"
-              type="primary"
-              ghost
-              icon={<CheckCircleOutlined />}
-              onClick={() => handleUpdateSelection(record.application_id, SelectionResult.SELECTED)}
-              disabled={record.selection_result === 'selected'}
-            />
-          </Tooltip>
-          <Tooltip title="탈락">
-            <Button
-              size="small"
-              danger
-              ghost
-              icon={<CloseCircleOutlined />}
-              onClick={() => handleUpdateSelection(record.application_id, SelectionResult.REJECTED)}
-              disabled={record.selection_result === 'rejected'}
-            />
-          </Tooltip>
+          {canManageSelection && (
+            <>
+              <Tooltip title="선발">
+                <Button
+                  size="small"
+                  type="primary"
+                  ghost
+                  icon={<CheckCircleOutlined />}
+                  onClick={() => handleUpdateSelection(record.application_id, SelectionResult.SELECTED)}
+                  disabled={record.selection_result === 'selected'}
+                />
+              </Tooltip>
+              <Tooltip title="탈락">
+                <Button
+                  size="small"
+                  danger
+                  ghost
+                  icon={<CloseCircleOutlined />}
+                  onClick={() => handleUpdateSelection(record.application_id, SelectionResult.REJECTED)}
+                  disabled={record.selection_result === 'rejected'}
+                />
+              </Tooltip>
+            </>
+          )}
         </Space>
       )
     }
