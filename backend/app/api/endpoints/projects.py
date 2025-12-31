@@ -778,11 +778,6 @@ async def bulk_delete_projects(
                 print(f"[BULK DELETE] Skipping non-existent project_id={project_id}")
                 continue
 
-            # 테스트 과제인지 확인 (안전 체크)
-            if not project.project_name.startswith('[테스트]'):
-                print(f"[BULK DELETE] Skipping non-test project: {project.project_name}")
-                continue
-
             print(f"[BULK DELETE] Deleting project: {project.project_name}")
 
             # 관련 데이터 삭제 (delete_project 로직 재사용)

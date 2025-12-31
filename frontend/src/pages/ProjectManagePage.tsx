@@ -313,7 +313,7 @@ export default function ProjectManagePage() {
                     onClick={() => setCleanupModalOpen(true)}
                     style={{ color: '#ff4d4f', fontSize: '12px' }}
                   >
-                    테스트과제 정리
+                    과제 일괄삭제
                   </Button>
                 </>
               )}

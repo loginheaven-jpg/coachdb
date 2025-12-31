@@ -57,21 +57,20 @@ export default function TestProjectCleanupModal({
 
   useEffect(() => {
     if (open) {
-      loadTestProjects()
+      loadProjects()
     }
   }, [open])
 
-  const loadTestProjects = async () => {
+  const loadProjects = async () => {
     try {
       setLoading(true)
-      // 기존 과제 목록 API 사용 후 프론트엔드에서 테스트 과제만 필터링
+      // 전체 과제 목록 로드 (사용자가 직접 선택하여 삭제)
       const allProjects = await projectService.listProjects({ mode: 'manage' })
-      const testProjects = allProjects.filter(p => p.project_name.startsWith('[테스트]'))
-      setProjects(testProjects)
+      setProjects(allProjects)
       setSelectedIds([])
     } catch (error: any) {
-      console.error('Failed to load test projects:', error)
-      message.error('테스트 과제 목록을 불러오는데 실패했습니다.')
+      console.error('Failed to load projects:', error)
+      message.error('과제 목록을 불러오는데 실패했습니다.')
     } finally {
       setLoading(false)
     }
@@ -161,7 +160,7 @@ export default function TestProjectCleanupModal({
       title={
         <Space>
           <DeleteOutlined />
-          <span>테스트과제 정리</span>
+          <span>과제 일괄삭제</span>
         </Space>
       }
       open={open}
@@ -190,12 +189,12 @@ export default function TestProjectCleanupModal({
         </div>
       ) : projects.length === 0 ? (
         <div className="text-center py-8">
-          <Text type="secondary">삭제할 테스트 과제가 없습니다.</Text>
+          <Text type="secondary">삭제할 과제가 없습니다.</Text>
         </div>
       ) : (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <Text>총 {projects.length}개의 테스트 과제</Text>
+            <Text>총 {projects.length}개 과제</Text>
             <Space>
               <Button size="small" onClick={selectAll}>전체 선택</Button>
               <Button size="small" onClick={clearSelection}>선택 해제</Button>
