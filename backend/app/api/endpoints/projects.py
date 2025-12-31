@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
 from typing import List, Optional
@@ -740,7 +740,7 @@ async def get_test_projects(
 
 @router.delete("/bulk-delete")
 async def bulk_delete_projects(
-    project_ids: List[int],
+    project_ids: List[int] = Body(..., embed=False),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role(["SUPER_ADMIN"]))
 ):
