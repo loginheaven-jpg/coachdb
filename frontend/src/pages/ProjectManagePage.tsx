@@ -36,6 +36,7 @@ export default function ProjectManagePage() {
   const { user } = useAuthStore()
   const [loading, setLoading] = useState(false)
   const [testProjectLoading, setTestProjectLoading] = useState(false)
+  const [testWithAppsLoading, setTestWithAppsLoading] = useState(false)
   const [projects, setProjects] = useState<ProjectListItem[]>([])
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | undefined>()
 
@@ -88,6 +89,20 @@ export default function ProjectManagePage() {
       message.error('테스트 과제 생성에 실패했습니다.')
     } finally {
       setTestProjectLoading(false)
+    }
+  }
+
+  const handleCreateTestWithApplications = async () => {
+    setTestWithAppsLoading(true)
+    try {
+      const project = await projectService.createTestProjectWithApplications()
+      message.success(`심사용 과제가 생성되었습니다: ${project.project_name} (응모자 10명)`)
+      loadData()
+    } catch (error: any) {
+      console.error('심사용 과제 생성 실패:', error)
+      message.error('심사용 과제 생성에 실패했습니다.')
+    } finally {
+      setTestWithAppsLoading(false)
     }
   }
 
@@ -271,15 +286,26 @@ export default function ProjectManagePage() {
                 새 과제 생성
               </Button>
               {isSuperAdmin && (
-                <Button
-                  type="text"
-                  icon={<PlusOutlined />}
-                  onClick={handleCreateTestProject}
-                  loading={testProjectLoading}
-                  style={{ color: '#999', fontSize: '12px' }}
-                >
-                  테스트과제 생성
-                </Button>
+                <>
+                  <Button
+                    type="text"
+                    icon={<PlusOutlined />}
+                    onClick={handleCreateTestProject}
+                    loading={testProjectLoading}
+                    style={{ color: '#999', fontSize: '12px' }}
+                  >
+                    테스트과제 생성
+                  </Button>
+                  <Button
+                    type="text"
+                    icon={<TeamOutlined />}
+                    onClick={handleCreateTestWithApplications}
+                    loading={testWithAppsLoading}
+                    style={{ color: '#999', fontSize: '12px' }}
+                  >
+                    응모완료과제 생성
+                  </Button>
+                </>
               )}
             </Space>
           )}

@@ -228,6 +228,190 @@ async def create_test_project(
 
 
 # ============================================================================
+# Test Project with Applications
+# ============================================================================
+@router.post("/create-test-with-applications", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
+async def create_test_project_with_applications(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(["SUPER_ADMIN"]))
+):
+    """
+    Create a test project with 10 submitted applications for review testing
+
+    **Required roles**: SUPER_ADMIN only
+
+    Creates:
+    - Test project in 'reviewing' status
+    - 10 test users (test_user_1@test.com ~ test_user_10@test.com)
+    - 10 submitted applications with random auto_score (60-95)
+    - No qualitative evaluations (for testing)
+    """
+    import traceback
+    from datetime import datetime, timedelta
+    from decimal import Decimal
+    from app.schemas.project import calculate_display_status
+    from app.models.competency import ProofRequiredLevel
+    from app.core.security import get_password_hash
+    from app.models.application import CoachRole
+    import random
+    import json
+
+    print(f"[CREATE-TEST-APPS] === Starting test project with applications for user_id={current_user.user_id} ===")
+
+    try:
+        # Step 1: Create project
+        print("[CREATE-TEST-APPS] Step 1: Creating project...")
+        today = datetime.now().date()
+        recruitment_end = today - timedelta(days=1)  # Already ended
+        recruitment_start = recruitment_end - timedelta(days=14)
+        project_start = today + timedelta(days=7)
+        project_end = project_start + timedelta(days=90)
+
+        new_project = Project(
+            project_name=f"[테스트] 심사용 과제 - 응모자 10명",
+            description="심사 및 선발 기능 테스트를 위해 자동 생성된 과제입니다. 10명의 응모자가 제출 완료 상태입니다.",
+            recruitment_start_date=recruitment_start,
+            recruitment_end_date=recruitment_end,
+            project_start_date=project_start,
+            project_end_date=project_end,
+            max_participants=5,
+            status=ProjectStatus.REVIEWING,
+            project_manager_id=current_user.user_id,
+            created_by=current_user.user_id
+        )
+        db.add(new_project)
+        await db.commit()
+        await db.refresh(new_project)
+        print(f"[CREATE-TEST-APPS] Project created: id={new_project.project_id}")
+
+        # Step 2: Add survey items
+        print("[CREATE-TEST-APPS] Step 2: Adding survey items...")
+        from app.models.competency import CompetencyItem
+        result = await db.execute(
+            select(CompetencyItem).where(CompetencyItem.is_active == True).limit(4)
+        )
+        available_items = result.scalars().all()
+
+        project_items = []
+        if available_items:
+            item_count = len(available_items)
+            base_score = Decimal("100") / item_count
+
+            for i, comp_item in enumerate(available_items):
+                score = base_score + (Decimal("100") - base_score * item_count if i == item_count - 1 else Decimal("0"))
+                project_item = ProjectItem(
+                    project_id=new_project.project_id,
+                    item_id=comp_item.item_id,
+                    is_required=True,
+                    proof_required_level=ProofRequiredLevel.OPTIONAL,
+                    max_score=score.quantize(Decimal("0.01")),
+                    display_order=i + 1
+                )
+                db.add(project_item)
+                project_items.append(project_item)
+
+            await db.commit()
+            print(f"[CREATE-TEST-APPS] Added {len(project_items)} survey items")
+
+        # Step 3: Create 10 test users and applications
+        print("[CREATE-TEST-APPS] Step 3: Creating test users and applications...")
+        coach_roles = [CoachRole.LEADER, CoachRole.PARTICIPANT, CoachRole.SUPERVISOR]
+        korean_names = ["김철수", "이영희", "박민수", "최지현", "정우진", "강서연", "조현우", "윤미래", "임동현", "한소희"]
+
+        for i in range(1, 11):
+            # Get or create test user
+            email = f"test_user_{i}@test.com"
+            result = await db.execute(select(User).where(User.email == email))
+            test_user = result.scalar_one_or_none()
+
+            if not test_user:
+                test_user = User(
+                    name=korean_names[i-1] if i <= len(korean_names) else f"테스트유저{i}",
+                    email=email,
+                    hashed_password=get_password_hash("test1234"),
+                    phone=f"010-1234-{str(i).zfill(4)}",
+                    address="서울시 테스트구",
+                    roles=json.dumps(["COACH"])
+                )
+                db.add(test_user)
+                await db.flush()
+                print(f"[CREATE-TEST-APPS] Created user: {email}")
+
+            # Create application
+            random_score = Decimal(str(random.randint(60, 95)))
+            application = Application(
+                project_id=new_project.project_id,
+                user_id=test_user.user_id,
+                motivation=f"테스트 지원동기 {i}번 - 본 과제에 참여하여 전문성을 발휘하고 싶습니다.",
+                applied_role=random.choice(coach_roles),
+                status=ApplicationStatus.SUBMITTED,
+                auto_score=random_score,
+                submitted_at=datetime.now()
+            )
+            db.add(application)
+            await db.flush()
+
+            # Create application data for each survey item
+            for project_item in project_items:
+                app_data = ApplicationData(
+                    application_id=application.application_id,
+                    item_id=project_item.item_id,
+                    submitted_value=f"테스트 응답 값 (user_{i}, item_{project_item.item_id})",
+                    item_score=project_item.max_score * random_score / Decimal("100")
+                )
+                db.add(app_data)
+
+            print(f"[CREATE-TEST-APPS] Created application for {email} with score={random_score}")
+
+        await db.commit()
+        print("[CREATE-TEST-APPS] All applications committed")
+
+        # Step 4: Prepare response
+        await db.refresh(new_project)
+        display_status = calculate_display_status(
+            new_project.status,
+            new_project.recruitment_start_date,
+            new_project.recruitment_end_date
+        )
+
+        response = ProjectResponse(
+            project_id=new_project.project_id,
+            project_name=new_project.project_name,
+            description=new_project.description,
+            support_program_name=new_project.support_program_name,
+            recruitment_start_date=new_project.recruitment_start_date,
+            recruitment_end_date=new_project.recruitment_end_date,
+            project_start_date=new_project.project_start_date,
+            project_end_date=new_project.project_end_date,
+            max_participants=new_project.max_participants,
+            project_manager_id=new_project.project_manager_id,
+            status=new_project.status,
+            display_status=display_status,
+            actual_start_date=new_project.actual_start_date,
+            actual_end_date=new_project.actual_end_date,
+            overall_feedback=new_project.overall_feedback,
+            created_by=new_project.created_by,
+            created_at=new_project.created_at,
+            updated_at=new_project.updated_at
+        )
+
+        print(f"[CREATE-TEST-APPS] === SUCCESS: Created project {new_project.project_id} with 10 applications ===")
+        return response
+
+    except Exception as e:
+        print(f"[CREATE-TEST-APPS ERROR] {type(e).__name__}: {str(e)}")
+        print(f"[CREATE-TEST-APPS ERROR] Traceback:\n{traceback.format_exc()}")
+        try:
+            await db.rollback()
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to create test project with applications: {type(e).__name__}: {str(e)}"
+        )
+
+
+# ============================================================================
 # Helper Functions
 # ============================================================================
 async def get_project_or_404(project_id: int, db: AsyncSession) -> Project:

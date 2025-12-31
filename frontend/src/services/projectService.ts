@@ -362,6 +362,15 @@ const projectService = {
   },
 
   /**
+   * Create a test project with 10 submitted applications for review testing
+   * Creates virtual test users and assigns random scores (60-95)
+   */
+  async createTestProjectWithApplications(): Promise<Project> {
+    const response = await api.post('/projects/create-test-with-applications')
+    return response.data
+  },
+
+  /**
    * Get list of projects with optional filters
    */
   async listProjects(params?: {
