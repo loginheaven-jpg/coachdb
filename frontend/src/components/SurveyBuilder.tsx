@@ -18,7 +18,8 @@ import {
   Collapse,
   Input,
   Select,
-  Radio
+  Radio,
+  Tooltip
 } from 'antd'
 import {
   PlusOutlined,
@@ -28,7 +29,8 @@ import {
   WarningOutlined,
   ExclamationCircleOutlined,
   SettingOutlined,
-  DeleteOutlined
+  DeleteOutlined,
+  QuestionCircleOutlined
 } from '@ant-design/icons'
 import projectService, {
   CompetencyItem,
@@ -58,6 +60,89 @@ function debounce<T extends (...args: any[]) => any>(
 
 const { Text } = Typography
 const { Panel } = Collapse
+
+// 등급별 배점 기본 템플릿 (항목 유형에 따라 자동 설정)
+interface GradeTemplateConfig {
+  type: 'string' | 'numeric'
+  value_source: ValueSourceType
+  source_field?: string
+  extract_pattern?: string
+  grades: Array<{ value?: string; min?: number; max?: number; score: number }>
+  description: string  // 한글 설명
+}
+
+const GRADE_TEMPLATES: Record<string, GradeTemplateConfig> = {
+  // 인증등급 (KSC/KPC/KAC) - 인증번호 앞 3자리로 판별
+  'BASIC_CERT_LEVEL': {
+    type: 'string',
+    value_source: ValueSourceType.USER_FIELD,
+    source_field: 'coach_certification_number',
+    extract_pattern: '^(.{3})',  // 앞 3글자 추출
+    grades: [
+      { value: 'KSC', score: 10 },
+      { value: 'KPC', score: 5 },
+      { value: 'KAC', score: 1 }
+    ],
+    description: '회원 인증번호 앞 3자리(KSC/KPC/KAC)로 자동 판별'
+  },
+
+  // 학위 (degree 템플릿)
+  'degree': {
+    type: 'string',
+    value_source: ValueSourceType.JSON_FIELD,
+    source_field: 'degree_level',
+    grades: [
+      { value: '박사', score: 10 },
+      { value: '석사', score: 5 },
+      { value: '학사', score: 3 },
+      { value: '전문학사', score: 1 }
+    ],
+    description: '학력 선택값(degree_level)으로 자동 판별'
+  },
+
+  // 숫자 범위 - 기본 템플릿
+  'number': {
+    type: 'numeric',
+    value_source: ValueSourceType.SUBMITTED,
+    grades: [
+      { min: 1000, score: 10 },
+      { min: 500, max: 999, score: 5 },
+      { max: 499, score: 1 }
+    ],
+    description: '입력된 숫자값으로 판별 (예: 코칭시간)'
+  },
+
+  // 경력 연차
+  'career_years': {
+    type: 'numeric',
+    value_source: ValueSourceType.SUBMITTED,
+    grades: [
+      { min: 10, score: 10 },
+      { min: 5, max: 9, score: 5 },
+      { max: 4, score: 1 }
+    ],
+    description: '경력 연차로 판별'
+  }
+}
+
+// 항목 템플릿에 따른 등급 템플릿 매핑
+function getGradeTemplate(item: CompetencyItem): GradeTemplateConfig | null {
+  // 항목 템플릿으로 매핑
+  if (item.template) {
+    const templateKey = item.template.toLowerCase()
+    if (GRADE_TEMPLATES[templateKey]) {
+      return GRADE_TEMPLATES[templateKey]
+    }
+  }
+
+  // 항목 코드로 매핑 (BASIC_CERT_LEVEL 등)
+  if (item.item_code && GRADE_TEMPLATES[item.item_code]) {
+    return GRADE_TEMPLATES[item.item_code]
+  }
+
+  // 기본: null (수동 설정)
+  return null
+}
 
 interface SurveyBuilderProps {
   projectId: number
@@ -583,7 +668,20 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                                       gradeConfigForm.resetFields()
                                     }
                                   } else {
-                                    gradeConfigForm.resetFields()
+                                    // 기존 설정이 없으면 항목 유형에 따른 기본값 자동 설정
+                                    const template = getGradeTemplate(selection.item)
+                                    if (template) {
+                                      gradeConfigForm.setFieldsValue({
+                                        grade_type: template.type,
+                                        value_source: template.value_source,
+                                        source_field: template.source_field || '',
+                                        extract_pattern: template.extract_pattern || '',
+                                        grades: template.grades
+                                      })
+                                      message.info(`'${selection.item.item_name}' 항목의 추천 설정이 자동으로 적용되었습니다. 필요시 수정하세요.`)
+                                    } else {
+                                      gradeConfigForm.resetFields()
+                                    }
                                   }
                                 }}
                               >
@@ -886,13 +984,26 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
 
             <Form.Item
               name="value_source"
-              label="값 소스"
+              label={
+                <Space>
+                  점수 계산 기준
+                  <Tooltip title="점수를 매길 때 어떤 값을 기준으로 할지 선택합니다">
+                    <QuestionCircleOutlined style={{ color: '#999' }} />
+                  </Tooltip>
+                </Space>
+              }
               rules={[{ required: true }]}
             >
               <Select>
-                <Select.Option value={ValueSourceType.SUBMITTED}>제출값 (기본)</Select.Option>
-                <Select.Option value={ValueSourceType.USER_FIELD}>User 테이블 필드</Select.Option>
-                <Select.Option value={ValueSourceType.JSON_FIELD}>JSON 내부 필드</Select.Option>
+                <Select.Option value={ValueSourceType.SUBMITTED}>
+                  지원자 입력값 (기본)
+                </Select.Option>
+                <Select.Option value={ValueSourceType.USER_FIELD}>
+                  회원정보 (인증번호 등)
+                </Select.Option>
+                <Select.Option value={ValueSourceType.JSON_FIELD}>
+                  선택항목 (학위, 분야 등)
+                </Select.Option>
               </Select>
             </Form.Item>
 
@@ -905,14 +1016,28 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                 if (source === ValueSourceType.USER_FIELD) {
                   return (
                     <>
-                      <Form.Item name="source_field" label="User 필드명">
-                        <Select placeholder="필드 선택">
-                          <Select.Option value="coach_certification_number">coach_certification_number (인증번호)</Select.Option>
-                          <Select.Option value="name">name (이름)</Select.Option>
-                          <Select.Option value="phone">phone (전화번호)</Select.Option>
+                      <Form.Item
+                        name="source_field"
+                        label="사용할 회원정보"
+                        extra="인증번호로 등급(KSC/KPC/KAC)을 판별합니다"
+                      >
+                        <Select placeholder="회원정보 선택">
+                          <Select.Option value="coach_certification_number">인증번호</Select.Option>
+                          <Select.Option value="name">이름</Select.Option>
+                          <Select.Option value="phone">전화번호</Select.Option>
                         </Select>
                       </Form.Item>
-                      <Form.Item name="extract_pattern" label="추출 패턴 (정규식, 선택)">
+                      <Form.Item
+                        name="extract_pattern"
+                        label={
+                          <Space>
+                            값 추출 패턴
+                            <Tooltip title="인증번호에서 앞 3글자(KSC, KPC, KAC)만 추출하는 패턴입니다. 일반적으로 수정할 필요 없습니다.">
+                              <QuestionCircleOutlined style={{ color: '#999' }} />
+                            </Tooltip>
+                          </Space>
+                        }
+                      >
                         <Input placeholder="예: ^(.{3}) - 앞 3글자 추출" />
                       </Form.Item>
                     </>
@@ -920,8 +1045,12 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                 }
                 if (source === ValueSourceType.JSON_FIELD) {
                   return (
-                    <Form.Item name="source_field" label="JSON 필드명">
-                      <Input placeholder="예: degree_level, coaching_hours" />
+                    <Form.Item
+                      name="source_field"
+                      label="사용할 선택항목"
+                      extra="지원자가 선택한 값(학위, 분야 등)으로 점수를 매깁니다"
+                    >
+                      <Input placeholder="예: degree_level (학위), coaching_field (분야)" />
                     </Form.Item>
                   )
                 }
@@ -966,19 +1095,33 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                     <Form.List name="grades">
                       {(fields, { add, remove }) => (
                         <>
-                          <Text strong>숫자 범위 등급</Text>
+                          <div style={{ marginBottom: 12 }}>
+                            <Text strong>숫자 범위별 점수</Text>
+                            <br />
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                              빈 칸은 제한 없음을 의미합니다. 예) 1000 이상 → 10점, 500~999 → 5점
+                            </Text>
+                          </div>
                           {fields.map(({ key, name, ...restField }) => (
-                            <Space key={key} style={{ display: 'flex', marginBottom: 8, marginTop: 8 }} align="baseline">
-                              <Form.Item {...restField} name={[name, 'min']}>
-                                <InputNumber placeholder="이상" style={{ width: 80 }} />
+                            <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
+                              <Form.Item {...restField} name={[name, 'min']} style={{ marginBottom: 0 }}>
+                                <InputNumber
+                                  placeholder="최소"
+                                  style={{ width: 90 }}
+                                  addonAfter="이상"
+                                />
                               </Form.Item>
-                              <Text>~</Text>
-                              <Form.Item {...restField} name={[name, 'max']}>
-                                <InputNumber placeholder="이하" style={{ width: 80 }} />
+                              <Text style={{ margin: '0 4px' }}>~</Text>
+                              <Form.Item {...restField} name={[name, 'max']} style={{ marginBottom: 0 }}>
+                                <InputNumber
+                                  placeholder="최대"
+                                  style={{ width: 90 }}
+                                  addonAfter="이하"
+                                />
                               </Form.Item>
-                              <Text>=</Text>
-                              <Form.Item {...restField} name={[name, 'score']} rules={[{ required: true }]}>
-                                <InputNumber placeholder="점수" style={{ width: 80 }} />
+                              <Text style={{ margin: '0 8px' }}>→</Text>
+                              <Form.Item {...restField} name={[name, 'score']} rules={[{ required: true }]} style={{ marginBottom: 0 }}>
+                                <InputNumber placeholder="점수" style={{ width: 70 }} />
                               </Form.Item>
                               <Text>점</Text>
                               <Button type="text" danger icon={<DeleteOutlined />} onClick={() => remove(name)} />
