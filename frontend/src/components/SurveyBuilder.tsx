@@ -1107,7 +1107,7 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                               <Form.Item {...restField} name={[name, 'min']} style={{ marginBottom: 0 }}>
                                 <InputNumber
                                   placeholder="최소"
-                                  style={{ width: 90 }}
+                                  style={{ width: 120 }}
                                   addonAfter="이상"
                                 />
                               </Form.Item>
@@ -1115,13 +1115,13 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                               <Form.Item {...restField} name={[name, 'max']} style={{ marginBottom: 0 }}>
                                 <InputNumber
                                   placeholder="최대"
-                                  style={{ width: 90 }}
+                                  style={{ width: 120 }}
                                   addonAfter="이하"
                                 />
                               </Form.Item>
                               <Text style={{ margin: '0 8px' }}>→</Text>
                               <Form.Item {...restField} name={[name, 'score']} rules={[{ required: true }]} style={{ marginBottom: 0 }}>
-                                <InputNumber placeholder="점수" style={{ width: 70 }} />
+                                <InputNumber placeholder="점수" style={{ width: 80 }} />
                               </Form.Item>
                               <Text>점</Text>
                               <Button type="text" danger icon={<DeleteOutlined />} onClick={() => remove(name)} />
