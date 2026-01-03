@@ -242,24 +242,31 @@ async def create_evaluation(
     total_score = evaluation_data.motivation_score + evaluation_data.expertise_score + evaluation_data.role_fit_score
 
     # Create evaluation
-    recommendation = None
-    if evaluation_data.recommendation:
-        recommendation = Recommendation(evaluation_data.recommendation)
+    try:
+        recommendation = None
+        if evaluation_data.recommendation:
+            recommendation = Recommendation(evaluation_data.recommendation)
 
-    evaluation = ReviewerEvaluation(
-        application_id=application_id,
-        reviewer_id=current_user.user_id,
-        motivation_score=evaluation_data.motivation_score,
-        expertise_score=evaluation_data.expertise_score,
-        role_fit_score=evaluation_data.role_fit_score,
-        total_score=total_score,
-        comment=evaluation_data.comment,
-        recommendation=recommendation
-    )
+        evaluation = ReviewerEvaluation(
+            application_id=application_id,
+            reviewer_id=current_user.user_id,
+            motivation_score=evaluation_data.motivation_score,
+            expertise_score=evaluation_data.expertise_score,
+            role_fit_score=evaluation_data.role_fit_score,
+            total_score=total_score,
+            comment=evaluation_data.comment,
+            recommendation=recommendation
+        )
 
-    db.add(evaluation)
-    await db.commit()
-    await db.refresh(evaluation)
+        db.add(evaluation)
+        await db.commit()
+        await db.refresh(evaluation)
+    except Exception as e:
+        await db.rollback()
+        import traceback
+        error_detail = f"Failed to create evaluation: {str(e)}\n{traceback.format_exc()}"
+        print(error_detail)
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
     reviewer_info = ReviewerInfo(
         user_id=current_user.user_id,
