@@ -1167,7 +1167,7 @@ async def reset_full(
 # ============================================================================
 @router.get("/migration-status")
 async def get_migration_status(
-    current_user: User = Depends(require_role(["SUPER_ADMIN"]))
+    current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER"]))
 ):
     """
     Get current database migration status
@@ -1214,7 +1214,7 @@ async def get_migration_status(
 
 @router.post("/run-migrations")
 async def run_migrations(
-    current_user: User = Depends(require_role(["SUPER_ADMIN"]))
+    current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER"]))
 ):
     """
     Run pending database migrations (alembic upgrade head)
