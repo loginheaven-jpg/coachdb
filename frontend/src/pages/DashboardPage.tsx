@@ -4,6 +4,7 @@ import {
   UserOutlined,
   FolderOutlined,
   AuditOutlined,
+  TrophyOutlined,
   SettingOutlined
 } from '@ant-design/icons'
 import { useAuthStore } from '../stores/authStore'
@@ -12,6 +13,7 @@ import { useAuthStore } from '../stores/authStore'
 import CoachDashboardContent from './CoachDashboard'
 import ProjectManagementDashboard from './ProjectManagementDashboard'
 import StaffDashboardContent from './StaffDashboard'
+import EvaluationDashboard from './EvaluationDashboard'
 import SuperAdminDashboard from './SuperAdminDashboard'
 
 const { Title, Text } = Typography
@@ -89,18 +91,19 @@ export default function DashboardPage() {
     })
   }
 
-  // 4. 과제심사 (다음 phase - placeholder)
-  // 다음 버전에서 구현 예정
-  // tabs.push({
-  //   key: 'evaluation',
-  //   label: (
-  //     <span>
-  //       <TrophyOutlined />
-  //       과제심사
-  //     </span>
-  //   ),
-  //   children: <EvaluationDashboard />
-  // })
+  // 4. 과제심사 (심사위원으로 할당된 사용자 또는 SUPER_ADMIN)
+  if (hasVerifierAccess || hasSuperAdminAccess) {
+    tabs.push({
+      key: 'evaluation',
+      label: (
+        <span>
+          <TrophyOutlined />
+          과제심사
+        </span>
+      ),
+      children: <EvaluationDashboard />
+    })
+  }
 
   // 5. 수퍼어드민 (SUPER_ADMIN only)
   if (hasSuperAdminAccess) {

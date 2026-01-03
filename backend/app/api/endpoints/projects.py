@@ -536,6 +536,7 @@ async def list_projects(
     **Modes**:
     - mode=participate: Show only recruiting projects (for application)
     - mode=manage: Show own projects only (SUPER_ADMIN sees all)
+    - mode=review: Show projects where user is assigned as reviewer (SUPER_ADMIN sees all)
     - mode=None (default): Legacy behavior (mixed list)
 
     **Permissions**:
@@ -581,6 +582,15 @@ async def list_projects(
                         Project.project_manager_id == current_user.user_id
                     )
                 )
+            # SUPER_ADMIN은 필터 없이 전체 조회
+        elif mode == "review":
+            # 과제심사 모드: 심사자로 할당된 과제만 (수퍼어드민은 전체)
+            if "SUPER_ADMIN" not in user_roles:
+                # ProjectStaff 테이블에서 현재 사용자가 할당된 과제만 조회
+                staff_subquery = select(ProjectStaff.project_id).where(
+                    ProjectStaff.staff_user_id == current_user.user_id
+                )
+                query = query.where(Project.project_id.in_(staff_subquery))
             # SUPER_ADMIN은 필터 없이 전체 조회
         else:
             # 기본 모드 (Legacy): 기존 동작 유지

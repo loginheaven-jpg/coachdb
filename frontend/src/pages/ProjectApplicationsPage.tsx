@@ -211,7 +211,7 @@ export default function ProjectApplicationsPage() {
         <Button
           type="link"
           icon={<FileTextOutlined />}
-          onClick={() => navigate(`/coach/projects/${projectId}/apply?mode=view&application_id=${record.application_id}`)}
+          onClick={() => navigate(`/coach/projects/${projectId}/apply?mode=view&applicationId=${record.application_id}`)}
         >
           상세
         </Button>
