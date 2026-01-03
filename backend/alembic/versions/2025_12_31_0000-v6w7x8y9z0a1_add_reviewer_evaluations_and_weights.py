@@ -19,11 +19,25 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # 1. Add evaluation weights to projects table
-    op.add_column('projects', sa.Column('quantitative_weight', sa.Numeric(5, 2), nullable=False, server_default='70'))
-    op.add_column('projects', sa.Column('qualitative_weight', sa.Numeric(5, 2), nullable=False, server_default='30'))
+    # Helper to check if column exists
+    conn = op.get_bind()
 
-    # 2. Create recommendation enum type
+    # 1. Add evaluation weights to projects table (idempotent)
+    result = conn.execute(sa.text("""
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'projects' AND column_name = 'quantitative_weight'
+    """))
+    if not result.fetchone():
+        op.add_column('projects', sa.Column('quantitative_weight', sa.Numeric(5, 2), nullable=False, server_default='70'))
+
+    result = conn.execute(sa.text("""
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'projects' AND column_name = 'qualitative_weight'
+    """))
+    if not result.fetchone():
+        op.add_column('projects', sa.Column('qualitative_weight', sa.Numeric(5, 2), nullable=False, server_default='30'))
+
+    # 2. Create recommendation enum type (already idempotent)
     op.execute("COMMIT")
     op.execute("""
         DO $$ BEGIN
@@ -33,33 +47,38 @@ def upgrade() -> None:
         END $$;
     """)
 
-    # 3. Create reviewer_evaluations table
-    op.create_table(
-        'reviewer_evaluations',
-        sa.Column('evaluation_id', sa.BigInteger(), autoincrement=True, nullable=False),
-        sa.Column('application_id', sa.BigInteger(), nullable=False),
-        sa.Column('reviewer_id', sa.BigInteger(), nullable=False),
-        sa.Column('motivation_score', sa.Integer(), nullable=False),
-        sa.Column('expertise_score', sa.Integer(), nullable=False),
-        sa.Column('role_fit_score', sa.Integer(), nullable=False),
-        sa.Column('total_score', sa.Numeric(5, 2), nullable=False),
-        sa.Column('comment', sa.Text(), nullable=True),
-        sa.Column('recommendation', sa.Enum('strongly_recommend', 'recommend', 'neutral', 'not_recommend', name='recommendation'), nullable=True),
-        sa.Column('evaluated_at', sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now(), nullable=True),
-        sa.PrimaryKeyConstraint('evaluation_id'),
-        sa.ForeignKeyConstraint(['application_id'], ['applications.application_id'], ondelete='CASCADE'),
-        sa.ForeignKeyConstraint(['reviewer_id'], ['users.user_id'], ondelete='CASCADE'),
-        sa.UniqueConstraint('application_id', 'reviewer_id', name='uq_application_reviewer'),
-        sa.CheckConstraint('motivation_score >= 0 AND motivation_score <= 10', name='check_motivation_score'),
-        sa.CheckConstraint('expertise_score >= 0 AND expertise_score <= 10', name='check_expertise_score'),
-        sa.CheckConstraint('role_fit_score >= 0 AND role_fit_score <= 10', name='check_role_fit_score'),
-    )
+    # 3. Create reviewer_evaluations table (check if exists)
+    result = conn.execute(sa.text("""
+        SELECT table_name FROM information_schema.tables
+        WHERE table_name = 'reviewer_evaluations'
+    """))
+    if not result.fetchone():
+        op.create_table(
+            'reviewer_evaluations',
+            sa.Column('evaluation_id', sa.BigInteger(), autoincrement=True, nullable=False),
+            sa.Column('application_id', sa.BigInteger(), nullable=False),
+            sa.Column('reviewer_id', sa.BigInteger(), nullable=False),
+            sa.Column('motivation_score', sa.Integer(), nullable=False),
+            sa.Column('expertise_score', sa.Integer(), nullable=False),
+            sa.Column('role_fit_score', sa.Integer(), nullable=False),
+            sa.Column('total_score', sa.Numeric(5, 2), nullable=False),
+            sa.Column('comment', sa.Text(), nullable=True),
+            sa.Column('recommendation', sa.Enum('strongly_recommend', 'recommend', 'neutral', 'not_recommend', name='recommendation'), nullable=True),
+            sa.Column('evaluated_at', sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+            sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now(), nullable=True),
+            sa.PrimaryKeyConstraint('evaluation_id'),
+            sa.ForeignKeyConstraint(['application_id'], ['applications.application_id'], ondelete='CASCADE'),
+            sa.ForeignKeyConstraint(['reviewer_id'], ['users.user_id'], ondelete='CASCADE'),
+            sa.UniqueConstraint('application_id', 'reviewer_id', name='uq_application_reviewer'),
+            sa.CheckConstraint('motivation_score >= 0 AND motivation_score <= 10', name='check_motivation_score'),
+            sa.CheckConstraint('expertise_score >= 0 AND expertise_score <= 10', name='check_expertise_score'),
+            sa.CheckConstraint('role_fit_score >= 0 AND role_fit_score <= 10', name='check_role_fit_score'),
+        )
 
-    # 4. Create indexes
-    op.create_index('ix_reviewer_evaluations_evaluation_id', 'reviewer_evaluations', ['evaluation_id'])
-    op.create_index('ix_reviewer_evaluations_application_id', 'reviewer_evaluations', ['application_id'])
-    op.create_index('ix_reviewer_evaluations_reviewer_id', 'reviewer_evaluations', ['reviewer_id'])
+        # 4. Create indexes (only if table was just created)
+        op.create_index('ix_reviewer_evaluations_evaluation_id', 'reviewer_evaluations', ['evaluation_id'])
+        op.create_index('ix_reviewer_evaluations_application_id', 'reviewer_evaluations', ['application_id'])
+        op.create_index('ix_reviewer_evaluations_reviewer_id', 'reviewer_evaluations', ['reviewer_id'])
 
 
 def downgrade() -> None:

@@ -19,13 +19,15 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # 1. Add GRADE to matching_type enum
+    conn = op.get_bind()
+
+    # 1. Add GRADE to matching_type enum (IF NOT EXISTS handles idempotency)
     op.execute("COMMIT")
     op.execute("""
         ALTER TYPE matchingtype ADD VALUE IF NOT EXISTS 'grade';
     """)
 
-    # 2. Create value_source_type enum
+    # 2. Create value_source_type enum (idempotent with exception handling)
     op.execute("""
         DO $$ BEGIN
             CREATE TYPE valuesourcetype AS ENUM ('submitted', 'user_field', 'json_field');
@@ -34,10 +36,27 @@ def upgrade() -> None:
         END $$;
     """)
 
-    # 3. Add new columns to scoring_criteria table
-    op.add_column('scoring_criteria', sa.Column('value_source', sa.Enum('submitted', 'user_field', 'json_field', name='valuesourcetype'), nullable=False, server_default='submitted'))
-    op.add_column('scoring_criteria', sa.Column('source_field', sa.String(100), nullable=True))
-    op.add_column('scoring_criteria', sa.Column('extract_pattern', sa.String(100), nullable=True))
+    # 3. Add new columns to scoring_criteria table (idempotent)
+    result = conn.execute(sa.text("""
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'scoring_criteria' AND column_name = 'value_source'
+    """))
+    if not result.fetchone():
+        op.add_column('scoring_criteria', sa.Column('value_source', sa.Enum('submitted', 'user_field', 'json_field', name='valuesourcetype'), nullable=False, server_default='submitted'))
+
+    result = conn.execute(sa.text("""
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'scoring_criteria' AND column_name = 'source_field'
+    """))
+    if not result.fetchone():
+        op.add_column('scoring_criteria', sa.Column('source_field', sa.String(100), nullable=True))
+
+    result = conn.execute(sa.text("""
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'scoring_criteria' AND column_name = 'extract_pattern'
+    """))
+    if not result.fetchone():
+        op.add_column('scoring_criteria', sa.Column('extract_pattern', sa.String(100), nullable=True))
 
 
 def downgrade() -> None:
