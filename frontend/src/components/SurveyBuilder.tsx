@@ -125,6 +125,12 @@ const GRADE_TEMPLATES: Record<string, GradeTemplateConfig> = {
   }
 }
 
+// 등급 배열에서 최고 점수 계산
+function getMaxGradeScore(grades: Array<{ score?: number }>): number {
+  if (!grades || grades.length === 0) return 0
+  return Math.max(...grades.map(g => Number(g.score) || 0))
+}
+
 // 항목 템플릿에 따른 등급 템플릿 매핑
 function getGradeTemplate(item: CompetencyItem): GradeTemplateConfig | null {
   // 항목 템플릿으로 매핑
@@ -636,14 +642,27 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                           {selection.included && (
                             <Space>
                               <Text>배점:</Text>
-                              <InputNumber
-                                min={0}
-                                max={100}
-                                value={selection.score || undefined}
-                                onChange={(value) => updateSelection(selection.item.item_id, { score: value })}
-                                style={{ width: 80 }}
-                                placeholder="점수"
-                              />
+                              {/* GRADE 설정된 항목은 배점 입력 비활성화 (등급 최고점으로 자동 결정) */}
+                              {selection.scoring_criteria?.some(c => c.matching_type === MatchingType.GRADE) ? (
+                                <Tooltip title="등급설정의 최고점이 배점으로 사용됩니다">
+                                  <InputNumber
+                                    min={0}
+                                    max={100}
+                                    value={selection.score || undefined}
+                                    disabled
+                                    style={{ width: 80, backgroundColor: '#f5f5f5' }}
+                                  />
+                                </Tooltip>
+                              ) : (
+                                <InputNumber
+                                  min={0}
+                                  max={100}
+                                  value={selection.score || undefined}
+                                  onChange={(value) => updateSelection(selection.item.item_id, { score: value })}
+                                  style={{ width: 80 }}
+                                  placeholder="점수"
+                                />
+                              )}
                               <Button
                                 type="text"
                                 size="small"
@@ -949,14 +968,17 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
               const otherCriteria = currentSelection.scoring_criteria.filter(
                 c => c.matching_type !== MatchingType.GRADE
               )
+              // 등급 최고점을 배점으로 자동 설정 (Option D)
+              const maxScore = getMaxGradeScore(values.grades || [])
               updateSelection(gradeConfigItemId, {
-                scoring_criteria: [...otherCriteria, newCriteria]
+                scoring_criteria: [...otherCriteria, newCriteria],
+                score: maxScore > 0 ? maxScore : currentSelection.score  // 등급이 있으면 최고점으로 설정
               })
             }
 
             setGradeConfigItemId(null)
             gradeConfigForm.resetFields()
-            message.success('등급 배점이 설정되었습니다.')
+            message.success(`등급 배점이 설정되었습니다. (배점: ${getMaxGradeScore(values.grades || [])}점)`)
           }}
           width={700}
           okText="적용"
@@ -1353,14 +1375,17 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
             const otherCriteria = currentSelection.scoring_criteria.filter(
               c => c.matching_type !== MatchingType.GRADE
             )
+            // 등급 최고점을 배점으로 자동 설정 (Option D)
+            const maxScore = getMaxGradeScore(values.grades || [])
             updateSelection(gradeConfigItemId, {
-              scoring_criteria: [...otherCriteria, newCriteria]
+              scoring_criteria: [...otherCriteria, newCriteria],
+              score: maxScore > 0 ? maxScore : currentSelection.score  // 등급이 있으면 최고점으로 설정
             })
           }
 
           setGradeConfigItemId(null)
           gradeConfigForm.resetFields()
-          message.success('등급 배점이 설정되었습니다.')
+          message.success(`등급 배점이 설정되었습니다. (배점: ${getMaxGradeScore(values.grades || [])}점)`)
         }}
         width={700}
         okText="적용"
