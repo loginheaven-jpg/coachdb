@@ -2,7 +2,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, List
 from datetime import datetime
 from decimal import Decimal
-from app.models.competency import VerificationStatus, MatchingType, ProofRequiredLevel, ItemTemplate, CompetencyCategory, InputType
+from app.models.competency import VerificationStatus, MatchingType, ProofRequiredLevel, ItemTemplate, CompetencyCategory, InputType, ValueSourceType
 
 
 class FileBasicInfo(BaseModel):
@@ -107,14 +107,27 @@ class CoachCompetencyResponse(BaseModel):
 # ============================================================================
 class ScoringCriteriaCreate(BaseModel):
     """Create scoring criteria for project item"""
-    matching_type: MatchingType  # EXACT, CONTAINS, RANGE
+    matching_type: MatchingType  # EXACT, CONTAINS, RANGE, GRADE
     expected_value: str  # 매칭할 값 (예: "KAC", "1500")
-    score: Decimal = Field(..., ge=0)  # 점수
+    # GRADE 타입의 경우: {"type": "string", "grades": [{"value": "KSC", "score": 10}, ...]}
+    # 또는: {"type": "numeric", "grades": [{"min": 1000, "score": 10}, {"min": 500, "max": 999, "score": 5}]}
+    score: Decimal = Field(default=Decimal('0'), ge=0)  # 점수 (GRADE 타입에서는 expected_value JSON에서 결정)
+
+    # GRADE 타입용 값 소스 설정
+    value_source: ValueSourceType = ValueSourceType.SUBMITTED  # 값을 가져올 소스
+    source_field: Optional[str] = None  # User 필드명 또는 JSON 필드명 (예: "coach_certification_number", "degree_level")
+    extract_pattern: Optional[str] = None  # 정규식 패턴 (예: "^(.{3})" - 앞 3글자 추출)
 
 
-class ScoringCriteriaResponse(ScoringCriteriaCreate):
+class ScoringCriteriaResponse(BaseModel):
     """Scoring criteria response"""
     criteria_id: int
+    matching_type: MatchingType
+    expected_value: str
+    score: Decimal
+    value_source: ValueSourceType = ValueSourceType.SUBMITTED
+    source_field: Optional[str] = None
+    extract_pattern: Optional[str] = None
 
     class Config:
         from_attributes = True

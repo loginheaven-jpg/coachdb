@@ -43,6 +43,14 @@ class MatchingType(str, enum.Enum):
     EXACT = "exact"
     CONTAINS = "contains"
     RANGE = "range"
+    GRADE = "grade"  # 등급별 점수 (문자열/숫자 범위 모두 지원)
+
+
+class ValueSourceType(str, enum.Enum):
+    """점수 계산용 값을 가져올 소스 유형"""
+    SUBMITTED = "submitted"      # ApplicationData.submitted_value (기본값)
+    USER_FIELD = "user_field"    # User 테이블 필드 (예: coach_certification_number)
+    JSON_FIELD = "json_field"    # submitted_value JSON 내부 필드 (예: degree_level)
 
 
 class ProofRequiredLevel(str, enum.Enum):
@@ -143,7 +151,18 @@ class ScoringCriteria(Base):
     project_item_id = Column(Integer, ForeignKey("project_items.project_item_id", ondelete="CASCADE"), nullable=False)
     matching_type = Column(Enum(MatchingType), nullable=False)
     expected_value = Column(Text, nullable=False)  # Value to match (e.g., "KSC", "1500", etc.)
-    score = Column(Numeric(5, 2), nullable=False)  # Points awarded for this match
+    # GRADE 타입의 경우: {"type": "string", "grades": [{"value": "KSC", "score": 10}, ...]}
+    # 또는: {"type": "numeric", "grades": [{"min": 1000, "score": 10}, {"min": 500, "max": 999, "score": 5}]}
+    score = Column(Numeric(5, 2), nullable=False)  # Points awarded for this match (GRADE 타입에서는 사용 안함)
+
+    # 값 소스 설정 (GRADE 타입용)
+    value_source = Column(
+        Enum(ValueSourceType, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+        default=ValueSourceType.SUBMITTED
+    )
+    source_field = Column(String(100), nullable=True)  # User 필드명 또는 JSON 필드명 (예: "coach_certification_number", "degree_level")
+    extract_pattern = Column(String(100), nullable=True)  # 정규식 패턴 (예: "^(.{3})" - 앞 3글자 추출)
 
     # Relationships
     project_item = relationship("ProjectItem", back_populates="scoring_criteria")

@@ -12,12 +12,120 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
 from app.models.application import Application, ApplicationData
-from app.models.competency import ProjectItem, ScoringCriteria, MatchingType
+from app.models.competency import ProjectItem, ScoringCriteria, MatchingType, ValueSourceType
 from app.models.project import Project
 from app.models.reviewer_evaluation import ReviewerEvaluation
 from app.models.custom_question import CustomQuestion, CustomQuestionAnswer
+from app.models.user import User
 
 logger = logging.getLogger(__name__)
+
+
+def extract_value_for_scoring(
+    submitted_value: str,
+    criteria: ScoringCriteria,
+    user: Optional[User] = None
+) -> str:
+    """
+    Extract value for scoring based on value source type
+
+    Args:
+        submitted_value: The submitted value from ApplicationData
+        criteria: ScoringCriteria with value_source settings
+        user: User object (required for USER_FIELD source)
+
+    Returns:
+        Extracted value string for matching
+    """
+    value_source = criteria.value_source or ValueSourceType.SUBMITTED
+
+    if value_source == ValueSourceType.USER_FIELD:
+        # Extract from User table field
+        if not user:
+            logger.warning(f"User not provided for USER_FIELD criteria {criteria.criteria_id}")
+            return ""
+        source_field = criteria.source_field or ""
+        raw_value = getattr(user, source_field, "") or ""
+
+        # Apply extract pattern if specified (e.g., "^(.{3})" to get first 3 chars)
+        if criteria.extract_pattern and raw_value:
+            try:
+                match = re.match(criteria.extract_pattern, str(raw_value))
+                if match and match.groups():
+                    return match.group(1)
+            except re.error as e:
+                logger.error(f"Invalid regex pattern '{criteria.extract_pattern}': {e}")
+        return str(raw_value)
+
+    elif value_source == ValueSourceType.JSON_FIELD:
+        # Extract from submitted_value JSON
+        source_field = criteria.source_field or ""
+        if not submitted_value or not source_field:
+            return ""
+        try:
+            data = json.loads(submitted_value)
+            if isinstance(data, dict):
+                return str(data.get(source_field, ""))
+            elif isinstance(data, list) and len(data) > 0 and isinstance(data[0], dict):
+                # For repeatable items, get from first entry
+                return str(data[0].get(source_field, ""))
+        except (json.JSONDecodeError, TypeError) as e:
+            logger.debug(f"Failed to parse JSON for field extraction: {e}")
+        return ""
+
+    else:  # SUBMITTED (default)
+        return submitted_value or ""
+
+
+def match_grade_value(extracted_value: str, expected_value: str) -> Optional[Decimal]:
+    """
+    Match grade value and return score
+
+    Args:
+        extracted_value: The extracted value to match
+        expected_value: JSON config with grade definitions
+
+    Returns:
+        Score for matching grade, or None if no match
+    """
+    if not extracted_value:
+        return None
+
+    try:
+        config = json.loads(expected_value)
+    except json.JSONDecodeError:
+        logger.error(f"Invalid GRADE config JSON: {expected_value}")
+        return None
+
+    grade_type = config.get("type", "string")
+    grades = config.get("grades", [])
+
+    if grade_type == "numeric":
+        # Numeric range matching
+        try:
+            # Extract number from value
+            numbers = re.findall(r'[\d.]+', str(extracted_value))
+            if not numbers:
+                return None
+            num_value = float(numbers[0])
+
+            for grade in grades:
+                min_val = grade.get("min", float("-inf"))
+                max_val = grade.get("max", float("inf"))
+                if min_val <= num_value <= max_val:
+                    return Decimal(str(grade.get("score", 0)))
+        except (ValueError, TypeError) as e:
+            logger.debug(f"Numeric grade matching failed: {e}")
+            return None
+
+    else:  # string matching
+        extracted_lower = str(extracted_value).strip().lower()
+        for grade in grades:
+            grade_value = str(grade.get("value", "")).strip().lower()
+            if grade_value == extracted_lower:
+                return Decimal(str(grade.get("score", 0)))
+
+    return None
 
 
 def match_value(submitted_value: str, expected_value: str, matching_type: MatchingType) -> bool:
@@ -86,7 +194,8 @@ def match_value(submitted_value: str, expected_value: str, matching_type: Matchi
 def calculate_item_score(
     submitted_value: str,
     scoring_criteria: List[ScoringCriteria],
-    max_score: Optional[Decimal] = None
+    max_score: Optional[Decimal] = None,
+    user: Optional[User] = None
 ) -> Decimal:
     """
     Calculate score for a single item based on scoring criteria
@@ -95,6 +204,7 @@ def calculate_item_score(
         submitted_value: The value submitted by the applicant
         scoring_criteria: List of scoring criteria for this item
         max_score: Maximum score for this item (for validation)
+        user: User object (required for USER_FIELD value source)
 
     Returns:
         The calculated score
@@ -102,11 +212,21 @@ def calculate_item_score(
     total_score = Decimal('0')
 
     for criteria in scoring_criteria:
-        if match_value(submitted_value, criteria.expected_value, criteria.matching_type):
-            total_score += Decimal(str(criteria.score))
-            # For EXACT matching, we typically take the first match
-            if criteria.matching_type == MatchingType.EXACT:
-                break
+        # Handle GRADE matching type specially
+        if criteria.matching_type == MatchingType.GRADE:
+            # Extract value based on source
+            extracted = extract_value_for_scoring(submitted_value, criteria, user)
+            grade_score = match_grade_value(extracted, criteria.expected_value)
+            if grade_score is not None:
+                total_score += grade_score
+                break  # GRADE typically has one match per item
+        else:
+            # Legacy matching types (EXACT, CONTAINS, RANGE)
+            if match_value(submitted_value, criteria.expected_value, criteria.matching_type):
+                total_score += Decimal(str(criteria.score))
+                # For EXACT matching, we typically take the first match
+                if criteria.matching_type == MatchingType.EXACT:
+                    break
 
     # Cap at max_score if specified
     if max_score is not None and total_score > max_score:
@@ -129,12 +249,13 @@ async def calculate_application_auto_score(
     Returns:
         The calculated auto_score
     """
-    # Get application with project items
+    # Get application with project items and user
     result = await db.execute(
         select(Application)
         .options(
             selectinload(Application.project).selectinload(Project.project_items).selectinload(ProjectItem.scoring_criteria),
-            selectinload(Application.application_data)
+            selectinload(Application.application_data),
+            selectinload(Application.user)  # Load user for USER_FIELD scoring
         )
         .where(Application.application_id == application_id)
     )
@@ -144,6 +265,7 @@ async def calculate_application_auto_score(
         raise ValueError(f"Application {application_id} not found")
 
     total_score = Decimal('0')
+    applicant_user = application.user  # Get user for GRADE scoring with USER_FIELD source
 
     # Build a map of item_id to project_item with scoring criteria
     project_items_map: Dict[int, ProjectItem] = {}
@@ -156,11 +278,12 @@ async def calculate_application_auto_score(
         if not project_item or not project_item.scoring_criteria:
             continue
 
-        # Calculate item score
+        # Calculate item score (pass user for USER_FIELD value source)
         item_score = calculate_item_score(
             app_data.submitted_value or '',
             project_item.scoring_criteria,
-            project_item.max_score
+            project_item.max_score,
+            applicant_user
         )
 
         # Update item_score in application_data

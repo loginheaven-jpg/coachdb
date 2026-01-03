@@ -34,8 +34,28 @@ export enum ProofRequiredLevel {
 export enum MatchingType {
   EXACT = 'exact',
   CONTAINS = 'contains',
-  RANGE = 'range'
+  RANGE = 'range',
+  GRADE = 'grade'  // 등급별 점수 (문자열/숫자 범위 모두 지원)
 }
+
+export enum ValueSourceType {
+  SUBMITTED = 'submitted',     // ApplicationData.submitted_value (기본값)
+  USER_FIELD = 'user_field',   // User 테이블 필드 (예: coach_certification_number)
+  JSON_FIELD = 'json_field'    // submitted_value JSON 내부 필드 (예: degree_level)
+}
+
+// GRADE 타입용 등급 정의
+export interface GradeConfigString {
+  type: 'string'
+  grades: Array<{ value: string; score: number }>
+}
+
+export interface GradeConfigNumeric {
+  type: 'numeric'
+  grades: Array<{ min?: number; max?: number; score: number }>
+}
+
+export type GradeConfig = GradeConfigString | GradeConfigNumeric
 
 export enum ItemTemplate {
   TEXT = 'text',
@@ -189,12 +209,19 @@ export interface CompetencyItemFieldCreate {
 
 export interface ScoringCriteriaCreate {
   matching_type: MatchingType
-  expected_value: string
-  score: number
+  expected_value: string  // GRADE 타입: JSON string (GradeConfig 형태)
+  score: number  // GRADE 타입에서는 expected_value JSON에서 결정하므로 0으로 설정 가능
+  // GRADE 타입용 값 소스 설정
+  value_source?: ValueSourceType  // 값을 가져올 소스 (기본값: SUBMITTED)
+  source_field?: string | null  // User 필드명 또는 JSON 필드명
+  extract_pattern?: string | null  // 정규식 패턴 (예: "^(.{3})" - 앞 3글자 추출)
 }
 
 export interface ScoringCriteria extends ScoringCriteriaCreate {
   criteria_id: number
+  value_source: ValueSourceType
+  source_field: string | null
+  extract_pattern: string | null
 }
 
 export interface ProjectItemCreate {

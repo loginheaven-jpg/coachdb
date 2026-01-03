@@ -26,14 +26,20 @@ import {
   SaveOutlined,
   CheckCircleOutlined,
   WarningOutlined,
-  ExclamationCircleOutlined
+  ExclamationCircleOutlined,
+  SettingOutlined,
+  DeleteOutlined
 } from '@ant-design/icons'
 import projectService, {
   CompetencyItem,
   CustomQuestion,
   ItemTemplate,
   ProofRequiredLevel,
-  CompetencyItemCreate
+  CompetencyItemCreate,
+  ScoringCriteriaCreate,
+  MatchingType,
+  ValueSourceType,
+  GradeConfig
 } from '../services/projectService'
 import SurveyPreview from './SurveyPreview'
 import { Form } from 'antd'
@@ -67,6 +73,7 @@ interface ItemSelection {
   is_required: boolean  // 입력 필수 여부
   score: number | null
   proof_required_level: ProofRequiredLevel
+  scoring_criteria: ScoringCriteriaCreate[]  // 배점 기준 (GRADE 타입 지원)
 }
 
 interface GroupedItems {
@@ -87,6 +94,10 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
   const [showCustomQuestionModal, setShowCustomQuestionModal] = useState(false)
   const [customQuestionForm] = Form.useForm()
   const [creatingCustom, setCreatingCustom] = useState(false)
+
+  // 등급 배점 설정 모달
+  const [gradeConfigItemId, setGradeConfigItemId] = useState<number | null>(null)
+  const [gradeConfigForm] = Form.useForm()
 
   useEffect(() => {
     if (visible || embedded) {
@@ -119,12 +130,22 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
         // 기타(OTHER) 카테고리, ADDON(legacy), 커스텀은 기본 불포함
         const isOtherGroup = item.category === 'OTHER' || item.category === 'ADDON' || item.is_custom
         const defaultIncluded = existing ? true : !isOtherGroup
+        // 기존 scoring_criteria 로드 (GRADE 배점 지원)
+        const existingCriteria: ScoringCriteriaCreate[] = existing?.scoring_criteria?.map(c => ({
+          matching_type: c.matching_type,
+          expected_value: c.expected_value,
+          score: Number(c.score) || 0,
+          value_source: c.value_source || ValueSourceType.SUBMITTED,
+          source_field: c.source_field || null,
+          extract_pattern: c.extract_pattern || null
+        })) || []
         newSelections.set(item.item_id, {
           item,
           included: existing ? true : defaultIncluded,
           is_required: existing?.is_required ?? true,  // 기본값: 필수
           score: existing?.max_score ?? null,
-          proof_required_level: existing?.proof_required_level || ProofRequiredLevel.NOT_REQUIRED
+          proof_required_level: existing?.proof_required_level || ProofRequiredLevel.NOT_REQUIRED,
+          scoring_criteria: existingCriteria
         })
       })
       setSelections(newSelections)
@@ -251,7 +272,7 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
             proof_required_level: isBasic ? ProofRequiredLevel.NOT_REQUIRED : selection.proof_required_level,
             max_score: isBasic ? null : selection.score,  // 기본정보는 배점도 없음
             display_order: displayOrder++,
-            scoring_criteria: []
+            scoring_criteria: selection.scoring_criteria || []  // GRADE 배점 기준 포함
           }
 
           if (existing) {
@@ -344,7 +365,7 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
           proof_required_level: isBasic ? ProofRequiredLevel.NOT_REQUIRED : selection.proof_required_level,
           max_score: isBasic ? null : selection.score,  // 기본정보는 배점도 없음
           display_order: displayOrder++,
-          scoring_criteria: []
+          scoring_criteria: selection.scoring_criteria || []  // GRADE 배점 기준 포함
         }
 
         if (existing) {
@@ -429,7 +450,8 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
         included: true,
         is_required: true,  // 커스텀 질문은 기본적으로 필수
         score: null,
-        proof_required_level: ProofRequiredLevel.REQUIRED
+        proof_required_level: ProofRequiredLevel.REQUIRED,
+        scoring_criteria: []  // 새 항목은 배점 기준 없음
       })
       setSelections(newSelections)
       setAllItems([...allItems, newItem])
@@ -537,6 +559,41 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                                 style={{ width: 80 }}
                                 placeholder="점수"
                               />
+                              <Button
+                                type="text"
+                                size="small"
+                                icon={<SettingOutlined />}
+                                onClick={() => {
+                                  setGradeConfigItemId(selection.item.item_id)
+                                  // 기존 GRADE 설정 불러오기
+                                  const existingCriteria = selection.scoring_criteria?.find(
+                                    c => c.matching_type === MatchingType.GRADE
+                                  )
+                                  if (existingCriteria) {
+                                    try {
+                                      const config = JSON.parse(existingCriteria.expected_value)
+                                      gradeConfigForm.setFieldsValue({
+                                        grade_type: config.type || 'string',
+                                        value_source: existingCriteria.value_source || ValueSourceType.SUBMITTED,
+                                        source_field: existingCriteria.source_field || '',
+                                        extract_pattern: existingCriteria.extract_pattern || '',
+                                        grades: config.grades || []
+                                      })
+                                    } catch {
+                                      gradeConfigForm.resetFields()
+                                    }
+                                  } else {
+                                    gradeConfigForm.resetFields()
+                                  }
+                                }}
+                              >
+                                {selection.scoring_criteria?.some(c => c.matching_type === MatchingType.GRADE)
+                                  ? '등급설정'
+                                  : '등급설정'}
+                              </Button>
+                              {selection.scoring_criteria?.some(c => c.matching_type === MatchingType.GRADE) && (
+                                <Tag color="blue">GRADE</Tag>
+                              )}
                             </Space>
                           )}
                         </Space>
@@ -760,6 +817,185 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
             </Form.Item>
           </Form>
         </Modal>
+
+        {/* Grade Configuration Modal */}
+        <Modal
+          title="등급별 배점 설정"
+          open={gradeConfigItemId !== null}
+          onCancel={() => {
+            setGradeConfigItemId(null)
+            gradeConfigForm.resetFields()
+          }}
+          onOk={() => {
+            const values = gradeConfigForm.getFieldsValue()
+            if (!gradeConfigItemId) return
+
+            // GRADE 설정 저장
+            const gradeConfig: GradeConfig = {
+              type: values.grade_type || 'string',
+              grades: values.grades || []
+            }
+
+            const newCriteria: ScoringCriteriaCreate = {
+              matching_type: MatchingType.GRADE,
+              expected_value: JSON.stringify(gradeConfig),
+              score: 0,
+              value_source: values.value_source || ValueSourceType.SUBMITTED,
+              source_field: values.source_field || null,
+              extract_pattern: values.extract_pattern || null
+            }
+
+            // 기존 GRADE가 아닌 criteria는 유지하고 GRADE만 교체
+            const currentSelection = selections.get(gradeConfigItemId)
+            if (currentSelection) {
+              const otherCriteria = currentSelection.scoring_criteria.filter(
+                c => c.matching_type !== MatchingType.GRADE
+              )
+              updateSelection(gradeConfigItemId, {
+                scoring_criteria: [...otherCriteria, newCriteria]
+              })
+            }
+
+            setGradeConfigItemId(null)
+            gradeConfigForm.resetFields()
+            message.success('등급 배점이 설정되었습니다.')
+          }}
+          width={700}
+          okText="적용"
+          cancelText="취소"
+        >
+          <Form
+            form={gradeConfigForm}
+            layout="vertical"
+            initialValues={{
+              grade_type: 'string',
+              value_source: ValueSourceType.SUBMITTED,
+              grades: []
+            }}
+          >
+            <Form.Item
+              name="grade_type"
+              label="등급 유형"
+              rules={[{ required: true }]}
+            >
+              <Radio.Group>
+                <Radio.Button value="string">문자열 (예: KSC, 박사)</Radio.Button>
+                <Radio.Button value="numeric">숫자 범위 (예: 1000시간 이상)</Radio.Button>
+              </Radio.Group>
+            </Form.Item>
+
+            <Form.Item
+              name="value_source"
+              label="값 소스"
+              rules={[{ required: true }]}
+            >
+              <Select>
+                <Select.Option value={ValueSourceType.SUBMITTED}>제출값 (기본)</Select.Option>
+                <Select.Option value={ValueSourceType.USER_FIELD}>User 테이블 필드</Select.Option>
+                <Select.Option value={ValueSourceType.JSON_FIELD}>JSON 내부 필드</Select.Option>
+              </Select>
+            </Form.Item>
+
+            <Form.Item
+              noStyle
+              shouldUpdate={(prev, curr) => prev.value_source !== curr.value_source}
+            >
+              {({ getFieldValue }) => {
+                const source = getFieldValue('value_source')
+                if (source === ValueSourceType.USER_FIELD) {
+                  return (
+                    <>
+                      <Form.Item name="source_field" label="User 필드명">
+                        <Select placeholder="필드 선택">
+                          <Select.Option value="coach_certification_number">coach_certification_number (인증번호)</Select.Option>
+                          <Select.Option value="name">name (이름)</Select.Option>
+                          <Select.Option value="phone">phone (전화번호)</Select.Option>
+                        </Select>
+                      </Form.Item>
+                      <Form.Item name="extract_pattern" label="추출 패턴 (정규식, 선택)">
+                        <Input placeholder="예: ^(.{3}) - 앞 3글자 추출" />
+                      </Form.Item>
+                    </>
+                  )
+                }
+                if (source === ValueSourceType.JSON_FIELD) {
+                  return (
+                    <Form.Item name="source_field" label="JSON 필드명">
+                      <Input placeholder="예: degree_level, coaching_hours" />
+                    </Form.Item>
+                  )
+                }
+                return null
+              }}
+            </Form.Item>
+
+            <Form.Item
+              noStyle
+              shouldUpdate={(prev, curr) => prev.grade_type !== curr.grade_type}
+            >
+              {({ getFieldValue }) => {
+                const gradeType = getFieldValue('grade_type')
+                if (gradeType === 'string') {
+                  return (
+                    <Form.List name="grades">
+                      {(fields, { add, remove }) => (
+                        <>
+                          <Text strong>문자열 등급 (값 = 점수)</Text>
+                          {fields.map(({ key, name, ...restField }) => (
+                            <Space key={key} style={{ display: 'flex', marginBottom: 8, marginTop: 8 }} align="baseline">
+                              <Form.Item {...restField} name={[name, 'value']} rules={[{ required: true }]}>
+                                <Input placeholder="등급값 (예: KSC)" style={{ width: 150 }} />
+                              </Form.Item>
+                              <Text>=</Text>
+                              <Form.Item {...restField} name={[name, 'score']} rules={[{ required: true }]}>
+                                <InputNumber placeholder="점수" style={{ width: 80 }} />
+                              </Form.Item>
+                              <Text>점</Text>
+                              <Button type="text" danger icon={<DeleteOutlined />} onClick={() => remove(name)} />
+                            </Space>
+                          ))}
+                          <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
+                            등급 추가
+                          </Button>
+                        </>
+                      )}
+                    </Form.List>
+                  )
+                } else {
+                  return (
+                    <Form.List name="grades">
+                      {(fields, { add, remove }) => (
+                        <>
+                          <Text strong>숫자 범위 등급</Text>
+                          {fields.map(({ key, name, ...restField }) => (
+                            <Space key={key} style={{ display: 'flex', marginBottom: 8, marginTop: 8 }} align="baseline">
+                              <Form.Item {...restField} name={[name, 'min']}>
+                                <InputNumber placeholder="이상" style={{ width: 80 }} />
+                              </Form.Item>
+                              <Text>~</Text>
+                              <Form.Item {...restField} name={[name, 'max']}>
+                                <InputNumber placeholder="이하" style={{ width: 80 }} />
+                              </Form.Item>
+                              <Text>=</Text>
+                              <Form.Item {...restField} name={[name, 'score']} rules={[{ required: true }]}>
+                                <InputNumber placeholder="점수" style={{ width: 80 }} />
+                              </Form.Item>
+                              <Text>점</Text>
+                              <Button type="text" danger icon={<DeleteOutlined />} onClick={() => remove(name)} />
+                            </Space>
+                          ))}
+                          <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
+                            범위 추가
+                          </Button>
+                        </>
+                      )}
+                    </Form.List>
+                  )
+                }
+              }}
+            </Form.Item>
+          </Form>
+        </Modal>
       </>
     )
   }
@@ -937,6 +1173,185 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                 추가
               </Button>
             </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Grade Configuration Modal */}
+      <Modal
+        title="등급별 배점 설정"
+        open={gradeConfigItemId !== null}
+        onCancel={() => {
+          setGradeConfigItemId(null)
+          gradeConfigForm.resetFields()
+        }}
+        onOk={() => {
+          const values = gradeConfigForm.getFieldsValue()
+          if (!gradeConfigItemId) return
+
+          // GRADE 설정 저장
+          const gradeConfig: GradeConfig = {
+            type: values.grade_type || 'string',
+            grades: values.grades || []
+          }
+
+          const newCriteria: ScoringCriteriaCreate = {
+            matching_type: MatchingType.GRADE,
+            expected_value: JSON.stringify(gradeConfig),
+            score: 0,
+            value_source: values.value_source || ValueSourceType.SUBMITTED,
+            source_field: values.source_field || null,
+            extract_pattern: values.extract_pattern || null
+          }
+
+          // 기존 GRADE가 아닌 criteria는 유지하고 GRADE만 교체
+          const currentSelection = selections.get(gradeConfigItemId)
+          if (currentSelection) {
+            const otherCriteria = currentSelection.scoring_criteria.filter(
+              c => c.matching_type !== MatchingType.GRADE
+            )
+            updateSelection(gradeConfigItemId, {
+              scoring_criteria: [...otherCriteria, newCriteria]
+            })
+          }
+
+          setGradeConfigItemId(null)
+          gradeConfigForm.resetFields()
+          message.success('등급 배점이 설정되었습니다.')
+        }}
+        width={700}
+        okText="적용"
+        cancelText="취소"
+      >
+        <Form
+          form={gradeConfigForm}
+          layout="vertical"
+          initialValues={{
+            grade_type: 'string',
+            value_source: ValueSourceType.SUBMITTED,
+            grades: []
+          }}
+        >
+          <Form.Item
+            name="grade_type"
+            label="등급 유형"
+            rules={[{ required: true }]}
+          >
+            <Radio.Group>
+              <Radio.Button value="string">문자열 (예: KSC, 박사)</Radio.Button>
+              <Radio.Button value="numeric">숫자 범위 (예: 1000시간 이상)</Radio.Button>
+            </Radio.Group>
+          </Form.Item>
+
+          <Form.Item
+            name="value_source"
+            label="값 소스"
+            rules={[{ required: true }]}
+          >
+            <Select>
+              <Select.Option value={ValueSourceType.SUBMITTED}>제출값 (기본)</Select.Option>
+              <Select.Option value={ValueSourceType.USER_FIELD}>User 테이블 필드</Select.Option>
+              <Select.Option value={ValueSourceType.JSON_FIELD}>JSON 내부 필드</Select.Option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            noStyle
+            shouldUpdate={(prev, curr) => prev.value_source !== curr.value_source}
+          >
+            {({ getFieldValue }) => {
+              const source = getFieldValue('value_source')
+              if (source === ValueSourceType.USER_FIELD) {
+                return (
+                  <>
+                    <Form.Item name="source_field" label="User 필드명">
+                      <Select placeholder="필드 선택">
+                        <Select.Option value="coach_certification_number">coach_certification_number (인증번호)</Select.Option>
+                        <Select.Option value="name">name (이름)</Select.Option>
+                        <Select.Option value="phone">phone (전화번호)</Select.Option>
+                      </Select>
+                    </Form.Item>
+                    <Form.Item name="extract_pattern" label="추출 패턴 (정규식, 선택)">
+                      <Input placeholder="예: ^(.{3}) - 앞 3글자 추출" />
+                    </Form.Item>
+                  </>
+                )
+              }
+              if (source === ValueSourceType.JSON_FIELD) {
+                return (
+                  <Form.Item name="source_field" label="JSON 필드명">
+                    <Input placeholder="예: degree_level, coaching_hours" />
+                  </Form.Item>
+                )
+              }
+              return null
+            }}
+          </Form.Item>
+
+          <Form.Item
+            noStyle
+            shouldUpdate={(prev, curr) => prev.grade_type !== curr.grade_type}
+          >
+            {({ getFieldValue }) => {
+              const gradeType = getFieldValue('grade_type')
+              if (gradeType === 'string') {
+                return (
+                  <Form.List name="grades">
+                    {(fields, { add, remove }) => (
+                      <>
+                        <Text strong>문자열 등급 (값 = 점수)</Text>
+                        {fields.map(({ key, name, ...restField }) => (
+                          <Space key={key} style={{ display: 'flex', marginBottom: 8, marginTop: 8 }} align="baseline">
+                            <Form.Item {...restField} name={[name, 'value']} rules={[{ required: true }]}>
+                              <Input placeholder="등급값 (예: KSC)" style={{ width: 150 }} />
+                            </Form.Item>
+                            <Text>=</Text>
+                            <Form.Item {...restField} name={[name, 'score']} rules={[{ required: true }]}>
+                              <InputNumber placeholder="점수" style={{ width: 80 }} />
+                            </Form.Item>
+                            <Text>점</Text>
+                            <Button type="text" danger icon={<DeleteOutlined />} onClick={() => remove(name)} />
+                          </Space>
+                        ))}
+                        <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
+                          등급 추가
+                        </Button>
+                      </>
+                    )}
+                  </Form.List>
+                )
+              } else {
+                return (
+                  <Form.List name="grades">
+                    {(fields, { add, remove }) => (
+                      <>
+                        <Text strong>숫자 범위 등급</Text>
+                        {fields.map(({ key, name, ...restField }) => (
+                          <Space key={key} style={{ display: 'flex', marginBottom: 8, marginTop: 8 }} align="baseline">
+                            <Form.Item {...restField} name={[name, 'min']}>
+                              <InputNumber placeholder="이상" style={{ width: 80 }} />
+                            </Form.Item>
+                            <Text>~</Text>
+                            <Form.Item {...restField} name={[name, 'max']}>
+                              <InputNumber placeholder="이하" style={{ width: 80 }} />
+                            </Form.Item>
+                            <Text>=</Text>
+                            <Form.Item {...restField} name={[name, 'score']} rules={[{ required: true }]}>
+                              <InputNumber placeholder="점수" style={{ width: 80 }} />
+                            </Form.Item>
+                            <Text>점</Text>
+                            <Button type="text" danger icon={<DeleteOutlined />} onClick={() => remove(name)} />
+                          </Space>
+                        ))}
+                        <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
+                          범위 추가
+                        </Button>
+                      </>
+                    )}
+                  </Form.List>
+                )
+              }
+            }}
           </Form.Item>
         </Form>
       </Modal>
