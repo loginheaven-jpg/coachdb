@@ -136,7 +136,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       <Header className="flex items-center justify-between px-8 bg-white shadow-sm">
         <div className="flex items-center gap-8">
           <div
-            className="cursor-pointer"
+            className="cursor-pointer flex flex-col"
             onClick={() => {
               if (!user) {
                 navigate('/')
@@ -146,8 +146,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
               }
             }}
           >
-            <span className="text-xl font-bold text-blue-600">PPMS</span>
-            <span className="text-xs text-gray-500 ml-2 hidden md:inline">Project & coach Profile Management System</span>
+            <span className="text-xl font-bold text-blue-600 leading-tight">PPMS</span>
+            <span className="text-[10px] text-gray-400 leading-tight">Project & coach Profile Management System</span>
           </div>
 
           {user && menuItems.length > 0 && (
