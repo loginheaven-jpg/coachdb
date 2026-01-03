@@ -5,7 +5,7 @@ from typing import List, Optional
 
 from app.core.database import get_db
 from app.core.security import get_current_user, require_role
-from app.models.user import User
+from app.models.user import User, UserStatus
 from app.models.project import Project, ProjectStatus, ProjectStaff
 from app.models.application import Application, ApplicationData, ApplicationStatus
 from datetime import datetime
@@ -366,7 +366,45 @@ async def create_test_project_with_applications(
         await db.commit()
         print("[CREATE-TEST-APPS] All applications committed")
 
-        # Step 4: Prepare response
+        # Step 4: Assign reviewers (required users + random users)
+        print("[CREATE-TEST-APPS] Step 4: Assigning reviewers...")
+        required_emails = ["viproject@naver.com", "loginheaven@gmail.com"]
+
+        # Get required reviewers
+        for email in required_emails:
+            result = await db.execute(select(User).where(User.email == email))
+            reviewer = result.scalar_one_or_none()
+            if reviewer:
+                staff = ProjectStaff(
+                    project_id=new_project.project_id,
+                    staff_user_id=reviewer.user_id
+                )
+                db.add(staff)
+                print(f"[CREATE-TEST-APPS] Added required reviewer: {email}")
+
+        # Get 3 random active users as additional reviewers
+        result = await db.execute(
+            select(User)
+            .where(User.status == UserStatus.ACTIVE)
+            .where(User.email.notin_(required_emails))
+            .where(User.email.notlike('test_user_%'))
+            .limit(50)
+        )
+        all_users = result.scalars().all()
+        random_reviewers = random.sample(all_users, min(3, len(all_users)))
+
+        for reviewer in random_reviewers:
+            staff = ProjectStaff(
+                project_id=new_project.project_id,
+                staff_user_id=reviewer.user_id
+            )
+            db.add(staff)
+            print(f"[CREATE-TEST-APPS] Added random reviewer: {reviewer.email}")
+
+        await db.commit()
+        print("[CREATE-TEST-APPS] Reviewers assigned")
+
+        # Step 5: Prepare response
         await db.refresh(new_project)
         display_status = calculate_display_status(
             new_project.status,
@@ -2536,55 +2574,65 @@ async def get_project_staff(
 
     권한: SUPER_ADMIN (모든 과제) 또는 PROJECT_MANAGER (본인 과제)
     """
-    # Check project exists
-    project_result = await db.execute(
-        select(Project).where(Project.project_id == project_id)
-    )
-    project = project_result.scalar_one_or_none()
-    if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="과제를 찾을 수 없습니다"
+    try:
+        # Check project exists
+        project_result = await db.execute(
+            select(Project).where(Project.project_id == project_id)
         )
-
-    # Check permission: SUPER_ADMIN or project manager
-    user_roles = [r.value if hasattr(r, 'value') else r for r in current_user.roles]
-    is_super_admin = "SUPER_ADMIN" in user_roles
-    is_project_manager = project.manager_id == current_user.user_id
-
-    if not (is_super_admin or is_project_manager):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="심사위원 관리 권한이 없습니다"
-        )
-
-    # Get staff list with user info
-    staff_result = await db.execute(
-        select(ProjectStaff, User)
-        .join(User, ProjectStaff.staff_user_id == User.user_id)
-        .where(ProjectStaff.project_id == project_id)
-        .order_by(ProjectStaff.assigned_at.desc())
-    )
-    staff_rows = staff_result.all()
-
-    staff_list = []
-    for staff, user in staff_rows:
-        staff_response = ProjectStaffResponse(
-            project_id=staff.project_id,
-            staff_user_id=staff.staff_user_id,
-            assigned_at=staff.assigned_at,
-            staff_user=UserBasicInfo(
-                user_id=user.user_id,
-                username=user.username,
-                full_name=user.name
+        project = project_result.scalar_one_or_none()
+        if not project:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="과제를 찾을 수 없습니다"
             )
-        )
-        staff_list.append(staff_response)
 
-    return ProjectStaffListResponse(
-        staff_list=staff_list,
-        total_count=len(staff_list)
-    )
+        # Check permission: SUPER_ADMIN or project manager
+        user_roles = [r.value if hasattr(r, 'value') else r for r in current_user.roles]
+        is_super_admin = "SUPER_ADMIN" in user_roles
+        is_project_manager = project.manager_id == current_user.user_id
+
+        if not (is_super_admin or is_project_manager):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="심사위원 관리 권한이 없습니다"
+            )
+
+        # Get staff list with user info
+        staff_result = await db.execute(
+            select(ProjectStaff, User)
+            .join(User, ProjectStaff.staff_user_id == User.user_id)
+            .where(ProjectStaff.project_id == project_id)
+            .order_by(ProjectStaff.assigned_at.desc())
+        )
+        staff_rows = staff_result.all()
+
+        staff_list = []
+        for staff, user in staff_rows:
+            staff_response = ProjectStaffResponse(
+                project_id=staff.project_id,
+                staff_user_id=staff.staff_user_id,
+                assigned_at=staff.assigned_at,
+                staff_user=UserBasicInfo(
+                    user_id=user.user_id,
+                    username=user.username,
+                    full_name=user.name
+                )
+            )
+            staff_list.append(staff_response)
+
+        return ProjectStaffListResponse(
+            staff_list=staff_list,
+            total_count=len(staff_list)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        print(f"Error in get_project_staff: {e}\n{traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"심사위원 목록 조회 실패: {str(e)}"
+        )
 
 
 @router.post(
