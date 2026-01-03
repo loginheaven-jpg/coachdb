@@ -1160,3 +1160,103 @@ async def reset_full(
             status_code=500,
             detail=f"Reset failed: {str(e)}\n{traceback.format_exc()}"
         )
+
+
+# ============================================================================
+# Database Migration Endpoints
+# ============================================================================
+@router.get("/migration-status")
+async def get_migration_status(
+    current_user: User = Depends(require_role(["SUPER_ADMIN"]))
+):
+    """
+    Get current database migration status
+
+    Returns current revision and pending migrations.
+    """
+    import subprocess
+    import os
+
+    try:
+        # Get the backend directory
+        backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+
+        # Run alembic current
+        result = subprocess.run(
+            ["alembic", "current"],
+            cwd=backend_dir,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        current_revision = result.stdout.strip() if result.returncode == 0 else f"Error: {result.stderr}"
+
+        # Run alembic history
+        result = subprocess.run(
+            ["alembic", "history", "--verbose", "-r", "-3:"],
+            cwd=backend_dir,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        recent_history = result.stdout.strip() if result.returncode == 0 else f"Error: {result.stderr}"
+
+        return {
+            "current_revision": current_revision,
+            "recent_history": recent_history
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to check migration status: {str(e)}"
+        )
+
+
+@router.post("/run-migrations")
+async def run_migrations(
+    current_user: User = Depends(require_role(["SUPER_ADMIN"]))
+):
+    """
+    Run pending database migrations (alembic upgrade head)
+
+    Use this to apply pending migrations to the production database.
+    """
+    import subprocess
+    import os
+
+    try:
+        # Get the backend directory
+        backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+
+        # Run alembic upgrade head
+        result = subprocess.run(
+            ["alembic", "upgrade", "head"],
+            cwd=backend_dir,
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+
+        if result.returncode == 0:
+            return {
+                "success": True,
+                "message": "Migrations completed successfully",
+                "output": result.stdout
+            }
+        else:
+            return {
+                "success": False,
+                "message": "Migration failed",
+                "error": result.stderr,
+                "output": result.stdout
+            }
+    except subprocess.TimeoutExpired:
+        raise HTTPException(
+            status_code=500,
+            detail="Migration timed out after 60 seconds"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to run migrations: {str(e)}"
+        )
