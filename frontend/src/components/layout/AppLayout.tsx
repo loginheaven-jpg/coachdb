@@ -1,7 +1,7 @@
 import { Layout, Menu, Dropdown, Button, Avatar } from 'antd'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
-import { UserOutlined, LogoutOutlined, SettingOutlined, LoginOutlined, TeamOutlined, FolderOpenOutlined, FileTextOutlined, ToolOutlined } from '@ant-design/icons'
+import { UserOutlined, LogoutOutlined, SettingOutlined, LoginOutlined, FolderOutlined, FileTextOutlined, AuditOutlined, TrophyOutlined, ToolOutlined } from '@ant-design/icons'
 import authService from '../../services/authService'
 import { message } from 'antd'
 import type { MenuProps } from 'antd'
@@ -28,39 +28,24 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   // 역할 체크 헬퍼
   const hasRole = (role: string) => userRoles.includes(role)
-  const isProjectManager = hasRole('SUPER_ADMIN') || hasRole('PROJECT_MANAGER') || hasRole('VERIFIER') || hasRole('REVIEWER') || hasRole('admin')
+  const isSuperAdmin = hasRole('SUPER_ADMIN')
+  const isProjectManager = hasRole('PROJECT_MANAGER')
+  const isVerifier = hasRole('VERIFIER')
+  const isReviewer = hasRole('REVIEWER')
 
   // 역할별 메뉴 아이템 생성
   const menuItems: MenuProps['items'] = []
 
-  // 대시보드 메뉴 (모든 로그인 사용자)
+  // 1. 과제참여 (모든 로그인 사용자)
   if (userRoles.length > 0) {
     menuItems.push({
-      key: 'dashboard',
-      label: '대시보드',
-      onClick: () => navigate('/dashboard')
-    })
-  }
-
-  // 과제참여 (모든 로그인 사용자)
-  if (userRoles.length > 0) {
-    menuItems.push({
-      key: 'projects-participate',
+      key: 'projects',
       label: '과제참여',
       onClick: () => navigate('/projects')
     })
   }
 
-  // 과제관리 (PROJECT_MANAGER 이상)
-  if (isProjectManager) {
-    menuItems.push({
-      key: 'projects-manage',
-      label: '과제관리',
-      onClick: () => navigate('/projects/manage')
-    })
-  }
-
-  // 내 지원서 (모든 로그인 사용자)
+  // 2. 내 지원서 (모든 로그인 사용자)
   if (userRoles.length > 0) {
     menuItems.push({
       key: 'my-applications',
@@ -69,20 +54,65 @@ export default function AppLayout({ children }: AppLayoutProps) {
     })
   }
 
+  // 3. 세부정보 (모든 로그인 사용자)
+  if (userRoles.length > 0) {
+    menuItems.push({
+      key: 'competencies',
+      label: '세부정보',
+      onClick: () => navigate('/coach/competencies')
+    })
+  }
+
+  // 4. 과제관리 (PROJECT_MANAGER 또는 SUPER_ADMIN)
+  if (isProjectManager || isSuperAdmin) {
+    menuItems.push({
+      key: 'projects-manage',
+      label: '과제관리',
+      onClick: () => navigate('/projects/manage')
+    })
+  }
+
+  // 5. 증빙검토 (VERIFIER 또는 SUPER_ADMIN)
+  if (isVerifier || isSuperAdmin) {
+    menuItems.push({
+      key: 'verifications',
+      label: '증빙검토',
+      onClick: () => navigate('/admin/verifications')
+    })
+  }
+
+  // 6. 과제심사 (REVIEWER 또는 SUPER_ADMIN)
+  if (isReviewer || isSuperAdmin) {
+    menuItems.push({
+      key: 'evaluations',
+      label: '과제심사',
+      onClick: () => navigate('/evaluations')
+    })
+  }
+
+  // 7. 시스템관리 (SUPER_ADMIN only)
+  if (isSuperAdmin) {
+    menuItems.push({
+      key: 'admin',
+      label: '시스템관리',
+      onClick: () => navigate('/admin/users')
+    })
+  }
+
   // 현재 경로에서 선택된 메뉴 키 결정
   const getSelectedKey = () => {
     const path = location.pathname
-    if (path === '/dashboard' || path.startsWith('/admin/dashboard') || path.startsWith('/coach/dashboard') || path.startsWith('/staff/dashboard')) return 'dashboard'
     if (path.startsWith('/projects/manage') || path.startsWith('/admin/projects')) return 'projects-manage'
-    if (path.startsWith('/projects') || path.startsWith('/coach/projects')) return 'projects-participate'
+    if (path.startsWith('/projects') || path.startsWith('/coach/projects')) return 'projects'
     if (path.startsWith('/my-applications') || path.startsWith('/coach/my-applications')) return 'my-applications'
+    if (path.startsWith('/coach/competencies') || path.startsWith('/profile/detailed')) return 'competencies'
+    if (path.startsWith('/admin/verifications')) return 'verifications'
+    if (path.startsWith('/evaluations')) return 'evaluations'
+    if (path.startsWith('/admin/users')) return 'admin'
     return ''
   }
 
-  // SUPER_ADMIN 권한 체크
-  const isSuperAdmin = userRoles.includes('SUPER_ADMIN')
-
-  // 사용자 드롭다운 메뉴
+  // 사용자 드롭다운 메뉴 (프로필 수정 + 로그아웃만)
   const userMenuItems: MenuProps['items'] = [
     {
       key: 'profile',
@@ -90,24 +120,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
       label: '프로필 수정',
       onClick: () => navigate('/profile/edit')
     },
-    {
-      key: 'competencies',
-      icon: <UserOutlined />,
-      label: '세부정보 관리',
-      onClick: () => navigate('/coach/competencies')
-    },
-    // SUPER_ADMIN만 사용자 관리 메뉴 표시
-    ...(isSuperAdmin ? [
-      {
-        type: 'divider' as const
-      },
-      {
-        key: 'user-management',
-        icon: <TeamOutlined />,
-        label: '사용자 관리',
-        onClick: () => navigate('/admin/users')
-      }
-    ] : []),
     {
       type: 'divider'
     },

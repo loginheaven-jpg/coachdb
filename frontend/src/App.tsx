@@ -18,6 +18,7 @@ import ProjectDetailPage from './pages/ProjectDetailPage'
 import ProjectEditPage from './pages/ProjectEditPage'
 import ProjectApplicationsPage from './pages/ProjectApplicationsPage'
 import ProjectReviewPage from './pages/ProjectReviewPage'
+import EvaluationDashboard from './pages/EvaluationDashboard'
 import ProjectEvaluationCreatePage from './pages/ProjectEvaluationCreatePage'
 import ApplicationSubmitPage from './pages/ApplicationSubmitPage'
 import AdminCompetencyItemsPage from './pages/AdminCompetencyItemsPage'
@@ -194,6 +195,17 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={ALL_ROLES}>
               <MyApplicationsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* ===== 과제심사 (Evaluations) ===== */}
+        {/* 심사자로 배정된 과제 목록 */}
+        <Route
+          path="/evaluations"
+          element={
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'REVIEWER']}>
+              <EvaluationDashboard />
             </ProtectedRoute>
           }
         />
