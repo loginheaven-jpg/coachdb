@@ -31,8 +31,11 @@ class ReviewerEvaluation(Base):
     # 종합 의견
     comment = Column(Text, nullable=True)
 
-    # 추천 여부
-    recommendation = Column(Enum(Recommendation), nullable=True)
+    # 추천 여부 (PostgreSQL enum은 소문자 값 사용)
+    recommendation = Column(
+        Enum(Recommendation, values_callable=lambda x: [e.value for e in x]),
+        nullable=True
+    )
 
     evaluated_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
