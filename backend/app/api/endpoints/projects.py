@@ -2589,7 +2589,7 @@ async def get_project_staff(
         # Check permission: SUPER_ADMIN or project manager
         user_roles = [r.value if hasattr(r, 'value') else r for r in current_user.roles]
         is_super_admin = "SUPER_ADMIN" in user_roles
-        is_project_manager = project.manager_id == current_user.user_id
+        is_project_manager = project.project_manager_id == current_user.user_id
 
         if not (is_super_admin or is_project_manager):
             raise HTTPException(
@@ -2666,7 +2666,7 @@ async def add_project_staff(
     # Check permission: SUPER_ADMIN or project manager
     user_roles = [r.value if hasattr(r, 'value') else r for r in current_user.roles]
     is_super_admin = "SUPER_ADMIN" in user_roles
-    is_project_manager = project.manager_id == current_user.user_id
+    is_project_manager = project.project_manager_id == current_user.user_id
 
     if not (is_super_admin or is_project_manager):
         raise HTTPException(
@@ -2749,7 +2749,7 @@ async def remove_project_staff(
     # Check permission: SUPER_ADMIN or project manager
     user_roles = [r.value if hasattr(r, 'value') else r for r in current_user.roles]
     is_super_admin = "SUPER_ADMIN" in user_roles
-    is_project_manager = project.manager_id == current_user.user_id
+    is_project_manager = project.project_manager_id == current_user.user_id
 
     if not (is_super_admin or is_project_manager):
         raise HTTPException(
