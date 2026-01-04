@@ -1373,34 +1373,34 @@ async def bulk_delete_users(
                 DELETE FROM applications WHERE user_id = :user_id
             """), {"user_id": user_id})
 
-            # 7. Competency 관련 파일 및 데이터 삭제
+            # 7. Files 삭제 (사용자가 업로드한 모든 파일)
             await db.execute(text("""
-                DELETE FROM competency_files
-                WHERE competency_id IN (SELECT competency_id FROM competencies WHERE user_id = :user_id)
+                DELETE FROM files WHERE uploaded_by = :user_id
             """), {"user_id": user_id})
 
+            # 8. Coach Competencies 삭제
             await db.execute(text("""
-                DELETE FROM competencies WHERE user_id = :user_id
+                DELETE FROM coach_competencies WHERE user_id = :user_id
             """), {"user_id": user_id})
 
-            # 8. Education 관련 파일 및 데이터 삭제
+            # 9. Coach Education History 삭제
             await db.execute(text("""
-                DELETE FROM education_files
-                WHERE education_id IN (SELECT education_id FROM educations WHERE user_id = :user_id)
+                DELETE FROM coach_education_history WHERE user_id = :user_id
             """), {"user_id": user_id})
 
-            await db.execute(text("""
-                DELETE FROM educations WHERE user_id = :user_id
-            """), {"user_id": user_id})
-
-            # 9. Certification 관련 파일 및 데이터 삭제
-            await db.execute(text("""
-                DELETE FROM certification_files
-                WHERE certification_id IN (SELECT certification_id FROM certifications WHERE user_id = :user_id)
-            """), {"user_id": user_id})
-
+            # 10. Certifications 삭제
             await db.execute(text("""
                 DELETE FROM certifications WHERE user_id = :user_id
+            """), {"user_id": user_id})
+
+            # 11. Coach Profile 삭제
+            await db.execute(text("""
+                DELETE FROM coach_profiles WHERE user_id = :user_id
+            """), {"user_id": user_id})
+
+            # 12. Competency Reminders 삭제
+            await db.execute(text("""
+                DELETE FROM competency_reminders WHERE user_id = :user_id
             """), {"user_id": user_id})
 
             # 10. RoleRequests 삭제
