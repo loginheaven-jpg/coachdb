@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Typography, Card, Table, Tag, Button, Space, Input, Select, Modal, Checkbox, message, InputNumber, Divider, Badge } from 'antd'
-import { SearchOutlined, SaveOutlined, SettingOutlined, CheckOutlined, CloseOutlined, UserAddOutlined } from '@ant-design/icons'
+import { SearchOutlined, SaveOutlined, SettingOutlined, CheckOutlined, CloseOutlined, UserAddOutlined, DeleteOutlined } from '@ant-design/icons'
+import UserCleanupModal from '../components/UserCleanupModal'
 import adminService, {
   UserListItem,
   RoleRequest,
@@ -35,6 +36,9 @@ export default function UserManagementPage() {
   const [rejectModalVisible, setRejectModalVisible] = useState(false)
   const [rejectingRequest, setRejectingRequest] = useState<RoleRequest | null>(null)
   const [rejectReason, setRejectReason] = useState('')
+
+  // Bulk delete modal
+  const [cleanupModalVisible, setCleanupModalVisible] = useState(false)
 
   useEffect(() => {
     loadUsers()
@@ -369,7 +373,18 @@ export default function UserManagementPage() {
         <Divider />
 
         {/* User Management Section */}
-        <Card title="사용자 역할 관리">
+        <Card
+          title="사용자 역할 관리"
+          extra={
+            <Button
+              danger
+              icon={<DeleteOutlined />}
+              onClick={() => setCleanupModalVisible(true)}
+            >
+              회원 일괄삭제
+            </Button>
+          }
+        >
           {/* Search and Filter */}
           <div className="mb-4 flex gap-4">
             <Input
@@ -480,6 +495,13 @@ export default function UserManagementPage() {
             />
           </div>
         </Modal>
+
+        {/* User Cleanup Modal */}
+        <UserCleanupModal
+          open={cleanupModalVisible}
+          onClose={() => setCleanupModalVisible(false)}
+          onSuccess={loadUsers}
+        />
     </div>
   )
 }

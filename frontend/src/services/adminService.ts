@@ -164,6 +164,12 @@ const adminService = {
   async rejectRoleRequest(requestId: number, reason: string): Promise<RoleRequest> {
     const response = await api.post<RoleRequest>(`/admin/role-requests/${requestId}/reject`, { reason })
     return response.data
+  },
+
+  // Bulk Delete Users
+  async bulkDeleteUsers(userIds: number[]): Promise<{ deleted_count: number; skipped_users: Array<{ user_id: number; reason: string }>; message: string }> {
+    const response = await api.delete('/admin/users/bulk-delete', { data: userIds })
+    return response.data
   }
 }
 

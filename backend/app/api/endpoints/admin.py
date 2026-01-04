@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from typing import List
@@ -1259,4 +1259,178 @@ async def run_migrations(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to run migrations: {str(e)}"
+        )
+
+
+# ============================================================================
+# User Bulk Delete
+# ============================================================================
+@router.delete("/users/bulk-delete")
+async def bulk_delete_users(
+    user_ids: List[int] = Body(..., embed=False),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(["SUPER_ADMIN"]))
+):
+    """
+    Bulk delete multiple users and all related data
+
+    **Required roles**: SUPER_ADMIN only
+
+    Deletes users and cascades to:
+    - Applications, ApplicationData
+    - Evaluations, ReviewerEvaluations
+    - Competencies, Certifications, Education
+    - RoleRequests
+    - Notifications
+    - Files (competency_files, education_files, certification_files)
+    - etc.
+
+    **Safety**: Cannot delete SUPER_ADMIN users or self
+    """
+    import traceback
+    from sqlalchemy import text
+
+    if not user_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="user_ids cannot be empty"
+        )
+
+    print(f"[BULK DELETE USERS] Starting bulk delete for user_ids={user_ids} by user_id={current_user.user_id}")
+
+    deleted_count = 0
+    skipped_users = []
+
+    try:
+        for user_id in user_ids:
+            # 사용자 존재 확인
+            user = await db.get(User, user_id)
+            if not user:
+                print(f"[BULK DELETE USERS] Skipping non-existent user_id={user_id}")
+                continue
+
+            # 자기 자신은 삭제 불가
+            if user_id == current_user.user_id:
+                print(f"[BULK DELETE USERS] Skipping self-delete: user_id={user_id}")
+                skipped_users.append({"user_id": user_id, "reason": "자기 자신은 삭제할 수 없습니다"})
+                continue
+
+            # SUPER_ADMIN은 삭제 불가
+            user_roles = get_user_roles(user)
+            if "SUPER_ADMIN" in user_roles:
+                print(f"[BULK DELETE USERS] Skipping SUPER_ADMIN: user_id={user_id}")
+                skipped_users.append({"user_id": user_id, "reason": "SUPER_ADMIN은 삭제할 수 없습니다"})
+                continue
+
+            print(f"[BULK DELETE USERS] Deleting user: {user.name} ({user.email})")
+
+            # 관련 데이터 삭제 (cascade)
+            # 1. ApplicationData 삭제 (applications FK)
+            await db.execute(text("""
+                DELETE FROM application_data
+                WHERE application_id IN (SELECT application_id FROM applications WHERE user_id = :user_id)
+            """), {"user_id": user_id})
+
+            # 2. ReviewerEvaluations 삭제
+            await db.execute(text("""
+                DELETE FROM reviewer_evaluations
+                WHERE application_id IN (SELECT application_id FROM applications WHERE user_id = :user_id)
+            """), {"user_id": user_id})
+
+            # 2-1. 본인이 리뷰어로 작성한 평가도 삭제
+            await db.execute(text("""
+                DELETE FROM reviewer_evaluations WHERE reviewer_id = :user_id
+            """), {"user_id": user_id})
+
+            # 3. ReviewLocks 삭제
+            await db.execute(text("""
+                DELETE FROM review_locks
+                WHERE application_id IN (SELECT application_id FROM applications WHERE user_id = :user_id)
+            """), {"user_id": user_id})
+
+            await db.execute(text("""
+                DELETE FROM review_locks WHERE reviewer_id = :user_id
+            """), {"user_id": user_id})
+
+            # 4. Notifications 삭제
+            await db.execute(text("""
+                DELETE FROM notifications WHERE user_id = :user_id
+            """), {"user_id": user_id})
+
+            await db.execute(text("""
+                UPDATE notifications SET related_application_id = NULL
+                WHERE related_application_id IN (SELECT application_id FROM applications WHERE user_id = :user_id)
+            """), {"user_id": user_id})
+
+            # 5. CustomQuestionAnswers 삭제
+            await db.execute(text("""
+                DELETE FROM custom_question_answers
+                WHERE application_id IN (SELECT application_id FROM applications WHERE user_id = :user_id)
+            """), {"user_id": user_id})
+
+            # 6. Applications 삭제
+            await db.execute(text("""
+                DELETE FROM applications WHERE user_id = :user_id
+            """), {"user_id": user_id})
+
+            # 7. Competency 관련 파일 및 데이터 삭제
+            await db.execute(text("""
+                DELETE FROM competency_files
+                WHERE competency_id IN (SELECT competency_id FROM competencies WHERE user_id = :user_id)
+            """), {"user_id": user_id})
+
+            await db.execute(text("""
+                DELETE FROM competencies WHERE user_id = :user_id
+            """), {"user_id": user_id})
+
+            # 8. Education 관련 파일 및 데이터 삭제
+            await db.execute(text("""
+                DELETE FROM education_files
+                WHERE education_id IN (SELECT education_id FROM educations WHERE user_id = :user_id)
+            """), {"user_id": user_id})
+
+            await db.execute(text("""
+                DELETE FROM educations WHERE user_id = :user_id
+            """), {"user_id": user_id})
+
+            # 9. Certification 관련 파일 및 데이터 삭제
+            await db.execute(text("""
+                DELETE FROM certification_files
+                WHERE certification_id IN (SELECT certification_id FROM certifications WHERE user_id = :user_id)
+            """), {"user_id": user_id})
+
+            await db.execute(text("""
+                DELETE FROM certifications WHERE user_id = :user_id
+            """), {"user_id": user_id})
+
+            # 10. RoleRequests 삭제
+            await db.execute(text("""
+                DELETE FROM role_requests WHERE user_id = :user_id
+            """), {"user_id": user_id})
+
+            # 11. ProjectStaff 삭제 (심사위원/검토자 배정)
+            await db.execute(text("""
+                DELETE FROM project_staff WHERE user_id = :user_id
+            """), {"user_id": user_id})
+
+            # 12. User 삭제
+            await db.delete(user)
+            deleted_count += 1
+
+        await db.commit()
+        print(f"[BULK DELETE USERS] Completed: deleted {deleted_count} users")
+
+        return {
+            "deleted_count": deleted_count,
+            "skipped_users": skipped_users,
+            "message": f"{deleted_count}명의 사용자가 삭제되었습니다."
+        }
+
+    except Exception as e:
+        await db.rollback()
+        print(f"[BULK DELETE USERS] Error: {str(e)}")
+        print(f"[BULK DELETE USERS] Traceback:\n{traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"사용자 삭제 중 오류가 발생했습니다: {str(e)}"
         )
