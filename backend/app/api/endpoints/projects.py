@@ -1892,56 +1892,74 @@ async def update_project_item(
 
     **Required roles**: SUPER_ADMIN, PROJECT_MANAGER
     """
-    # Check project and permission
-    project = await get_project_or_404(project_id, db)
-    check_project_manager_permission(project, current_user)
+    import traceback
+    from app.models.competency import ValueSourceType
 
-    # Get project item
-    result = await db.execute(
-        select(ProjectItem).where(
-            ProjectItem.project_item_id == project_item_id,
-            ProjectItem.project_id == project_id
+    try:
+        # Check project and permission
+        project = await get_project_or_404(project_id, db)
+        check_project_manager_permission(project, current_user)
+
+        # Get project item
+        result = await db.execute(
+            select(ProjectItem).where(
+                ProjectItem.project_item_id == project_item_id,
+                ProjectItem.project_id == project_id
+            )
         )
-    )
-    project_item = result.scalar_one_or_none()
-    if not project_item:
+        project_item = result.scalar_one_or_none()
+        if not project_item:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Project item with id {project_item_id} not found"
+            )
+
+        # Update fields
+        project_item.is_required = item_data.is_required
+        project_item.proof_required_level = item_data.proof_required_level
+        project_item.max_score = item_data.max_score
+        project_item.display_order = item_data.display_order
+
+        # Delete existing scoring criteria
+        existing_criteria = await db.execute(
+            select(ScoringCriteria).where(ScoringCriteria.project_item_id == project_item_id)
+        )
+        for criteria in existing_criteria.scalars():
+            await db.delete(criteria)
+
+        # Add new scoring criteria
+        for criteria_data in item_data.scoring_criteria:
+            # Ensure value_source is properly handled (handle both enum and string values)
+            value_source = criteria_data.value_source
+            if value_source is None:
+                value_source = ValueSourceType.SUBMITTED
+            elif isinstance(value_source, str):
+                value_source = ValueSourceType(value_source)
+
+            criteria = ScoringCriteria(
+                project_item_id=project_item.project_item_id,
+                matching_type=criteria_data.matching_type,
+                expected_value=criteria_data.expected_value,
+                score=criteria_data.score,
+                # GRADE 타입용 필드 추가
+                value_source=value_source,
+                source_field=criteria_data.source_field,
+                extract_pattern=criteria_data.extract_pattern
+            )
+            db.add(criteria)
+
+        await db.commit()
+        await db.refresh(project_item)
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[UPDATE-ITEM ERROR] {type(e).__name__}: {str(e)}")
+        print(f"[UPDATE-ITEM ERROR] Traceback:\n{traceback.format_exc()}")
+        await db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Project item with id {project_item_id} not found"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {str(e)}"
         )
-
-    # Update fields
-    project_item.is_required = item_data.is_required
-    project_item.proof_required_level = item_data.proof_required_level
-    project_item.max_score = item_data.max_score
-    project_item.display_order = item_data.display_order
-
-    # Delete existing scoring criteria
-    await db.execute(
-        select(ScoringCriteria).where(ScoringCriteria.project_item_id == project_item_id)
-    )
-    existing_criteria = await db.execute(
-        select(ScoringCriteria).where(ScoringCriteria.project_item_id == project_item_id)
-    )
-    for criteria in existing_criteria.scalars():
-        await db.delete(criteria)
-
-    # Add new scoring criteria
-    for criteria_data in item_data.scoring_criteria:
-        criteria = ScoringCriteria(
-            project_item_id=project_item.project_item_id,
-            matching_type=criteria_data.matching_type,
-            expected_value=criteria_data.expected_value,
-            score=criteria_data.score,
-            # GRADE 타입용 필드 추가
-            value_source=criteria_data.value_source,
-            source_field=criteria_data.source_field,
-            extract_pattern=criteria_data.extract_pattern
-        )
-        db.add(criteria)
-
-    await db.commit()
-    await db.refresh(project_item)
 
     # Load relationships for response (with fields for CompetencyItem)
     from sqlalchemy.orm import selectinload
