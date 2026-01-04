@@ -284,15 +284,34 @@ async def create_test_project_with_applications(
         await db.refresh(new_project)
         print(f"[CREATE-TEST-APPS] Project created: id={new_project.project_id}")
 
-        # Step 2: Add survey items
-        print("[CREATE-TEST-APPS] Step 2: Adding survey items...")
-        from app.models.competency import CompetencyItem
+        # Step 2: Add survey items with GRADE scoring criteria
+        print("[CREATE-TEST-APPS] Step 2: Adding survey items with GRADE scoring...")
+        from app.models.competency import CompetencyItem, MatchingType, ValueSourceType
+
+        # 특정 항목들을 선택 (BASIC_CERT_LEVEL, 학력, 경력 등)
+        priority_codes = ['BASIC_CERT_LEVEL', 'DETAIL_EDUCATION', 'DETAIL_COACHING_HISTORY', 'DETAIL_COACHING_FIELD']
         result = await db.execute(
-            select(CompetencyItem).where(CompetencyItem.is_active == True).limit(4)
+            select(CompetencyItem)
+            .where(CompetencyItem.is_active == True)
+            .where(CompetencyItem.item_code.in_(priority_codes))
         )
-        available_items = result.scalars().all()
+        selected_items = result.scalars().all()
+
+        # 부족하면 추가 항목 선택
+        if len(selected_items) < 4:
+            result = await db.execute(
+                select(CompetencyItem)
+                .where(CompetencyItem.is_active == True)
+                .where(CompetencyItem.item_code.notin_(priority_codes))
+                .limit(4 - len(selected_items))
+            )
+            selected_items.extend(result.scalars().all())
+
+        available_items = selected_items[:4] if len(selected_items) >= 4 else selected_items
 
         project_items = []
+        grade_criteria_map = {}  # item_code -> grade_config
+
         if available_items:
             item_count = len(available_items)
             base_score = Decimal("100") / item_count
@@ -308,21 +327,101 @@ async def create_test_project_with_applications(
                     display_order=i + 1
                 )
                 db.add(project_item)
+                await db.flush()  # project_item_id 생성
                 project_items.append(project_item)
 
-            await db.commit()
-            print(f"[CREATE-TEST-APPS] Added {len(project_items)} survey items")
+                # GRADE 채점 기준 추가 (항목 유형별)
+                if comp_item.item_code == 'BASIC_CERT_LEVEL':
+                    # KSC/KPC/KAC 인증번호 기반 등급
+                    grade_config = json.dumps({
+                        "type": "string",
+                        "grades": [
+                            {"value": "KSC", "score": float(score)},
+                            {"value": "KPC", "score": float(score * Decimal("0.7"))},
+                            {"value": "KAC", "score": float(score * Decimal("0.4"))}
+                        ]
+                    })
+                    criteria = ScoringCriteria(
+                        project_item_id=project_item.project_item_id,
+                        matching_type=MatchingType.GRADE,
+                        expected_value=grade_config,
+                        score=Decimal("0"),  # GRADE에서는 expected_value JSON에서 점수 결정
+                        value_source=ValueSourceType.USER_FIELD,
+                        source_field="coach_certification_number",
+                        extract_pattern="^(.{3})"  # 앞 3글자 추출
+                    )
+                    db.add(criteria)
+                    grade_criteria_map[comp_item.item_code] = {"max": float(score), "type": "cert"}
 
-        # Step 3: Create 10 test users and applications
+                elif comp_item.item_code == 'DETAIL_EDUCATION' or comp_item.template == 'degree':
+                    # 학위별 등급
+                    grade_config = json.dumps({
+                        "type": "string",
+                        "grades": [
+                            {"value": "박사", "score": float(score)},
+                            {"value": "석사", "score": float(score * Decimal("0.7"))},
+                            {"value": "학사", "score": float(score * Decimal("0.4"))},
+                            {"value": "전문학사", "score": float(score * Decimal("0.2"))}
+                        ]
+                    })
+                    criteria = ScoringCriteria(
+                        project_item_id=project_item.project_item_id,
+                        matching_type=MatchingType.GRADE,
+                        expected_value=grade_config,
+                        score=Decimal("0"),
+                        value_source=ValueSourceType.JSON_FIELD,
+                        source_field="degree_level"
+                    )
+                    db.add(criteria)
+                    grade_criteria_map[comp_item.item_code] = {"max": float(score), "type": "degree"}
+
+                else:
+                    # 기타 항목: 숫자 범위 기반
+                    grade_config = json.dumps({
+                        "type": "numeric",
+                        "grades": [
+                            {"min": 1000, "score": float(score)},
+                            {"min": 500, "max": 999, "score": float(score * Decimal("0.7"))},
+                            {"min": 100, "max": 499, "score": float(score * Decimal("0.4"))},
+                            {"max": 99, "score": float(score * Decimal("0.2"))}
+                        ]
+                    })
+                    criteria = ScoringCriteria(
+                        project_item_id=project_item.project_item_id,
+                        matching_type=MatchingType.GRADE,
+                        expected_value=grade_config,
+                        score=Decimal("0"),
+                        value_source=ValueSourceType.SUBMITTED
+                    )
+                    db.add(criteria)
+                    grade_criteria_map[comp_item.item_code] = {"max": float(score), "type": "numeric"}
+
+            await db.commit()
+            print(f"[CREATE-TEST-APPS] Added {len(project_items)} survey items with GRADE scoring")
+
+        # Step 3: Create 10 test users and applications with GRADE-based scoring
         print("[CREATE-TEST-APPS] Step 3: Creating test users and applications...")
+        from app.services.scoring_service import calculate_application_auto_score
+
         coach_roles = [CoachRole.LEADER, CoachRole.PARTICIPANT, CoachRole.SUPERVISOR]
         korean_names = ["김철수", "이영희", "박민수", "최지현", "정우진", "강서연", "조현우", "윤미래", "임동현", "한소희"]
 
+        # 인증등급 분포: KSC 2명, KPC 4명, KAC 4명
+        cert_levels = ["KSC", "KSC", "KPC", "KPC", "KPC", "KPC", "KAC", "KAC", "KAC", "KAC"]
+        degree_levels = ["박사", "석사", "석사", "학사", "학사", "학사", "전문학사", "전문학사", "학사", "석사"]
+        numeric_values = [1500, 1200, 800, 600, 400, 300, 150, 100, 50, 20]
+
+        random.shuffle(cert_levels)  # 섞어서 다양성 부여
+
+        application_ids = []
+
         for i in range(1, 11):
-            # Get or create test user
+            # Get or create test user with certification number
             email = f"test_user_{i}@test.com"
             result = await db.execute(select(User).where(User.email == email))
             test_user = result.scalar_one_or_none()
+
+            cert_number = f"{cert_levels[i-1]}-2024-TEST{str(i).zfill(4)}"
 
             if not test_user:
                 test_user = User(
@@ -331,40 +430,76 @@ async def create_test_project_with_applications(
                     hashed_password=get_password_hash("test1234"),
                     phone=f"010-1234-{str(i).zfill(4)}",
                     address="서울시 테스트구",
-                    roles=json.dumps(["COACH"])
+                    roles=json.dumps(["COACH"]),
+                    coach_certification_number=cert_number  # 인증번호 설정
                 )
                 db.add(test_user)
                 await db.flush()
-                print(f"[CREATE-TEST-APPS] Created user: {email}")
+                print(f"[CREATE-TEST-APPS] Created user: {email} with cert: {cert_number}")
+            else:
+                # 기존 사용자도 인증번호 업데이트
+                test_user.coach_certification_number = cert_number
+                await db.flush()
 
-            # Create application
-            random_score = Decimal(str(random.randint(60, 95)))
+            # Create application (auto_score는 나중에 계산)
             application = Application(
                 project_id=new_project.project_id,
                 user_id=test_user.user_id,
                 motivation=f"테스트 지원동기 {i}번 - 본 과제에 참여하여 전문성을 발휘하고 싶습니다.",
                 applied_role=random.choice(coach_roles),
                 status=ApplicationStatus.SUBMITTED,
-                auto_score=random_score,
+                auto_score=Decimal("0"),  # 나중에 계산
                 submitted_at=datetime.now()
             )
             db.add(application)
             await db.flush()
+            application_ids.append(application.application_id)
 
-            # Create application data for each survey item
+            # Create application data for each survey item (with grade-matchable values)
             for project_item in project_items:
+                # 항목에 연결된 competency_item 가져오기
+                comp_result = await db.execute(
+                    select(CompetencyItem).where(CompetencyItem.item_id == project_item.item_id)
+                )
+                comp_item = comp_result.scalar_one_or_none()
+
+                # 항목 유형별로 적절한 값 설정
+                if comp_item and comp_item.item_code == 'BASIC_CERT_LEVEL':
+                    submitted_value = cert_number  # 인증번호
+                elif comp_item and (comp_item.item_code == 'DETAIL_EDUCATION' or comp_item.template == 'degree'):
+                    # 학위 정보 (JSON)
+                    submitted_value = json.dumps({
+                        "degree_level": degree_levels[i-1],
+                        "major": "코칭학",
+                        "school_name": "테스트대학교"
+                    })
+                else:
+                    # 숫자값 (코칭 시간 등)
+                    submitted_value = str(numeric_values[i-1])
+
                 app_data = ApplicationData(
                     application_id=application.application_id,
                     item_id=project_item.item_id,
-                    submitted_value=f"테스트 응답 값 (user_{i}, item_{project_item.item_id})",
-                    item_score=project_item.max_score * random_score / Decimal("100")
+                    submitted_value=submitted_value,
+                    item_score=Decimal("0")  # 나중에 scoring service에서 계산
                 )
                 db.add(app_data)
 
-            print(f"[CREATE-TEST-APPS] Created application for {email} with score={random_score}")
+            print(f"[CREATE-TEST-APPS] Created application for {email}")
 
         await db.commit()
-        print("[CREATE-TEST-APPS] All applications committed")
+
+        # Step 3.5: Calculate scores using scoring service
+        print("[CREATE-TEST-APPS] Step 3.5: Calculating GRADE-based scores...")
+        for app_id in application_ids:
+            try:
+                calculated_score = await calculate_application_auto_score(db, app_id)
+                print(f"[CREATE-TEST-APPS] Application {app_id}: auto_score = {calculated_score}")
+            except Exception as e:
+                print(f"[CREATE-TEST-APPS] Score calculation error for {app_id}: {e}")
+
+        await db.commit()
+        print("[CREATE-TEST-APPS] All applications scored")
 
         # Step 4: Assign reviewers (required users + random users)
         print("[CREATE-TEST-APPS] Step 4: Assigning reviewers...")
@@ -1690,7 +1825,11 @@ async def add_project_item(
                 project_item_id=new_item.project_item_id,
                 matching_type=criteria_data.matching_type,
                 expected_value=criteria_data.expected_value,
-                score=criteria_data.score
+                score=criteria_data.score,
+                # GRADE 타입용 필드 추가
+                value_source=criteria_data.value_source,
+                source_field=criteria_data.source_field,
+                extract_pattern=criteria_data.extract_pattern
             )
             db.add(criteria)
         print(f"[ADD-ITEM] Step 5 OK: Scoring criteria added")
@@ -1793,7 +1932,11 @@ async def update_project_item(
             project_item_id=project_item.project_item_id,
             matching_type=criteria_data.matching_type,
             expected_value=criteria_data.expected_value,
-            score=criteria_data.score
+            score=criteria_data.score,
+            # GRADE 타입용 필드 추가
+            value_source=criteria_data.value_source,
+            source_field=criteria_data.source_field,
+            extract_pattern=criteria_data.extract_pattern
         )
         db.add(criteria)
 
@@ -2614,7 +2757,7 @@ async def get_project_staff(
                 assigned_at=staff.assigned_at,
                 staff_user=UserBasicInfo(
                     user_id=user.user_id,
-                    username=user.username,
+                    username=user.email,  # User 모델에는 username 대신 email 사용
                     full_name=user.name
                 )
             )
@@ -2713,7 +2856,7 @@ async def add_project_staff(
         assigned_at=new_staff.assigned_at,
         staff_user=UserBasicInfo(
             user_id=staff_user.user_id,
-            username=staff_user.username,
+            username=staff_user.email,  # User 모델에는 username 대신 email 사용
             full_name=staff_user.name
         )
     )
