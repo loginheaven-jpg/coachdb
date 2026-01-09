@@ -36,3 +36,6 @@ celery==5.3.4
 pytz==2023.3
 python-dateutil==2.8.2
 Jinja2==3.1.2
+
+# Email
+sendgrid==6.11.0

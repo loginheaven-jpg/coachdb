@@ -1,5 +1,6 @@
 """
 Email service for sending various notification emails
+Supports SendGrid API (recommended) and SMTP (fallback)
 """
 import smtplib
 from email.mime.text import MIMEText
@@ -11,6 +12,14 @@ import logging
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from app.core.config import settings
+
+# SendGrid import (optional)
+try:
+    from sendgrid import SendGridAPIClient
+    from sendgrid.helpers.mail import Mail, Email, To, Content
+    SENDGRID_AVAILABLE = True
+except ImportError:
+    SENDGRID_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +37,94 @@ def render_template(template_name: str, **context) -> str:
     return template.render(**context)
 
 
+async def send_email_via_sendgrid(
+    to_email: str,
+    subject: str,
+    html_content: str,
+    text_content: Optional[str] = None
+) -> bool:
+    """Send email using SendGrid API"""
+    try:
+        print(f"[EMAIL] Sending via SendGrid to {to_email}")
+
+        message = Mail(
+            from_email=Email(settings.SMTP_FROM_EMAIL, settings.SMTP_FROM_NAME),
+            to_emails=To(to_email),
+            subject=subject,
+            html_content=Content("text/html", html_content)
+        )
+
+        if text_content:
+            message.add_content(Content("text/plain", text_content))
+
+        sg = SendGridAPIClient(settings.SENDGRID_API_KEY)
+        response = sg.send(message)
+
+        print(f"[EMAIL] SendGrid response status: {response.status_code}")
+
+        if response.status_code in [200, 201, 202]:
+            logger.info(f"Email sent via SendGrid to {to_email}: {subject}")
+            print(f"[EMAIL] Successfully sent to {to_email}")
+            return True
+        else:
+            logger.error(f"SendGrid returned status {response.status_code}")
+            print(f"[EMAIL ERROR] SendGrid status: {response.status_code}")
+            return False
+
+    except Exception as e:
+        import traceback
+        logger.error(f"SendGrid error: {str(e)}")
+        print(f"[EMAIL ERROR] SendGrid: {type(e).__name__}: {str(e)}")
+        print(f"[EMAIL ERROR] Traceback:\n{traceback.format_exc()}")
+        return False
+
+
+async def send_email_via_smtp(
+    to_email: str,
+    subject: str,
+    html_content: str,
+    text_content: Optional[str] = None
+) -> bool:
+    """Send email using SMTP (fallback)"""
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL}>"
+        msg["To"] = to_email
+
+        if text_content:
+            msg.attach(MIMEText(text_content, "plain", "utf-8"))
+        msg.attach(MIMEText(html_content, "html", "utf-8"))
+
+        if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
+            logger.warning(f"SMTP not configured. Email to {to_email} not sent.")
+            print(f"\n{'='*50}")
+            print(f"EMAIL (SMTP not configured)")
+            print(f"To: {to_email}")
+            print(f"Subject: {subject}")
+            print(f"{'='*50}\n")
+            return True  # Return True for development
+
+        print(f"[EMAIL] Sending via SMTP to {to_email}")
+        print(f"[EMAIL] SMTP: {settings.SMTP_HOST}:{settings.SMTP_PORT}, User: {settings.SMTP_USER}")
+
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+            server.starttls()
+            server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+            server.send_message(msg)
+
+        logger.info(f"Email sent via SMTP to {to_email}: {subject}")
+        print(f"[EMAIL] Successfully sent to {to_email}")
+        return True
+
+    except Exception as e:
+        import traceback
+        logger.error(f"SMTP error: {str(e)}")
+        print(f"[EMAIL ERROR] SMTP: {type(e).__name__}: {str(e)}")
+        print(f"[EMAIL ERROR] Traceback:\n{traceback.format_exc()}")
+        return False
+
+
 async def send_email(
     to_email: str,
     subject: str,
@@ -35,7 +132,7 @@ async def send_email(
     text_content: Optional[str] = None
 ) -> bool:
     """
-    Send an email using SMTP
+    Send an email using SendGrid API (preferred) or SMTP (fallback)
 
     Args:
         to_email: Recipient email address
@@ -46,49 +143,14 @@ async def send_email(
     Returns:
         True if email was sent successfully, False otherwise
     """
-    try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"] = f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL}>"
-        msg["To"] = to_email
+    # Use SendGrid if configured and available
+    if settings.SENDGRID_API_KEY and SENDGRID_AVAILABLE:
+        print(f"[EMAIL] Using SendGrid API")
+        return await send_email_via_sendgrid(to_email, subject, html_content, text_content)
 
-        # Plain text version (fallback)
-        if text_content:
-            msg.attach(MIMEText(text_content, "plain", "utf-8"))
-
-        # HTML version
-        msg.attach(MIMEText(html_content, "html", "utf-8"))
-
-        # Check if SMTP is configured
-        if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
-            logger.warning(f"SMTP not configured. Email to {to_email} not sent.")
-            print(f"\n{'='*50}")
-            print(f"EMAIL (SMTP not configured)")
-            print(f"To: {to_email}")
-            print(f"Subject: {subject}")
-            print(f"{'='*50}\n")
-            return True  # Return True for development
-
-        # Send email
-        print(f"[EMAIL] Attempting to send email to {to_email}")
-        print(f"[EMAIL] SMTP: {settings.SMTP_HOST}:{settings.SMTP_PORT}, User: {settings.SMTP_USER}")
-
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
-            server.starttls()
-            server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-            server.send_message(msg)
-
-        logger.info(f"Email sent to {to_email}: {subject}")
-        print(f"[EMAIL] Successfully sent to {to_email}")
-        return True
-
-    except Exception as e:
-        import traceback
-        logger.error(f"Failed to send email to {to_email}: {str(e)}")
-        print(f"[EMAIL ERROR] Failed to send email to {to_email}")
-        print(f"[EMAIL ERROR] {type(e).__name__}: {str(e)}")
-        print(f"[EMAIL ERROR] Traceback:\n{traceback.format_exc()}")
-        return False
+    # Fallback to SMTP
+    print(f"[EMAIL] Using SMTP (SendGrid not configured)")
+    return await send_email_via_smtp(to_email, subject, html_content, text_content)
 
 
 async def send_password_reset_email(

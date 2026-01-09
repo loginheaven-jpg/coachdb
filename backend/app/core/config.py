@@ -97,10 +97,14 @@ class Settings(BaseSettings):
     MAX_PAGE_SIZE: int = 100
 
     # Email Settings (for password reset)
+    # SendGrid API (recommended for Railway)
+    SENDGRID_API_KEY: Optional[str] = None
+    # Legacy SMTP settings (fallback)
     SMTP_HOST: str = "smtp.gmail.com"
     SMTP_PORT: int = 587
     SMTP_USER: Optional[str] = None
     SMTP_PASSWORD: Optional[str] = None
+    # Common email settings
     SMTP_FROM_EMAIL: str = "noreply@coachdb.com"
     SMTP_FROM_NAME: str = "CoachDB"
 
