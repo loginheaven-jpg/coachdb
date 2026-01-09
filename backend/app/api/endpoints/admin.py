@@ -1499,3 +1499,40 @@ async def admin_reset_password(
         "message": f"{user.name}({user.email})님의 비밀번호가 변경되었습니다.",
         "user_id": user_id
     }
+
+
+@router.post("/test-email")
+async def test_email(
+    to_email: str = Body(..., embed=True),
+    current_user: User = Depends(require_role(["SUPER_ADMIN"]))
+):
+    """
+    Test email sending (SUPER_ADMIN only)
+    """
+    from app.core.email import send_email
+    from app.core.config import settings
+
+    # Show current SMTP config
+    smtp_info = {
+        "SMTP_HOST": settings.SMTP_HOST,
+        "SMTP_PORT": settings.SMTP_PORT,
+        "SMTP_USER": settings.SMTP_USER,
+        "SMTP_FROM_EMAIL": settings.SMTP_FROM_EMAIL,
+        "SMTP_PASSWORD_SET": bool(settings.SMTP_PASSWORD)
+    }
+    print(f"[TEST EMAIL] SMTP Config: {smtp_info}")
+
+    # Send test email
+    result = await send_email(
+        to_email=to_email,
+        subject="[CoachDB] 테스트 이메일",
+        html_content="<h1>테스트 이메일</h1><p>이메일 발송이 정상적으로 작동합니다.</p>",
+        text_content="테스트 이메일입니다. 이메일 발송이 정상적으로 작동합니다."
+    )
+
+    return {
+        "success": result,
+        "to_email": to_email,
+        "smtp_config": smtp_info,
+        "message": "이메일 발송 성공" if result else "이메일 발송 실패 - Railway 로그 확인"
+    }
