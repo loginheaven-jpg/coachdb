@@ -15,7 +15,7 @@ export default function ForgotPasswordPage() {
   const onFinish = async (values: { email: string }) => {
     setLoading(true)
     try {
-      await api.post('/api/auth/forgot-password', null, {
+      await api.post('/auth/forgot-password', null, {
         params: { email: values.email }
       })
       setEmail(values.email)
