@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import json
@@ -366,12 +366,15 @@ def verify_password_reset_token(token: str) -> int:
 @router.post("/forgot-password")
 async def forgot_password(
     email: str,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    background_tasks: BackgroundTasks = None
 ):
     """
     Request password reset email.
     Always returns success to prevent email enumeration.
     """
+    import asyncio
+
     # Find user by email
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
@@ -380,8 +383,11 @@ async def forgot_password(
         # Generate reset token
         reset_token = create_password_reset_token(user.user_id)
 
-        # Send email (async but we don't wait for it)
-        await send_password_reset_email(email, reset_token, user.name if user.name else None)
+        # Send email in background (don't block the response)
+        asyncio.create_task(
+            send_password_reset_email(email, reset_token, user.name if user.name else None)
+        )
+        print(f"[FORGOT PASSWORD] Email task created for {email}")
 
     # Always return success to prevent email enumeration
     return {
