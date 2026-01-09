@@ -70,16 +70,24 @@ async def send_email(
             return True  # Return True for development
 
         # Send email
+        print(f"[EMAIL] Attempting to send email to {to_email}")
+        print(f"[EMAIL] SMTP: {settings.SMTP_HOST}:{settings.SMTP_PORT}, User: {settings.SMTP_USER}")
+
         with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
             server.starttls()
             server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
             server.send_message(msg)
 
         logger.info(f"Email sent to {to_email}: {subject}")
+        print(f"[EMAIL] Successfully sent to {to_email}")
         return True
 
     except Exception as e:
+        import traceback
         logger.error(f"Failed to send email to {to_email}: {str(e)}")
+        print(f"[EMAIL ERROR] Failed to send email to {to_email}")
+        print(f"[EMAIL ERROR] {type(e).__name__}: {str(e)}")
+        print(f"[EMAIL ERROR] Traceback:\n{traceback.format_exc()}")
         return False
 
 
