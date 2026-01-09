@@ -7,7 +7,7 @@ import json
 from pydantic import BaseModel
 
 from app.core.database import get_db
-from app.core.security import get_current_user, require_role
+from app.core.security import get_current_user, require_role, get_password_hash
 from app.core.utils import get_user_roles
 from app.models.user import User, UserRole, UserStatus
 from app.models.project import Project
@@ -1434,3 +1434,68 @@ async def bulk_delete_users(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"사용자 삭제 중 오류가 발생했습니다: {str(e)}"
         )
+
+
+# ============================================================================
+# Admin Password Reset
+# ============================================================================
+class AdminPasswordReset(BaseModel):
+    new_password: str
+
+
+@router.post("/users/{user_id}/reset-password")
+async def admin_reset_password(
+    user_id: int,
+    password_data: AdminPasswordReset,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(["SUPER_ADMIN"]))
+):
+    """
+    Force reset a user's password (SUPER_ADMIN only)
+
+    **Required roles**: SUPER_ADMIN only
+
+    Cannot reset:
+    - Own password (use profile settings instead)
+    - Other SUPER_ADMIN passwords
+    """
+    # 자기 자신 비밀번호는 여기서 변경 불가
+    if user_id == current_user.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="자신의 비밀번호는 프로필 설정에서 변경해주세요."
+        )
+
+    # 대상 사용자 조회
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"사용자를 찾을 수 없습니다. (ID: {user_id})"
+        )
+
+    # 다른 SUPER_ADMIN 비밀번호 변경 불가
+    target_roles = get_user_roles(user)
+    if "SUPER_ADMIN" in target_roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="다른 SUPER_ADMIN의 비밀번호는 변경할 수 없습니다."
+        )
+
+    # 비밀번호 최소 길이 검증
+    if len(password_data.new_password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="비밀번호는 8자 이상이어야 합니다."
+        )
+
+    # 비밀번호 해시 및 저장
+    user.hashed_password = get_password_hash(password_data.new_password)
+    await db.commit()
+
+    print(f"[ADMIN RESET PASSWORD] User {user.email} password reset by admin {current_user.user_id}")
+
+    return {
+        "message": f"{user.name}({user.email})님의 비밀번호가 변경되었습니다.",
+        "user_id": user_id
+    }

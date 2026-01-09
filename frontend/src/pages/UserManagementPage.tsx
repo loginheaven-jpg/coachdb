@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Typography, Card, Table, Tag, Button, Space, Input, Select, Modal, Checkbox, message, InputNumber, Divider, Badge } from 'antd'
-import { SearchOutlined, SaveOutlined, SettingOutlined, CheckOutlined, CloseOutlined, UserAddOutlined, DeleteOutlined } from '@ant-design/icons'
+import { SearchOutlined, SaveOutlined, SettingOutlined, CheckOutlined, CloseOutlined, UserAddOutlined, DeleteOutlined, KeyOutlined } from '@ant-design/icons'
 import UserCleanupModal from '../components/UserCleanupModal'
 import adminService, {
   UserListItem,
@@ -39,6 +39,12 @@ export default function UserManagementPage() {
 
   // Bulk delete modal
   const [cleanupModalVisible, setCleanupModalVisible] = useState(false)
+
+  // Password reset modal
+  const [passwordResetModalVisible, setPasswordResetModalVisible] = useState(false)
+  const [resetPasswordUser, setResetPasswordUser] = useState<UserListItem | null>(null)
+  const [newPassword, setNewPassword] = useState('')
+  const [resetPasswordLoading, setResetPasswordLoading] = useState(false)
 
   useEffect(() => {
     loadUsers()
@@ -192,6 +198,32 @@ export default function UserManagementPage() {
     }
   }
 
+  const handleOpenPasswordReset = (user: UserListItem) => {
+    setResetPasswordUser(user)
+    setNewPassword('')
+    setPasswordResetModalVisible(true)
+  }
+
+  const handleResetPassword = async () => {
+    if (!resetPasswordUser) return
+    if (newPassword.length < 8) {
+      message.error('비밀번호는 8자 이상이어야 합니다.')
+      return
+    }
+
+    setResetPasswordLoading(true)
+    try {
+      await adminService.resetUserPassword(resetPasswordUser.user_id, newPassword)
+      message.success(`${resetPasswordUser.name}님의 비밀번호가 변경되었습니다.`)
+      setPasswordResetModalVisible(false)
+    } catch (error: any) {
+      console.error('비밀번호 리셋 실패:', error)
+      message.error(error.response?.data?.detail || '비밀번호 리셋에 실패했습니다.')
+    } finally {
+      setResetPasswordLoading(false)
+    }
+  }
+
   const columns = [
     {
       title: 'ID',
@@ -238,13 +270,27 @@ export default function UserManagementPage() {
     {
       title: '액션',
       key: 'action',
+      width: 180,
       render: (_: any, record: UserListItem) => (
-        <Button
-          type="link"
-          onClick={() => handleEditRoles(record)}
-        >
-          역할 편집
-        </Button>
+        <Space size="small">
+          <Button
+            type="link"
+            size="small"
+            onClick={() => handleEditRoles(record)}
+          >
+            역할 편집
+          </Button>
+          {!record.roles.includes('SUPER_ADMIN') && (
+            <Button
+              type="link"
+              size="small"
+              icon={<KeyOutlined />}
+              onClick={() => handleOpenPasswordReset(record)}
+            >
+              비밀번호
+            </Button>
+          )}
+        </Space>
       )
     }
   ]
@@ -502,6 +548,32 @@ export default function UserManagementPage() {
           onClose={() => setCleanupModalVisible(false)}
           onSuccess={loadUsers}
         />
+
+        {/* Password Reset Modal */}
+        <Modal
+          title={`비밀번호 리셋 - ${resetPasswordUser?.name}`}
+          open={passwordResetModalVisible}
+          onCancel={() => setPasswordResetModalVisible(false)}
+          onOk={handleResetPassword}
+          confirmLoading={resetPasswordLoading}
+          okText="변경"
+          cancelText="취소"
+        >
+          <div className="py-4">
+            <Text className="block mb-2">
+              이메일: {resetPasswordUser?.email}
+            </Text>
+            <Text className="block mb-4" type="secondary">
+              새 비밀번호를 입력해주세요. (최소 8자)
+            </Text>
+            <Input.Password
+              placeholder="새 비밀번호 (8자 이상)"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              minLength={8}
+            />
+          </div>
+        </Modal>
     </div>
   )
 }

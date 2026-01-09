@@ -170,6 +170,12 @@ const adminService = {
   async bulkDeleteUsers(userIds: number[]): Promise<{ deleted_count: number; skipped_users: Array<{ user_id: number; reason: string }>; message: string }> {
     const response = await api.delete('/admin/users/bulk-delete', { data: userIds })
     return response.data
+  },
+
+  // Reset User Password (SUPER_ADMIN only)
+  async resetUserPassword(userId: number, newPassword: string): Promise<{ message: string; user_id: number }> {
+    const response = await api.post(`/admin/users/${userId}/reset-password`, { new_password: newPassword })
+    return response.data
   }
 }
 
