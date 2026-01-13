@@ -284,6 +284,7 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
   const [uploadedFileId, setUploadedFileId] = useState<number | undefined>(undefined)
   const [selectedItemType, setSelectedItemType] = useState<string>('')
   const [selectedItemName, setSelectedItemName] = useState<string>('')
+  const [selectedItemCode, setSelectedItemCode] = useState<string>('')
   const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [originalValue, setOriginalValue] = useState<string | null>(null)
   const [isDegreeItem, setIsDegreeItem] = useState<boolean>(false)
@@ -350,10 +351,12 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
 
     if (item) {
       setSelectedItemType(item.input_type)
+      setSelectedItemCode(item.item_code || '')
       setIsDegreeItem(item.template === 'degree')
       form.setFieldsValue({ item_id: item.item_id })
     } else {
       setSelectedItemType('')
+      setSelectedItemCode('')
       setIsDegreeItem(false)
       form.resetFields()
     }
@@ -366,6 +369,7 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
     setFileList([])
     setUploadedFileId(record.file_id ?? undefined)
     setSelectedItemType(record.competency_item?.input_type || '')
+    setSelectedItemCode(record.competency_item?.item_code || '')
     setSelectedCategory(record.competency_item?.category || 'DETAIL')
     setOriginalValue(record.value || null)
 
@@ -412,7 +416,16 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
     const selected = competencyItems.find(item => item.item_id === itemId)
     setSelectedItemType(selected?.input_type || '')
     setSelectedItemName(selected?.item_name || '')
+    setSelectedItemCode(selected?.item_code || '')
     setIsDegreeItem(selected?.template === 'degree')
+  }
+
+  // 파일 첨부 라벨 헬퍼 - 누적코칭시간은 "코칭일지"로 표시
+  const getProofLabel = (): string => {
+    if (selectedItemCode === 'EXP_COACHING_HOURS') {
+      return '코칭일지'
+    }
+    return '증빙서류'
   }
 
   const handleFileChange = (info: { fileList: UploadFile[] }) => {
@@ -581,6 +594,7 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
     setUploadedFileId(undefined)
     setEditingCompetency(null)
     setSelectedItemType('')
+    setSelectedItemCode('')
     setOriginalValue(null)
     setIsDegreeItem(false)
   }
@@ -1212,8 +1226,8 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
               )}
 
               <Form.Item
-                label={selectedItemType === 'file' ? "증빙서류 (필수)" : "증빙서류 (선택사항)"}
-                help={selectedItemType === 'file' ? "PDF, JPG, JPEG, PNG 파일만 가능 (최대 10MB)" : "증빙서류가 있다면 업로드하세요"}
+                label={selectedItemType === 'file' ? `${getProofLabel()} (필수)` : `${getProofLabel()} (선택사항)`}
+                help={selectedItemType === 'file' ? "PDF, JPG, JPEG, PNG 파일만 가능 (최대 10MB)" : `${getProofLabel()}가 있다면 업로드하세요`}
               >
                 <Upload
                   fileList={fileList}
@@ -1438,8 +1452,8 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
             )}
 
             <Form.Item
-              label={selectedItemType === 'file' ? "증빙서류 (필수)" : "증빙서류 (선택사항)"}
-              help={selectedItemType === 'file' ? "PDF, JPG, JPEG, PNG 파일만 가능 (최대 10MB)" : "증빙서류가 있다면 업로드하세요"}
+              label={selectedItemType === 'file' ? `${getProofLabel()} (필수)` : `${getProofLabel()} (선택사항)`}
+              help={selectedItemType === 'file' ? "PDF, JPG, JPEG, PNG 파일만 가능 (최대 10MB)" : `${getProofLabel()}가 있다면 업로드하세요`}
             >
               <Upload
                 fileList={fileList}

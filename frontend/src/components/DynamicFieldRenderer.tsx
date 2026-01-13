@@ -53,6 +53,14 @@ export default function DynamicFieldRenderer({ item, value, onChange, disabled }
     onChange(newEntries)
   }
 
+  // 파일 필드 라벨 헬퍼 - 누적코칭시간은 "코칭일지"로 표시
+  const getFileLabel = (field: CompetencyItemField): string => {
+    if (item.item_code === 'EXP_COACHING_HOURS') {
+      return '코칭일지'
+    }
+    return field.field_label
+  }
+
   const renderField = (field: CompetencyItemField, entryValue: any, onFieldChange: (val: any) => void) => {
     const commonProps = {
       disabled,
@@ -121,7 +129,7 @@ export default function DynamicFieldRenderer({ item, value, onChange, disabled }
             onChange={(info) => onFieldChange(info.fileList[0])}
           >
             <Button icon={<UploadOutlined />} disabled={disabled}>
-              {field.field_label}
+              {getFileLabel(field)}
             </Button>
           </Upload>
         )
