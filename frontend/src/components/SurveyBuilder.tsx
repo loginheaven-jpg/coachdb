@@ -256,15 +256,16 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
   }
 
   // 카테고리별 그룹명 매핑 (백엔드 CompetencyCategory enum과 일치)
+  // 기존 정의된 항목들은 모두 역량이력으로, '기타'는 커스텀 추가 항목 전용
   const CATEGORY_GROUP_MAP: Record<string, string> = {
     'BASIC': '기본정보',
     'CERTIFICATION': '자격증',
     'EDUCATION': '학력',
     'EXPERIENCE': '역량이력',
-    'OTHER': '기타',
+    'OTHER': '역량이력',      // OTHER → 역량이력으로 변경 (기타는 커스텀 전용)
     // Legacy 카테고리 호환
     'DETAIL': '역량이력',     // DETAIL → 역량이력으로 매핑
-    'ADDON': '기타',          // ADDON → 기타로 매핑
+    'ADDON': '역량이력',      // ADDON → 역량이력으로 변경 (기타는 커스텀 전용)
     'COACHING': '역량이력',   // COACHING → 역량이력으로 매핑
     'EVALUATION': '역량이력', // EVALUATION → 역량이력으로 매핑
     'INFO': '기본정보'        // INFO → 기본정보로 매핑
@@ -507,29 +508,63 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
     }
   }
 
-  // 커스텀 질문 생성 핸들러
-  const handleCreateCustomQuestion = async (values: any) => {
-    setCreatingCustom(true)
-    try {
-      const createData: CompetencyItemCreate = {
-        item_name: values.item_name,
-        category: 'ADDON',  // Default category (대문자 필수)
-        input_type: 'text',  // Deprecated but required
-        template: values.template || ItemTemplate.TEXT,
-        template_config: values.field_options ? JSON.stringify({ options: values.field_options.split('\n').filter((o: string) => o.trim()) }) : null,
-        is_repeatable: values.is_repeatable || false,
-        max_entries: values.max_entries || null,
-        description: values.description || null,
-        is_custom: true,
-        fields: [{
+  // 템플릿에 맞는 필드 구조 생성
+  const getFieldsForTemplate = (template: string, itemName: string, values: any) => {
+    switch (template) {
+      case ItemTemplate.COACHING_TIME:
+        // 코칭시간: 내용 + 연도 + 시간 + 증빙
+        return [
+          { field_name: 'description', field_label: '내용', field_type: 'text', is_required: true, display_order: 0, placeholder: '예: 한국한부모협회 주관' },
+          { field_name: 'year', field_label: '연도', field_type: 'number', is_required: true, display_order: 1, placeholder: '예: 2024' },
+          { field_name: 'hours', field_label: '시간', field_type: 'number', is_required: true, display_order: 2, placeholder: '예: 12' },
+          { field_name: 'proof', field_label: '증빙자료', field_type: 'file', is_required: false, display_order: 3 }
+        ]
+      case ItemTemplate.SELECT:
+      case ItemTemplate.MULTISELECT:
+        return [{
           field_name: 'value',
-          field_label: values.item_name,
-          field_type: values.template || 'text',
+          field_label: itemName,
+          field_type: template,
+          field_options: values.field_options ? JSON.stringify(values.field_options.split('\n').filter((o: string) => o.trim())) : null,
+          is_required: true,
+          display_order: 0
+        }]
+      case ItemTemplate.TEXT_FILE:
+        return [
+          { field_name: 'text', field_label: itemName, field_type: 'text', is_required: true, display_order: 0, placeholder: values.placeholder || null },
+          { field_name: 'proof', field_label: '증빙자료', field_type: 'file', is_required: false, display_order: 1 }
+        ]
+      default:
+        return [{
+          field_name: 'value',
+          field_label: itemName,
+          field_type: template || 'text',
           field_options: values.field_options ? JSON.stringify(values.field_options.split('\n').filter((o: string) => o.trim())) : null,
           is_required: true,
           display_order: 0,
           placeholder: values.placeholder || null
         }]
+    }
+  }
+
+  // 항목 추가 핸들러
+  const handleCreateCustomQuestion = async (values: any) => {
+    setCreatingCustom(true)
+    try {
+      const template = values.template || ItemTemplate.TEXT
+      const fields = getFieldsForTemplate(template, values.item_name, values)
+
+      const createData: CompetencyItemCreate = {
+        item_name: values.item_name,
+        category: 'ADDON',  // Default category (대문자 필수)
+        input_type: 'text',  // Deprecated but required
+        template: template,
+        template_config: values.field_options ? JSON.stringify({ options: values.field_options.split('\n').filter((o: string) => o.trim()) }) : null,
+        is_repeatable: values.is_repeatable || false,
+        max_entries: values.max_entries || null,
+        description: values.description || null,
+        is_custom: true,
+        fields: fields
       }
 
       const newItem = await projectService.createCustomCompetencyItem(createData)
@@ -539,22 +574,22 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
       newSelections.set(newItem.item_id, {
         item: newItem,
         included: true,
-        is_required: true,  // 커스텀 질문은 기본적으로 필수
+        is_required: true,
         score: null,
         proof_required_level: ProofRequiredLevel.REQUIRED,
-        scoring_criteria: []  // 새 항목은 배점 기준 없음
+        scoring_criteria: []
       })
       setSelections(newSelections)
       setAllItems([...allItems, newItem])
 
-      message.success('커스텀 질문이 생성되었습니다.')
+      message.success('항목이 추가되었습니다.')
       setShowCustomQuestionModal(false)
       customQuestionForm.resetFields()
       setHasChanges(true)
       autoSaveDebounced(newSelections)
     } catch (error: any) {
-      console.error('커스텀 질문 생성 실패:', error)
-      message.error(error.response?.data?.detail || '커스텀 질문 생성에 실패했습니다.')
+      console.error('항목 추가 실패:', error)
+      message.error(error.response?.data?.detail || '항목 추가에 실패했습니다.')
     } finally {
       setCreatingCustom(false)
     }
@@ -599,8 +634,8 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
         {/* Item Groups */}
         <Collapse defaultActiveKey={['자격증', '학력', '역량이력', '기타']}>
           {Object.entries(grouped).map(([category, items]) => {
-            // 커스텀 질문 그룹은 항목이 없어도 표시 (+ 버튼이 있으므로)
-            if (items.length === 0 && category !== '커스텀 질문') return null
+            // '기타' 그룹은 항목이 없어도 표시 (+ 추가 버튼이 있으므로)
+            if (items.length === 0 && category !== '기타') return null
 
             return (
               <Panel
@@ -608,8 +643,8 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                 header={
                   <Space>
                     <Text strong>{category}</Text>
-                    {category === '커스텀 질문' && (
-                      <Tag color="purple">{items.length}개</Tag>
+                    {category === '기타' && (
+                      <Tag color="purple">{items.length}개 추가됨</Tag>
                     )}
                   </Space>
                 }
@@ -754,15 +789,15 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                     </Card>
                   ))}
 
-                  {/* 커스텀 질문 그룹에만 추가 버튼 표시 */}
-                  {category === '커스텀 질문' && (
+                  {/* '기타' 그룹에 항목 추가 버튼 표시 */}
+                  {category === '기타' && (
                     <Button
                       type="dashed"
                       icon={<PlusOutlined />}
                       block
                       onClick={() => setShowCustomQuestionModal(true)}
                     >
-                      커스텀 질문 추가
+                      항목 추가
                     </Button>
                   )}
                 </Space>
@@ -811,7 +846,7 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
 
         {/* Custom Question Creation Modal */}
         <Modal
-          title="커스텀 질문 추가"
+          title="항목 추가"
           open={showCustomQuestionModal}
           onCancel={() => {
             setShowCustomQuestionModal(false)
@@ -831,18 +866,18 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
           >
             <Form.Item
               name="item_name"
-              label="질문 제목"
-              rules={[{ required: true, message: '질문 제목을 입력해주세요' }]}
+              label="항목 이름"
+              rules={[{ required: true, message: '항목 이름을 입력해주세요' }]}
             >
-              <Input placeholder="예: 희망 근무 지역" />
+              <Input placeholder="예: 한부모가정 코칭경험" />
             </Form.Item>
 
             <Form.Item
               name="description"
-              label="설명 (선택)"
+              label="안내 문구 (선택)"
             >
               <Input.TextArea
-                placeholder="코치에게 보여줄 안내 문구를 입력하세요"
+                placeholder="응모자에게 보여줄 안내 문구를 입력하세요"
                 rows={2}
               />
             </Form.Item>
@@ -855,6 +890,7 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
               <Select>
                 <Select.Option value={ItemTemplate.TEXT}>텍스트 (짧은 답변)</Select.Option>
                 <Select.Option value={ItemTemplate.NUMBER}>숫자</Select.Option>
+                <Select.Option value={ItemTemplate.COACHING_TIME}>코칭시간 (내용 + 연도 + 시간 + 증빙)</Select.Option>
                 <Select.Option value={ItemTemplate.SELECT}>선택형 (단일)</Select.Option>
                 <Select.Option value={ItemTemplate.MULTISELECT}>선택형 (복수)</Select.Option>
                 <Select.Option value={ItemTemplate.FILE}>파일 업로드</Select.Option>
@@ -1218,7 +1254,7 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
 
       {/* Custom Question Creation Modal */}
       <Modal
-        title="커스텀 질문 추가"
+        title="항목 추가"
         open={showCustomQuestionModal}
         onCancel={() => {
           setShowCustomQuestionModal(false)
@@ -1238,18 +1274,18 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
         >
           <Form.Item
             name="item_name"
-            label="질문 제목"
-            rules={[{ required: true, message: '질문 제목을 입력해주세요' }]}
+            label="항목 이름"
+            rules={[{ required: true, message: '항목 이름을 입력해주세요' }]}
           >
-            <Input placeholder="예: 희망 근무 지역" />
+            <Input placeholder="예: 한부모가정 코칭경험" />
           </Form.Item>
 
           <Form.Item
             name="description"
-            label="설명 (선택)"
+            label="안내 문구 (선택)"
           >
             <Input.TextArea
-              placeholder="코치에게 보여줄 안내 문구를 입력하세요"
+              placeholder="응모자에게 보여줄 안내 문구를 입력하세요"
               rows={2}
             />
           </Form.Item>
@@ -1262,6 +1298,7 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
             <Select>
               <Select.Option value={ItemTemplate.TEXT}>텍스트 (짧은 답변)</Select.Option>
               <Select.Option value={ItemTemplate.NUMBER}>숫자</Select.Option>
+              <Select.Option value={ItemTemplate.COACHING_TIME}>코칭시간 (내용 + 연도 + 시간 + 증빙)</Select.Option>
               <Select.Option value={ItemTemplate.SELECT}>선택형 (단일)</Select.Option>
               <Select.Option value={ItemTemplate.MULTISELECT}>선택형 (복수)</Select.Option>
               <Select.Option value={ItemTemplate.FILE}>파일 업로드</Select.Option>

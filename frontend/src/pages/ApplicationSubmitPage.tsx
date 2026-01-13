@@ -1000,6 +1000,35 @@ export default function ApplicationSubmitPage() {
           </div>
         )
 
+      case ItemTemplate.COACHING_TIME:
+        // 코칭시간: 내용 + 연도 + 시간 + 증빙
+        return (
+          <div className="space-y-3">
+            <Form.Item noStyle name={[`item_${item.project_item_id}`, 'description']}>
+              <Input placeholder="내용 (예: 한국한부모협회 주관)" />
+            </Form.Item>
+            <div className="grid grid-cols-2 gap-4">
+              <Form.Item noStyle name={[`item_${item.project_item_id}`, 'year']}>
+                <InputNumber
+                  placeholder="연도 (예: 2024)"
+                  style={{ width: '100%' }}
+                  min={2000}
+                  max={2100}
+                  addonAfter="년"
+                />
+              </Form.Item>
+              <Form.Item noStyle name={[`item_${item.project_item_id}`, 'hours']}>
+                <InputNumber
+                  placeholder="시간 (예: 12)"
+                  style={{ width: '100%' }}
+                  min={0}
+                  addonAfter="시간"
+                />
+              </Form.Item>
+            </div>
+          </div>
+        )
+
       default:
         // Fallback to text input
         return (
@@ -1559,8 +1588,8 @@ export default function ApplicationSubmitPage() {
 
                           {/* Input field based on template */}
                           <Card size="small" className="mb-2">
-                            {/* DEGREE, COACHING_HISTORY 등 복합 템플릿은 내부에 자체 Form.Item을 가지므로 부모에 name 없이 렌더링 */}
-                            {(competencyItem.template === ItemTemplate.DEGREE || competencyItem.template === ItemTemplate.COACHING_HISTORY) ? (
+                            {/* DEGREE, COACHING_HISTORY, COACHING_TIME 등 복합 템플릿은 내부에 자체 Form.Item을 가지므로 부모에 name 없이 렌더링 */}
+                            {(competencyItem.template === ItemTemplate.DEGREE || competencyItem.template === ItemTemplate.COACHING_HISTORY || competencyItem.template === ItemTemplate.COACHING_TIME) ? (
                               <div className="mb-3">
                                 {renderInputField(item)}
                               </div>

@@ -65,7 +65,8 @@ export enum ItemTemplate {
   FILE = 'file',
   TEXT_FILE = 'text_file',
   DEGREE = 'degree',
-  COACHING_HISTORY = 'coaching_history'
+  COACHING_HISTORY = 'coaching_history',
+  COACHING_TIME = 'coaching_time'  // 코칭시간 (내용 + 연도 + 시간 + 증빙)
 }
 
 // ============================================================================
