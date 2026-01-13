@@ -55,27 +55,17 @@ interface SurveyPreviewProps {
   customQuestions: CustomQuestion[]
 }
 
-// 인적사항 항목 코드 목록
-const PERSONAL_INFO_CODES = [
-  'BASIC_NAME', 'BASIC_PHONE', 'BASIC_EMAIL', 'BASIC_ADDRESS',
-  'BASIC_GENDER', 'BASIC_BIRTHDATE',
-  'DETAIL_COACHING_AREA', 'DETAIL_CERT_NUMBER',
-  'ADDON_INTRO', 'ADDON_SPECIALTY'
-]
-
-// 자격증 항목 코드 목록
-const CERT_CODES = [
-  'ADDON_CERT_COACH', 'ADDON_CERT_COUNSELING', 'ADDON_CERT_OTHER'
-]
-
-// 학력 항목 코드 목록 (학위 관련만)
-const EDUCATION_CODES = ['EDU_DEGREE', 'COACH_DEGREE']
-
-// 역량 이력 항목 코드 목록 (코칭 경력, 연수 등)
-const COMPETENCY_HISTORY_CODES = [
-  'ADDON_COACHING_HOURS', 'ADDON_COACHING_HISTORY',
-  'ADDON_WORK_EXPERIENCE', 'ADDON_COACH_TRAINING'
-]
+// 카테고리 라벨 매핑 (DB category 값 -> 표시용 라벨)
+const CATEGORY_LABELS: Record<string, string> = {
+  'BASIC': '인적사항',
+  'DETAIL': '세부정보',
+  'EDUCATION': '학력',
+  'EXPERIENCE': '역량이력',
+  'COACHING': '코칭이력',
+  'ADDON': '추가항목',
+  'CERTIFICATION': '자격증',
+  'EVALUATION': '평가항목'
+}
 
 // State for repeatable item rows
 interface RepeatableRow {
@@ -114,35 +104,21 @@ export default function SurveyPreview({
     }
   }
 
-  // Group items by category (SurveyBuilder.tsx와 동일한 로직)
+  // Group items by category (DB의 category 필드 기반)
   const groupItemsByCategory = () => {
-    const grouped = {
-      '인적사항': [] as typeof includedItems,
-      '자격증': [] as typeof includedItems,
-      '학력': [] as typeof includedItems,
-      '역량 이력': [] as typeof includedItems,
-      '기타': [] as typeof includedItems,
-      '커스텀 질문': [] as typeof includedItems
-    }
+    const grouped: Record<string, typeof includedItems> = {}
 
     const includedItems = Array.from(selections.values()).filter(s => s.included)
 
     includedItems.forEach(selection => {
-      const code = selection.item.item_code
+      // DB의 category 필드를 사용하여 라벨 결정
+      const category = selection.item.category || 'ADDON'
+      const categoryLabel = CATEGORY_LABELS[category] || '기타'
 
-      if (PERSONAL_INFO_CODES.includes(code)) {
-        grouped['인적사항'].push(selection)
-      } else if (CERT_CODES.includes(code)) {
-        grouped['자격증'].push(selection)
-      } else if (EDUCATION_CODES.includes(code)) {
-        grouped['학력'].push(selection)
-      } else if (COMPETENCY_HISTORY_CODES.includes(code)) {
-        grouped['역량 이력'].push(selection)
-      } else if (selection.item.is_custom) {
-        grouped['기타'].push(selection)  // 커스텀 항목은 '기타'로
-      } else {
-        grouped['역량 이력'].push(selection)  // 나머지 표준 항목도 '역량 이력'으로
+      if (!grouped[categoryLabel]) {
+        grouped[categoryLabel] = []
       }
+      grouped[categoryLabel].push(selection)
     })
 
     return grouped
@@ -537,50 +513,17 @@ export default function SurveyPreview({
 
         {/* Survey Items */}
         <Collapse
-          defaultActiveKey={['인적사항', '자격증', '학력', '역량 이력', '기타', '커스텀 질문']}
+          defaultActiveKey={Object.keys(grouped)}
           style={{ marginBottom: 16 }}
         >
-          {/* Personal Info - no proof */}
-          {grouped['인적사항'].length > 0 && (
-            <Panel header={<Text strong>인적사항</Text>} key="인적사항">
-              {grouped['인적사항'].map(selection => renderItemCard(selection, false))}
-            </Panel>
-          )}
-
-          {/* Certificates - with proof */}
-          {grouped['자격증'].length > 0 && (
-            <Panel header={<Text strong>자격증</Text>} key="자격증">
-              {grouped['자격증'].map(selection => renderItemCard(selection, true))}
-            </Panel>
-          )}
-
-          {/* 학력 - with proof */}
-          {grouped['학력'].length > 0 && (
-            <Panel header={<Text strong>학력</Text>} key="학력">
-              {grouped['학력'].map(selection => renderItemCard(selection, true))}
-            </Panel>
-          )}
-
-          {/* 역량 이력 - with proof */}
-          {grouped['역량 이력'].length > 0 && (
-            <Panel header={<Text strong>역량 이력</Text>} key="역량 이력">
-              {grouped['역량 이력'].map(selection => renderItemCard(selection, true))}
-            </Panel>
-          )}
-
-          {/* Others - with proof */}
-          {grouped['기타'].length > 0 && (
-            <Panel header={<Text strong>기타</Text>} key="기타">
-              {grouped['기타'].map(selection => renderItemCard(selection, true))}
-            </Panel>
-          )}
-
-          {/* Custom Questions (competency items with is_custom=true) */}
-          {grouped['커스텀 질문'].length > 0 && (
-            <Panel header={<Text strong>커스텀 질문</Text>} key="커스텀 질문">
-              {grouped['커스텀 질문'].map(selection => renderItemCard(selection, true))}
-            </Panel>
-          )}
+          {/* 카테고리별 항목 동적 렌더링 */}
+          {Object.entries(grouped).map(([categoryLabel, items]) => (
+            items.length > 0 && (
+              <Panel header={<Text strong>{categoryLabel}</Text>} key={categoryLabel}>
+                {items.map(selection => renderItemCard(selection, categoryLabel !== '인적사항'))}
+              </Panel>
+            )
+          ))}
 
           {/* Legacy Custom Questions (old system - for backwards compatibility) */}
           {customQuestions.length > 0 && (
