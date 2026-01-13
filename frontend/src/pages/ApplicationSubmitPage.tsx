@@ -37,6 +37,14 @@ const PROFILE_MAPPED_ITEM_CODES = {
   'SPECIALTY': 'specialty'
 }
 
+// 증빙 라벨 헬퍼 - 누적코칭시간은 "코칭일지"로 표시
+const getProofLabel = (itemCode: string | undefined): string => {
+  if (itemCode === 'EXP_COACHING_HOURS') {
+    return '코칭일지'
+  }
+  return '증빙첨부'
+}
+
 const { Title, Text } = Typography
 const { TextArea } = Input
 
@@ -1473,7 +1481,7 @@ export default function ApplicationSubmitPage() {
                                         </Button>
                                       ) : (
                                         <Tag color={proofLevel === 'required' ? 'orange' : 'default'} icon={<UploadOutlined />}>
-                                          {proofLevel === 'required' ? '증빙첨부 (필수)' : '증빙첨부 (선택)'}
+                                          {proofLevel === 'required' ? `${getProofLabel(competencyItem.item_code)} (필수)` : `${getProofLabel(competencyItem.item_code)} (선택)`}
                                         </Tag>
                                       )}
                                     </div>
@@ -1664,7 +1672,7 @@ export default function ApplicationSubmitPage() {
                                     }}
                                   >
                                     <Button icon={<UploadOutlined />} size="small">
-                                      {proofLevel === 'required' ? '증빙첨부 (필수)' : '증빙첨부 (선택)'}
+                                      {proofLevel === 'required' ? `${getProofLabel(competencyItem.item_code)} (필수)` : `${getProofLabel(competencyItem.item_code)} (선택)`}
                                     </Button>
                                   </Upload>
                                 )}
@@ -1823,12 +1831,13 @@ export default function ApplicationSubmitPage() {
                   const projectItem = projectItems.find(i => i.project_item_id === editingProjectItemId)
                   const proofLevel = (projectItem?.proof_required_level || '').toLowerCase()
                   const showProofUpload = proofLevel === 'required' || proofLevel === 'optional'
+                  const proofLabel = getProofLabel(projectItem?.competency_item?.item_code)
 
                   if (!showProofUpload) return null
 
                   return (
                     <Form.Item
-                      label={proofLevel === 'required' ? '증빙서류 (필수)' : '증빙서류 (선택사항)'}
+                      label={proofLevel === 'required' ? `${proofLabel} (필수)` : `${proofLabel} (선택사항)`}
                     >
                       <Upload.Dragger
                         fileList={modalFileList}
