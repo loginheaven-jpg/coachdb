@@ -26,6 +26,7 @@ export interface User {
   birth_year?: number  // 4-digit year (was: birthdate)
   gender?: string
   address: string
+  organization?: string  // 소속
   in_person_coaching_area?: string  // 대면코칭 가능지역
   roles: string  // JSON string array of roles
   status: string  // string to accept backend values

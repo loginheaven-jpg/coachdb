@@ -56,6 +56,7 @@ export default function ProfileEditPage() {
         birth_year: user.birth_year,
         gender: user.gender,
         address: user.address,
+        organization: user.organization,
         in_person_coaching_area: user.in_person_coaching_area,
         roles: userRoles,
         coach_certification_number: user.coach_certification_number,
@@ -73,6 +74,7 @@ export default function ProfileEditPage() {
         birth_year: values.birth_year,
         gender: values.gender,
         address: values.address,
+        organization: values.organization,
         in_person_coaching_area: values.in_person_coaching_area,
         coach_certification_number: values.coach_certification_number,
         coaching_fields: values.coaching_fields
@@ -212,6 +214,15 @@ export default function ProfileEditPage() {
           <Input
             prefix={<HomeOutlined />}
             placeholder="시/군/구 단위로 입력해주세요 (예: 서울시 강남구)"
+          />
+        </Form.Item>
+
+        <Form.Item
+          label="소속"
+          name="organization"
+        >
+          <Input
+            placeholder="소속 기관/단체명 (선택)"
           />
         </Form.Item>
 

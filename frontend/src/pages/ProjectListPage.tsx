@@ -8,15 +8,12 @@ import {
   Tag,
   message,
   Space,
-  Row,
-  Col,
-  Statistic
+  Empty
 } from 'antd'
 import {
   ArrowLeftOutlined,
   EditOutlined,
   EyeOutlined,
-  FolderOpenOutlined,
   CheckCircleOutlined,
   FileTextOutlined
 } from '@ant-design/icons'
@@ -206,16 +203,10 @@ export default function ProjectListPage() {
     },
   ]
 
-  // 통계 계산
-  const stats = {
-    total: projects.length,
-    applied: myApplications.filter(app =>
-      projects.some(p => p.project_id === app.project_id)
-    ).length,
-    notApplied: projects.filter(p =>
-      !myApplications.some(app => app.project_id === p.project_id)
-    ).length
-  }
+  // 참여 과제: 선정된 과제 (selection_result === 'selected')
+  const participatingProjects = myApplications.filter(app =>
+    app.selection_result === 'selected'
+  )
 
   return (
     <div className="min-h-screen bg-gray-100 py-8">
@@ -229,41 +220,75 @@ export default function ProjectListPage() {
           </Button>
         </div>
 
-        <Row gutter={[16, 16]} className="mb-6">
-          <Col xs={24} sm={8}>
-            <Card>
-              <Statistic
-                title="모집중 과제"
-                value={stats.total}
-                prefix={<FolderOpenOutlined />}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={8}>
-            <Card>
-              <Statistic
-                title="지원 완료"
-                value={stats.applied}
-                valueStyle={{ color: '#52c41a' }}
-                prefix={<CheckCircleOutlined />}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={8}>
-            <Card>
-              <Statistic
-                title="미지원"
-                value={stats.notApplied}
-                valueStyle={{ color: '#1890ff' }}
-                prefix={<FileTextOutlined />}
-              />
-            </Card>
-          </Col>
-        </Row>
+        {/* 참여 과제 */}
+        <Card className="mb-6">
+          <div className="mb-4">
+            <Title level={3} className="mb-1">참여 과제</Title>
+            <Text className="text-gray-600">
+              선정되어 참여중인 과제입니다.
+            </Text>
+          </div>
 
+          {participatingProjects.length === 0 ? (
+            <Empty
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              description="아직 없음"
+            />
+          ) : (
+            <Table
+              columns={[
+                {
+                  title: '과제명',
+                  dataIndex: 'project_name',
+                  key: 'project_name',
+                  render: (text: string, record: ParticipationProject) => (
+                    <a onClick={() => navigate(`/projects/${record.project_id}/apply?applicationId=${record.application_id}&mode=view`)}>
+                      {text}
+                    </a>
+                  ),
+                },
+                {
+                  title: '지원일',
+                  dataIndex: 'submitted_at',
+                  key: 'submitted_at',
+                  width: '15%',
+                  render: (date: string) => date ? dayjs(date).format('YYYY-MM-DD') : '-',
+                },
+                {
+                  title: '선정결과',
+                  dataIndex: 'selection_result',
+                  key: 'selection_result',
+                  width: '12%',
+                  render: () => <Tag color="green">선정</Tag>,
+                },
+                {
+                  title: '작업',
+                  key: 'actions',
+                  width: '10%',
+                  render: (_: any, record: ParticipationProject) => (
+                    <Button
+                      type="link"
+                      size="small"
+                      icon={<EyeOutlined />}
+                      onClick={() => navigate(`/projects/${record.project_id}/apply?applicationId=${record.application_id}&mode=view`)}
+                    >
+                      보기
+                    </Button>
+                  ),
+                },
+              ]}
+              dataSource={participatingProjects}
+              rowKey="application_id"
+              pagination={false}
+              size="small"
+            />
+          )}
+        </Card>
+
+        {/* 미참여 과제 (모집중 과제) */}
         <Card>
-          <div className="mb-6">
-            <Title level={2} className="mb-2">과제 참여</Title>
+          <div className="mb-4">
+            <Title level={3} className="mb-1">미참여 과제</Title>
             <Text className="text-gray-600">
               현재 모집중인 과제 목록입니다. 참여를 원하는 과제를 선택하여 지원하세요.
             </Text>

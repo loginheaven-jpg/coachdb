@@ -63,6 +63,7 @@ class UserUpdate(BaseModel):
     birth_year: Optional[int] = Field(default=None, ge=1900, le=2100)
     gender: Optional[str] = Field(default=None, max_length=10)
     address: Optional[str] = Field(default=None, max_length=500)
+    organization: Optional[str] = Field(default=None, max_length=200)  # 소속
     in_person_coaching_area: Optional[str] = Field(default=None, max_length=500)
     coach_certification_number: Optional[str] = Field(default=None, max_length=50)
     coaching_fields: Optional[List[str]] = Field(default=None)
@@ -85,6 +86,7 @@ class UserResponse(BaseModel):
     birth_year: Optional[int]
     gender: Optional[str]
     address: str
+    organization: Optional[str]  # 소속
     in_person_coaching_area: Optional[str]
     roles: str  # JSON string of roles array
     status: UserStatus

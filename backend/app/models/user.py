@@ -34,6 +34,7 @@ class User(Base):
     birth_year = Column(Integer, nullable=True)  # 4-digit year (e.g., 1985)
     gender = Column(String(10), nullable=True)
     address = Column(String(500), nullable=False)  # Changed to required (시/군/구)
+    organization = Column(String(200), nullable=True)  # 소속 (선택)
     in_person_coaching_area = Column(String(500), nullable=True)  # 대면코칭가능지역 - 자유 입력
     roles = Column(String(200), nullable=False)  # JSON array - 복수 역할 가능
     status = Column(Enum(UserStatus), nullable=False, default=UserStatus.ACTIVE)

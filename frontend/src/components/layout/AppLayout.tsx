@@ -45,25 +45,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     })
   }
 
-  // 2. 내 지원서 (모든 로그인 사용자)
-  if (userRoles.length > 0) {
-    menuItems.push({
-      key: 'my-applications',
-      label: '내 지원서',
-      onClick: () => navigate('/my-applications')
-    })
-  }
-
-  // 3. 세부정보 (모든 로그인 사용자)
-  if (userRoles.length > 0) {
-    menuItems.push({
-      key: 'competencies',
-      label: '세부정보',
-      onClick: () => navigate('/coach/competencies')
-    })
-  }
-
-  // 4. 과제관리 (PROJECT_MANAGER 또는 SUPER_ADMIN)
+  // 2. 과제관리 (PROJECT_MANAGER 또는 SUPER_ADMIN)
   if (isProjectManager || isSuperAdmin) {
     menuItems.push({
       key: 'projects-manage',
@@ -72,7 +54,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     })
   }
 
-  // 5. 증빙검토 (VERIFIER 또는 SUPER_ADMIN)
+  // 3. 증빙검토 (VERIFIER 또는 SUPER_ADMIN)
   if (isVerifier || isSuperAdmin) {
     menuItems.push({
       key: 'verifications',
@@ -81,7 +63,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     })
   }
 
-  // 6. 과제심사 (REVIEWER 또는 SUPER_ADMIN)
+  // 4. 과제심사 (REVIEWER 또는 SUPER_ADMIN)
   if (isReviewer || isSuperAdmin) {
     menuItems.push({
       key: 'evaluations',
@@ -90,7 +72,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     })
   }
 
-  // 7. 시스템관리 (SUPER_ADMIN only)
+  // 5. 시스템관리 (SUPER_ADMIN only)
   if (isSuperAdmin) {
     menuItems.push({
       key: 'admin',
@@ -99,30 +81,29 @@ export default function AppLayout({ children }: AppLayoutProps) {
     })
   }
 
+  // 6. 나의 정보 (모든 로그인 사용자 - 우측)
+  if (userRoles.length > 0) {
+    menuItems.push({
+      key: 'my-info',
+      label: '나의 정보',
+      onClick: () => navigate('/profile/edit')
+    })
+  }
+
   // 현재 경로에서 선택된 메뉴 키 결정
   const getSelectedKey = () => {
     const path = location.pathname
     if (path.startsWith('/projects/manage') || path.startsWith('/admin/projects')) return 'projects-manage'
     if (path.startsWith('/projects') || path.startsWith('/coach/projects')) return 'projects'
-    if (path.startsWith('/my-applications') || path.startsWith('/coach/my-applications')) return 'my-applications'
-    if (path.startsWith('/coach/competencies') || path.startsWith('/profile/detailed')) return 'competencies'
+    if (path.startsWith('/profile/edit')) return 'my-info'
     if (path.startsWith('/admin/verifications')) return 'verifications'
     if (path.startsWith('/evaluations')) return 'evaluations'
     if (path.startsWith('/admin/users')) return 'admin'
     return ''
   }
 
-  // 사용자 드롭다운 메뉴 (프로필 수정 + 로그아웃만)
+  // 사용자 드롭다운 메뉴 (로그아웃만)
   const userMenuItems: MenuProps['items'] = [
-    {
-      key: 'profile',
-      icon: <SettingOutlined />,
-      label: '프로필 수정',
-      onClick: () => navigate('/profile/edit')
-    },
-    {
-      type: 'divider'
-    },
     {
       key: 'logout',
       icon: <LogoutOutlined />,

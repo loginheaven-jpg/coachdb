@@ -295,6 +295,8 @@ async def update_profile(
         current_user.gender = profile_data.gender
     if profile_data.address is not None:
         current_user.address = profile_data.address
+    if profile_data.organization is not None:
+        current_user.organization = profile_data.organization
     if profile_data.in_person_coaching_area is not None:
         current_user.in_person_coaching_area = profile_data.in_person_coaching_area
     if profile_data.coach_certification_number is not None:

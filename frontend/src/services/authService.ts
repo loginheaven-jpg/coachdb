@@ -43,6 +43,7 @@ export interface UserUpdateData {
   birth_year?: number
   gender?: string
   address?: string
+  organization?: string  // 소속
   in_person_coaching_area?: string
   coach_certification_number?: string
   coaching_fields?: string[]
