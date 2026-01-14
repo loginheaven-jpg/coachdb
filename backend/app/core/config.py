@@ -39,6 +39,7 @@ class Settings(BaseSettings):
         "http://localhost:5173",
         "http://localhost:3000",
         "http://127.0.0.1:5173",
+        "https://kca.up.railway.app",
         "https://coacdbfront-production.up.railway.app",
         "https://coachdbfrontend-production.up.railway.app"
     ]
@@ -110,7 +111,7 @@ class Settings(BaseSettings):
 
     # Password Reset
     PASSWORD_RESET_TOKEN_EXPIRE_HOURS: int = 24
-    FRONTEND_URL: str = "http://localhost:5173"
+    FRONTEND_URL: str = "https://kca.up.railway.app"
 
     class Config:
         env_file = ".env"
