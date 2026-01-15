@@ -73,6 +73,7 @@ export default function AdminCompetencyItemsPage() {
   const [categoryFilter, setCategoryFilter] = useState<string | undefined>()
   const [showInactive, setShowInactive] = useState(false)
   const [seedLoading, setSeedLoading] = useState(false)
+  const [clearLoading, setClearLoading] = useState(false)
 
   // Modal states
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -124,6 +125,20 @@ export default function AdminCompetencyItemsPage() {
       message.error(error.response?.data?.detail || '역량항목 초기화에 실패했습니다.')
     } finally {
       setSeedLoading(false)
+    }
+  }
+
+  const handleClear = async () => {
+    setClearLoading(true)
+    try {
+      await api.post('/admin/clear-competency-items?secret_key=coachdb2024!')
+      message.success('역량항목 전체 삭제 완료')
+      loadItems()
+    } catch (error: any) {
+      console.error('역량항목 삭제 실패:', error)
+      message.error(error.response?.data?.detail || '역량항목 삭제에 실패했습니다.')
+    } finally {
+      setClearLoading(false)
     }
   }
 
@@ -421,6 +436,23 @@ export default function AdminCompetencyItemsPage() {
             대시보드로 돌아가기
           </Button>
           <Space>
+            <Popconfirm
+              title="⚠️ 역량항목 전체 삭제"
+              description="모든 역량항목과 필드를 삭제합니다. 이 작업은 되돌릴 수 없습니다!"
+              onConfirm={handleClear}
+              okText="전체 삭제"
+              cancelText="취소"
+              okButtonProps={{ danger: true }}
+            >
+              <Button
+                danger
+                icon={<DeleteOutlined />}
+                loading={clearLoading}
+                size="large"
+              >
+                전체 삭제
+              </Button>
+            </Popconfirm>
             <Popconfirm
               title="역량항목 초기화"
               description="기본 역량항목(자격증, 학력, 코칭연수, 코칭경력)을 생성합니다. 이미 존재하는 항목은 스킵됩니다."
