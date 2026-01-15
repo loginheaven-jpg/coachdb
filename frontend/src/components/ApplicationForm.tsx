@@ -76,25 +76,65 @@ export default function ApplicationForm({ projectId, readOnly, onSubmit }: Appli
     }
   }
 
+  // 카테고리를 그룹명으로 변환
+  const getCategoryGroup = (item: ProjectItem): string => {
+    const itemCode = item.competency_item?.item_code || ''
+    const template = item.competency_item?.template || ''
+    const category = item.competency_item?.category || ''
+
+    // EXP_COACHING_TRAINING 또는 coaching_time 템플릿은 '코칭연수' 그룹
+    if (itemCode === 'EXP_COACHING_TRAINING' || template === 'coaching_time') {
+      return '코칭연수'
+    }
+
+    // 카테고리별 그룹 매핑
+    const categoryGroupMap: Record<string, string> = {
+      'CERTIFICATION': '자격증',
+      'EDUCATION': '학력',
+      'EXPERIENCE': '코칭경력',
+      'OTHER': '기타',
+      // Legacy categories
+      'BASIC': '기본정보',
+      'DETAIL': '코칭경력',
+      'ADDON': '코칭경력',
+      'COACHING': '코칭경력',
+      'EVALUATION': '코칭경력'
+    }
+
+    return categoryGroupMap[category] || '코칭경력'
+  }
+
+  // 그룹별로 항목 분류
   const groupedItems = projectItems.reduce((groups, item) => {
     if (!item.competency_item) return groups
 
-    const category = item.competency_item.category
-    if (!groups[category]) {
-      groups[category] = []
+    const groupName = getCategoryGroup(item)
+    if (!groups[groupName]) {
+      groups[groupName] = []
     }
-    groups[category].push(item)
+    groups[groupName].push(item)
     return groups
   }, {} as Record<string, ProjectItem[]>)
 
+  // 그룹 표시 순서
+  const groupOrder = ['자격증', '학력', '코칭연수', '코칭경력', '기타']
+
   const categoryNames: Record<string, string> = {
+    '자격증': '자격증',
+    '학력': '학력',
+    '코칭연수': '코칭연수',
+    '코칭경력': '코칭경력',
+    '기타': '기타',
+    // Legacy - 직접 카테고리명으로 표시되는 경우 대비
     'BASIC': '기본정보',
-    'DETAIL': '세부정보',
+    'CERTIFICATION': '자격증',
     'EDUCATION': '학력',
-    'ADDON': '추가역량',
-    'COACHING': '코칭이력',
-    // Legacy
-    'EVALUATION': '역량 항목'
+    'EXPERIENCE': '코칭경력',
+    'OTHER': '기타',
+    'DETAIL': '코칭경력',
+    'ADDON': '코칭경력',
+    'COACHING': '코칭경력',
+    'EVALUATION': '코칭경력'
   }
 
   return (
@@ -113,9 +153,13 @@ export default function ApplicationForm({ projectId, readOnly, onSubmit }: Appli
           initialValues={formValues}
           disabled={readOnly}
         >
-          {Object.entries(groupedItems).map(([category, items]) => (
-            <div key={category}>
-              <Title level={4}>{categoryNames[category] || category}</Title>
+          {groupOrder.map(groupName => {
+            const items = groupedItems[groupName]
+            if (!items || items.length === 0) return null
+
+            return (
+            <div key={groupName}>
+              <Title level={4}>{categoryNames[groupName] || groupName}</Title>
               <Space direction="vertical" style={{ width: '100%' }} size="large">
                 {items.map((projectItem) => {
                   if (!projectItem.competency_item) return null
@@ -146,7 +190,8 @@ export default function ApplicationForm({ projectId, readOnly, onSubmit }: Appli
               </Space>
               <Divider />
             </div>
-          ))}
+            )
+          })}
 
           {!readOnly && (
             <Space style={{ width: '100%', justifyContent: 'center' }}>

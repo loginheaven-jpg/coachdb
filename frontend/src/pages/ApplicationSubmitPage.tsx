@@ -16,7 +16,8 @@ import {
   Tag,
   Descriptions,
   Modal,
-  Tabs
+  Tabs,
+  Collapse
 } from 'antd'
 import { ArrowLeftOutlined, SendOutlined, UploadOutlined, InfoCircleOutlined, UserOutlined, CheckCircleOutlined, SaveOutlined, DeleteOutlined, LoadingOutlined, EditOutlined, ClockCircleOutlined, DownloadOutlined, CloseCircleOutlined, ExclamationCircleOutlined, FileTextOutlined, PlusOutlined, InboxOutlined, EyeOutlined } from '@ant-design/icons'
 import projectService, { ProjectDetail, ProjectItem, ItemTemplate } from '../services/projectService'
@@ -73,6 +74,65 @@ const USER_PROFILE_ITEM_CODES = [
   'BASIC_NAME', 'BASIC_PHONE', 'BASIC_EMAIL', 'BASIC_ADDRESS',
   'BASIC_GENDER', 'BASIC_BIRTHDATE', 'DETAIL_COACHING_AREA', 'DETAIL_CERT_NUMBER'
 ]
+
+// 그룹 표시 순서 (프로필 세부정보와 일치)
+const GROUP_ORDER = ['자격증', '학력', '코칭연수', '코칭경력', '기타']
+
+// 카테고리를 그룹명으로 변환하는 헬퍼 함수
+const getCategoryGroup = (item: ProjectItem): string => {
+  const itemCode = item.competency_item?.item_code || ''
+  const template = item.competency_item?.template || ''
+  const category = item.competency_item?.category || ''
+
+  // EXP_COACHING_TRAINING 또는 coaching_time 템플릿은 '코칭연수' 그룹
+  if (itemCode === 'EXP_COACHING_TRAINING' || template === 'coaching_time') {
+    return '코칭연수'
+  }
+
+  // 카테고리별 그룹 매핑
+  const categoryGroupMap: Record<string, string> = {
+    'CERTIFICATION': '자격증',
+    'EDUCATION': '학력',
+    'EXPERIENCE': '코칭경력',
+    'OTHER': '기타',
+    // Legacy categories
+    'BASIC': '기본정보',
+    'DETAIL': '코칭경력',
+    'ADDON': '코칭경력',
+    'COACHING': '코칭경력',
+    'EVALUATION': '코칭경력'
+  }
+
+  return categoryGroupMap[category] || '코칭경력'
+}
+
+// 항목들을 그룹별로 분류
+const groupItemsByCategory = (items: ProjectItem[]): Record<string, ProjectItem[]> => {
+  const grouped: Record<string, ProjectItem[]> = {
+    '자격증': [],
+    '학력': [],
+    '코칭연수': [],
+    '코칭경력': [],
+    '기타': []
+  }
+
+  items.forEach(item => {
+    if (!item.competency_item) return
+    // 프로필 항목 제외
+    if (USER_PROFILE_ITEM_CODES.includes(item.competency_item.item_code)) return
+
+    const groupName = getCategoryGroup(item)
+    if (grouped[groupName]) {
+      grouped[groupName].push(item)
+    } else {
+      grouped['코칭경력'].push(item)
+    }
+  })
+
+  return grouped
+}
+
+const { Panel } = Collapse
 
 export default function ApplicationSubmitPage() {
   // Debug: Log when component renders
@@ -1380,13 +1440,13 @@ export default function ApplicationSubmitPage() {
                 </Form.Item>
               </Card>
 
-              {/* Survey items (project_items) - Card UI with repeatable support */}
+              {/* Survey items (project_items) - Grouped by category with Collapse */}
               {(() => {
-                // Filter out user profile items (personal info is shown from user profile)
-                const filteredItems = projectItems.filter(item =>
-                  item.competency_item && !USER_PROFILE_ITEM_CODES.includes(item.competency_item.item_code)
-                )
-                return filteredItems.length > 0 ? (
+                // Group items by category (프로필 세부정보와 일치)
+                const groupedItems = groupItemsByCategory(projectItems)
+                const hasAnyItems = GROUP_ORDER.some(g => groupedItems[g]?.length > 0)
+
+                return hasAnyItems ? (
                 <Card size="small" title="설문 항목" className="mb-4">
                   {!isViewMode && (
                     <Alert
@@ -1397,8 +1457,15 @@ export default function ApplicationSubmitPage() {
                       icon={<InfoCircleOutlined />}
                     />
                   )}
-                  <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                    {filteredItems.map((item) => {
+                  <Collapse defaultActiveKey={GROUP_ORDER}>
+                    {GROUP_ORDER.map(groupName => {
+                      const groupItems = groupedItems[groupName]
+                      if (!groupItems || groupItems.length === 0) return null
+
+                      return (
+                        <Panel key={groupName} header={`${groupName} (${groupItems.length})`}>
+                          <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                    {groupItems.map((item) => {
                       const competencyItem = item.competency_item
                       if (!competencyItem) return null
 
@@ -1723,15 +1790,20 @@ export default function ApplicationSubmitPage() {
                         </div>
                       )
                     })}
-                  </Space>
+                          </Space>
+                        </Panel>
+                      )
+                    })}
+                  </Collapse>
                 </Card>
               ) : null
               })()}
 
                         {/* Show message if no survey items */}
-                        {projectItems.filter(item =>
-                          item.competency_item && !USER_PROFILE_ITEM_CODES.includes(item.competency_item.item_code)
-                        ).length === 0 && (
+                        {(() => {
+                          const groupedItems = groupItemsByCategory(projectItems)
+                          const hasAnyItems = GROUP_ORDER.some(g => groupedItems[g]?.length > 0)
+                          return !hasAnyItems ? (
                           <Alert
                             type="info"
                             message="추가 설문 항목 없음"
@@ -1739,7 +1811,8 @@ export default function ApplicationSubmitPage() {
                             className="mb-4"
                             showIcon
                           />
-                        )}
+                        ) : null
+                        })()}
                       </>
                     )
                   }

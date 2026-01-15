@@ -276,27 +276,37 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
     '기본정보': 1,
     '자격증': 2,
     '학력': 3,
-    '코칭경력': 4,
-    '기타': 5
+    '코칭연수': 4,
+    '코칭경력': 5,
+    '기타': 6
   }
 
   // 그룹 우선순위 반환 (카테고리 기반)
   const getGroupPriority = (category: string, isCustom: boolean): number => {
-    if (isCustom && category === 'OTHER') return 5  // 커스텀 + OTHER 카테고리는 기타 그룹
+    if (isCustom && category === 'OTHER') return 6  // 커스텀 + OTHER 카테고리는 기타 그룹
     const groupName = CATEGORY_GROUP_MAP[category] || '코칭경력'
-    return GROUP_PRIORITY[groupName] || 4
+    return GROUP_PRIORITY[groupName] || 5
   }
 
   const groupItemsByCategory = (): GroupedItems => {
     const grouped: GroupedItems = {
       '자격증': [],
       '학력': [],
+      '코칭연수': [],
       '코칭경력': [],
       '기타': []
     }
 
     selections.forEach(selection => {
       const category = selection.item.category || 'EXPERIENCE'
+      const itemCode = selection.item.item_code || ''
+      const template = selection.item.template || ''
+
+      // EXP_COACHING_TRAINING 또는 coaching_time 템플릿은 '코칭연수' 그룹으로
+      if (itemCode === 'EXP_COACHING_TRAINING' || template === 'coaching_time') {
+        grouped['코칭연수'].push(selection)
+        return
+      }
 
       // 커스텀 항목은 category에 따라 그룹 결정
       if (selection.item.is_custom) {
@@ -647,7 +657,7 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
 
       <Space direction="vertical" style={{ width: '100%' }} size="large">
         {/* Item Groups */}
-        <Collapse defaultActiveKey={['자격증', '학력', '코칭경력', '기타']}>
+        <Collapse defaultActiveKey={['자격증', '학력', '코칭연수', '코칭경력', '기타']}>
           {Object.entries(grouped).map(([category, items]) => {
             // '기타'와 '코칭경력' 그룹은 항목이 없어도 표시 (+ 추가 버튼이 있으므로)
             const showEmptyGroup = category === '기타' || category === '코칭경력'
