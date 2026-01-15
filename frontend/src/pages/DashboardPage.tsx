@@ -192,7 +192,7 @@ export default function DashboardPage() {
           </Col>
           <Col>
             <Button onClick={() => navigate('/coach/competencies')}>
-              내 세부정보 관리
+              내 역량 정보 관리
             </Button>
           </Col>
           {(isProjectManager || isSuperAdmin) && (

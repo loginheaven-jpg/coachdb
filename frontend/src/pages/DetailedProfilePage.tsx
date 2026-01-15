@@ -147,11 +147,11 @@ export default function DetailedProfilePage() {
         field_experiences: fieldExpForApi
       })
 
-      message.success('세부정보가 저장되었습니다!')
+      message.success('역량 정보가 저장되었습니다!')
       navigate('/dashboard')
     } catch (error: any) {
       console.error('Save failed:', error)
-      message.error(error.response?.data?.detail || '세부정보 저장에 실패했습니다.')
+      message.error(error.response?.data?.detail || '역량 정보 저장에 실패했습니다.')
     } finally {
       setLoading(false)
     }
@@ -193,7 +193,7 @@ export default function DetailedProfilePage() {
         <div className="flex justify-between items-start mb-6">
           <div className="flex-1">
             <Title level={2} className="text-center mb-2">
-              세부정보 관리
+              역량 정보 관리
             </Title>
             <Text className="block text-center text-gray-600">
               입력된 정보는 과제 지원 시 자동으로 활용됩니다.

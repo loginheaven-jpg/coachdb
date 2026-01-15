@@ -796,9 +796,9 @@ export default function CompetencyManagementPageNew() {
 
         <Card>
           <div className="mb-6">
-            <Title level={2} className="mb-2">역량 및 세부정보 관리</Title>
+            <Title level={2} className="mb-2">역량 정보 관리</Title>
             <Text className="text-gray-600">
-              내 역량과 세부정보를 등록하고 관리할 수 있습니다.
+              내 역량 정보를 등록하고 관리할 수 있습니다.
             </Text>
           </div>
 

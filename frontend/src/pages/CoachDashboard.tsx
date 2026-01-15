@@ -116,13 +116,13 @@ export default function CoachDashboard() {
       {needsDetailedProfile && (
         <Alert
           message="프로필을 완성해주세요"
-          description="더 나은 서비스 제공을 위해 역량 및 세부정보를 입력해주세요. 학력, 경력, 자격증 등의 정보를 관리할 수 있습니다."
+          description="더 나은 서비스 제공을 위해 역량 정보를 입력해주세요. 학력, 경력, 자격증 등의 정보를 관리할 수 있습니다."
           type="warning"
           showIcon
           icon={<InfoCircleOutlined />}
           action={
             <Button size="small" type="primary" onClick={() => navigate('/coach/competencies')}>
-              역량 및 세부정보 입력
+              역량 정보 입력
             </Button>
           }
           closable
@@ -191,7 +191,7 @@ export default function CoachDashboard() {
                 기본정보 수정
               </Button>
               <Button block icon={<UserOutlined />} onClick={() => navigate('/coach/competencies')}>
-                세부정보 관리
+                역량 정보 관리
               </Button>
             </div>
           </Card>

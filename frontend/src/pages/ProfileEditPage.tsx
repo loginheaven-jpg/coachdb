@@ -368,7 +368,7 @@ export default function ProfileEditPage() {
       label: (
         <span>
           <FileTextOutlined />
-          세부정보
+          역량 정보
         </span>
       ),
       children: <UnifiedCompetencyPage embedded={true} />

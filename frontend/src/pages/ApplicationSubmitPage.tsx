@@ -17,7 +17,8 @@ import {
   Descriptions,
   Modal,
   Tabs,
-  Collapse
+  Collapse,
+  Checkbox
 } from 'antd'
 import { ArrowLeftOutlined, SendOutlined, UploadOutlined, InfoCircleOutlined, UserOutlined, CheckCircleOutlined, SaveOutlined, DeleteOutlined, LoadingOutlined, EditOutlined, ClockCircleOutlined, DownloadOutlined, CloseCircleOutlined, ExclamationCircleOutlined, FileTextOutlined, PlusOutlined, InboxOutlined, EyeOutlined } from '@ant-design/icons'
 import projectService, { ProjectDetail, ProjectItem, ItemTemplate } from '../services/projectService'
@@ -30,6 +31,16 @@ import { useAuthStore } from '../stores/authStore'
 import FilePreviewModal, { useFilePreview } from '../components/FilePreviewModal'
 import usePreventFileDrop from '../hooks/usePreventFileDrop'
 import dayjs from 'dayjs'
+
+// 코칭 분야 옵션
+const COACHING_FIELDS = [
+  { value: 'business', label: '비즈니스코칭' },
+  { value: 'career', label: '진로코칭' },
+  { value: 'youth', label: '청년코칭' },
+  { value: 'adolescent', label: '청소년코칭' },
+  { value: 'family', label: '가족코칭' },
+  { value: 'life', label: '그 외 라이프코칭' }
+]
 
 // 프로필 데이터와 매핑되는 설문 항목 코드
 const PROFILE_MAPPED_ITEM_CODES = {
@@ -208,13 +219,22 @@ export default function ApplicationSubmitPage() {
   // 사용자 정보로 폼 초기화
   useEffect(() => {
     if (user) {
+      // coaching_fields 파싱
+      const coachingFields = user.coaching_fields && user.coaching_fields !== 'null'
+        ? JSON.parse(user.coaching_fields)
+        : []
+
       form.setFieldsValue({
         profile_name: user.name,
         profile_phone: user.phone,
         profile_birth_year: user.birth_year,
         profile_gender: user.gender,
         profile_address: user.address,
-        profile_in_person_coaching_area: user.in_person_coaching_area
+        profile_in_person_coaching_area: user.in_person_coaching_area,
+        profile_coach_certification_number: user.coach_certification_number,
+        profile_organization: user.organization,
+        profile_coaching_fields: coachingFields,
+        profile_introduction: user.introduction
       })
     }
   }, [user, form])
@@ -459,7 +479,7 @@ export default function ApplicationSubmitPage() {
         const hasPrefilledData = Object.keys(formValues).length > 0 ||
           Object.values(newRepeatableData).some(entries => entries.some(e => Object.keys(e).length > 0))
         if (hasPrefilledData) {
-          message.info('기존에 입력한 세부정보를 불러왔습니다.')
+          message.info('기존에 입력한 역량 정보를 불러왔습니다.')
         }
       } catch (error) {
         console.error('기존 역량 정보 로드 실패:', error)
@@ -483,8 +503,15 @@ export default function ApplicationSubmitPage() {
   const handleProfileFieldChange = () => {
     const currentValues = form.getFieldsValue([
       'profile_name', 'profile_phone', 'profile_birth_year',
-      'profile_gender', 'profile_address', 'profile_in_person_coaching_area'
+      'profile_gender', 'profile_address', 'profile_in_person_coaching_area',
+      'profile_coach_certification_number', 'profile_organization',
+      'profile_coaching_fields', 'profile_introduction'
     ])
+
+    // 기존 coaching_fields 파싱
+    const existingCoachingFields = user?.coaching_fields && user.coaching_fields !== 'null'
+      ? JSON.parse(user.coaching_fields)
+      : []
 
     const changed =
       currentValues.profile_name !== user?.name ||
@@ -492,7 +519,11 @@ export default function ApplicationSubmitPage() {
       currentValues.profile_birth_year !== user?.birth_year ||
       currentValues.profile_gender !== user?.gender ||
       currentValues.profile_address !== user?.address ||
-      currentValues.profile_in_person_coaching_area !== user?.in_person_coaching_area
+      currentValues.profile_in_person_coaching_area !== user?.in_person_coaching_area ||
+      currentValues.profile_coach_certification_number !== user?.coach_certification_number ||
+      currentValues.profile_organization !== user?.organization ||
+      JSON.stringify(currentValues.profile_coaching_fields || []) !== JSON.stringify(existingCoachingFields) ||
+      currentValues.profile_introduction !== user?.introduction
 
     setProfileChanged(changed)
   }
@@ -503,7 +534,9 @@ export default function ApplicationSubmitPage() {
     try {
       const values = form.getFieldsValue([
         'profile_name', 'profile_phone', 'profile_birth_year',
-        'profile_gender', 'profile_address', 'profile_in_person_coaching_area'
+        'profile_gender', 'profile_address', 'profile_in_person_coaching_area',
+        'profile_coach_certification_number', 'profile_organization',
+        'profile_coaching_fields', 'profile_introduction'
       ])
 
       const updateData: UserUpdateData = {
@@ -512,7 +545,11 @@ export default function ApplicationSubmitPage() {
         birth_year: values.profile_birth_year,
         gender: values.profile_gender,
         address: values.profile_address,
-        in_person_coaching_area: values.profile_in_person_coaching_area
+        in_person_coaching_area: values.profile_in_person_coaching_area,
+        coach_certification_number: values.profile_coach_certification_number,
+        organization: values.profile_organization,
+        coaching_fields: values.profile_coaching_fields,
+        introduction: values.profile_introduction
       }
 
       const updatedUser = await authService.updateProfile(updateData)
@@ -1100,11 +1137,54 @@ export default function ApplicationSubmitPage() {
     }
   }
 
+  // 역량정보 입력 검증
+  const validateSurveyData = (): { valid: boolean; message?: string } => {
+    // 필수 항목 검증
+    const requiredItems = projectItems.filter(item => item.is_required && item.competency_item)
+
+    for (const item of requiredItems) {
+      const competencyItem = item.competency_item
+      if (!competencyItem) continue
+
+      const isRepeatable = competencyItem.is_repeatable
+
+      if (isRepeatable) {
+        // 반복 가능 항목: 최소 1개 이상의 entry 필요
+        const entries = repeatableData[item.project_item_id] || []
+        if (entries.length === 0) {
+          return {
+            valid: false,
+            message: `"${competencyItem.item_name}" 항목은 필수입니다. 최소 1개 이상 입력해주세요.`
+          }
+        }
+      } else {
+        // 일반 항목: 값이 있어야 함
+        const fieldValue = form.getFieldValue(`item_${item.project_item_id}`)
+        if (fieldValue === undefined || fieldValue === null || fieldValue === '') {
+          return {
+            valid: false,
+            message: `"${competencyItem.item_name}" 항목은 필수입니다.`
+          }
+        }
+      }
+    }
+
+    return { valid: true }
+  }
+
   // 제출 전 동기화 확인창 표시
   const handleSubmitWithConfirmation = (values: any) => {
+    // 역량정보 검증
+    const validation = validateSurveyData()
+    if (!validation.valid) {
+      message.error(validation.message)
+      setActiveTab('survey')  // 역량 정보 탭으로 이동
+      return
+    }
+
     Modal.confirm({
       title: '변경사항 동기화',
-      content: '이 변경사항이 "세부정보" 화면에도 반영됩니다. 계속하시겠습니까?',
+      content: '이 변경사항이 "역량 정보" 화면에도 반영됩니다. 계속하시겠습니까?',
       okText: '반영',
       cancelText: '취소',
       onOk: () => handleSubmit(values)
@@ -1367,8 +1447,13 @@ export default function ApplicationSubmitPage() {
                           <Form.Item label="이메일">
                             <Input value={user?.email || ''} disabled />
                           </Form.Item>
+                          <Form.Item label="역할">
+                            <Input value={user?.roles ? JSON.parse(user.roles).map((r: string) =>
+                              r === 'coach' ? '코치' : r === 'staff' ? '심사위원' : r === 'admin' ? '관리자' : r
+                            ).join(', ') : ''} disabled />
+                          </Form.Item>
                           <Form.Item label="전화번호" name="profile_phone">
-                            <Input onChange={handleProfileFieldChange} />
+                            <Input onChange={handleProfileFieldChange} placeholder="010-1234-5678" />
                           </Form.Item>
                           <Form.Item label="생년" name="profile_birth_year">
                             <InputNumber
@@ -1376,22 +1461,46 @@ export default function ApplicationSubmitPage() {
                               min={1900}
                               max={new Date().getFullYear()}
                               onChange={handleProfileFieldChange}
+                              placeholder="예: 1985"
                             />
                           </Form.Item>
                           <Form.Item label="성별" name="profile_gender">
-                            <Select onChange={handleProfileFieldChange}>
+                            <Select onChange={handleProfileFieldChange} placeholder="성별 선택">
                               <Select.Option value="남성">남성</Select.Option>
                               <Select.Option value="여성">여성</Select.Option>
-                              <Select.Option value="기타">기타</Select.Option>
                             </Select>
                           </Form.Item>
-                          <Form.Item label="주소" name="profile_address">
-                            <Input onChange={handleProfileFieldChange} />
+                          <Form.Item label="코치 자격증 번호 (최상위 자격)" name="profile_coach_certification_number">
+                            <Input onChange={handleProfileFieldChange} placeholder="최상위 자격증 번호" />
                           </Form.Item>
-                          <Form.Item label="대면코칭 가능지역" name="profile_in_person_coaching_area" className="md:col-span-2">
+                          <Form.Item label="주소 (시/군/구)" name="profile_address">
+                            <Input onChange={handleProfileFieldChange} placeholder="시/군/구 단위로 입력 (예: 서울시 강남구)" />
+                          </Form.Item>
+                          <Form.Item label="소속" name="profile_organization">
+                            <Input onChange={handleProfileFieldChange} placeholder="소속 기관/단체명 (선택)" />
+                          </Form.Item>
+                          <Form.Item label="대면코칭 가능 지역" name="profile_in_person_coaching_area">
                             <Input onChange={handleProfileFieldChange} placeholder="예: 서울 전지역, 경기 남부" />
                           </Form.Item>
                         </div>
+                        <Form.Item label="코칭 분야 (복수 선택 가능)" name="profile_coaching_fields" className="mt-4">
+                          <Checkbox.Group onChange={handleProfileFieldChange}>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                              {COACHING_FIELDS.map(field => (
+                                <Checkbox key={field.value} value={field.value}>
+                                  {field.label}
+                                </Checkbox>
+                              ))}
+                            </div>
+                          </Checkbox.Group>
+                        </Form.Item>
+                        <Form.Item label="자기소개" name="profile_introduction">
+                          <Input.TextArea
+                            rows={3}
+                            onChange={handleProfileFieldChange}
+                            placeholder="본인을 소개해 주세요 (선택)"
+                          />
+                        </Form.Item>
                         {!isViewMode && (
                           <Alert
                             type="info"
