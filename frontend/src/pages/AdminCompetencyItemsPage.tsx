@@ -438,7 +438,7 @@ export default function AdminCompetencyItemsPage() {
           <Space>
             <Popconfirm
               title="⚠️ 역량항목 전체 삭제"
-              description="모든 역량항목과 필드를 삭제합니다. 이 작업은 되돌릴 수 없습니다!"
+              description="모든 역량항목, 필드, 코치역량 데이터를 삭제합니다. 이 작업은 되돌릴 수 없습니다!"
               onConfirm={handleClear}
               okText="전체 삭제"
               cancelText="취소"

@@ -540,21 +540,34 @@ async def clear_competency_items(
     secret_key: str,
     db: AsyncSession = Depends(get_db)
 ):
-    """Clear all competency items (requires secret key)"""
+    """Clear all competency items (requires secret key)
+
+    WARNING: This will also delete all coach_competencies data!
+    """
     if secret_key != "coachdb2024!":
         raise HTTPException(status_code=403, detail="Invalid secret key")
 
     from sqlalchemy import text
     try:
-        # Delete fields first (FK constraint)
+        # FK 순서대로 삭제:
+        # 1. application_data (linked_competency_id → coach_competencies)
+        await db.execute(text("UPDATE application_data SET linked_competency_id = NULL"))
+        # 2. verification_records (competency_id → coach_competencies)
+        await db.execute(text("DELETE FROM verification_records"))
+        # 3. coach_competencies (item_id → competency_items)
+        await db.execute(text("DELETE FROM coach_competencies"))
+        # 4. competency_item_fields (item_id → competency_items)
         await db.execute(text("DELETE FROM competency_item_fields"))
-        # Then delete items
+        # 5. competency_items
         await db.execute(text("DELETE FROM competency_items"))
         await db.commit()
-        return {"message": "All competency items cleared"}
+        return {"message": "All competency items and related data cleared"}
     except Exception as e:
         import traceback
-        return {"error": str(e), "traceback": traceback.format_exc()}
+        raise HTTPException(
+            status_code=500,
+            detail=f"Clear failed: {str(e)}"
+        )
 
 
 @router.post("/seed-competency-items")
