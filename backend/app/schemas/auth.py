@@ -67,6 +67,7 @@ class UserUpdate(BaseModel):
     in_person_coaching_area: Optional[str] = Field(default=None, max_length=500)
     coach_certification_number: Optional[str] = Field(default=None, max_length=50)
     coaching_fields: Optional[List[str]] = Field(default=None)
+    introduction: Optional[str] = Field(default=None)  # 자기소개
 
 
 # Response Schemas
@@ -92,6 +93,7 @@ class UserResponse(BaseModel):
     status: UserStatus
     coach_certification_number: Optional[str]
     coaching_fields: Optional[str]  # JSON string
+    introduction: Optional[str]  # 자기소개
     created_at: datetime
     updated_at: datetime
 

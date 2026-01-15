@@ -807,38 +807,6 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
     </Card>
   )
 
-  const renderBasicInfoSection = () => {
-    return (
-      <Panel header="기본정보 (평가 대상 아님)" key="BASIC">
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Text strong>이름</Text>
-              <div><Text>{user?.name || '-'}</Text></div>
-            </div>
-            <div>
-              <Text strong>이메일</Text>
-              <div><Text>{user?.email || '-'}</Text></div>
-            </div>
-            <div>
-              <Text strong>전화번호</Text>
-              <div><Text>{user?.phone || '-'}</Text></div>
-            </div>
-            <div>
-              <Text strong>주소</Text>
-              <div><Text>{user?.address || '-'}</Text></div>
-            </div>
-            <div className="col-span-2">
-              <Text strong>주소</Text>
-              <div><Text>{user?.address || '-'}</Text></div>
-              <Text type="secondary" className="text-xs">※ 주소 정보</Text>
-            </div>
-          </div>
-        </div>
-      </Panel>
-    )
-  }
-
   // 공통 섹션 렌더링 함수
   const renderCategorySection = (category: string, title: string, description?: string) => {
     const items = groupedItems[category] || []
@@ -942,11 +910,11 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
   }
 
   const renderExperienceSection = () => {
-    return renderCategorySection('EXPERIENCE', '역량이력', '코칭 경력, 누적 코칭 시간, 멘토링 경험 등을 등록하세요.')
+    return renderCategorySection('EXPERIENCE', '코칭경력', '누적 코칭 시간 및 코칭 경력을 등록하세요.')
   }
 
   const renderOtherSection = () => {
-    return renderCategorySection('OTHER', '기타', '전문 분야, 자기소개 등을 등록하세요.')
+    return renderCategorySection('OTHER', '기타', '기타 항목을 등록하세요.')
   }
 
   const renderTrainingSection = () => {
@@ -1015,14 +983,14 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
         key="TRAINING"
         extra={
           <Button
-            type="primary"
+            type="dashed"
             size="small"
             onClick={(e) => {
               e.stopPropagation()
               handleAddEducation()
             }}
           >
-            + 연수 추가
+            + 추가
           </Button>
         }
       >
@@ -1090,8 +1058,7 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
           {loading && !competencyItems.length ? (
             <div className="text-center py-8">데이터를 불러오는 중...</div>
           ) : (
-            <Collapse defaultActiveKey={['BASIC', 'CERTIFICATION']}>
-              {renderBasicInfoSection()}
+            <Collapse defaultActiveKey={['CERTIFICATION']}>
               {renderCertificationSection()}
               {renderCategorySection('EDUCATION', '학력', '코칭/상담 관련 학위 및 기타 학위를 등록하세요.')}
               {renderTrainingSection()}

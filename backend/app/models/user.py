@@ -1,4 +1,4 @@
-from sqlalchemy import Column, BigInteger, Integer, String, Enum, DateTime, func
+from sqlalchemy import Column, BigInteger, Integer, String, Text, Enum, DateTime, func
 from sqlalchemy.orm import relationship
 import enum
 
@@ -40,6 +40,7 @@ class User(Base):
     status = Column(Enum(UserStatus), nullable=False, default=UserStatus.ACTIVE)
     coach_certification_number = Column(String(50), nullable=True)  # 최상위 자격
     coaching_fields = Column(String(500), nullable=True)  # JSON array of coaching fields
+    introduction = Column(Text, nullable=True)  # 자기소개
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
     deleted_at = Column(DateTime(timezone=True), nullable=True)

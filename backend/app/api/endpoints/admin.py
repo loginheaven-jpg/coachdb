@@ -574,47 +574,50 @@ async def seed_competency_items(
     except Exception as e:
         return {"error": f"Import failed: {str(e)}"}
 
-    # 원래 항목 코드 (프론트엔드 SurveyBuilder와 동기화)
+    # 재설계된 역량 항목 구조 (2026-01-15)
     items_data = [
-        # ===== 자격증 그룹 (ADDON_CERT_*) =====
+        # ===== 자격증 그룹 (CERTIFICATION) =====
         {
             "item_name": "코칭 관련 자격증",
-            "item_code": "ADDON_CERT_COACH",
-            "category": CompetencyCategory.ADDON,
+            "item_code": "CERT_COACH",
+            "category": CompetencyCategory.CERTIFICATION,
             "template": ItemTemplate.TEXT_FILE,
             "is_repeatable": True,
             "fields": [
                 {"field_name": "cert_name", "field_label": "자격증 명칭", "field_type": "text", "is_required": True, "display_order": 1},
-                {"field_name": "cert_file", "field_label": "자격증 업로드", "field_type": "file", "is_required": True, "display_order": 2}
+                {"field_name": "cert_year", "field_label": "취득연도", "field_type": "number", "is_required": True, "display_order": 2},
+                {"field_name": "cert_file", "field_label": "증빙서류", "field_type": "file", "is_required": True, "display_order": 3}
             ]
         },
         {
             "item_name": "상담/심리치료 관련 자격",
-            "item_code": "ADDON_CERT_COUNSELING",
-            "category": CompetencyCategory.ADDON,
+            "item_code": "CERT_COUNSELING",
+            "category": CompetencyCategory.CERTIFICATION,
             "template": ItemTemplate.TEXT_FILE,
             "is_repeatable": True,
             "fields": [
                 {"field_name": "cert_name", "field_label": "자격증 명칭", "field_type": "text", "is_required": True, "display_order": 1},
-                {"field_name": "cert_file", "field_label": "자격증 업로드", "field_type": "file", "is_required": True, "display_order": 2}
+                {"field_name": "cert_year", "field_label": "취득연도", "field_type": "number", "is_required": True, "display_order": 2},
+                {"field_name": "cert_file", "field_label": "증빙서류", "field_type": "file", "is_required": True, "display_order": 3}
             ]
         },
         {
             "item_name": "기타 자격증",
-            "item_code": "ADDON_CERT_OTHER",
-            "category": CompetencyCategory.ADDON,
+            "item_code": "CERT_OTHER",
+            "category": CompetencyCategory.CERTIFICATION,
             "template": ItemTemplate.TEXT_FILE,
             "is_repeatable": True,
             "fields": [
                 {"field_name": "cert_name", "field_label": "자격증 명칭", "field_type": "text", "is_required": True, "display_order": 1},
-                {"field_name": "cert_file", "field_label": "자격증 업로드", "field_type": "file", "is_required": True, "display_order": 2}
+                {"field_name": "cert_year", "field_label": "취득연도", "field_type": "number", "is_required": True, "display_order": 2},
+                {"field_name": "cert_file", "field_label": "증빙서류", "field_type": "file", "is_required": True, "display_order": 3}
             ]
         },
-        # ===== 학력 그룹 (EDU_*) =====
+        # ===== 학력 그룹 (EDUCATION) =====
         {
             "item_name": "코칭/상담 관련 최종학력",
-            "item_code": "EDU_DEGREE",
-            "category": CompetencyCategory.ADDON,
+            "item_code": "EDU_COACHING",
+            "category": CompetencyCategory.EDUCATION,
             "template": ItemTemplate.DEGREE,
             "template_config": json.dumps({"degree_options": ["박사", "석사", "학사", "전문학사", "없음"]}),
             "is_repeatable": False,
@@ -628,8 +631,8 @@ async def seed_competency_items(
         },
         {
             "item_name": "기타 분야 최종학력",
-            "item_code": "COACH_DEGREE",
-            "category": CompetencyCategory.ADDON,
+            "item_code": "EDU_OTHER",
+            "category": CompetencyCategory.EDUCATION,
             "template": ItemTemplate.DEGREE,
             "template_config": json.dumps({"degree_options": ["박사", "석사", "학사", "전문학사", "없음"]}),
             "is_repeatable": False,
@@ -641,77 +644,36 @@ async def seed_competency_items(
                 {"field_name": "proof", "field_label": "증빙 업로드", "field_type": "file", "is_required": False, "display_order": 4}
             ]
         },
-        # ===== 역량 이력 그룹 (ADDON_*) =====
+        # ===== 코칭연수 그룹 (EXPERIENCE - 별도 그룹) =====
+        {
+            "item_name": "코칭관련 연수",
+            "item_code": "EXP_COACHING_TRAINING",
+            "category": CompetencyCategory.EXPERIENCE,
+            "template": ItemTemplate.COACHING_TIME,
+            "is_repeatable": True,
+            "max_entries": 20,
+            "fields": [
+                {"field_name": "description", "field_label": "연수명/내용", "field_type": "text", "is_required": True, "display_order": 1},
+                {"field_name": "year", "field_label": "이수연도", "field_type": "number", "is_required": True, "display_order": 2},
+                {"field_name": "hours", "field_label": "이수시간", "field_type": "number", "is_required": True, "display_order": 3},
+                {"field_name": "proof", "field_label": "증빙서류", "field_type": "file", "is_required": False, "display_order": 4}
+            ]
+        },
+        # ===== 코칭경력 그룹 (EXPERIENCE) =====
         {
             "item_name": "누적 코칭 시간",
-            "item_code": "ADDON_COACHING_HOURS",
-            "category": CompetencyCategory.ADDON,
+            "item_code": "EXP_COACHING_HOURS",
+            "category": CompetencyCategory.EXPERIENCE,
             "template": ItemTemplate.NUMBER,
             "is_repeatable": False,
             "fields": [
                 {"field_name": "hours", "field_label": "시간", "field_type": "number", "is_required": True, "display_order": 1},
-                {"field_name": "proof", "field_label": "증빙 업로드", "field_type": "file", "is_required": False, "display_order": 2}
-            ]
-        },
-        {
-            "item_name": "코칭 경력 및 이력",
-            "item_code": "ADDON_COACHING_HISTORY",
-            "category": CompetencyCategory.ADDON,
-            "template": ItemTemplate.COACHING_HISTORY,
-            "is_repeatable": True,
-            "fields": [
-                {"field_name": "history", "field_label": "경력 내용", "field_type": "text", "is_required": True, "display_order": 1},
-                {"field_name": "period", "field_label": "기간", "field_type": "text", "is_required": False, "display_order": 2},
-                {"field_name": "proof", "field_label": "증빙 업로드", "field_type": "file", "is_required": False, "display_order": 3}
-            ]
-        },
-        {
-            "item_name": "직장 경력",
-            "item_code": "ADDON_WORK_EXPERIENCE",
-            "category": CompetencyCategory.ADDON,
-            "template": ItemTemplate.TEXT_FILE,
-            "is_repeatable": True,
-            "fields": [
-                {"field_name": "company", "field_label": "회사명", "field_type": "text", "is_required": True, "display_order": 1},
-                {"field_name": "position", "field_label": "직책", "field_type": "text", "is_required": True, "display_order": 2},
-                {"field_name": "period", "field_label": "근무기간", "field_type": "text", "is_required": True, "display_order": 3},
-                {"field_name": "proof", "field_label": "증빙 업로드", "field_type": "file", "is_required": False, "display_order": 4}
-            ]
-        },
-        {
-            "item_name": "코칭 연수 이력",
-            "item_code": "ADDON_COACH_TRAINING",
-            "category": CompetencyCategory.ADDON,
-            "template": ItemTemplate.TEXT_FILE,
-            "is_repeatable": True,
-            "fields": [
-                {"field_name": "training_name", "field_label": "연수명", "field_type": "text", "is_required": True, "display_order": 1},
-                {"field_name": "institution", "field_label": "교육기관", "field_type": "text", "is_required": True, "display_order": 2},
-                {"field_name": "hours", "field_label": "이수시간", "field_type": "number", "is_required": False, "display_order": 3},
-                {"field_name": "proof", "field_label": "증빙 업로드", "field_type": "file", "is_required": False, "display_order": 4}
-            ]
-        },
-        # ===== 기타 (비그룹 항목) =====
-        {
-            "item_name": "자기소개",
-            "item_code": "ADDON_INTRO",
-            "category": CompetencyCategory.ADDON,
-            "template": ItemTemplate.TEXT,
-            "is_repeatable": False,
-            "fields": [
-                {"field_name": "intro", "field_label": "자기소개", "field_type": "text", "is_required": True, "display_order": 1}
-            ]
-        },
-        {
-            "item_name": "전문 분야",
-            "item_code": "ADDON_SPECIALTY",
-            "category": CompetencyCategory.ADDON,
-            "template": ItemTemplate.TEXT,
-            "is_repeatable": False,
-            "fields": [
-                {"field_name": "specialty", "field_label": "전문 분야", "field_type": "text", "is_required": True, "display_order": 1}
+                {"field_name": "proof", "field_label": "코칭일지", "field_type": "file", "is_required": False, "display_order": 2}
             ]
         }
+        # 기타 그룹 (OTHER): 기본 항목 없음 - 커스텀 항목만 추가 가능
+        # 자기소개: users.introduction으로 이동
+        # 전문분야: 삭제
     ]
 
     created_count = 0

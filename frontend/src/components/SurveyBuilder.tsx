@@ -256,18 +256,18 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
   }
 
   // 카테고리별 그룹명 매핑 (백엔드 CompetencyCategory enum과 일치)
-  // 기존 정의된 항목들은 모두 역량이력으로, '기타'는 커스텀 추가 항목 전용
+  // EXPERIENCE → 코칭경력, OTHER → 기타 (커스텀 항목 전용)
   const CATEGORY_GROUP_MAP: Record<string, string> = {
     'BASIC': '기본정보',
     'CERTIFICATION': '자격증',
     'EDUCATION': '학력',
-    'EXPERIENCE': '역량이력',
-    'OTHER': '역량이력',      // OTHER → 역량이력으로 변경 (기타는 커스텀 전용)
+    'EXPERIENCE': '코칭경력',
+    'OTHER': '기타',          // OTHER → 기타 (커스텀 항목 전용)
     // Legacy 카테고리 호환
-    'DETAIL': '역량이력',     // DETAIL → 역량이력으로 매핑
-    'ADDON': '역량이력',      // ADDON → 역량이력으로 변경 (기타는 커스텀 전용)
-    'COACHING': '역량이력',   // COACHING → 역량이력으로 매핑
-    'EVALUATION': '역량이력', // EVALUATION → 역량이력으로 매핑
+    'DETAIL': '코칭경력',     // DETAIL → 코칭경력으로 매핑
+    'ADDON': '코칭경력',      // ADDON → 코칭경력으로 변경
+    'COACHING': '코칭경력',   // COACHING → 코칭경력으로 매핑
+    'EVALUATION': '코칭경력', // EVALUATION → 코칭경력으로 매핑
     'INFO': '기본정보'        // INFO → 기본정보로 매핑
   }
 
@@ -276,14 +276,14 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
     '기본정보': 1,
     '자격증': 2,
     '학력': 3,
-    '역량이력': 4,
+    '코칭경력': 4,
     '기타': 5
   }
 
   // 그룹 우선순위 반환 (카테고리 기반)
   const getGroupPriority = (category: string, isCustom: boolean): number => {
-    if (isCustom) return 5  // 커스텀 항목은 기타 그룹
-    const groupName = CATEGORY_GROUP_MAP[category] || '역량이력'
+    if (isCustom && category === 'OTHER') return 5  // 커스텀 + OTHER 카테고리는 기타 그룹
+    const groupName = CATEGORY_GROUP_MAP[category] || '코칭경력'
     return GROUP_PRIORITY[groupName] || 4
   }
 
@@ -291,21 +291,26 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
     const grouped: GroupedItems = {
       '자격증': [],
       '학력': [],
-      '역량이력': [],
+      '코칭경력': [],
       '기타': []
     }
 
     selections.forEach(selection => {
       const category = selection.item.category || 'EXPERIENCE'
 
-      // 커스텀 항목은 기타 그룹
+      // 커스텀 항목은 category에 따라 그룹 결정
       if (selection.item.is_custom) {
-        grouped['기타'].push(selection)
+        if (category === 'OTHER') {
+          grouped['기타'].push(selection)
+        } else {
+          // 코칭경력(EXPERIENCE) 커스텀 항목
+          grouped['코칭경력'].push(selection)
+        }
         return
       }
 
       // 카테고리에 따라 그룹 결정
-      const groupName = CATEGORY_GROUP_MAP[category] || '역량이력'
+      const groupName = CATEGORY_GROUP_MAP[category] || '코칭경력'
 
       // 기본정보(BASIC)는 User 테이블에서 직접 표시하므로 설문에서 제외
       if (groupName === '기본정보') {
@@ -315,7 +320,7 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
       if (grouped[groupName]) {
         grouped[groupName].push(selection)
       } else {
-        grouped['역량이력'].push(selection)  // 매핑되지 않은 카테고리는 역량이력으로
+        grouped['코칭경력'].push(selection)  // 매핑되지 않은 카테고리는 코칭경력으로
       }
     })
 
@@ -512,12 +517,20 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
   const getFieldsForTemplate = (template: string, itemName: string, values: any) => {
     switch (template) {
       case ItemTemplate.COACHING_TIME:
-        // 코칭시간: 내용 + 연도 + 시간 + 증빙
+        // 코칭연수: 내용 + 연도 + 시간 + 증빙
         return [
-          { field_name: 'description', field_label: '내용', field_type: 'text', is_required: true, display_order: 0, placeholder: '예: 한국한부모협회 주관' },
+          { field_name: 'description', field_label: '연수명/내용', field_type: 'text', is_required: true, display_order: 0, placeholder: '예: 한국한부모협회 주관' },
+          { field_name: 'year', field_label: '이수연도', field_type: 'number', is_required: true, display_order: 1, placeholder: '예: 2024' },
+          { field_name: 'hours', field_label: '이수시간', field_type: 'number', is_required: true, display_order: 2, placeholder: '예: 12' },
+          { field_name: 'proof', field_label: '증빙서류', field_type: 'file', is_required: false, display_order: 3 }
+        ]
+      case ItemTemplate.COACHING_EXPERIENCE:
+        // 코칭경력: 기관명 + 연도 + 시간 + 증빙
+        return [
+          { field_name: 'org_name', field_label: '코칭과제/기관명', field_type: 'text', is_required: true, display_order: 0, placeholder: '예: 청년재단 코칭사업' },
           { field_name: 'year', field_label: '연도', field_type: 'number', is_required: true, display_order: 1, placeholder: '예: 2024' },
-          { field_name: 'hours', field_label: '시간', field_type: 'number', is_required: true, display_order: 2, placeholder: '예: 12' },
-          { field_name: 'proof', field_label: '증빙자료', field_type: 'file', is_required: false, display_order: 3 }
+          { field_name: 'hours', field_label: '코칭시간', field_type: 'number', is_required: true, display_order: 2, placeholder: '예: 50' },
+          { field_name: 'proof', field_label: '증빙서류', field_type: 'file', is_required: false, display_order: 3 }
         ]
       case ItemTemplate.SELECT:
       case ItemTemplate.MULTISELECT:
@@ -553,10 +566,12 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
     try {
       const template = values.template || ItemTemplate.TEXT
       const fields = getFieldsForTemplate(template, values.item_name, values)
+      // 선택한 그룹에 따라 category 설정 (EXPERIENCE: 코칭경력, OTHER: 기타)
+      const category = values.target_category || 'EXPERIENCE'
 
       const createData: CompetencyItemCreate = {
         item_name: values.item_name,
-        category: 'ADDON',  // Default category (대문자 필수)
+        category: category,  // EXPERIENCE(코칭경력) 또는 OTHER(기타)
         input_type: 'text',  // Deprecated but required
         template: template,
         template_config: values.field_options ? JSON.stringify({ options: values.field_options.split('\n').filter((o: string) => o.trim()) }) : null,
@@ -632,10 +647,11 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
 
       <Space direction="vertical" style={{ width: '100%' }} size="large">
         {/* Item Groups */}
-        <Collapse defaultActiveKey={['자격증', '학력', '역량이력', '기타']}>
+        <Collapse defaultActiveKey={['자격증', '학력', '코칭경력', '기타']}>
           {Object.entries(grouped).map(([category, items]) => {
-            // '기타' 그룹은 항목이 없어도 표시 (+ 추가 버튼이 있으므로)
-            if (items.length === 0 && category !== '기타') return null
+            // '기타'와 '코칭경력' 그룹은 항목이 없어도 표시 (+ 추가 버튼이 있으므로)
+            const showEmptyGroup = category === '기타' || category === '코칭경력'
+            if (items.length === 0 && !showEmptyGroup) return null
 
             return (
               <Panel
@@ -643,8 +659,8 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                 header={
                   <Space>
                     <Text strong>{category}</Text>
-                    {category === '기타' && (
-                      <Tag color="purple">{items.length}개 추가됨</Tag>
+                    {(category === '기타' || category === '코칭경력') && items.filter(i => i.item.is_custom).length > 0 && (
+                      <Tag color="purple">{items.filter(i => i.item.is_custom).length}개 커스텀</Tag>
                     )}
                   </Space>
                 }
@@ -789,13 +805,19 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                     </Card>
                   ))}
 
-                  {/* '기타' 그룹에 항목 추가 버튼 표시 */}
-                  {category === '기타' && (
+                  {/* '코칭경력'과 '기타' 그룹에 항목 추가 버튼 표시 */}
+                  {(category === '기타' || category === '코칭경력') && (
                     <Button
                       type="dashed"
                       icon={<PlusOutlined />}
                       block
-                      onClick={() => setShowCustomQuestionModal(true)}
+                      onClick={() => {
+                        // 선택한 그룹에 따라 category 설정
+                        customQuestionForm.setFieldsValue({
+                          target_category: category === '코칭경력' ? 'EXPERIENCE' : 'OTHER'
+                        })
+                        setShowCustomQuestionModal(true)
+                      }}
                     >
                       항목 추가
                     </Button>
@@ -861,9 +883,21 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
             onFinish={handleCreateCustomQuestion}
             initialValues={{
               template: ItemTemplate.TEXT,
-              is_repeatable: false
+              is_repeatable: false,
+              target_category: 'EXPERIENCE'
             }}
           >
+            <Form.Item
+              name="target_category"
+              label="추가할 그룹"
+              rules={[{ required: true, message: '그룹을 선택해주세요' }]}
+            >
+              <Select>
+                <Select.Option value="EXPERIENCE">코칭경력</Select.Option>
+                <Select.Option value="OTHER">기타</Select.Option>
+              </Select>
+            </Form.Item>
+
             <Form.Item
               name="item_name"
               label="항목 이름"
@@ -890,7 +924,8 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
               <Select>
                 <Select.Option value={ItemTemplate.TEXT}>텍스트 (짧은 답변)</Select.Option>
                 <Select.Option value={ItemTemplate.NUMBER}>숫자</Select.Option>
-                <Select.Option value={ItemTemplate.COACHING_TIME}>코칭시간 (내용 + 연도 + 시간 + 증빙)</Select.Option>
+                <Select.Option value={ItemTemplate.COACHING_TIME}>코칭연수 (내용 + 연도 + 시간 + 증빙)</Select.Option>
+                <Select.Option value={ItemTemplate.COACHING_EXPERIENCE}>코칭경력 (기관명 + 연도 + 시간 + 증빙)</Select.Option>
                 <Select.Option value={ItemTemplate.SELECT}>선택형 (단일)</Select.Option>
                 <Select.Option value={ItemTemplate.MULTISELECT}>선택형 (복수)</Select.Option>
                 <Select.Option value={ItemTemplate.FILE}>파일 업로드</Select.Option>
@@ -1269,9 +1304,21 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
           onFinish={handleCreateCustomQuestion}
           initialValues={{
             template: ItemTemplate.TEXT,
-            is_repeatable: false
+            is_repeatable: false,
+            target_category: 'EXPERIENCE'
           }}
         >
+          <Form.Item
+            name="target_category"
+            label="추가할 그룹"
+            rules={[{ required: true, message: '그룹을 선택해주세요' }]}
+          >
+            <Select>
+              <Select.Option value="EXPERIENCE">코칭경력</Select.Option>
+              <Select.Option value="OTHER">기타</Select.Option>
+            </Select>
+          </Form.Item>
+
           <Form.Item
             name="item_name"
             label="항목 이름"
@@ -1298,7 +1345,8 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
             <Select>
               <Select.Option value={ItemTemplate.TEXT}>텍스트 (짧은 답변)</Select.Option>
               <Select.Option value={ItemTemplate.NUMBER}>숫자</Select.Option>
-              <Select.Option value={ItemTemplate.COACHING_TIME}>코칭시간 (내용 + 연도 + 시간 + 증빙)</Select.Option>
+              <Select.Option value={ItemTemplate.COACHING_TIME}>코칭연수 (내용 + 연도 + 시간 + 증빙)</Select.Option>
+              <Select.Option value={ItemTemplate.COACHING_EXPERIENCE}>코칭경력 (기관명 + 연도 + 시간 + 증빙)</Select.Option>
               <Select.Option value={ItemTemplate.SELECT}>선택형 (단일)</Select.Option>
               <Select.Option value={ItemTemplate.MULTISELECT}>선택형 (복수)</Select.Option>
               <Select.Option value={ItemTemplate.FILE}>파일 업로드</Select.Option>

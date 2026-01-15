@@ -303,6 +303,8 @@ async def update_profile(
         current_user.coach_certification_number = profile_data.coach_certification_number
     if profile_data.coaching_fields is not None:
         current_user.coaching_fields = json.dumps(profile_data.coaching_fields)
+    if profile_data.introduction is not None:
+        current_user.introduction = profile_data.introduction
 
     await db.commit()
     await db.refresh(current_user)

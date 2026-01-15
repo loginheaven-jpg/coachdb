@@ -32,6 +32,7 @@ export interface User {
   status: string  // string to accept backend values
   coach_certification_number?: string
   coaching_fields?: string  // JSON string array of coaching fields
+  introduction?: string  // 자기소개
   created_at: string
   updated_at?: string
   deleted_at?: string

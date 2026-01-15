@@ -28,11 +28,13 @@ export interface UserResponse {
   birth_year?: number  // 4-digit year
   gender?: string
   address: string
+  organization?: string  // 소속
   in_person_coaching_area?: string  // 대면코칭 가능지역
   roles: string  // JSON string of roles array
   status: string
   coach_certification_number?: string
   coaching_fields?: string  // JSON string of coaching fields
+  introduction?: string  // 자기소개
   created_at: string
   updated_at?: string
 }
@@ -47,6 +49,7 @@ export interface UserUpdateData {
   in_person_coaching_area?: string
   coach_certification_number?: string
   coaching_fields?: string[]
+  introduction?: string  // 자기소개
 }
 
 export interface AuthResponse {

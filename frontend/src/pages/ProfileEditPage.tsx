@@ -60,7 +60,8 @@ export default function ProfileEditPage() {
         in_person_coaching_area: user.in_person_coaching_area,
         roles: userRoles,
         coach_certification_number: user.coach_certification_number,
-        coaching_fields: coachingFields
+        coaching_fields: coachingFields,
+        introduction: user.introduction
       })
     }
   }, [user, form])
@@ -77,7 +78,8 @@ export default function ProfileEditPage() {
         organization: values.organization,
         in_person_coaching_area: values.in_person_coaching_area,
         coach_certification_number: values.coach_certification_number,
-        coaching_fields: values.coaching_fields
+        coaching_fields: values.coaching_fields,
+        introduction: values.introduction
       }
 
       const updatedUser = await authService.updateProfile(updateData)
@@ -249,6 +251,16 @@ export default function ProfileEditPage() {
               ))}
             </div>
           </Checkbox.Group>
+        </Form.Item>
+
+        <Form.Item
+          label="자기소개"
+          name="introduction"
+        >
+          <Input.TextArea
+            rows={4}
+            placeholder="본인을 소개해 주세요 (선택)"
+          />
         </Form.Item>
 
         <div className="flex gap-4">

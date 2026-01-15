@@ -38,6 +38,7 @@ class ItemTemplate(str, enum.Enum):
     DEGREE = "degree"                  # 학위 (선택 + 텍스트 + 파일)
     COACHING_HISTORY = "coaching_history"  # 코칭 분야 이력 + 증빙
     COACHING_TIME = "coaching_time"    # 코칭시간 (내용 + 연도 + 시간 + 증빙)
+    COACHING_EXPERIENCE = "coaching_experience"  # 코칭경력 (기관명 + 연도 + 시간 + 증빙)
 
 
 class MatchingType(str, enum.Enum):
