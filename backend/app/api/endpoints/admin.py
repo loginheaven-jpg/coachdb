@@ -577,7 +577,9 @@ async def seed_competency_items(
             CompetencyItem, CompetencyItemField,
             CompetencyCategory, InputType, ItemTemplate
         )
+        print(f"[SEED] Import successful: CompetencyCategory={CompetencyCategory}, ItemTemplate={ItemTemplate}")
     except Exception as e:
+        print(f"[SEED] Import failed: {str(e)}")
         return {"error": f"Import failed: {str(e)}"}
 
     # 재설계된 역량 항목 구조 (2026-01-15)
@@ -684,19 +686,24 @@ async def seed_competency_items(
 
     created_count = 0
     skipped_count = 0
+    print(f"[SEED] Starting seed with {len(items_data)} items")
 
     try:
         for item_data in items_data:
+            item_code = item_data["item_code"]
+            print(f"[SEED] Processing item: {item_code}")
+
             # Check if already exists
             result = await db.execute(
-                select(CompetencyItem).where(CompetencyItem.item_code == item_data["item_code"])
+                select(CompetencyItem).where(CompetencyItem.item_code == item_code)
             )
             existing = result.scalar_one_or_none()
             if existing:
+                print(f"[SEED] Item {item_code} already exists, skipping")
                 skipped_count += 1
                 continue
 
-            fields_data = item_data.pop("fields", [])
+            fields_data = item_data.get("fields", [])
 
             item = CompetencyItem(
                 item_name=item_data["item_name"],
@@ -712,6 +719,7 @@ async def seed_competency_items(
             )
             db.add(item)
             await db.flush()
+            print(f"[SEED] Created item {item_code} with item_id={item.item_id}")
 
             for field_data in fields_data:
                 field = CompetencyItemField(
@@ -727,10 +735,13 @@ async def seed_competency_items(
                 db.add(field)
 
             created_count += 1
+            print(f"[SEED] Item {item_code} created with {len(fields_data)} fields")
 
         await db.commit()
+        print(f"[SEED] Committed. Created={created_count}, Skipped={skipped_count}")
     except Exception as e:
         import traceback
+        print(f"[SEED] Error: {str(e)}\n{traceback.format_exc()}")
         return {"error": f"Seed failed: {str(e)}", "traceback": traceback.format_exc()}
 
     return {
