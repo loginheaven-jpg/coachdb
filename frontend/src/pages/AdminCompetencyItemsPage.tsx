@@ -21,8 +21,10 @@ import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
-  SettingOutlined
+  SettingOutlined,
+  SyncOutlined
 } from '@ant-design/icons'
+import api from '../services/api'
 import competencyService, {
   CompetencyItem,
   CompetencyItemCreate,
@@ -34,9 +36,13 @@ import competencyService, {
 const { Title, Text } = Typography
 
 const CATEGORY_OPTIONS = [
+  { label: '자격증', value: 'CERTIFICATION' },
+  { label: '학력', value: 'EDUCATION' },
+  { label: '코칭경력', value: 'EXPERIENCE' },
+  { label: '기타', value: 'OTHER' },
+  // Legacy categories
   { label: '기본정보', value: 'BASIC' },
   { label: '세부정보', value: 'DETAIL' },
-  { label: '학력', value: 'EDUCATION' },
   { label: '추가역량', value: 'ADDON' },
   { label: '코칭이력', value: 'COACHING' }
 ]
@@ -66,6 +72,7 @@ export default function AdminCompetencyItemsPage() {
   const [items, setItems] = useState<CompetencyItem[]>([])
   const [categoryFilter, setCategoryFilter] = useState<string | undefined>()
   const [showInactive, setShowInactive] = useState(false)
+  const [seedLoading, setSeedLoading] = useState(false)
 
   // Modal states
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -105,18 +112,41 @@ export default function AdminCompetencyItemsPage() {
     }
   }
 
+  const handleSeed = async () => {
+    setSeedLoading(true)
+    try {
+      const response = await api.post('/admin/seed-competency-items?secret_key=coachdb2024!')
+      const data = response.data
+      message.success(`역량항목 초기화 완료: ${data.created}개 생성, ${data.skipped}개 스킵`)
+      loadItems()
+    } catch (error: any) {
+      console.error('역량항목 초기화 실패:', error)
+      message.error(error.response?.data?.detail || '역량항목 초기화에 실패했습니다.')
+    } finally {
+      setSeedLoading(false)
+    }
+  }
+
   const getCategoryTag = (category: string) => {
     const colorMap: Record<string, string> = {
+      CERTIFICATION: 'gold',
+      EDUCATION: 'orange',
+      EXPERIENCE: 'green',
+      OTHER: 'default',
+      // Legacy
       BASIC: 'blue',
       DETAIL: 'green',
-      EDUCATION: 'orange',
       ADDON: 'purple',
       COACHING: 'cyan'
     }
     const labelMap: Record<string, string> = {
+      CERTIFICATION: '자격증',
+      EDUCATION: '학력',
+      EXPERIENCE: '코칭경력',
+      OTHER: '기타',
+      // Legacy
       BASIC: '기본정보',
       DETAIL: '세부정보',
-      EDUCATION: '학력',
       ADDON: '추가역량',
       COACHING: '코칭이력'
     }
@@ -390,14 +420,31 @@ export default function AdminCompetencyItemsPage() {
           >
             대시보드로 돌아가기
           </Button>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => setIsCreateModalOpen(true)}
-            size="large"
-          >
-            새 역량항목 추가
-          </Button>
+          <Space>
+            <Popconfirm
+              title="역량항목 초기화"
+              description="기본 역량항목(자격증, 학력, 코칭연수, 코칭경력)을 생성합니다. 이미 존재하는 항목은 스킵됩니다."
+              onConfirm={handleSeed}
+              okText="초기화"
+              cancelText="취소"
+            >
+              <Button
+                icon={<SyncOutlined />}
+                loading={seedLoading}
+                size="large"
+              >
+                역량항목 초기화
+              </Button>
+            </Popconfirm>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => setIsCreateModalOpen(true)}
+              size="large"
+            >
+              새 역량항목 추가
+            </Button>
+          </Space>
         </div>
 
         <Card>
