@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Typography, Card, Table, Tag, Button, Space, Input, Select, Modal, Checkbox, message, InputNumber, Divider, Badge } from 'antd'
-import { SearchOutlined, SaveOutlined, SettingOutlined, CheckOutlined, CloseOutlined, UserAddOutlined, DeleteOutlined, KeyOutlined } from '@ant-design/icons'
+import { SearchOutlined, SaveOutlined, SettingOutlined, CheckOutlined, CloseOutlined, UserAddOutlined, DeleteOutlined, KeyOutlined, AppstoreOutlined } from '@ant-design/icons'
 import UserCleanupModal from '../components/UserCleanupModal'
 import adminService, {
   UserListItem,
@@ -14,6 +15,7 @@ import adminService, {
 const { Title, Text } = Typography
 
 export default function UserManagementPage() {
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [users, setUsers] = useState<UserListItem[]>([])
   const [searchText, setSearchText] = useState('')
@@ -363,7 +365,15 @@ export default function UserManagementPage() {
 
   return (
     <div className="p-8">
-      <Title level={2}>사용자 및 시스템 관리</Title>
+      <div className="flex justify-between items-center mb-4">
+        <Title level={2} className="mb-0">사용자 및 시스템 관리</Title>
+        <Button
+          icon={<AppstoreOutlined />}
+          onClick={() => navigate('/admin/competency-items')}
+        >
+          역량항목 관리
+        </Button>
+      </div>
 
         {/* System Config Section */}
         <Card title={<><SettingOutlined /> 시스템 설정</>} className="mb-6">
