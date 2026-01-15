@@ -80,7 +80,7 @@ interface UploadedFileInfo {
   error?: string
 }
 
-// 사용자 프로필 항목 코드 (설문에서 제외됨 - 개인정보는 프로필에서 표시)
+// 사용자 프로필 항목 코드 (설문에서 제외됨 - 기본정보는 프로필에서 표시)
 const USER_PROFILE_ITEM_CODES = [
   'BASIC_NAME', 'BASIC_PHONE', 'BASIC_EMAIL', 'BASIC_ADDRESS',
   'BASIC_GENDER', 'BASIC_BIRTHDATE', 'DETAIL_COACHING_AREA', 'DETAIL_CERT_NUMBER'
@@ -499,7 +499,7 @@ export default function ApplicationSubmitPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectItems, isEditMode, competenciesLoaded])
 
-  // 개인정보 필드 변경 감지
+  // 기본정보 필드 변경 감지
   const handleProfileFieldChange = () => {
     const currentValues = form.getFieldsValue([
       'profile_name', 'profile_phone', 'profile_birth_year',
@@ -1384,7 +1384,7 @@ export default function ApplicationSubmitPage() {
                     ? '제출한 지원서 내용입니다.'
                     : (isEditMode
                       ? '제출한 지원서를 수정할 수 있습니다. 수정 후 다시 제출해주세요.'
-                      : <span><Text style={{ color: '#1890ff', fontWeight: 500 }}>'개인정보와 역량정보'</Text> 모두 입력한 후 제출해주세요.</span>)}
+                      : <span><Text style={{ color: '#1890ff', fontWeight: 500 }}>'기본정보와 역량정보'</Text> 모두 입력한 후 제출해주세요.</span>)}
                 </Text>
                 {isViewMode && existingApplication && (
                   <div className="mt-2">
@@ -1421,7 +1421,7 @@ export default function ApplicationSubmitPage() {
                     label: (
                       <span>
                         <UserOutlined />
-                        개인정보
+                        기본정보
                       </span>
                     ),
                     children: (
@@ -1506,7 +1506,7 @@ export default function ApplicationSubmitPage() {
                             type="info"
                             showIcon
                             message="다음 단계"
-                            description="개인정보 입력 후 '역량 정보' 탭에서 자격 및 경력을 입력해주세요."
+                            description="기본정보 입력 후 '역량 정보' 탭에서 자격 및 경력을 입력해주세요."
                             className="mt-4"
                           />
                         )}
