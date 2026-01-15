@@ -180,8 +180,10 @@ const extractEditableValue = (value: string | null | undefined): string => {
   }
 }
 
-// 삭제된/숨김 처리할 항목 코드 (기타 그룹에서 제외)
-const HIDDEN_ITEM_CODES = ['ADDON_INTRO', 'ADDON_SPECIALTY']
+// 삭제된/숨김 처리할 항목 코드
+// - ADDON_INTRO, ADDON_SPECIALTY: 레거시 항목 (삭제)
+// - EXP_COACHING_TRAINING: 코칭연수는 education_history 테이블 기반 별도 섹션에서 표시
+const HIDDEN_ITEM_CODES = ['ADDON_INTRO', 'ADDON_SPECIALTY', 'EXP_COACHING_TRAINING']
 
 // JSON 값을 보기 좋게 포맷팅하는 헬퍼 함수
 const formatCompetencyValue = (value: string | null | undefined): React.ReactNode => {

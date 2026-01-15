@@ -149,7 +149,7 @@ export default function ProfileEditPage() {
               { min: 2, message: '최소 2자 이상이어야 합니다!' }
             ]}
           >
-            <Input prefix={<UserOutlined />} placeholder="홍길동" />
+            <Input prefix={<UserOutlined />} disabled />
           </Form.Item>
 
           <Form.Item
