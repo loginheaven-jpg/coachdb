@@ -1480,7 +1480,93 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
               </Select>
             </Form.Item>
 
-            {selectedItemType === 'number' ? (
+            {/* 템플릿 기반 동적 필드 렌더링 */}
+            {selectedItemFields.length > 0 ? (
+              <div className="space-y-4">
+                {selectedItemFields
+                  .filter(field => field.field_type !== 'file') // 파일 필드는 별도 처리
+                  .sort((a, b) => a.display_order - b.display_order)
+                  .map(field => {
+                    // 필드 타입별 입력 컴포넌트
+                    const renderFieldInput = () => {
+                      switch (field.field_type) {
+                        case 'number':
+                          return (
+                            <InputNumber
+                              className="w-full"
+                              placeholder={field.placeholder || `${field.field_label}을(를) 입력하세요`}
+                              min={0}
+                            />
+                          )
+                        case 'select':
+                          const options = field.field_options ? JSON.parse(field.field_options) : []
+                          return (
+                            <Select placeholder={field.placeholder || `${field.field_label} 선택`}>
+                              {options.map((opt: string) => (
+                                <Option key={opt} value={opt}>{opt}</Option>
+                              ))}
+                            </Select>
+                          )
+                        default: // text
+                          return (
+                            <Input
+                              placeholder={field.placeholder || `${field.field_label}을(를) 입력하세요`}
+                            />
+                          )
+                      }
+                    }
+
+                    return (
+                      <Form.Item
+                        key={field.field_id}
+                        name={field.field_name}
+                        label={field.field_label}
+                        rules={field.is_required ? [{ required: true, message: `${field.field_label}을(를) 입력해주세요!` }] : []}
+                      >
+                        {renderFieldInput()}
+                      </Form.Item>
+                    )
+                  })}
+              </div>
+            ) : isDegreeItem ? (
+              <div className="grid grid-cols-2 gap-4">
+                <Form.Item
+                  name="degree_type"
+                  label="학위 유형"
+                  rules={[{ required: true, message: '학위 유형을 선택해주세요!' }]}
+                >
+                  <Select placeholder="학위 유형 선택">
+                    <Option value="associate">전문학사</Option>
+                    <Option value="bachelor">학사</Option>
+                    <Option value="master">석사</Option>
+                    <Option value="doctorate">박사</Option>
+                  </Select>
+                </Form.Item>
+                <Form.Item
+                  name="major"
+                  label="전공"
+                >
+                  <Input placeholder="전공명을 입력하세요" />
+                </Form.Item>
+                <Form.Item
+                  name="school"
+                  label="학교명"
+                >
+                  <Input placeholder="학교명을 입력하세요" />
+                </Form.Item>
+                <Form.Item
+                  name="graduation_year"
+                  label="졸업년도"
+                >
+                  <InputNumber
+                    className="w-full"
+                    placeholder="예: 2020"
+                    min={1950}
+                    max={2100}
+                  />
+                </Form.Item>
+              </div>
+            ) : selectedItemType === 'number' ? (
               <Form.Item
                 name="value"
                 label={selectedItemName || '값'}
@@ -1504,7 +1590,7 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
               </Form.Item>
             )}
 
-            {selectedItemType === 'file' && (
+            {selectedItemType === 'file' && !isDegreeItem && selectedItemFields.length === 0 && (
               <Form.Item
                 name="value"
                 label="설명 (선택사항)"
