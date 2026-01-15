@@ -542,31 +542,37 @@ async def clear_competency_items(
 ):
     """Clear all competency items (requires secret key)
 
-    WARNING: This will also delete all coach_competencies data!
+    WARNING: This will also delete all coach_competencies and related data!
     """
     if secret_key != "coachdb2024!":
         raise HTTPException(status_code=403, detail="Invalid secret key")
 
     from sqlalchemy import text
     try:
-        # FK 순서대로 삭제:
-        # 1. application_data (linked_competency_id → coach_competencies)
+        # FK 순서대로 삭제 (모든 FK 제약조건 처리):
+        # 1. application_data (linked_competency_id → coach_competencies, item_id → competency_items)
         await db.execute(text("UPDATE application_data SET linked_competency_id = NULL"))
+        await db.execute(text("DELETE FROM application_data"))
         # 2. verification_records (competency_id → coach_competencies)
         await db.execute(text("DELETE FROM verification_records"))
-        # 3. coach_competencies (item_id → competency_items)
+        # 3. review_locks (item_id → competency_items)
+        await db.execute(text("DELETE FROM review_locks"))
+        # 4. project_items (item_id → competency_items)
+        await db.execute(text("DELETE FROM project_items"))
+        # 5. coach_competencies (item_id → competency_items)
         await db.execute(text("DELETE FROM coach_competencies"))
-        # 4. competency_item_fields (item_id → competency_items)
+        # 6. competency_item_fields (item_id → competency_items)
         await db.execute(text("DELETE FROM competency_item_fields"))
-        # 5. competency_items
+        # 7. competency_items
         await db.execute(text("DELETE FROM competency_items"))
         await db.commit()
         return {"message": "All competency items and related data cleared"}
     except Exception as e:
         import traceback
+        await db.rollback()
         raise HTTPException(
             status_code=500,
-            detail=f"Clear failed: {str(e)}"
+            detail=f"Clear failed: {str(e)}\n{traceback.format_exc()}"
         )
 
 
