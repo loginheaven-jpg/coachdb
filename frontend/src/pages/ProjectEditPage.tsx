@@ -175,7 +175,7 @@ export default function ProjectEditPage() {
       label: (
         <span>
           <FormOutlined />
-          기본정보
+          과제정보
         </span>
       ),
       children: (

@@ -77,7 +77,7 @@ export default function ProjectCreatePage() {
           <div className="mb-6">
             <Title level={2} className="mb-2">새 과제 생성</Title>
             <Text className="text-gray-600">
-              코칭 과제의 기본 정보를 입력해주세요.
+              코칭 과제 정보를 입력해주세요.
             </Text>
           </div>
 

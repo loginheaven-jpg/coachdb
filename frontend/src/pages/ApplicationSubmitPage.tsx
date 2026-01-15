@@ -1447,11 +1447,6 @@ export default function ApplicationSubmitPage() {
                           <Form.Item label="이메일">
                             <Input value={user?.email || ''} disabled />
                           </Form.Item>
-                          <Form.Item label="역할">
-                            <Input value={user?.roles ? JSON.parse(user.roles).map((r: string) =>
-                              r === 'coach' ? '코치' : r === 'staff' ? '심사위원' : r === 'admin' ? '관리자' : r
-                            ).join(', ') : ''} disabled />
-                          </Form.Item>
                           <Form.Item label="전화번호" name="profile_phone">
                             <Input onChange={handleProfileFieldChange} placeholder="010-1234-5678" />
                           </Form.Item>
