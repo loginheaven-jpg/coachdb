@@ -549,28 +549,11 @@ async def clear_competency_items(
 
     from sqlalchemy import text
     try:
-        # FK 순서대로 삭제 (모든 FK 제약조건 처리):
-        # 1. application_data (linked_competency_id → coach_competencies, item_id → competency_items)
-        await db.execute(text("UPDATE application_data SET linked_competency_id = NULL"))
-        await db.execute(text("DELETE FROM application_data"))
-        # 2. verification_records (competency_id → coach_competencies)
-        await db.execute(text("DELETE FROM verification_records"))
-        # 3. notifications (related_competency_id → coach_competencies)
-        await db.execute(text("UPDATE notifications SET related_competency_id = NULL"))
-        # 4. review_locks (item_id → competency_items)
-        await db.execute(text("DELETE FROM review_locks"))
-        # 5. scoring_criteria (project_item_id → project_items)
-        await db.execute(text("DELETE FROM scoring_criteria"))
-        # 6. project_items (item_id → competency_items)
-        await db.execute(text("DELETE FROM project_items"))
-        # 7. coach_competencies (item_id → competency_items)
-        await db.execute(text("DELETE FROM coach_competencies"))
-        # 8. competency_item_fields (item_id → competency_items)
-        await db.execute(text("DELETE FROM competency_item_fields"))
-        # 9. competency_items
-        await db.execute(text("DELETE FROM competency_items"))
+        # PostgreSQL TRUNCATE CASCADE - 모든 FK 제약조건 자동 처리
+        # competency_items를 참조하는 모든 테이블도 함께 삭제됨
+        await db.execute(text("TRUNCATE TABLE competency_items CASCADE"))
         await db.commit()
-        return {"message": "All competency items and related data cleared"}
+        return {"message": "All competency items and related data cleared (CASCADE)"}
     except Exception as e:
         import traceback
         await db.rollback()
