@@ -61,6 +61,25 @@ function debounce<T extends (...args: any[]) => any>(
 const { Text } = Typography
 const { Panel } = Collapse
 
+// 기본항목 정의 (배점 없음, 포함/불포함만 설정)
+const BASIC_PROFILE_ITEMS = [
+  { id: 'name', name: '이름' },
+  { id: 'phone', name: '전화번호' },
+  { id: 'birth_year', name: '생년' },
+  { id: 'gender', name: '성별' },
+  { id: 'address', name: '주소 (시/군/구)' },
+  { id: 'coach_certification_number', name: '코치 자격증 번호' },
+  { id: 'organization', name: '소속' },
+  { id: 'in_person_coaching_area', name: '대면코칭 가능지역' },
+  { id: 'coaching_fields', name: '코칭분야' },
+  { id: 'introduction', name: '자기소개' }
+]
+
+const BASIC_APPLICATION_ITEMS = [
+  { id: 'applied_role', name: '신청역할' },
+  { id: 'motivation', name: '지원동기 및 기여점' }
+]
+
 // 등급별 배점 기본 템플릿 (항목 유형에 따라 자동 설정)
 interface GradeTemplateConfig {
   type: 'string' | 'numeric'
@@ -180,6 +199,14 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
   const [showPreview, setShowPreview] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
   const initialSelectionsRef = useRef<string>('')
+
+  // 기본항목 포함 상태 (기본값: 모두 true)
+  const [basicProfileIncluded, setBasicProfileIncluded] = useState<Record<string, boolean>>(
+    () => BASIC_PROFILE_ITEMS.reduce((acc, item) => ({ ...acc, [item.id]: true }), {})
+  )
+  const [basicApplicationIncluded, setBasicApplicationIncluded] = useState<Record<string, boolean>>(
+    () => BASIC_APPLICATION_ITEMS.reduce((acc, item) => ({ ...acc, [item.id]: true }), {})
+  )
 
   // 커스텀 질문 생성 모달
   const [showCustomQuestionModal, setShowCustomQuestionModal] = useState(false)
@@ -656,6 +683,48 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
       </div>
 
       <Space direction="vertical" style={{ width: '100%' }} size="large">
+        {/* 기본항목 - 프로필 */}
+        <Card size="small">
+          <div className="flex items-center gap-2 mb-3">
+            <Text strong>기본항목 (프로필)</Text>
+            <Tag color="blue">배점 없음</Tag>
+          </div>
+          <Space direction="vertical" style={{ width: '100%' }}>
+            {BASIC_PROFILE_ITEMS.map(item => (
+              <div key={item.id} className="flex items-center gap-3 py-1">
+                <Switch
+                  checked={basicProfileIncluded[item.id]}
+                  onChange={(checked) => setBasicProfileIncluded(prev => ({ ...prev, [item.id]: checked }))}
+                  checkedChildren="포함"
+                  unCheckedChildren="불포함"
+                />
+                <Text>{item.name}</Text>
+              </div>
+            ))}
+          </Space>
+        </Card>
+
+        {/* 기본항목 - 신청서 */}
+        <Card size="small">
+          <div className="flex items-center gap-2 mb-3">
+            <Text strong>기본항목 (신청서)</Text>
+            <Tag color="blue">배점 없음</Tag>
+          </div>
+          <Space direction="vertical" style={{ width: '100%' }}>
+            {BASIC_APPLICATION_ITEMS.map(item => (
+              <div key={item.id} className="flex items-center gap-3 py-1">
+                <Switch
+                  checked={basicApplicationIncluded[item.id]}
+                  onChange={(checked) => setBasicApplicationIncluded(prev => ({ ...prev, [item.id]: checked }))}
+                  checkedChildren="포함"
+                  unCheckedChildren="불포함"
+                />
+                <Text>{item.name}</Text>
+              </div>
+            ))}
+          </Space>
+        </Card>
+
         {/* Item Groups */}
         <Collapse defaultActiveKey={['자격증', '학력', '코칭연수', '코칭경력', '기타']}>
           {Object.entries(grouped).map(([category, items]) => {
