@@ -555,15 +555,17 @@ async def clear_competency_items(
         await db.execute(text("DELETE FROM application_data"))
         # 2. verification_records (competency_id → coach_competencies)
         await db.execute(text("DELETE FROM verification_records"))
-        # 3. review_locks (item_id → competency_items)
+        # 3. notifications (related_competency_id → coach_competencies)
+        await db.execute(text("UPDATE notifications SET related_competency_id = NULL"))
+        # 4. review_locks (item_id → competency_items)
         await db.execute(text("DELETE FROM review_locks"))
-        # 4. project_items (item_id → competency_items)
+        # 5. project_items (item_id → competency_items)
         await db.execute(text("DELETE FROM project_items"))
-        # 5. coach_competencies (item_id → competency_items)
+        # 6. coach_competencies (item_id → competency_items)
         await db.execute(text("DELETE FROM coach_competencies"))
-        # 6. competency_item_fields (item_id → competency_items)
+        # 7. competency_item_fields (item_id → competency_items)
         await db.execute(text("DELETE FROM competency_item_fields"))
-        # 7. competency_items
+        # 8. competency_items
         await db.execute(text("DELETE FROM competency_items"))
         await db.commit()
         return {"message": "All competency items and related data cleared"}
