@@ -44,7 +44,8 @@ export default function ProjectCreatePage() {
 
       const createdProject = await projectService.createProject(projectData)
       message.success('과제가 생성되었습니다.')
-      navigate(`/admin/projects/${createdProject.project_id}`)
+      // 과제 수정 페이지로 이동 (설문구성 안내 모달 표시를 위한 new 파라미터)
+      navigate(`/admin/projects/${createdProject.project_id}/edit?new=true`)
     } catch (error: any) {
       console.error('과제 생성 실패:', error)
       message.error(error.response?.data?.detail || '과제 생성에 실패했습니다.')

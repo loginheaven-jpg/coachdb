@@ -55,16 +55,35 @@ interface SurveyPreviewProps {
   customQuestions: CustomQuestion[]
 }
 
-// 카테고리 라벨 매핑 (DB category 값 -> 표시용 라벨)
-const CATEGORY_LABELS: Record<string, string> = {
-  'BASIC': '인적사항',
-  'DETAIL': '세부정보',
-  'EDUCATION': '학력',
-  'EXPERIENCE': '역량이력',
-  'COACHING': '코칭이력',
-  'ADDON': '추가항목',
-  'CERTIFICATION': '자격증',
-  'EVALUATION': '평가항목'
+// 그룹 표시 순서 (프로필 세부정보와 일치)
+const GROUP_ORDER = ['자격증', '학력', '코칭연수', '코칭경력', '기타']
+
+// 카테고리를 그룹명으로 변환하는 헬퍼 함수
+const getCategoryGroup = (item: CompetencyItem): string => {
+  const itemCode = item.item_code || ''
+  const template = item.template || ''
+  const category = item.category || ''
+
+  // EXP_COACHING_TRAINING 또는 coaching_time 템플릿은 '코칭연수' 그룹
+  if (itemCode === 'EXP_COACHING_TRAINING' || template === 'coaching_time') {
+    return '코칭연수'
+  }
+
+  // 카테고리별 그룹 매핑
+  const categoryGroupMap: Record<string, string> = {
+    'CERTIFICATION': '자격증',
+    'EDUCATION': '학력',
+    'EXPERIENCE': '코칭경력',
+    'OTHER': '기타',
+    // Legacy categories
+    'BASIC': '기본정보',
+    'DETAIL': '코칭경력',
+    'ADDON': '코칭경력',
+    'COACHING': '코칭경력',
+    'EVALUATION': '코칭경력'
+  }
+
+  return categoryGroupMap[category] || '코칭경력'
 }
 
 // State for repeatable item rows
@@ -104,21 +123,28 @@ export default function SurveyPreview({
     }
   }
 
-  // Group items by category (DB의 category 필드 기반)
+  // Group items by category (프로필 세부정보와 일치하는 5개 그룹)
   const groupItemsByCategory = () => {
-    const grouped: Record<string, typeof includedItems> = {}
+    const grouped: Record<string, typeof includedItems> = {
+      '자격증': [],
+      '학력': [],
+      '코칭연수': [],
+      '코칭경력': [],
+      '기타': []
+    }
 
     const includedItems = Array.from(selections.values()).filter(s => s.included)
 
     includedItems.forEach(selection => {
-      // DB의 category 필드를 사용하여 라벨 결정
-      const category = selection.item.category || 'ADDON'
-      const categoryLabel = CATEGORY_LABELS[category] || '기타'
+      const groupName = getCategoryGroup(selection.item)
+      // '기본정보'는 사용자 정보에서 직접 표시하므로 제외
+      if (groupName === '기본정보') return
 
-      if (!grouped[categoryLabel]) {
-        grouped[categoryLabel] = []
+      if (grouped[groupName]) {
+        grouped[groupName].push(selection)
+      } else {
+        grouped['코칭경력'].push(selection)
       }
-      grouped[categoryLabel].push(selection)
     })
 
     return grouped
@@ -513,17 +539,19 @@ export default function SurveyPreview({
 
         {/* Survey Items */}
         <Collapse
-          defaultActiveKey={Object.keys(grouped)}
+          defaultActiveKey={GROUP_ORDER}
           style={{ marginBottom: 16 }}
         >
-          {/* 카테고리별 항목 동적 렌더링 */}
-          {Object.entries(grouped).map(([categoryLabel, items]) => (
-            items.length > 0 && (
-              <Panel header={<Text strong>{categoryLabel}</Text>} key={categoryLabel}>
-                {items.map(selection => renderItemCard(selection, categoryLabel !== '인적사항'))}
+          {/* 그룹별 항목 렌더링 (프로필 세부정보와 동일한 순서) */}
+          {GROUP_ORDER.map(groupName => {
+            const items = grouped[groupName]
+            if (!items || items.length === 0) return null
+            return (
+              <Panel header={<Text strong>{groupName} ({items.length})</Text>} key={groupName}>
+                {items.map(selection => renderItemCard(selection, true))}
               </Panel>
             )
-          ))}
+          })}
 
           {/* Legacy Custom Questions (old system - for backwards compatibility) */}
           {customQuestions.length > 0 && (

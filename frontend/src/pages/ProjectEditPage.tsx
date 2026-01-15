@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   Typography,
   Card,
@@ -13,9 +13,10 @@ import {
   Space,
   Alert,
   Divider,
-  Tabs
+  Tabs,
+  Modal
 } from 'antd'
-import { ArrowLeftOutlined, CheckCircleOutlined, WarningOutlined, FormOutlined, FileTextOutlined } from '@ant-design/icons'
+import { ArrowLeftOutlined, CheckCircleOutlined, WarningOutlined, FormOutlined, FileTextOutlined, SettingOutlined } from '@ant-design/icons'
 import projectService, { ProjectDetail, ProjectUpdate, ProjectStatus, ScoreValidation } from '../services/projectService'
 import SurveyBuilder from '../components/SurveyBuilder'
 import PageGuide from '../components/shared/PageGuide'
@@ -29,12 +30,14 @@ const { RangePicker } = DatePicker
 export default function ProjectEditPage() {
   const navigate = useNavigate()
   const { projectId } = useParams<{ projectId: string }>()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [form] = Form.useForm()
   const [loading, setLoading] = useState(false)
   const [finalizeLoading, setFinalizeLoading] = useState(false)
   const [project, setProject] = useState<ProjectDetail | null>(null)
   const [scoreValidation, setScoreValidation] = useState<ScoreValidation | null>(null)
   const [activeTab, setActiveTab] = useState('basic')
+  const [showSetupModal, setShowSetupModal] = useState(false)
 
   // Watch project_period for reactive condition display
   const projectPeriod = Form.useWatch('project_period', form)
@@ -45,6 +48,16 @@ export default function ProjectEditPage() {
       loadScoreValidation()
     }
   }, [projectId])
+
+  // 신규 생성 후 설문구성 안내 모달 표시
+  useEffect(() => {
+    if (searchParams.get('new') === 'true') {
+      setShowSetupModal(true)
+      // URL에서 new 파라미터 제거
+      searchParams.delete('new')
+      setSearchParams(searchParams, { replace: true })
+    }
+  }, [searchParams])
 
   const loadScoreValidation = async () => {
     if (!projectId) return
@@ -415,6 +428,54 @@ export default function ProjectEditPage() {
           />
         </Card>
       </div>
+
+      {/* 신규 생성 후 설문구성 안내 모달 */}
+      <Modal
+        open={showSetupModal}
+        title={
+          <div className="flex items-center gap-2">
+            <SettingOutlined style={{ color: '#1890ff' }} />
+            <span>설문 구성 안내</span>
+          </div>
+        }
+        footer={[
+          <Button key="later" onClick={() => setShowSetupModal(false)}>
+            나중에
+          </Button>,
+          <Button
+            key="go"
+            type="primary"
+            icon={<FileTextOutlined />}
+            onClick={() => {
+              setShowSetupModal(false)
+              setActiveTab('survey')
+            }}
+          >
+            설문구성 바로가기
+          </Button>
+        ]}
+        onCancel={() => setShowSetupModal(false)}
+      >
+        <div className="py-4">
+          <Alert
+            type="info"
+            showIcon
+            message="과제 생성이 완료되었습니다!"
+            description={
+              <div className="mt-2">
+                <p className="mb-2">
+                  과제를 공개하려면 <strong>설문 구성(100점 만점)</strong>이 필요합니다.
+                </p>
+                <ul className="list-disc pl-4 text-gray-600">
+                  <li>설문항목 탭에서 지원자가 입력할 항목을 선택하세요</li>
+                  <li>각 항목에 배점을 설정하여 총합 100점을 맞춰주세요</li>
+                  <li>설문 구성 후 '정식저장'하면 모집 시작일에 자동 공개됩니다</li>
+                </ul>
+              </div>
+            }
+          />
+        </div>
+      </Modal>
     </div>
   )
 }
