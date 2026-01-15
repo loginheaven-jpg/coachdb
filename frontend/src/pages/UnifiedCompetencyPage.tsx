@@ -37,7 +37,7 @@ import {
 } from '@ant-design/icons'
 import { useAuthStore } from '../stores/authStore'
 import authService from '../services/authService'
-import competencyService, { CoachCompetency, CompetencyItem } from '../services/competencyService'
+import competencyService, { CoachCompetency, CompetencyItem, CompetencyItemField } from '../services/competencyService'
 import educationService from '../services/educationService'
 import fileService from '../services/fileService'
 import FilePreviewModal, { useFilePreview } from '../components/FilePreviewModal'
@@ -180,6 +180,9 @@ const extractEditableValue = (value: string | null | undefined): string => {
   }
 }
 
+// 삭제된/숨김 처리할 항목 코드 (기타 그룹에서 제외)
+const HIDDEN_ITEM_CODES = ['ADDON_INTRO', 'ADDON_SPECIALTY']
+
 // JSON 값을 보기 좋게 포맷팅하는 헬퍼 함수
 const formatCompetencyValue = (value: string | null | undefined): React.ReactNode => {
   if (!value) return '-'
@@ -194,9 +197,10 @@ const formatCompetencyValue = (value: string | null | undefined): React.ReactNod
       return (
         <ul className="list-disc list-inside space-y-1">
           {parsed.map((entry, idx) => {
-            // cert_name이 있는 경우 (자격증)
+            // cert_name + cert_year가 있는 경우 (자격증)
             if (entry.cert_name) {
-              return <li key={idx}>{entry.cert_name}</li>
+              const certInfo = entry.cert_year ? `${entry.cert_name} (${entry.cert_year})` : entry.cert_name
+              return <li key={idx}>{certInfo}</li>
             }
             // text가 있는 경우 (일반 텍스트 항목)
             if (entry.text) {
@@ -205,7 +209,7 @@ const formatCompetencyValue = (value: string | null | undefined): React.ReactNod
             // 기타 객체
             const displayText = Object.entries(entry)
               .filter(([k]) => !k.startsWith('_') && k !== 'file_id')
-              .map(([k, v]) => `${k}: ${v}`)
+              .map(([k, v]) => `${v}`)
               .join(', ')
             return displayText ? <li key={idx}>{displayText}</li> : null
           })}
@@ -213,27 +217,32 @@ const formatCompetencyValue = (value: string | null | undefined): React.ReactNod
       )
     }
 
-    // 객체인 경우 (예: 학위 정보)
+    // 객체인 경우 (예: 학위 정보, 자격증 단일)
     if (typeof parsed === 'object' && parsed !== null) {
-      // degree_type이 있으면 학위 정보
-      if (parsed.degree_type) {
-        const degreeLevel = DEGREE_LEVEL_LABELS[parsed.degree_type] || parsed.degree_type
+      // cert_name이 있으면 자격증 정보
+      if (parsed.cert_name) {
+        const certInfo = parsed.cert_year ? `${parsed.cert_name} (${parsed.cert_year})` : parsed.cert_name
+        return certInfo
+      }
+
+      // degree_level 또는 degree_type이 있으면 학위 정보
+      if (parsed.degree_level || parsed.degree_type) {
+        const degreeLevel = DEGREE_LEVEL_LABELS[parsed.degree_level || parsed.degree_type] || parsed.degree_level || parsed.degree_type
         const parts = [degreeLevel]
-        // 숫자 키가 있으면 추가 정보 (예: 전공명)
-        Object.entries(parsed).forEach(([k, v]) => {
-          if (k !== 'degree_type' && !k.startsWith('_') && v) {
-            if (typeof v === 'string' && v.trim()) {
-              parts.push(v as string)
-            }
-          }
-        })
+        if (parsed.school) parts.push(parsed.school)
+        if (parsed.major) parts.push(parsed.major)
         return parts.join(' - ')
       }
 
-      // 기타 객체: 키-값 나열
+      // hours가 있으면 시간 정보 (누적 코칭 시간 등)
+      if (parsed.hours !== undefined) {
+        return `${parsed.hours}시간`
+      }
+
+      // 기타 객체: 값만 나열
       const displayParts = Object.entries(parsed)
-        .filter(([k, v]) => !k.startsWith('_') && k !== 'file_id' && v)
-        .map(([k, v]) => `${v}`)
+        .filter(([k, v]) => !k.startsWith('_') && k !== 'file_id' && v !== undefined && v !== null && v !== '')
+        .map(([, v]) => `${v}`)
       return displayParts.length > 0 ? displayParts.join(', ') : value
     }
 
@@ -288,6 +297,8 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
   const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [originalValue, setOriginalValue] = useState<string | null>(null)
   const [isDegreeItem, setIsDegreeItem] = useState<boolean>(false)
+  const [selectedItemFields, setSelectedItemFields] = useState<CompetencyItemField[]>([])
+  const [selectedItemTemplate, setSelectedItemTemplate] = useState<string | null>(null)
   const [form] = Form.useForm()
   const [educationForm] = Form.useForm()
   // 파일 미리보기
@@ -305,11 +316,14 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
         competencyService.getCompetencyItems()
       ])
       setCompetencies(competenciesData)
-      setCompetencyItems(itemsData)
+
+      // 숨겨진 항목 필터링 (자기소개, 전문분야 제거)
+      const filteredItems = itemsData.filter(item => !HIDDEN_ITEM_CODES.includes(item.item_code))
+      setCompetencyItems(filteredItems)
 
       // 역량 항목을 카테고리별로 그룹화
       const grouped: GroupedItems = {}
-      itemsData.forEach(item => {
+      filteredItems.forEach(item => {
         const category = item.category || 'DETAIL'
         if (!grouped[category]) {
           grouped[category] = []
@@ -353,11 +367,17 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
       setSelectedItemType(item.input_type)
       setSelectedItemCode(item.item_code || '')
       setIsDegreeItem(item.template === 'degree')
+      setSelectedItemFields(item.fields || [])
+      setSelectedItemTemplate(item.template || null)
+      setSelectedItemName(item.item_name || '')
       form.setFieldsValue({ item_id: item.item_id })
     } else {
       setSelectedItemType('')
       setSelectedItemCode('')
       setIsDegreeItem(false)
+      setSelectedItemFields([])
+      setSelectedItemTemplate(null)
+      setSelectedItemName('')
       form.resetFields()
     }
 
@@ -372,13 +392,31 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
     setSelectedItemCode(record.competency_item?.item_code || '')
     setSelectedCategory(record.competency_item?.category || 'DETAIL')
     setOriginalValue(record.value || null)
+    setSelectedItemFields(record.competency_item?.fields || [])
+    setSelectedItemTemplate(record.competency_item?.template || null)
+    setSelectedItemName(record.competency_item?.item_name || '')
 
     // 학위 항목인지 확인
     const template = record.competency_item?.template
     const isDegree = template === 'degree'
     setIsDegreeItem(isDegree)
 
-    if (isDegree) {
+    const itemFields = record.competency_item?.fields || []
+    if (itemFields.length > 0) {
+      // 템플릿 기반 필드가 있는 경우 각 필드 값 설정
+      try {
+        const parsed = JSON.parse(record.value || '{}')
+        const formValues: Record<string, any> = { item_id: record.item_id }
+        itemFields.forEach(field => {
+          if (parsed[field.field_name] !== undefined) {
+            formValues[field.field_name] = parsed[field.field_name]
+          }
+        })
+        form.setFieldsValue(formValues)
+      } catch {
+        form.setFieldsValue({ item_id: record.item_id })
+      }
+    } else if (isDegree) {
       // 학위 항목인 경우 각 필드 개별 설정
       try {
         const parsed = JSON.parse(record.value || '{}')
@@ -418,6 +456,8 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
     setSelectedItemName(selected?.item_name || '')
     setSelectedItemCode(selected?.item_code || '')
     setIsDegreeItem(selected?.template === 'degree')
+    setSelectedItemFields(selected?.fields || [])
+    setSelectedItemTemplate(selected?.template || null)
   }
 
   // 파일 첨부 라벨 헬퍼 - 누적코칭시간은 "코칭일지"로 표시
@@ -543,9 +583,18 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
         fileId = newFileId
       }
 
-      // 학위 항목인 경우 JSON으로 조합
+      // 동적 필드가 있는 경우 JSON으로 조합
       let valueToSave = values.value
-      if (isDegreeItem) {
+      if (selectedItemFields.length > 0) {
+        // 템플릿 기반 필드들을 JSON 객체로 조합
+        const fieldValues: Record<string, any> = {}
+        selectedItemFields.forEach(field => {
+          if (field.field_type !== 'file' && values[field.field_name] !== undefined) {
+            fieldValues[field.field_name] = values[field.field_name]
+          }
+        })
+        valueToSave = JSON.stringify(fieldValues)
+      } else if (isDegreeItem) {
         valueToSave = JSON.stringify({
           degree_type: values.degree_type,
           major: values.major,
@@ -1117,8 +1166,55 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
                 </Select>
               </Form.Item>
 
-              {/* 학위 항목 전용 폼 */}
-              {isDegreeItem ? (
+              {/* 템플릿 기반 동적 필드 렌더링 */}
+              {selectedItemFields.length > 0 ? (
+                <div className="space-y-4">
+                  {selectedItemFields
+                    .filter(field => field.field_type !== 'file') // 파일 필드는 별도 처리
+                    .sort((a, b) => a.display_order - b.display_order)
+                    .map(field => {
+                      // 필드 타입별 입력 컴포넌트
+                      const renderFieldInput = () => {
+                        switch (field.field_type) {
+                          case 'number':
+                            return (
+                              <InputNumber
+                                className="w-full"
+                                placeholder={field.placeholder || `${field.field_label}을(를) 입력하세요`}
+                                min={0}
+                              />
+                            )
+                          case 'select':
+                            const options = field.field_options ? JSON.parse(field.field_options) : []
+                            return (
+                              <Select placeholder={field.placeholder || `${field.field_label} 선택`}>
+                                {options.map((opt: string) => (
+                                  <Option key={opt} value={opt}>{opt}</Option>
+                                ))}
+                              </Select>
+                            )
+                          default: // text
+                            return (
+                              <Input
+                                placeholder={field.placeholder || `${field.field_label}을(를) 입력하세요`}
+                              />
+                            )
+                        }
+                      }
+
+                      return (
+                        <Form.Item
+                          key={field.field_id}
+                          name={field.field_name}
+                          label={field.field_label}
+                          rules={field.is_required ? [{ required: true, message: `${field.field_label}을(를) 입력해주세요!` }] : []}
+                        >
+                          {renderFieldInput()}
+                        </Form.Item>
+                      )
+                    })}
+                </div>
+              ) : isDegreeItem ? (
                 <div className="grid grid-cols-2 gap-4">
                   <Form.Item
                     name="degree_type"
