@@ -1126,6 +1126,35 @@ export default function ApplicationSubmitPage() {
           </div>
         )
 
+      case ItemTemplate.COACHING_EXPERIENCE:
+        // 코칭경력: 기관명 + 연도 + 시간 + 증빙
+        return (
+          <div className="space-y-3">
+            <Form.Item noStyle name={[`item_${item.project_item_id}`, 'org_name']}>
+              <Input placeholder="코칭과제/기관명 (예: 청년재단 코칭사업)" />
+            </Form.Item>
+            <div className="grid grid-cols-2 gap-4">
+              <Form.Item noStyle name={[`item_${item.project_item_id}`, 'year']}>
+                <InputNumber
+                  placeholder="연도 (예: 2024)"
+                  style={{ width: '100%' }}
+                  min={2000}
+                  max={2100}
+                  addonAfter="년"
+                />
+              </Form.Item>
+              <Form.Item noStyle name={[`item_${item.project_item_id}`, 'hours']}>
+                <InputNumber
+                  placeholder="코칭시간 (예: 50)"
+                  style={{ width: '100%' }}
+                  min={0}
+                  addonAfter="시간"
+                />
+              </Form.Item>
+            </div>
+          </div>
+        )
+
       default:
         // Fallback to text input
         return (
@@ -1759,8 +1788,8 @@ export default function ApplicationSubmitPage() {
 
                           {/* Input field based on template */}
                           <Card size="small" className="mb-2">
-                            {/* DEGREE, COACHING_HISTORY, COACHING_TIME 등 복합 템플릿은 내부에 자체 Form.Item을 가지므로 부모에 name 없이 렌더링 */}
-                            {(competencyItem.template === ItemTemplate.DEGREE || competencyItem.template === ItemTemplate.COACHING_HISTORY || competencyItem.template === ItemTemplate.COACHING_TIME) ? (
+                            {/* DEGREE, COACHING_HISTORY, COACHING_TIME, COACHING_EXPERIENCE 등 복합 템플릿은 내부에 자체 Form.Item을 가지므로 부모에 name 없이 렌더링 */}
+                            {(competencyItem.template === ItemTemplate.DEGREE || competencyItem.template === ItemTemplate.COACHING_HISTORY || competencyItem.template === ItemTemplate.COACHING_TIME || competencyItem.template === ItemTemplate.COACHING_EXPERIENCE) ? (
                               <div className="mb-3">
                                 {renderInputField(item)}
                               </div>

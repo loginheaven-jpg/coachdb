@@ -822,9 +822,10 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                       icon={<PlusOutlined />}
                       block
                       onClick={() => {
-                        // 선택한 그룹에 따라 category 설정
+                        // 선택한 그룹에 따라 category와 기본 템플릿 설정
                         customQuestionForm.setFieldsValue({
-                          target_category: category === '코칭경력' ? 'EXPERIENCE' : 'OTHER'
+                          target_category: category === '코칭경력' ? 'EXPERIENCE' : 'OTHER',
+                          template: category === '코칭경력' ? ItemTemplate.COACHING_EXPERIENCE : ItemTemplate.TEXT
                         })
                         setShowCustomQuestionModal(true)
                       }}
