@@ -61,6 +61,16 @@ class ProofRequiredLevel(str, enum.Enum):
     REQUIRED = "required"           # 증빙 필수 (임시저장만 가능)
 
 
+class AggregationMode(str, enum.Enum):
+    """복수입력 항목의 값 집계 방식"""
+    FIRST = "first"          # 첫 번째만 (기본값, 현재 동작)
+    SUM = "sum"              # 합산 (숫자 범위용)
+    MAX = "max"              # 최대값
+    COUNT = "count"          # 입력 개수
+    ANY_MATCH = "any_match"  # 하나라도 매칭되면 (문자열용)
+    BEST_MATCH = "best_match"  # 가장 높은 점수 매칭
+
+
 class VerificationStatus(str, enum.Enum):
     PENDING = "pending"
     APPROVED = "approved"
@@ -165,6 +175,13 @@ class ScoringCriteria(Base):
     )
     source_field = Column(String(100), nullable=True)  # User 필드명 또는 JSON 필드명 (예: "coach_certification_number", "degree_level")
     extract_pattern = Column(String(100), nullable=True)  # 정규식 패턴 (예: "^(.{3})" - 앞 3글자 추출)
+
+    # 복수입력 항목의 집계 방식 (기본값: first = 첫 번째만)
+    aggregation_mode = Column(
+        Enum(AggregationMode, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+        default=AggregationMode.FIRST
+    )
 
     # Relationships
     project_item = relationship("ProjectItem", back_populates="scoring_criteria")

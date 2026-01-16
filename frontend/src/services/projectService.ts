@@ -44,6 +44,15 @@ export enum ValueSourceType {
   JSON_FIELD = 'json_field'    // submitted_value JSON 내부 필드 (예: degree_level)
 }
 
+export enum AggregationMode {
+  FIRST = 'first',           // 첫 번째만 (기본값)
+  SUM = 'sum',               // 합산 (숫자 범위용)
+  MAX = 'max',               // 최대값
+  COUNT = 'count',           // 입력 개수
+  ANY_MATCH = 'any_match',   // 하나라도 매칭되면 (문자열용)
+  BEST_MATCH = 'best_match'  // 가장 높은 점수 매칭
+}
+
 // GRADE 타입용 등급 정의
 export interface GradeConfigString {
   type: 'string'
@@ -242,6 +251,8 @@ export interface ScoringCriteriaCreate {
   value_source?: ValueSourceType  // 값을 가져올 소스 (기본값: SUBMITTED)
   source_field?: string | null  // User 필드명 또는 JSON 필드명
   extract_pattern?: string | null  // 정규식 패턴 (예: "^(.{3})" - 앞 3글자 추출)
+  // 복수입력 항목의 집계 방식
+  aggregation_mode?: AggregationMode  // 집계 방식 (기본값: FIRST)
 }
 
 export interface ScoringCriteria extends ScoringCriteriaCreate {
@@ -249,6 +260,7 @@ export interface ScoringCriteria extends ScoringCriteriaCreate {
   value_source: ValueSourceType
   source_field: string | null
   extract_pattern: string | null
+  aggregation_mode: AggregationMode
 }
 
 export interface ProjectItemCreate {

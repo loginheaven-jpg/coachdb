@@ -42,6 +42,7 @@ import projectService, {
   ScoringCriteriaCreate,
   MatchingType,
   ValueSourceType,
+  AggregationMode,
   GradeConfig
 } from '../services/projectService'
 import SurveyPreview from './SurveyPreview'
@@ -829,7 +830,9 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                                         file_grades: config.type === 'file_exists' ? config.grades : undefined,
                                         // 증빙 감점 로드 (저장된 값은 음수이므로 절대값으로 변환)
                                         enable_proof_penalty: config.proofPenalty !== undefined && config.proofPenalty !== null,
-                                        proof_penalty_amount: config.proofPenalty ? Math.abs(config.proofPenalty) : undefined
+                                        proof_penalty_amount: config.proofPenalty ? Math.abs(config.proofPenalty) : undefined,
+                                        // 집계 방식 로드
+                                        aggregation_mode: existingCriteria.aggregation_mode || AggregationMode.FIRST
                                       })
                                     } catch {
                                       gradeConfigForm.resetFields()
@@ -1182,7 +1185,8 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
               score: 0,
               value_source: values.value_source || ValueSourceType.SUBMITTED,
               source_field: values.source_field || null,
-              extract_pattern: values.extract_pattern || null
+              extract_pattern: values.extract_pattern || null,
+              aggregation_mode: values.aggregation_mode || AggregationMode.FIRST
             }
 
             // 기존 GRADE가 아닌 criteria는 유지하고 GRADE만 교체
@@ -1211,7 +1215,8 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
             initialValues={{
               grade_type: 'string',
               value_source: ValueSourceType.SUBMITTED,
-              grades: []
+              grades: [],
+              aggregation_mode: AggregationMode.FIRST
             }}
           >
             <Form.Item
@@ -1302,6 +1307,30 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                 return null
               }}
             </Form.Item>
+
+            {/* 복수입력 항목 집계 방식 */}
+            {gradeConfigItemId && selections.get(gradeConfigItemId)?.item.is_repeatable && (
+              <Form.Item
+                name="aggregation_mode"
+                label={
+                  <Space>
+                    복수입력 집계 방식
+                    <Tooltip title="복수입력 항목의 여러 값을 어떻게 집계할지 선택합니다">
+                      <QuestionCircleOutlined style={{ color: '#999' }} />
+                    </Tooltip>
+                  </Space>
+                }
+              >
+                <Select>
+                  <Select.Option value={AggregationMode.FIRST}>첫 번째만 (기본)</Select.Option>
+                  <Select.Option value={AggregationMode.SUM}>합산 (숫자 범위용)</Select.Option>
+                  <Select.Option value={AggregationMode.MAX}>최대값</Select.Option>
+                  <Select.Option value={AggregationMode.COUNT}>입력 개수</Select.Option>
+                  <Select.Option value={AggregationMode.ANY_MATCH}>하나라도 매칭 (문자열용)</Select.Option>
+                  <Select.Option value={AggregationMode.BEST_MATCH}>최고 점수 매칭</Select.Option>
+                </Select>
+              </Form.Item>
+            )}
 
             <Form.Item
               noStyle
@@ -1845,7 +1874,8 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
             score: 0,
             value_source: values.value_source || ValueSourceType.SUBMITTED,
             source_field: values.source_field || null,
-            extract_pattern: values.extract_pattern || null
+            extract_pattern: values.extract_pattern || null,
+            aggregation_mode: values.aggregation_mode || AggregationMode.FIRST
           }
 
           // 기존 GRADE가 아닌 criteria는 유지하고 GRADE만 교체
@@ -1874,7 +1904,8 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
           initialValues={{
             grade_type: 'string',
             value_source: ValueSourceType.SUBMITTED,
-            grades: []
+            grades: [],
+            aggregation_mode: AggregationMode.FIRST
           }}
         >
           <Form.Item
@@ -1934,6 +1965,30 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
               return null
             }}
           </Form.Item>
+
+          {/* 복수입력 항목 집계 방식 */}
+          {gradeConfigItemId && selections.get(gradeConfigItemId)?.item.is_repeatable && (
+            <Form.Item
+              name="aggregation_mode"
+              label={
+                <Space>
+                  복수입력 집계 방식
+                  <Tooltip title="복수입력 항목의 여러 값을 어떻게 집계할지 선택합니다">
+                    <QuestionCircleOutlined style={{ color: '#999' }} />
+                  </Tooltip>
+                </Space>
+              }
+            >
+              <Select>
+                <Select.Option value={AggregationMode.FIRST}>첫 번째만 (기본)</Select.Option>
+                <Select.Option value={AggregationMode.SUM}>합산 (숫자 범위용)</Select.Option>
+                <Select.Option value={AggregationMode.MAX}>최대값</Select.Option>
+                <Select.Option value={AggregationMode.COUNT}>입력 개수</Select.Option>
+                <Select.Option value={AggregationMode.ANY_MATCH}>하나라도 매칭 (문자열용)</Select.Option>
+                <Select.Option value={AggregationMode.BEST_MATCH}>최고 점수 매칭</Select.Option>
+              </Select>
+            </Form.Item>
+          )}
 
           <Form.Item
             noStyle

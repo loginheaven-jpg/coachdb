@@ -12,7 +12,7 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
 from app.models.application import Application, ApplicationData
-from app.models.competency import ProjectItem, ScoringCriteria, MatchingType, ValueSourceType
+from app.models.competency import ProjectItem, ScoringCriteria, MatchingType, ValueSourceType, AggregationMode
 from app.models.project import Project
 from app.models.reviewer_evaluation import ReviewerEvaluation
 from app.models.custom_question import CustomQuestion, CustomQuestionAnswer
@@ -27,17 +27,18 @@ def extract_value_for_scoring(
     user: Optional[User] = None
 ) -> str:
     """
-    Extract value for scoring based on value source type
+    Extract value for scoring based on value source type and aggregation mode
 
     Args:
         submitted_value: The submitted value from ApplicationData
-        criteria: ScoringCriteria with value_source settings
+        criteria: ScoringCriteria with value_source and aggregation_mode settings
         user: User object (required for USER_FIELD source)
 
     Returns:
-        Extracted value string for matching
+        Extracted value string for matching (may be aggregated for repeatable items)
     """
     value_source = criteria.value_source or ValueSourceType.SUBMITTED
+    aggregation_mode = criteria.aggregation_mode or AggregationMode.FIRST
 
     if value_source == ValueSourceType.USER_FIELD:
         # Extract from User table field
@@ -60,20 +61,83 @@ def extract_value_for_scoring(
     elif value_source == ValueSourceType.JSON_FIELD:
         # Extract from submitted_value JSON
         source_field = criteria.source_field or ""
-        if not submitted_value or not source_field:
+        if not submitted_value:
             return ""
         try:
             data = json.loads(submitted_value)
             if isinstance(data, dict):
-                return str(data.get(source_field, ""))
-            elif isinstance(data, list) and len(data) > 0 and isinstance(data[0], dict):
-                # For repeatable items, get from first entry
-                return str(data[0].get(source_field, ""))
+                # Single object - no aggregation needed
+                return str(data.get(source_field, "")) if source_field else ""
+
+            elif isinstance(data, list) and len(data) > 0:
+                # Array of entries - apply aggregation mode
+                if aggregation_mode == AggregationMode.COUNT:
+                    # Return count of entries
+                    return str(len(data))
+
+                elif aggregation_mode == AggregationMode.SUM:
+                    # Sum numeric values from source_field
+                    if not source_field:
+                        return "0"
+                    total = 0
+                    for entry in data:
+                        if isinstance(entry, dict):
+                            val = entry.get(source_field)
+                            if val is not None:
+                                try:
+                                    total += float(val)
+                                except (ValueError, TypeError):
+                                    pass
+                    return str(total)
+
+                elif aggregation_mode == AggregationMode.MAX:
+                    # Get maximum value from source_field
+                    if not source_field:
+                        return ""
+                    max_val = None
+                    for entry in data:
+                        if isinstance(entry, dict):
+                            val = entry.get(source_field)
+                            if val is not None:
+                                try:
+                                    num_val = float(val)
+                                    if max_val is None or num_val > max_val:
+                                        max_val = num_val
+                                except (ValueError, TypeError):
+                                    pass
+                    return str(max_val) if max_val is not None else ""
+
+                elif aggregation_mode in (AggregationMode.ANY_MATCH, AggregationMode.BEST_MATCH):
+                    # For string matching, return all values as JSON array for later processing
+                    if not source_field:
+                        return ""
+                    values = []
+                    for entry in data:
+                        if isinstance(entry, dict):
+                            val = entry.get(source_field)
+                            if val is not None and str(val).strip():
+                                values.append(str(val).strip())
+                    return json.dumps(values)  # Return as JSON array
+
+                else:  # FIRST (default)
+                    # Get from first entry
+                    if isinstance(data[0], dict) and source_field:
+                        return str(data[0].get(source_field, ""))
+                    return ""
+
         except (json.JSONDecodeError, TypeError) as e:
             logger.debug(f"Failed to parse JSON for field extraction: {e}")
         return ""
 
     else:  # SUBMITTED (default)
+        # For SUBMITTED source, aggregation applies to the raw value
+        if aggregation_mode == AggregationMode.COUNT:
+            try:
+                data = json.loads(submitted_value)
+                if isinstance(data, list):
+                    return str(len(data))
+            except (json.JSONDecodeError, TypeError):
+                pass
         return submitted_value or ""
 
 
@@ -81,7 +145,8 @@ def match_grade_value(
     extracted_value: str,
     expected_value: str,
     submitted_file_id: Optional[int] = None,
-    submitted_value: Optional[str] = None
+    submitted_value: Optional[str] = None,
+    aggregation_mode: Optional[AggregationMode] = None
 ) -> Optional[Decimal]:
     """
     Match grade value and return score
@@ -91,6 +156,7 @@ def match_grade_value(
         expected_value: JSON config with grade definitions
         submitted_file_id: File ID if a file was submitted (for proof_penalty)
         submitted_value: Raw submitted value (for multi_select JSON parsing)
+        aggregation_mode: How to handle multiple values (ANY_MATCH, BEST_MATCH, etc.)
 
     Returns:
         Score for matching grade, or None if no match
@@ -106,6 +172,7 @@ def match_grade_value(
     proof_penalty = config.get("proofPenalty", 0)
 
     base_score = Decimal('0')
+    aggregation_mode = aggregation_mode or AggregationMode.FIRST
 
     if grade_type == "file_exists":
         # 파일 유무 점수
@@ -170,6 +237,66 @@ def match_grade_value(
         if not extracted_value:
             return None
         match_mode = config.get("matchMode", "exact")
+
+        # Handle ANY_MATCH and BEST_MATCH aggregation modes
+        if aggregation_mode in (AggregationMode.ANY_MATCH, AggregationMode.BEST_MATCH):
+            # extracted_value is a JSON array of values from repeatable entries
+            try:
+                values_to_check = json.loads(extracted_value)
+                if not isinstance(values_to_check, list):
+                    values_to_check = [extracted_value]
+            except json.JSONDecodeError:
+                values_to_check = [extracted_value]
+
+            if aggregation_mode == AggregationMode.ANY_MATCH:
+                # 하나라도 매칭되면 해당 점수 반환
+                for val in values_to_check:
+                    val_lower = str(val).strip().lower()
+                    for grade in grades:
+                        grade_value = str(grade.get("value", "")).strip().lower()
+                        matched = False
+                        if match_mode == "contains":
+                            matched = grade_value in val_lower
+                        elif match_mode == "any":
+                            matched = bool(val_lower)
+                        else:  # exact
+                            matched = grade_value == val_lower
+                        if matched:
+                            base_score = Decimal(str(grade.get("score", 0)))
+                            # 증빙 감점 적용
+                            if proof_penalty and not submitted_file_id:
+                                base_score += Decimal(str(proof_penalty))
+                            return max(base_score, Decimal('0'))
+                return None  # 아무것도 매칭 안됨
+
+            else:  # BEST_MATCH
+                # 모든 값 중 가장 높은 점수 반환
+                best_score = None
+                for val in values_to_check:
+                    val_lower = str(val).strip().lower()
+                    for grade in grades:
+                        grade_value = str(grade.get("value", "")).strip().lower()
+                        matched = False
+                        if match_mode == "contains":
+                            matched = grade_value in val_lower
+                        elif match_mode == "any":
+                            matched = bool(val_lower)
+                        else:  # exact
+                            matched = grade_value == val_lower
+                        if matched:
+                            score = Decimal(str(grade.get("score", 0)))
+                            if best_score is None or score > best_score:
+                                best_score = score
+                            break  # 이 값에서 첫 매칭 후 다음 값으로
+
+                if best_score is not None:
+                    # 증빙 감점 적용
+                    if proof_penalty and not submitted_file_id:
+                        best_score += Decimal(str(proof_penalty))
+                    return max(best_score, Decimal('0'))
+                return None
+
+        # 기본 처리 (FIRST 모드 또는 단일 값)
         extracted_str = str(extracted_value).strip()
 
         if match_mode == "any":
@@ -294,7 +421,8 @@ def calculate_item_score(
             grade_score = match_grade_value(
                 extracted, criteria.expected_value,
                 submitted_file_id=submitted_file_id,
-                submitted_value=submitted_value
+                submitted_value=submitted_value,
+                aggregation_mode=criteria.aggregation_mode
             )
             if grade_score is not None:
                 total_score += grade_score
