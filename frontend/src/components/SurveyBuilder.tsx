@@ -159,7 +159,10 @@ function getMaxGradeScore(
 
   // 배열인 경우
   if (Array.isArray(grades) && grades.length === 0) return 0
-  return Math.max(...(grades as Array<{ score?: number }>).map(g => Number(g.score) || 0))
+  // Filter out undefined/null items and safely access score
+  const validGrades = (grades as Array<{ score?: number }>).filter(g => g != null)
+  if (validGrades.length === 0) return 0
+  return Math.max(...validGrades.map(g => Number(g?.score) || 0))
 }
 
 // 항목 템플릿에 따른 등급 템플릿 매핑
