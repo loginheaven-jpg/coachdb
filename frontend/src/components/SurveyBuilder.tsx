@@ -1114,12 +1114,24 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
             let maxScore = 0
 
             if (values.grade_type === 'string') {
-              gradeConfig = {
-                type: 'string',
-                matchMode: values.match_mode || 'exact',
-                grades: values.grades || []
+              if (values.match_mode === 'any') {
+                // "어떤 값이든" - 단일 등급
+                gradeConfig = {
+                  type: 'string',
+                  matchMode: 'any',
+                  grades: [{ value: '', score: values.any_score || 0 }],
+                  proofPenalty: values.enable_proof_penalty ? (values.proof_penalty || 0) : undefined
+                }
+                maxScore = values.any_score || 0
+              } else {
+                // 기존 로직 (exact/contains)
+                gradeConfig = {
+                  type: 'string',
+                  matchMode: values.match_mode || 'exact',
+                  grades: values.grades || []
+                }
+                maxScore = getMaxGradeScore(values.grades || [])
               }
-              maxScore = getMaxGradeScore(values.grades || [])
             } else if (values.grade_type === 'numeric') {
               gradeConfig = {
                 type: 'numeric',
@@ -1280,10 +1292,11 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
 
             <Form.Item
               noStyle
-              shouldUpdate={(prev, curr) => prev.grade_type !== curr.grade_type}
+              shouldUpdate={(prev, curr) => prev.grade_type !== curr.grade_type || prev.match_mode !== curr.match_mode}
             >
               {({ getFieldValue }) => {
                 const gradeType = getFieldValue('grade_type')
+                const matchMode = getFieldValue('match_mode')
                 if (gradeType === 'string') {
                   return (
                     <>
@@ -1291,31 +1304,40 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                         <Radio.Group>
                           <Radio.Button value="exact">정확히 일치</Radio.Button>
                           <Radio.Button value="contains">포함</Radio.Button>
+                          <Radio.Button value="any">어떤 값이든</Radio.Button>
                         </Radio.Group>
                       </Form.Item>
-                      <Form.List name="grades">
-                        {(fields, { add, remove }) => (
-                          <>
-                            <Text strong>문자열 등급 (값 = 점수)</Text>
-                            {fields.map(({ key, name, ...restField }) => (
-                              <Space key={key} style={{ display: 'flex', marginBottom: 8, marginTop: 8 }} align="baseline">
-                                <Form.Item {...restField} name={[name, 'value']} rules={[{ required: true }]}>
-                                  <Input placeholder="등급값 (예: KSC)" style={{ width: 150 }} />
-                                </Form.Item>
-                                <Text>=</Text>
-                                <Form.Item {...restField} name={[name, 'score']} rules={[{ required: true }]}>
-                                  <InputNumber placeholder="점수" style={{ width: 80 }} />
-                                </Form.Item>
-                                <Text>점</Text>
-                                <Button type="text" danger icon={<DeleteOutlined />} onClick={() => remove(name)} />
-                              </Space>
-                            ))}
-                            <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
-                              등급 추가
-                            </Button>
-                          </>
-                        )}
-                      </Form.List>
+                      {matchMode === 'any' ? (
+                        // "어떤 값이든" - 단일 점수 입력
+                        <Form.Item name="any_score" label="입력 시 점수" rules={[{ required: true, message: '점수를 입력하세요' }]}>
+                          <InputNumber min={0} max={100} addonAfter="점" style={{ width: 150 }} placeholder="20" />
+                        </Form.Item>
+                      ) : (
+                        // 기존 Form.List (값 = 점수 형태)
+                        <Form.List name="grades">
+                          {(fields, { add, remove }) => (
+                            <>
+                              <Text strong>문자열 등급 (값 = 점수)</Text>
+                              {fields.map(({ key, name, ...restField }) => (
+                                <Space key={key} style={{ display: 'flex', marginBottom: 8, marginTop: 8 }} align="baseline">
+                                  <Form.Item {...restField} name={[name, 'value']} rules={[{ required: true }]}>
+                                    <Input placeholder="등급값 (예: KSC)" style={{ width: 150 }} />
+                                  </Form.Item>
+                                  <Text>=</Text>
+                                  <Form.Item {...restField} name={[name, 'score']} rules={[{ required: true }]}>
+                                    <InputNumber placeholder="점수" style={{ width: 80 }} />
+                                  </Form.Item>
+                                  <Text>점</Text>
+                                  <Button type="text" danger icon={<DeleteOutlined />} onClick={() => remove(name)} />
+                                </Space>
+                              ))}
+                              <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
+                                등급 추가
+                              </Button>
+                            </>
+                          )}
+                        </Form.List>
+                      )}
                     </>
                   )
                 } else if (gradeType === 'numeric') {
@@ -1686,12 +1708,24 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
           let maxScore = 0
 
           if (values.grade_type === 'string') {
-            gradeConfig = {
-              type: 'string',
-              matchMode: values.match_mode || 'exact',
-              grades: values.grades || []
+            if (values.match_mode === 'any') {
+              // "어떤 값이든" - 단일 등급
+              gradeConfig = {
+                type: 'string',
+                matchMode: 'any',
+                grades: [{ value: '', score: values.any_score || 0 }],
+                proofPenalty: values.enable_proof_penalty ? (values.proof_penalty || 0) : undefined
+              }
+              maxScore = values.any_score || 0
+            } else {
+              // 기존 로직 (exact/contains)
+              gradeConfig = {
+                type: 'string',
+                matchMode: values.match_mode || 'exact',
+                grades: values.grades || []
+              }
+              maxScore = getMaxGradeScore(values.grades || [])
             }
-            maxScore = getMaxGradeScore(values.grades || [])
           } else if (values.grade_type === 'numeric') {
             gradeConfig = {
               type: 'numeric',
@@ -1821,10 +1855,11 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
 
           <Form.Item
             noStyle
-            shouldUpdate={(prev, curr) => prev.grade_type !== curr.grade_type}
+            shouldUpdate={(prev, curr) => prev.grade_type !== curr.grade_type || prev.match_mode !== curr.match_mode}
           >
             {({ getFieldValue }) => {
               const gradeType = getFieldValue('grade_type')
+              const matchMode = getFieldValue('match_mode')
               if (gradeType === 'string') {
                 return (
                   <>
@@ -1832,31 +1867,40 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                       <Radio.Group>
                         <Radio.Button value="exact">정확히 일치</Radio.Button>
                         <Radio.Button value="contains">포함</Radio.Button>
+                        <Radio.Button value="any">어떤 값이든</Radio.Button>
                       </Radio.Group>
                     </Form.Item>
-                    <Form.List name="grades">
-                      {(fields, { add, remove }) => (
-                        <>
-                          <Text strong>문자열 등급 (값 = 점수)</Text>
-                          {fields.map(({ key, name, ...restField }) => (
-                            <Space key={key} style={{ display: 'flex', marginBottom: 8, marginTop: 8 }} align="baseline">
-                              <Form.Item {...restField} name={[name, 'value']} rules={[{ required: true }]}>
-                                <Input placeholder="등급값 (예: KSC)" style={{ width: 150 }} />
-                              </Form.Item>
-                              <Text>=</Text>
-                              <Form.Item {...restField} name={[name, 'score']} rules={[{ required: true }]}>
-                                <InputNumber placeholder="점수" style={{ width: 80 }} />
-                              </Form.Item>
-                              <Text>점</Text>
-                              <Button type="text" danger icon={<DeleteOutlined />} onClick={() => remove(name)} />
-                            </Space>
-                          ))}
-                          <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
-                            등급 추가
-                          </Button>
-                        </>
-                      )}
-                    </Form.List>
+                    {matchMode === 'any' ? (
+                      // "어떤 값이든" - 단일 점수 입력
+                      <Form.Item name="any_score" label="입력 시 점수" rules={[{ required: true, message: '점수를 입력하세요' }]}>
+                        <InputNumber min={0} max={100} addonAfter="점" style={{ width: 150 }} placeholder="20" />
+                      </Form.Item>
+                    ) : (
+                      // 기존 Form.List (값 = 점수 형태)
+                      <Form.List name="grades">
+                        {(fields, { add, remove }) => (
+                          <>
+                            <Text strong>문자열 등급 (값 = 점수)</Text>
+                            {fields.map(({ key, name, ...restField }) => (
+                              <Space key={key} style={{ display: 'flex', marginBottom: 8, marginTop: 8 }} align="baseline">
+                                <Form.Item {...restField} name={[name, 'value']} rules={[{ required: true }]}>
+                                  <Input placeholder="등급값 (예: KSC)" style={{ width: 150 }} />
+                                </Form.Item>
+                                <Text>=</Text>
+                                <Form.Item {...restField} name={[name, 'score']} rules={[{ required: true }]}>
+                                  <InputNumber placeholder="점수" style={{ width: 80 }} />
+                                </Form.Item>
+                                <Text>점</Text>
+                                <Button type="text" danger icon={<DeleteOutlined />} onClick={() => remove(name)} />
+                              </Space>
+                            ))}
+                            <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
+                              등급 추가
+                            </Button>
+                          </>
+                        )}
+                      </Form.List>
+                    )}
                   </>
                 )
               } else if (gradeType === 'numeric') {

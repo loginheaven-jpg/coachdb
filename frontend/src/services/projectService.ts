@@ -47,7 +47,7 @@ export enum ValueSourceType {
 // GRADE 타입용 등급 정의
 export interface GradeConfigString {
   type: 'string'
-  matchMode?: 'exact' | 'contains'  // 매칭 방식 (기본값: 'exact')
+  matchMode?: 'exact' | 'contains' | 'any'  // 매칭 방식 (기본값: 'exact', any=어떤 값이든)
   grades: Array<{ value: string; score: number }>
   proofPenalty?: number  // 증빙 감점 (예: -3)
 }

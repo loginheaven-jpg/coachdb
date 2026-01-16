@@ -170,23 +170,35 @@ def match_grade_value(
         if not extracted_value:
             return None
         match_mode = config.get("matchMode", "exact")
-        extracted_lower = str(extracted_value).strip().lower()
+        extracted_str = str(extracted_value).strip()
 
-        for grade in grades:
-            grade_value = str(grade.get("value", "")).strip().lower()
-
-            if match_mode == "contains":
-                # 포함 매칭
-                if grade_value in extracted_lower:
-                    base_score = Decimal(str(grade.get("score", 0)))
-                    break
+        if match_mode == "any":
+            # "어떤 값이든" - 내용이 있으면 첫 번째 등급 점수 반환
+            if extracted_str:
+                base_score = Decimal(str(grades[0].get("score", 0))) if grades else Decimal('0')
             else:
-                # 정확히 일치 (기본)
-                if grade_value == extracted_lower:
-                    base_score = Decimal(str(grade.get("score", 0)))
-                    break
+                return Decimal('0')
+        else:
+            extracted_lower = extracted_str.lower()
+            for grade in grades:
+                grade_value = str(grade.get("value", "")).strip().lower()
 
-        return base_score if base_score > 0 else None
+                if match_mode == "contains":
+                    # 포함 매칭
+                    if grade_value in extracted_lower:
+                        base_score = Decimal(str(grade.get("score", 0)))
+                        break
+                else:
+                    # 정확히 일치 (기본)
+                    if grade_value == extracted_lower:
+                        base_score = Decimal(str(grade.get("score", 0)))
+                        break
+
+        # 증빙 감점 적용 (string 타입에도 적용)
+        if proof_penalty and not submitted_file_id:
+            base_score += Decimal(str(proof_penalty))
+
+        return max(base_score, Decimal('0')) if base_score > 0 else None
 
 
 def match_value(submitted_value: str, expected_value: str, matching_type: MatchingType) -> bool:
