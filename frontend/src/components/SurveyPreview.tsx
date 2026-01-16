@@ -520,6 +520,80 @@ export default function SurveyPreview({
                   )
                 } else if (item.template === 'number') {
                   return <InputNumber style={{ width: '100%' }} placeholder="숫자를 입력하세요" />
+                } else if (item.template === 'file') {
+                  // 파일 업로드만
+                  return (
+                    <Upload disabled>
+                      <Button icon={<UploadOutlined />} disabled>파일 선택</Button>
+                    </Upload>
+                  )
+                } else if (item.template === 'text_file') {
+                  // 텍스트 + 파일
+                  return (
+                    <Space direction="vertical" style={{ width: '100%' }}>
+                      <Input placeholder="내용을 입력하세요" />
+                      <Upload disabled>
+                        <Button icon={<UploadOutlined />} disabled>증빙 파일 첨부</Button>
+                      </Upload>
+                    </Space>
+                  )
+                } else if (item.template === 'degree') {
+                  // 학위: 선택 + 전공 + 파일
+                  return (
+                    <Space direction="vertical" style={{ width: '100%' }}>
+                      <div>
+                        <Text type="secondary" style={{ fontSize: 12 }}>학위</Text>
+                        <Select style={{ width: '100%', marginTop: 4 }} placeholder="학위 선택">
+                          <Select.Option value="bachelor">학사</Select.Option>
+                          <Select.Option value="master">석사</Select.Option>
+                          <Select.Option value="doctorate">박사</Select.Option>
+                        </Select>
+                      </div>
+                      <div>
+                        <Text type="secondary" style={{ fontSize: 12 }}>전공</Text>
+                        <Input placeholder="전공을 입력하세요" style={{ marginTop: 4 }} />
+                      </div>
+                      <Upload disabled>
+                        <Button icon={<UploadOutlined />} disabled>졸업증명서 첨부</Button>
+                      </Upload>
+                    </Space>
+                  )
+                } else if (item.template === 'coaching_time') {
+                  // 코칭연수: 내용 + 연도 + 시간
+                  return (
+                    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                      <div style={{ flex: 2, minWidth: 200 }}>
+                        <Text type="secondary" style={{ fontSize: 12 }}>연수명/내용</Text>
+                        <Input placeholder="연수명/내용" style={{ marginTop: 4 }} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 100 }}>
+                        <Text type="secondary" style={{ fontSize: 12 }}>이수연도</Text>
+                        <Input placeholder="이수연도" style={{ marginTop: 4 }} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 100 }}>
+                        <Text type="secondary" style={{ fontSize: 12 }}>이수시간</Text>
+                        <Input placeholder="이수시간" style={{ marginTop: 4 }} />
+                      </div>
+                    </div>
+                  )
+                } else if (item.template === 'coaching_experience') {
+                  // 코칭경력: 기관명 + 연도 + 시간
+                  return (
+                    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                      <div style={{ flex: 2, minWidth: 200 }}>
+                        <Text type="secondary" style={{ fontSize: 12 }}>기관명</Text>
+                        <Input placeholder="기관명" style={{ marginTop: 4 }} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 100 }}>
+                        <Text type="secondary" style={{ fontSize: 12 }}>연도</Text>
+                        <Input placeholder="연도" style={{ marginTop: 4 }} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 100 }}>
+                        <Text type="secondary" style={{ fontSize: 12 }}>시간</Text>
+                        <Input placeholder="시간" style={{ marginTop: 4 }} />
+                      </div>
+                    </div>
+                  )
                 } else {
                   return <Input placeholder="내용을 입력하세요" />
                 }
