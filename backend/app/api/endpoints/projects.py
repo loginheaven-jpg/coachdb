@@ -1840,8 +1840,17 @@ async def add_project_item(
 
         print(f"[ADD-ITEM] Step 5: Adding {len(item_data.scoring_criteria)} scoring criteria")
         # Add scoring criteria
+        from app.models.competency import AggregationMode
         for i, criteria_data in enumerate(item_data.scoring_criteria):
             print(f"[ADD-ITEM] Adding criteria {i+1}: type={criteria_data.matching_type}, value={criteria_data.expected_value}, score={criteria_data.score}")
+
+            # aggregation_mode 처리 (복수입력 항목의 집계 방식)
+            aggregation_mode = criteria_data.aggregation_mode
+            if aggregation_mode is None:
+                aggregation_mode = AggregationMode.FIRST
+            elif isinstance(aggregation_mode, str):
+                aggregation_mode = AggregationMode(aggregation_mode)
+
             criteria = ScoringCriteria(
                 project_item_id=new_item.project_item_id,
                 matching_type=criteria_data.matching_type,
@@ -1850,7 +1859,8 @@ async def add_project_item(
                 # GRADE 타입용 필드 추가
                 value_source=criteria_data.value_source,
                 source_field=criteria_data.source_field,
-                extract_pattern=criteria_data.extract_pattern
+                extract_pattern=criteria_data.extract_pattern,
+                aggregation_mode=aggregation_mode
             )
             db.add(criteria)
         print(f"[ADD-ITEM] Step 5 OK: Scoring criteria added")
@@ -1957,6 +1967,14 @@ async def update_project_item(
             elif isinstance(value_source, str):
                 value_source = ValueSourceType(value_source)
 
+            # aggregation_mode 처리 (복수입력 항목의 집계 방식)
+            from app.models.competency import AggregationMode
+            aggregation_mode = criteria_data.aggregation_mode
+            if aggregation_mode is None:
+                aggregation_mode = AggregationMode.FIRST
+            elif isinstance(aggregation_mode, str):
+                aggregation_mode = AggregationMode(aggregation_mode)
+
             criteria = ScoringCriteria(
                 project_item_id=project_item.project_item_id,
                 matching_type=criteria_data.matching_type,
@@ -1965,7 +1983,8 @@ async def update_project_item(
                 # GRADE 타입용 필드 추가
                 value_source=value_source,
                 source_field=criteria_data.source_field,
-                extract_pattern=criteria_data.extract_pattern
+                extract_pattern=criteria_data.extract_pattern,
+                aggregation_mode=aggregation_mode
             )
             db.add(criteria)
 
