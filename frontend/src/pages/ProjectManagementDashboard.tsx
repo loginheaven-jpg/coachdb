@@ -75,18 +75,44 @@ export default function ProjectManagementDashboard() {
   const userRoles = getUserRoles()
   const isSuperAdmin = userRoles.includes('SUPER_ADMIN')
 
+  // 정렬 함수: 승인대기(pending) > 반려됨(rejected) > 나머지 (관리자 액션 필요한 항목 우선)
+  const sortByPriority = (projects: ProjectListItem[]) => {
+    const statusPriority: Record<string, number> = {
+      pending: 0,      // 최우선: 승인 필요
+      rejected: 1,     // 두 번째: 재상신 대기
+      draft: 2,
+      ready: 3,
+      recruiting: 4,
+      reviewing: 5,
+      in_progress: 6,
+      closed: 7
+    }
+
+    return [...projects].sort((a, b) => {
+      const priorityA = statusPriority[a.status] ?? 99
+      const priorityB = statusPriority[b.status] ?? 99
+
+      // 우선순위가 같으면 최근 생성순
+      if (priorityA === priorityB) {
+        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+      }
+      return priorityA - priorityB
+    })
+  }
+
   // 과제 목록 조회
   const fetchProjects = async () => {
     setLoading(true)
     try {
       const data = await projectService.listProjects()
       // SUPER_ADMIN은 모든 과제, 그 외는 본인 과제만 필터링
+      // 승인대기 과제가 상단에 표시되도록 정렬
       if (isSuperAdmin) {
-        setProjects(data)
+        setProjects(sortByPriority(data))
       } else {
         // 본인이 생성한 과제만 표시
         const myProjects = data.filter(p => p.created_by === user?.user_id)
-        setProjects(myProjects)
+        setProjects(sortByPriority(myProjects))
       }
     } catch (error) {
       console.error('과제 목록 조회 실패:', error)
