@@ -453,6 +453,7 @@ export default function StaffDashboard() {
       <Modal
         title="증빙 상세 정보"
         open={detailModalVisible}
+        maskClosable={false}
         onCancel={() => setDetailModalVisible(false)}
         width={700}
         footer={[
@@ -588,6 +589,7 @@ export default function StaffDashboard() {
       <Modal
         title="보완요청"
         open={supplementModalVisible}
+        maskClosable={false}
         onCancel={() => setSupplementModalVisible(false)}
         onOk={handleSupplementRequest}
         okText="보완요청 전송"

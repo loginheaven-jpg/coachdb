@@ -251,6 +251,7 @@ export default function SelectionModal({
         </Space>
       }
       open={open}
+      maskClosable={false}
       onCancel={onClose}
       width={1100}
       footer={[

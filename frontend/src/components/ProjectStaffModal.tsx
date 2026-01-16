@@ -180,6 +180,7 @@ export default function ProjectStaffModal({
     <Modal
       title={`심사위원 관리 - ${projectName}`}
       open={visible}
+      maskClosable={false}
       onCancel={onClose}
       footer={[
         <Button key="close" onClick={onClose}>

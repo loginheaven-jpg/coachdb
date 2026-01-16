@@ -372,6 +372,7 @@ export default function ProjectManagementDashboard() {
       <Modal
         title="과제 반려"
         open={rejectModalVisible}
+        maskClosable={false}
         onOk={handleReject}
         onCancel={() => setRejectModalVisible(false)}
         confirmLoading={actionLoading}

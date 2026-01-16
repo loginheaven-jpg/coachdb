@@ -485,6 +485,7 @@ export default function UserManagementPage() {
         <Modal
           title={`역할 편집 - ${editingUser?.name}`}
           open={editModalVisible}
+          maskClosable={false}
           onCancel={() => setEditModalVisible(false)}
           onOk={handleSaveRoles}
           confirmLoading={saving}
@@ -526,6 +527,7 @@ export default function UserManagementPage() {
         <Modal
           title="역할 요청 거절"
           open={rejectModalVisible}
+          maskClosable={false}
           onCancel={() => setRejectModalVisible(false)}
           onOk={handleRejectRequest}
           okText="거절"
@@ -563,6 +565,7 @@ export default function UserManagementPage() {
         <Modal
           title={`비밀번호 리셋 - ${resetPasswordUser?.name}`}
           open={passwordResetModalVisible}
+          maskClosable={false}
           onCancel={() => setPasswordResetModalVisible(false)}
           onOk={handleResetPassword}
           confirmLoading={resetPasswordLoading}

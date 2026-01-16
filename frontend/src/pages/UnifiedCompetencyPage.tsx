@@ -1131,6 +1131,7 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
           <Modal
             title={editingCompetency ? '역량 수정' : '역량 추가'}
             open={isModalVisible}
+            maskClosable={false}
             onOk={handleModalOk}
             onCancel={handleModalCancel}
             confirmLoading={loading || uploading}
@@ -1327,6 +1328,7 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
           <Modal
             title={editingEducation ? '연수 수정' : '연수 추가'}
             open={isEducationModalVisible}
+            maskClosable={false}
             onOk={handleEducationModalOk}
             onCancel={handleEducationModalCancel}
             confirmLoading={loading || uploading}
@@ -1443,6 +1445,7 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
         <Modal
           title={editingCompetency ? '역량 수정' : '역량 추가'}
           open={isModalVisible}
+          maskClosable={false}
           onOk={handleModalOk}
           onCancel={handleModalCancel}
           confirmLoading={loading || uploading}
@@ -1639,6 +1642,7 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
         <Modal
           title={editingEducation ? '연수 수정' : '연수 추가'}
           open={isEducationModalVisible}
+          maskClosable={false}
           onOk={handleEducationModalOk}
           onCancel={handleEducationModalCancel}
           confirmLoading={loading || uploading}

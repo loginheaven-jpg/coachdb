@@ -529,6 +529,7 @@ export default function AdminCompetencyItemsPage() {
         <Modal
           title="새 역량항목 추가"
           open={isCreateModalOpen}
+          maskClosable={false}
           onCancel={() => {
             setIsCreateModalOpen(false)
             createForm.resetFields()
@@ -612,6 +613,7 @@ export default function AdminCompetencyItemsPage() {
         <Modal
           title="역량항목 수정"
           open={isEditModalOpen}
+          maskClosable={false}
           onCancel={() => {
             setIsEditModalOpen(false)
             setEditingItem(null)
@@ -694,6 +696,7 @@ export default function AdminCompetencyItemsPage() {
         <Modal
           title={`필드 관리 - ${editingItem?.item_name}`}
           open={isFieldModalOpen}
+          maskClosable={false}
           onCancel={() => {
             setIsFieldModalOpen(false)
             setEditingItem(null)

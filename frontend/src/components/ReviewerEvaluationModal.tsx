@@ -140,6 +140,7 @@ export default function ReviewerEvaluationModal({
         </Space>
       }
       open={open}
+      maskClosable={false}
       onOk={handleSubmit}
       onCancel={onClose}
       okText={isEditing ? '수정' : '등록'}

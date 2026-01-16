@@ -508,6 +508,7 @@ export default function ProjectReviewPage() {
       <Modal
         title="평가 가중치 설정"
         open={weightsModalOpen}
+        maskClosable={false}
         onOk={handleUpdateWeights}
         onCancel={() => setWeightsModalOpen(false)}
       >

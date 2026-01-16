@@ -273,7 +273,7 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
           included: existing ? true : defaultIncluded,
           is_required: existing?.is_required ?? true,  // 기본값: 필수
           score: existing?.max_score ?? null,
-          proof_required_level: existing?.proof_required_level || ProofRequiredLevel.NOT_REQUIRED,
+          proof_required_level: existing?.proof_required_level || ProofRequiredLevel.OPTIONAL,
           scoring_criteria: existingCriteria
         })
       })
@@ -639,7 +639,7 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
         included: true,
         is_required: true,
         score: null,
-        proof_required_level: ProofRequiredLevel.REQUIRED,
+        proof_required_level: ProofRequiredLevel.OPTIONAL,  // 기본값: 증빙선택
         scoring_criteria: []
       })
       setSelections(newSelections)
@@ -961,6 +961,7 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
         <Modal
           title="항목 추가"
           open={showCustomQuestionModal}
+          maskClosable={false}
           onCancel={() => {
             setShowCustomQuestionModal(false)
             customQuestionForm.resetFields()
@@ -1101,6 +1102,7 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
         <Modal
           title="등급별 배점 설정"
           open={gradeConfigItemId !== null}
+          maskClosable={false}
           onCancel={() => {
             setGradeConfigItemId(null)
             gradeConfigForm.resetFields()
@@ -1621,6 +1623,7 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
       <Modal
         title="항목 추가"
         open={showCustomQuestionModal}
+        maskClosable={false}
         onCancel={() => {
           setShowCustomQuestionModal(false)
           customQuestionForm.resetFields()
@@ -1761,6 +1764,7 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
       <Modal
         title="등급별 배점 설정"
         open={gradeConfigItemId !== null}
+        maskClosable={false}
         onCancel={() => {
           setGradeConfigItemId(null)
           gradeConfigForm.resetFields()
