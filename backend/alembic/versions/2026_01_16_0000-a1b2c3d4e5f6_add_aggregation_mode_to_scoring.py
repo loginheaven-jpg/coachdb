@@ -39,7 +39,7 @@ def upgrade() -> None:
         op.add_column('scoring_criteria', sa.Column(
             'aggregation_mode',
             sa.Enum('first', 'sum', 'max', 'count', 'any_match', 'best_match', name='aggregationmode'),
-            nullable=False,
+            nullable=True,
             server_default='first'
         ))
 

@@ -177,10 +177,12 @@ class ScoringCriteria(Base):
     extract_pattern = Column(String(100), nullable=True)  # 정규식 패턴 (예: "^(.{3})" - 앞 3글자 추출)
 
     # 복수입력 항목의 집계 방식 (기본값: first = 첫 번째만)
+    # nullable=True for backward compatibility before migration
     aggregation_mode = Column(
         Enum(AggregationMode, values_callable=lambda x: [e.value for e in x]),
-        nullable=False,
-        default=AggregationMode.FIRST
+        nullable=True,
+        default=AggregationMode.FIRST,
+        server_default='first'
     )
 
     # Relationships
