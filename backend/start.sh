@@ -114,6 +114,25 @@ if DATABASE_URL:
             except Exception as e:
                 print(f"[WARN] notifications.{col_name}: {e}")
 
+        # Add aggregationmode enum and column to scoring_criteria
+        try:
+            cur.execute("""
+                DO $$ BEGIN
+                    CREATE TYPE aggregationmode AS ENUM ('first', 'sum', 'max', 'count', 'any_match', 'best_match');
+                EXCEPTION
+                    WHEN duplicate_object THEN null;
+                END $$;
+            """)
+            print("[OK] enum aggregationmode ensured")
+        except Exception as e:
+            print(f"[WARN] enum aggregationmode: {e}")
+
+        try:
+            cur.execute("ALTER TABLE scoring_criteria ADD COLUMN IF NOT EXISTS aggregation_mode aggregationmode DEFAULT 'first'")
+            print("[OK] scoring_criteria.aggregation_mode ensured")
+        except Exception as e:
+            print(f"[WARN] scoring_criteria.aggregation_mode: {e}")
+
         # Add missing enum values to competencycategory
         enum_values = ['ADDON', 'EDUCATION', 'COACHING', 'OTHER', 'CERTIFICATION', 'EXPERIENCE', 'DETAIL']
         for val in enum_values:
