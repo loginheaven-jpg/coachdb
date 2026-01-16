@@ -260,7 +260,7 @@ export interface ScoringCriteria extends ScoringCriteriaCreate {
   value_source: ValueSourceType
   source_field: string | null
   extract_pattern: string | null
-  aggregation_mode: AggregationMode
+  aggregation_mode?: AggregationMode  // Optional for backward compatibility
 }
 
 export interface ProjectItemCreate {

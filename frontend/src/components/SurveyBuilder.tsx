@@ -267,7 +267,8 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
           score: Number(c.score) || 0,
           value_source: c.value_source || ValueSourceType.SUBMITTED,
           source_field: c.source_field || null,
-          extract_pattern: c.extract_pattern || null
+          extract_pattern: c.extract_pattern || null,
+          aggregation_mode: c.aggregation_mode || AggregationMode.FIRST
         })) || []
         newSelections.set(item.item_id, {
           item,

@@ -2,7 +2,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, List
 from datetime import datetime
 from decimal import Decimal
-from app.models.competency import VerificationStatus, MatchingType, ProofRequiredLevel, ItemTemplate, CompetencyCategory, InputType, ValueSourceType
+from app.models.competency import VerificationStatus, MatchingType, ProofRequiredLevel, ItemTemplate, CompetencyCategory, InputType, ValueSourceType, AggregationMode
 
 
 class FileBasicInfo(BaseModel):
@@ -118,6 +118,9 @@ class ScoringCriteriaCreate(BaseModel):
     source_field: Optional[str] = None  # User 필드명 또는 JSON 필드명 (예: "coach_certification_number", "degree_level")
     extract_pattern: Optional[str] = None  # 정규식 패턴 (예: "^(.{3})" - 앞 3글자 추출)
 
+    # 복수입력 항목의 집계 방식
+    aggregation_mode: AggregationMode = AggregationMode.FIRST
+
 
 class ScoringCriteriaResponse(BaseModel):
     """Scoring criteria response"""
@@ -128,6 +131,7 @@ class ScoringCriteriaResponse(BaseModel):
     value_source: ValueSourceType = ValueSourceType.SUBMITTED
     source_field: Optional[str] = None
     extract_pattern: Optional[str] = None
+    aggregation_mode: AggregationMode = AggregationMode.FIRST
 
     class Config:
         from_attributes = True
