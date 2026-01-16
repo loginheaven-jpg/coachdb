@@ -89,7 +89,9 @@ const getCategoryGroup = (item: CompetencyItem): string => {
 // State for repeatable item rows
 interface RepeatableRow {
   id: number
-  value: string
+  value: string      // 연수명/내용 또는 기관명
+  year?: string      // 이수연도
+  hours?: string     // 이수시간
   fileAttached: boolean
 }
 
@@ -183,6 +185,18 @@ export default function SurveyPreview({
     setRepeatableRows(new Map(repeatableRows).set(itemId, newRows))
   }
 
+  const updateRowYear = (itemId: number, rowId: number, year: string) => {
+    const currentRows = getRowsForItem(itemId)
+    const newRows = currentRows.map(r => r.id === rowId ? { ...r, year } : r)
+    setRepeatableRows(new Map(repeatableRows).set(itemId, newRows))
+  }
+
+  const updateRowHours = (itemId: number, rowId: number, hours: string) => {
+    const currentRows = getRowsForItem(itemId)
+    const newRows = currentRows.map(r => r.id === rowId ? { ...r, hours } : r)
+    setRepeatableRows(new Map(repeatableRows).set(itemId, newRows))
+  }
+
   const toggleFileAttached = (itemId: number, rowId: number) => {
     const currentRows = getRowsForItem(itemId)
     const newRows = currentRows.map(r => r.id === rowId ? { ...r, fileAttached: !r.fileAttached } : r)
@@ -241,12 +255,29 @@ export default function SurveyPreview({
     }
   }
 
+  // coaching_time, coaching_experience 템플릿 여부 확인
+  const isStructuredTemplate = (template: string | null | undefined) => {
+    return template === 'coaching_time' || template === 'coaching_experience'
+  }
+
+  // 템플릿별 필드 라벨 가져오기
+  const getTemplateFieldLabels = (template: string | null | undefined) => {
+    if (template === 'coaching_time') {
+      return { main: '연수명/내용', year: '이수연도', hours: '이수시간' }
+    } else if (template === 'coaching_experience') {
+      return { main: '기관명', year: '연도', hours: '시간' }
+    }
+    return { main: '내용', year: '연도', hours: '시간' }
+  }
+
   // Render repeatable item with row-based input
   const renderRepeatableItemCard = (selection: typeof includedItems[0], showProof: boolean) => {
     const { item, is_required, proof_required_level } = selection
     const inputInfo = getInputLabel(is_required)
     const proofInfo = getProofLabel(proof_required_level)
     const rows = getRowsForItem(item.item_id)
+    const isStructured = isStructuredTemplate(item.template)
+    const fieldLabels = getTemplateFieldLabels(item.template)
 
     return (
       <Card
@@ -279,72 +310,107 @@ export default function SurveyPreview({
             <div
               key={row.id}
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
                 marginBottom: 12,
-                padding: '8px 12px',
+                padding: '12px 16px',
                 background: '#fafafa',
                 borderRadius: 6,
                 border: '1px solid #f0f0f0'
               }}
             >
-              {/* Row number */}
-              <div
-                style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: '50%',
-                  background: '#1890ff',
-                  color: 'white',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 14,
-                  fontWeight: 'bold',
-                  flexShrink: 0
-                }}
-              >
-                {index + 1}
+              {/* Header with row number and delete button */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: isStructured ? 12 : 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: '50%',
+                      background: '#1890ff',
+                      color: 'white',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 14,
+                      fontWeight: 'bold',
+                      flexShrink: 0
+                    }}
+                  >
+                    {index + 1}
+                  </div>
+                  {!isStructured && (
+                    <Input
+                      placeholder={`${item.item_name}을(를) 입력하세요`}
+                      value={row.value}
+                      onChange={(e) => updateRowValue(item.item_id, row.id, e.target.value)}
+                      style={{ flex: 1, width: 300 }}
+                    />
+                  )}
+                </div>
+                <Space>
+                  {/* File attachment button/status */}
+                  {showProof && proof_required_level !== ProofRequiredLevel.NOT_REQUIRED && (
+                    row.fileAttached ? (
+                      <Button
+                        type="text"
+                        icon={<CheckCircleFilled style={{ color: '#52c41a' }} />}
+                        onClick={() => toggleFileAttached(item.item_id, row.id)}
+                        style={{ color: '#52c41a' }}
+                      >
+                        첨부됨
+                      </Button>
+                    ) : (
+                      <Button
+                        icon={<PaperClipOutlined />}
+                        onClick={() => toggleFileAttached(item.item_id, row.id)}
+                      >
+                        첨부
+                      </Button>
+                    )
+                  )}
+
+                  {/* Delete button (only show if more than 1 row) */}
+                  {rows.length > 1 && (
+                    <Button
+                      type="text"
+                      danger
+                      icon={<DeleteOutlined />}
+                      onClick={() => removeRow(item.item_id, row.id)}
+                    />
+                  )}
+                </Space>
               </div>
 
-              {/* Input field */}
-              <Input
-                placeholder={`${item.item_name}을(를) 입력하세요`}
-                value={row.value}
-                onChange={(e) => updateRowValue(item.item_id, row.id, e.target.value)}
-                style={{ flex: 1 }}
-              />
-
-              {/* File attachment button/status */}
-              {showProof && proof_required_level !== ProofRequiredLevel.NOT_REQUIRED && (
-                row.fileAttached ? (
-                  <Button
-                    type="text"
-                    icon={<CheckCircleFilled style={{ color: '#52c41a' }} />}
-                    onClick={() => toggleFileAttached(item.item_id, row.id)}
-                    style={{ color: '#52c41a' }}
-                  >
-                    첨부됨
-                  </Button>
-                ) : (
-                  <Button
-                    icon={<PaperClipOutlined />}
-                    onClick={() => toggleFileAttached(item.item_id, row.id)}
-                  >
-                    첨부
-                  </Button>
-                )
-              )}
-
-              {/* Delete button (only show if more than 1 row) */}
-              {rows.length > 1 && (
-                <Button
-                  type="text"
-                  danger
-                  icon={<DeleteOutlined />}
-                  onClick={() => removeRow(item.item_id, row.id)}
-                />
+              {/* Structured fields for coaching_time/coaching_experience */}
+              {isStructured && (
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                  <div style={{ flex: 2, minWidth: 200 }}>
+                    <Text type="secondary" style={{ fontSize: 12 }}>{fieldLabels.main}</Text>
+                    <Input
+                      placeholder={fieldLabels.main}
+                      value={row.value}
+                      onChange={(e) => updateRowValue(item.item_id, row.id, e.target.value)}
+                      style={{ marginTop: 4 }}
+                    />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 100 }}>
+                    <Text type="secondary" style={{ fontSize: 12 }}>{fieldLabels.year}</Text>
+                    <Input
+                      placeholder={fieldLabels.year}
+                      value={row.year || ''}
+                      onChange={(e) => updateRowYear(item.item_id, row.id, e.target.value)}
+                      style={{ marginTop: 4 }}
+                    />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 100 }}>
+                    <Text type="secondary" style={{ fontSize: 12 }}>{fieldLabels.hours}</Text>
+                    <Input
+                      placeholder={fieldLabels.hours}
+                      value={row.hours || ''}
+                      onChange={(e) => updateRowHours(item.item_id, row.id, e.target.value)}
+                      style={{ marginTop: 4 }}
+                    />
+                  </div>
+                </div>
               )}
             </div>
           ))}
