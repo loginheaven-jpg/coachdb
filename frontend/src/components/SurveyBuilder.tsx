@@ -822,7 +822,14 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                                         value_source: existingCriteria.value_source || ValueSourceType.SUBMITTED,
                                         source_field: existingCriteria.source_field || '',
                                         extract_pattern: existingCriteria.extract_pattern || '',
-                                        grades: config.grades || []
+                                        grades: config.grades || [],
+                                        match_mode: config.matchMode || 'exact',
+                                        any_score: config.matchMode === 'any' && config.grades?.[0]?.score ? config.grades[0].score : undefined,
+                                        multi_select_mode: config.mode || 'contains',
+                                        file_grades: config.type === 'file_exists' ? config.grades : undefined,
+                                        // 증빙 감점 로드 (저장된 값은 음수이므로 절대값으로 변환)
+                                        enable_proof_penalty: config.proofPenalty !== undefined && config.proofPenalty !== null,
+                                        proof_penalty_amount: config.proofPenalty ? Math.abs(config.proofPenalty) : undefined
                                       })
                                     } catch {
                                       gradeConfigForm.resetFields()
@@ -1122,7 +1129,7 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                   type: 'string',
                   matchMode: 'any',
                   grades: [{ value: '', score: values.any_score || 0 }],
-                  proofPenalty: values.enable_proof_penalty ? (values.proof_penalty || 0) : undefined
+                  proofPenalty: values.enable_proof_penalty ? -(values.proof_penalty_amount || 0) : undefined
                 }
                 maxScore = values.any_score || 0
               } else {
@@ -1130,7 +1137,8 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                 gradeConfig = {
                   type: 'string',
                   matchMode: values.match_mode || 'exact',
-                  grades: values.grades || []
+                  grades: values.grades || [],
+                  proofPenalty: values.enable_proof_penalty ? -(values.proof_penalty_amount || 0) : undefined
                 }
                 maxScore = getMaxGradeScore(values.grades || [])
               }
@@ -1138,14 +1146,15 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
               gradeConfig = {
                 type: 'numeric',
                 grades: values.grades || [],
-                proofPenalty: values.enable_proof_penalty ? (values.proof_penalty || 0) : undefined
+                proofPenalty: values.enable_proof_penalty ? -(values.proof_penalty_amount || 0) : undefined
               }
               maxScore = getMaxGradeScore(values.grades || [])
             } else if (values.grade_type === 'multi_select') {
               gradeConfig = {
                 type: 'multi_select',
                 mode: values.multi_select_mode || 'contains',
-                grades: values.grades || []
+                grades: values.grades || [],
+                proofPenalty: values.enable_proof_penalty ? -(values.proof_penalty_amount || 0) : undefined
               }
               maxScore = getMaxGradeScore(values.grades || [])
             } else if (values.grade_type === 'file_exists') {
@@ -1154,13 +1163,15 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                 grades: {
                   exists: values.file_grades?.exists || 0,
                   none: 0
-                }
+                },
+                proofPenalty: values.enable_proof_penalty ? -(values.proof_penalty_amount || 0) : undefined
               }
               maxScore = values.file_grades?.exists || 0
             } else {
               gradeConfig = {
                 type: 'string',
-                grades: values.grades || []
+                grades: values.grades || [],
+                proofPenalty: values.enable_proof_penalty ? -(values.proof_penalty_amount || 0) : undefined
               }
               maxScore = getMaxGradeScore(values.grades || [])
             }
@@ -1310,76 +1321,14 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                         </Radio.Group>
                       </Form.Item>
                       {matchMode === 'any' ? (
-                        // "어떤 값이든" - 통합 배점 설정 카드
-                        <Card size="small" style={{ backgroundColor: '#f0f5ff', border: '1px solid #d6e4ff' }}>
-                          <Space direction="vertical" style={{ width: '100%' }}>
-                            <Form.Item
-                              name="any_score"
-                              label="내용 입력 시 기본 점수"
-                              rules={[{ required: true, message: '점수를 입력하세요' }]}
-                              style={{ marginBottom: 12 }}
-                            >
-                              <InputNumber min={0} max={100} addonAfter="점" style={{ width: 150 }} />
-                            </Form.Item>
-
-                            <Form.Item noStyle shouldUpdate={(prev, curr) => prev.any_score !== curr.any_score}>
-                              {({ getFieldValue: getInnerValue }) => {
-                                const baseScore = getInnerValue('any_score') || 0
-                                return (
-                                  <Space>
-                                    <Form.Item name="enable_proof_penalty" valuePropName="checked" style={{ marginBottom: 8 }}>
-                                      <Checkbox>증빙 감점 적용</Checkbox>
-                                    </Form.Item>
-                                    <Button
-                                      type="link"
-                                      size="small"
-                                      onClick={() => {
-                                        gradeConfigForm.setFieldsValue({
-                                          enable_proof_penalty: true,
-                                          proof_penalty: -baseScore
-                                        })
-                                      }}
-                                      style={{ padding: 0, height: 'auto' }}
-                                    >
-                                      증빙필수 (미첨부 시 0점)
-                                    </Button>
-                                  </Space>
-                                )
-                              }}
-                            </Form.Item>
-
-                            <Form.Item noStyle shouldUpdate={(prev, curr) => prev.enable_proof_penalty !== curr.enable_proof_penalty}>
-                              {({ getFieldValue: getInnerValue }) =>
-                                getInnerValue('enable_proof_penalty') && (
-                                  <Form.Item name="proof_penalty" label="증빙 미첨부 시 감점" style={{ marginBottom: 12 }}>
-                                    <InputNumber min={-100} max={0} addonAfter="점" style={{ width: 150 }} placeholder="-10" />
-                                  </Form.Item>
-                                )
-                              }
-                            </Form.Item>
-
-                            {/* 결과 미리보기 */}
-                            <Form.Item noStyle shouldUpdate>
-                              {({ getFieldValue: getInnerValue }) => {
-                                const baseScore = getInnerValue('any_score') || 0
-                                const penaltyEnabled = getInnerValue('enable_proof_penalty')
-                                const penalty = penaltyEnabled ? (getInnerValue('proof_penalty') || 0) : 0
-                                return (
-                                  <div style={{ marginTop: 8, padding: 8, backgroundColor: '#fff', borderRadius: 4, border: '1px solid #e8e8e8' }}>
-                                    <Text type="secondary" style={{ fontSize: 12 }}>결과 예시:</Text>
-                                    <div style={{ marginTop: 4 }}>
-                                      <div>• 내용 + 증빙 = <Text strong>{baseScore}점</Text></div>
-                                      {penaltyEnabled && (
-                                        <div>• 내용만 = <Text strong>{Math.max(0, baseScore + penalty)}점</Text> ({baseScore}{penalty})</div>
-                                      )}
-                                      <div>• 미입력 = <Text strong>0점</Text></div>
-                                    </div>
-                                  </div>
-                                )
-                              }}
-                            </Form.Item>
-                          </Space>
-                        </Card>
+                        // "어떤 값이든" - 기본 점수만 설정
+                        <Form.Item
+                          name="any_score"
+                          label="내용 입력 시 기본 점수"
+                          rules={[{ required: true, message: '점수를 입력하세요' }]}
+                        >
+                          <InputNumber min={0} max={100} addonAfter="점" style={{ width: 150 }} />
+                        </Form.Item>
                       ) : (
                         // 기존 Form.List (값 = 점수 형태)
                         <Form.List name="grades">
@@ -1452,28 +1401,6 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                           </>
                         )}
                       </Form.List>
-                      <div style={{ marginTop: 16, padding: 12, backgroundColor: '#f5f5f5', borderRadius: 6 }}>
-                        <Form.Item name="enable_proof_penalty" valuePropName="checked" style={{ marginBottom: 8 }}>
-                          <Checkbox>증빙 감점 적용</Checkbox>
-                        </Form.Item>
-                        <Form.Item noStyle shouldUpdate={(prev, curr) => prev.enable_proof_penalty !== curr.enable_proof_penalty}>
-                          {({ getFieldValue: getInnerValue }) => {
-                            const enabled = getInnerValue('enable_proof_penalty')
-                            if (!enabled) return null
-                            return (
-                              <Form.Item name="proof_penalty" label="증빙 미제출 시 감점" style={{ marginBottom: 0 }}>
-                                <InputNumber
-                                  min={-100}
-                                  max={0}
-                                  addonAfter="점"
-                                  style={{ width: 150 }}
-                                  placeholder="-3"
-                                />
-                              </Form.Item>
-                            )
-                          }}
-                        </Form.Item>
-                      </div>
                     </>
                   )
                 } else if (gradeType === 'multi_select') {
@@ -1562,6 +1489,87 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                 return null
               }}
             </Form.Item>
+
+            {/* 증빙 감점 설정 - 증빙필수/선택일 때만 표시 */}
+            {gradeConfigItemId && selections.get(gradeConfigItemId)?.proof_required_level !== ProofRequiredLevel.NOT_REQUIRED && (
+              <div style={{ marginTop: 16, padding: 16, backgroundColor: '#fafafa', borderRadius: 8, border: '1px solid #e8e8e8' }}>
+                <Text strong style={{ display: 'block', marginBottom: 12 }}>📋 증빙 감점 설정</Text>
+                <Form.Item noStyle shouldUpdate>
+                  {({ getFieldValue }) => {
+                    // 최대 점수 계산
+                    const gradeType = getFieldValue('grade_type')
+                    const matchMode = getFieldValue('match_mode')
+                    let maxScore = 0
+                    if (gradeType === 'string' && matchMode === 'any') {
+                      maxScore = getFieldValue('any_score') || 0
+                    } else if (gradeType === 'file_exists') {
+                      maxScore = getFieldValue(['file_grades', 'exists']) || 0
+                    } else {
+                      const grades = getFieldValue('grades') || []
+                      maxScore = getMaxGradeScore(grades)
+                    }
+
+                    return (
+                      <Space direction="vertical" style={{ width: '100%' }}>
+                        <Space>
+                          <Form.Item name="enable_proof_penalty" valuePropName="checked" style={{ marginBottom: 0 }}>
+                            <Checkbox>증빙 감점 적용</Checkbox>
+                          </Form.Item>
+                          <Button
+                            type="link"
+                            size="small"
+                            onClick={() => {
+                              gradeConfigForm.setFieldsValue({
+                                enable_proof_penalty: true,
+                                proof_penalty_amount: maxScore
+                              })
+                            }}
+                            style={{ padding: 0, height: 'auto' }}
+                          >
+                            증빙필수 (미첨부 시 0점)
+                          </Button>
+                        </Space>
+
+                        <Form.Item noStyle shouldUpdate={(prev, curr) => prev.enable_proof_penalty !== curr.enable_proof_penalty}>
+                          {({ getFieldValue: getInnerValue }) =>
+                            getInnerValue('enable_proof_penalty') && (
+                              <Form.Item name="proof_penalty_amount" label="증빙 미첨부 시 감점" style={{ marginBottom: 8 }}>
+                                <InputNumber
+                                  min={0}
+                                  max={100}
+                                  addonBefore="-"
+                                  addonAfter="점"
+                                  style={{ width: 150 }}
+                                  placeholder="10"
+                                />
+                              </Form.Item>
+                            )
+                          }
+                        </Form.Item>
+
+                        {/* 결과 미리보기 */}
+                        <Form.Item noStyle shouldUpdate>
+                          {({ getFieldValue: getInnerValue }) => {
+                            const penaltyEnabled = getInnerValue('enable_proof_penalty')
+                            const penaltyAmount = penaltyEnabled ? (getInnerValue('proof_penalty_amount') || 0) : 0
+                            if (!penaltyEnabled) return null
+                            return (
+                              <div style={{ padding: 8, backgroundColor: '#fff', borderRadius: 4, border: '1px solid #e8e8e8' }}>
+                                <Text type="secondary" style={{ fontSize: 12 }}>결과 예시:</Text>
+                                <div style={{ marginTop: 4 }}>
+                                  <div>• 내용 + 증빙 = <Text strong>{maxScore}점</Text></div>
+                                  <div>• 내용만 = <Text strong>{Math.max(0, maxScore - penaltyAmount)}점</Text> ({maxScore}-{penaltyAmount})</div>
+                                </div>
+                              </div>
+                            )
+                          }}
+                        </Form.Item>
+                      </Space>
+                    )
+                  }}
+                </Form.Item>
+              </div>
+            )}
           </Form>
         </Modal>
       </>
@@ -1784,7 +1792,7 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                 type: 'string',
                 matchMode: 'any',
                 grades: [{ value: '', score: values.any_score || 0 }],
-                proofPenalty: values.enable_proof_penalty ? (values.proof_penalty || 0) : undefined
+                proofPenalty: values.enable_proof_penalty ? -(values.proof_penalty_amount || 0) : undefined
               }
               maxScore = values.any_score || 0
             } else {
@@ -1792,7 +1800,8 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
               gradeConfig = {
                 type: 'string',
                 matchMode: values.match_mode || 'exact',
-                grades: values.grades || []
+                grades: values.grades || [],
+                proofPenalty: values.enable_proof_penalty ? -(values.proof_penalty_amount || 0) : undefined
               }
               maxScore = getMaxGradeScore(values.grades || [])
             }
@@ -1800,14 +1809,15 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
             gradeConfig = {
               type: 'numeric',
               grades: values.grades || [],
-              proofPenalty: values.enable_proof_penalty ? (values.proof_penalty || 0) : undefined
+              proofPenalty: values.enable_proof_penalty ? -(values.proof_penalty_amount || 0) : undefined
             }
             maxScore = getMaxGradeScore(values.grades || [])
           } else if (values.grade_type === 'multi_select') {
             gradeConfig = {
               type: 'multi_select',
               mode: values.multi_select_mode || 'contains',
-              grades: values.grades || []
+              grades: values.grades || [],
+              proofPenalty: values.enable_proof_penalty ? -(values.proof_penalty_amount || 0) : undefined
             }
             maxScore = getMaxGradeScore(values.grades || [])
           } else if (values.grade_type === 'file_exists') {
@@ -1816,13 +1826,15 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
               grades: {
                 exists: values.file_grades?.exists || 0,
                 none: 0
-              }
+              },
+              proofPenalty: values.enable_proof_penalty ? -(values.proof_penalty_amount || 0) : undefined
             }
             maxScore = values.file_grades?.exists || 0
           } else {
             gradeConfig = {
               type: 'string',
-              grades: values.grades || []
+              grades: values.grades || [],
+              proofPenalty: values.enable_proof_penalty ? -(values.proof_penalty_amount || 0) : undefined
             }
             maxScore = getMaxGradeScore(values.grades || [])
           }
@@ -1941,76 +1953,14 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                       </Radio.Group>
                     </Form.Item>
                     {matchMode === 'any' ? (
-                      // "어떤 값이든" - 통합 배점 설정 카드
-                      <Card size="small" style={{ backgroundColor: '#f0f5ff', border: '1px solid #d6e4ff' }}>
-                        <Space direction="vertical" style={{ width: '100%' }}>
-                          <Form.Item
-                            name="any_score"
-                            label="내용 입력 시 기본 점수"
-                            rules={[{ required: true, message: '점수를 입력하세요' }]}
-                            style={{ marginBottom: 12 }}
-                          >
-                            <InputNumber min={0} max={100} addonAfter="점" style={{ width: 150 }} />
-                          </Form.Item>
-
-                          <Form.Item noStyle shouldUpdate={(prev, curr) => prev.any_score !== curr.any_score}>
-                            {({ getFieldValue: getInnerValue }) => {
-                              const baseScore = getInnerValue('any_score') || 0
-                              return (
-                                <Space>
-                                  <Form.Item name="enable_proof_penalty" valuePropName="checked" style={{ marginBottom: 8 }}>
-                                    <Checkbox>증빙 감점 적용</Checkbox>
-                                  </Form.Item>
-                                  <Button
-                                    type="link"
-                                    size="small"
-                                    onClick={() => {
-                                      gradeConfigForm.setFieldsValue({
-                                        enable_proof_penalty: true,
-                                        proof_penalty: -baseScore
-                                      })
-                                    }}
-                                    style={{ padding: 0, height: 'auto' }}
-                                  >
-                                    증빙필수 (미첨부 시 0점)
-                                  </Button>
-                                </Space>
-                              )
-                            }}
-                          </Form.Item>
-
-                          <Form.Item noStyle shouldUpdate={(prev, curr) => prev.enable_proof_penalty !== curr.enable_proof_penalty}>
-                            {({ getFieldValue: getInnerValue }) =>
-                              getInnerValue('enable_proof_penalty') && (
-                                <Form.Item name="proof_penalty" label="증빙 미첨부 시 감점" style={{ marginBottom: 12 }}>
-                                  <InputNumber min={-100} max={0} addonAfter="점" style={{ width: 150 }} placeholder="-10" />
-                                </Form.Item>
-                              )
-                            }
-                          </Form.Item>
-
-                          {/* 결과 미리보기 */}
-                          <Form.Item noStyle shouldUpdate>
-                            {({ getFieldValue: getInnerValue }) => {
-                              const baseScore = getInnerValue('any_score') || 0
-                              const penaltyEnabled = getInnerValue('enable_proof_penalty')
-                              const penalty = penaltyEnabled ? (getInnerValue('proof_penalty') || 0) : 0
-                              return (
-                                <div style={{ marginTop: 8, padding: 8, backgroundColor: '#fff', borderRadius: 4, border: '1px solid #e8e8e8' }}>
-                                  <Text type="secondary" style={{ fontSize: 12 }}>결과 예시:</Text>
-                                  <div style={{ marginTop: 4 }}>
-                                    <div>• 내용 + 증빙 = <Text strong>{baseScore}점</Text></div>
-                                    {penaltyEnabled && (
-                                      <div>• 내용만 = <Text strong>{Math.max(0, baseScore + penalty)}점</Text> ({baseScore}{penalty})</div>
-                                    )}
-                                    <div>• 미입력 = <Text strong>0점</Text></div>
-                                  </div>
-                                </div>
-                              )
-                            }}
-                          </Form.Item>
-                        </Space>
-                      </Card>
+                      // "어떤 값이든" - 기본 점수만 설정
+                      <Form.Item
+                        name="any_score"
+                        label="내용 입력 시 기본 점수"
+                        rules={[{ required: true, message: '점수를 입력하세요' }]}
+                      >
+                        <InputNumber min={0} max={100} addonAfter="점" style={{ width: 150 }} />
+                      </Form.Item>
                     ) : (
                       // 기존 Form.List (값 = 점수 형태)
                       <Form.List name="grades">
@@ -2069,28 +2019,6 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                         </>
                       )}
                     </Form.List>
-                    <div style={{ marginTop: 16, padding: 12, backgroundColor: '#f5f5f5', borderRadius: 6 }}>
-                      <Form.Item name="enable_proof_penalty" valuePropName="checked" style={{ marginBottom: 8 }}>
-                        <Checkbox>증빙 감점 적용</Checkbox>
-                      </Form.Item>
-                      <Form.Item noStyle shouldUpdate={(prev, curr) => prev.enable_proof_penalty !== curr.enable_proof_penalty}>
-                        {({ getFieldValue: getInnerValue }) => {
-                          const enabled = getInnerValue('enable_proof_penalty')
-                          if (!enabled) return null
-                          return (
-                            <Form.Item name="proof_penalty" label="증빙 미제출 시 감점" style={{ marginBottom: 0 }}>
-                              <InputNumber
-                                min={-100}
-                                max={0}
-                                addonAfter="점"
-                                style={{ width: 150 }}
-                                placeholder="-3"
-                              />
-                            </Form.Item>
-                          )
-                        }}
-                      </Form.Item>
-                    </div>
                   </>
                 )
               } else if (gradeType === 'multi_select') {
@@ -2179,6 +2107,87 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
               return null
             }}
           </Form.Item>
+
+          {/* 증빙 감점 설정 - 증빙필수/선택일 때만 표시 */}
+          {gradeConfigItemId && selections.get(gradeConfigItemId)?.proof_required_level !== ProofRequiredLevel.NOT_REQUIRED && (
+            <div style={{ marginTop: 16, padding: 16, backgroundColor: '#fafafa', borderRadius: 8, border: '1px solid #e8e8e8' }}>
+              <Text strong style={{ display: 'block', marginBottom: 12 }}>📋 증빙 감점 설정</Text>
+              <Form.Item noStyle shouldUpdate>
+                {({ getFieldValue }) => {
+                  // 최대 점수 계산
+                  const gradeType = getFieldValue('grade_type')
+                  const matchMode = getFieldValue('match_mode')
+                  let maxScore = 0
+                  if (gradeType === 'string' && matchMode === 'any') {
+                    maxScore = getFieldValue('any_score') || 0
+                  } else if (gradeType === 'file_exists') {
+                    maxScore = getFieldValue(['file_grades', 'exists']) || 0
+                  } else {
+                    const grades = getFieldValue('grades') || []
+                    maxScore = getMaxGradeScore(grades)
+                  }
+
+                  return (
+                    <Space direction="vertical" style={{ width: '100%' }}>
+                      <Space>
+                        <Form.Item name="enable_proof_penalty" valuePropName="checked" style={{ marginBottom: 0 }}>
+                          <Checkbox>증빙 감점 적용</Checkbox>
+                        </Form.Item>
+                        <Button
+                          type="link"
+                          size="small"
+                          onClick={() => {
+                            gradeConfigForm.setFieldsValue({
+                              enable_proof_penalty: true,
+                              proof_penalty_amount: maxScore
+                            })
+                          }}
+                          style={{ padding: 0, height: 'auto' }}
+                        >
+                          증빙필수 (미첨부 시 0점)
+                        </Button>
+                      </Space>
+
+                      <Form.Item noStyle shouldUpdate={(prev, curr) => prev.enable_proof_penalty !== curr.enable_proof_penalty}>
+                        {({ getFieldValue: getInnerValue }) =>
+                          getInnerValue('enable_proof_penalty') && (
+                            <Form.Item name="proof_penalty_amount" label="증빙 미첨부 시 감점" style={{ marginBottom: 8 }}>
+                              <InputNumber
+                                min={0}
+                                max={100}
+                                addonBefore="-"
+                                addonAfter="점"
+                                style={{ width: 150 }}
+                                placeholder="10"
+                              />
+                            </Form.Item>
+                          )
+                        }
+                      </Form.Item>
+
+                      {/* 결과 미리보기 */}
+                      <Form.Item noStyle shouldUpdate>
+                        {({ getFieldValue: getInnerValue }) => {
+                          const penaltyEnabled = getInnerValue('enable_proof_penalty')
+                          const penaltyAmount = penaltyEnabled ? (getInnerValue('proof_penalty_amount') || 0) : 0
+                          if (!penaltyEnabled) return null
+                          return (
+                            <div style={{ padding: 8, backgroundColor: '#fff', borderRadius: 4, border: '1px solid #e8e8e8' }}>
+                              <Text type="secondary" style={{ fontSize: 12 }}>결과 예시:</Text>
+                              <div style={{ marginTop: 4 }}>
+                                <div>• 내용 + 증빙 = <Text strong>{maxScore}점</Text></div>
+                                <div>• 내용만 = <Text strong>{Math.max(0, maxScore - penaltyAmount)}점</Text> ({maxScore}-{penaltyAmount})</div>
+                              </div>
+                            </div>
+                          )
+                        }}
+                      </Form.Item>
+                    </Space>
+                  )
+                }}
+              </Form.Item>
+            </div>
+          )}
         </Form>
       </Modal>
     </Modal>

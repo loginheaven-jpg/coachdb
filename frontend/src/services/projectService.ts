@@ -63,6 +63,7 @@ export interface GradeConfigMultiSelect {
   type: 'multi_select'
   mode: 'contains' | 'count'  // 포함 여부 / 선택 개수
   grades: Array<{ value?: string; min?: number; score: number }>
+  proofPenalty?: number  // 증빙 감점 (예: -3)
 }
 
 // 파일 유무 등급
@@ -72,6 +73,7 @@ export interface GradeConfigFileExists {
     exists: number   // 파일 있음
     none: number     // 파일 없음 (0)
   }
+  proofPenalty?: number  // 증빙 감점 (예: -3)
 }
 
 export type GradeConfig =
