@@ -47,15 +47,38 @@ export enum ValueSourceType {
 // GRADE 타입용 등급 정의
 export interface GradeConfigString {
   type: 'string'
+  matchMode?: 'exact' | 'contains'  // 매칭 방식 (기본값: 'exact')
   grades: Array<{ value: string; score: number }>
+  proofPenalty?: number  // 증빙 감점 (예: -3)
 }
 
 export interface GradeConfigNumeric {
   type: 'numeric'
   grades: Array<{ min?: number; max?: number; score: number }>
+  proofPenalty?: number  // 증빙 감점 (예: -3)
 }
 
-export type GradeConfig = GradeConfigString | GradeConfigNumeric
+// 복수선택 등급
+export interface GradeConfigMultiSelect {
+  type: 'multi_select'
+  mode: 'contains' | 'count'  // 포함 여부 / 선택 개수
+  grades: Array<{ value?: string; min?: number; score: number }>
+}
+
+// 파일 유무 등급
+export interface GradeConfigFileExists {
+  type: 'file_exists'
+  grades: {
+    exists: number   // 파일 있음
+    none: number     // 파일 없음 (0)
+  }
+}
+
+export type GradeConfig =
+  | GradeConfigString
+  | GradeConfigNumeric
+  | GradeConfigMultiSelect
+  | GradeConfigFileExists
 
 export enum ItemTemplate {
   TEXT = 'text',

@@ -77,20 +77,24 @@ def extract_value_for_scoring(
         return submitted_value or ""
 
 
-def match_grade_value(extracted_value: str, expected_value: str) -> Optional[Decimal]:
+def match_grade_value(
+    extracted_value: str,
+    expected_value: str,
+    submitted_file_id: Optional[int] = None,
+    submitted_value: Optional[str] = None
+) -> Optional[Decimal]:
     """
     Match grade value and return score
 
     Args:
         extracted_value: The extracted value to match
         expected_value: JSON config with grade definitions
+        submitted_file_id: File ID if a file was submitted (for proof_penalty)
+        submitted_value: Raw submitted value (for multi_select JSON parsing)
 
     Returns:
         Score for matching grade, or None if no match
     """
-    if not extracted_value:
-        return None
-
     try:
         config = json.loads(expected_value)
     except json.JSONDecodeError:
@@ -99,9 +103,46 @@ def match_grade_value(extracted_value: str, expected_value: str) -> Optional[Dec
 
     grade_type = config.get("type", "string")
     grades = config.get("grades", [])
+    proof_penalty = config.get("proofPenalty", 0)
 
-    if grade_type == "numeric":
+    base_score = Decimal('0')
+
+    if grade_type == "file_exists":
+        # 파일 유무 점수
+        if submitted_file_id:
+            return Decimal(str(grades.get("exists", 0)))
+        else:
+            return Decimal(str(grades.get("none", 0)))
+
+    elif grade_type == "multi_select":
+        # 복수선택 점수
+        mode = config.get("mode", "contains")
+        try:
+            selected_values = json.loads(submitted_value) if submitted_value else []
+        except json.JSONDecodeError:
+            selected_values = []
+
+        if mode == "contains":
+            # 특정값 포함 여부 (각각 가산)
+            for grade in grades:
+                grade_value = str(grade.get("value", ""))
+                if grade_value in selected_values:
+                    base_score += Decimal(str(grade.get("score", 0)))
+        else:
+            # 선택 개수
+            count = len(selected_values)
+            sorted_grades = sorted(grades, key=lambda x: x.get("min", 0), reverse=True)
+            for grade in sorted_grades:
+                if count >= grade.get("min", 0):
+                    base_score = Decimal(str(grade.get("score", 0)))
+                    break
+
+        return base_score
+
+    elif grade_type == "numeric":
         # Numeric range matching
+        if not extracted_value:
+            return None
         try:
             # Extract number from value
             numbers = re.findall(r'[\d.]+', str(extracted_value))
@@ -113,19 +154,39 @@ def match_grade_value(extracted_value: str, expected_value: str) -> Optional[Dec
                 min_val = grade.get("min", float("-inf"))
                 max_val = grade.get("max", float("inf"))
                 if min_val <= num_value <= max_val:
-                    return Decimal(str(grade.get("score", 0)))
+                    base_score = Decimal(str(grade.get("score", 0)))
+                    break
         except (ValueError, TypeError) as e:
             logger.debug(f"Numeric grade matching failed: {e}")
             return None
 
+        # 증빙 감점 적용
+        if proof_penalty and not submitted_file_id:
+            base_score += Decimal(str(proof_penalty))  # 음수이므로 더하면 감점
+
+        return max(base_score, Decimal('0'))  # 0점 미만 방지
+
     else:  # string matching
+        if not extracted_value:
+            return None
+        match_mode = config.get("matchMode", "exact")
         extracted_lower = str(extracted_value).strip().lower()
+
         for grade in grades:
             grade_value = str(grade.get("value", "")).strip().lower()
-            if grade_value == extracted_lower:
-                return Decimal(str(grade.get("score", 0)))
 
-    return None
+            if match_mode == "contains":
+                # 포함 매칭
+                if grade_value in extracted_lower:
+                    base_score = Decimal(str(grade.get("score", 0)))
+                    break
+            else:
+                # 정확히 일치 (기본)
+                if grade_value == extracted_lower:
+                    base_score = Decimal(str(grade.get("score", 0)))
+                    break
+
+        return base_score if base_score > 0 else None
 
 
 def match_value(submitted_value: str, expected_value: str, matching_type: MatchingType) -> bool:
@@ -195,7 +256,8 @@ def calculate_item_score(
     submitted_value: str,
     scoring_criteria: List[ScoringCriteria],
     max_score: Optional[Decimal] = None,
-    user: Optional[User] = None
+    user: Optional[User] = None,
+    submitted_file_id: Optional[int] = None
 ) -> Decimal:
     """
     Calculate score for a single item based on scoring criteria
@@ -205,6 +267,7 @@ def calculate_item_score(
         scoring_criteria: List of scoring criteria for this item
         max_score: Maximum score for this item (for validation)
         user: User object (required for USER_FIELD value source)
+        submitted_file_id: File ID if a file was submitted (for file_exists and proof penalty)
 
     Returns:
         The calculated score
@@ -216,7 +279,11 @@ def calculate_item_score(
         if criteria.matching_type == MatchingType.GRADE:
             # Extract value based on source
             extracted = extract_value_for_scoring(submitted_value, criteria, user)
-            grade_score = match_grade_value(extracted, criteria.expected_value)
+            grade_score = match_grade_value(
+                extracted, criteria.expected_value,
+                submitted_file_id=submitted_file_id,
+                submitted_value=submitted_value
+            )
             if grade_score is not None:
                 total_score += grade_score
                 break  # GRADE typically has one match per item
@@ -278,12 +345,13 @@ async def calculate_application_auto_score(
         if not project_item or not project_item.scoring_criteria:
             continue
 
-        # Calculate item score (pass user for USER_FIELD value source)
+        # Calculate item score (pass user for USER_FIELD value source, file_id for proof penalty)
         item_score = calculate_item_score(
             app_data.submitted_value or '',
             project_item.scoring_criteria,
             project_item.max_score,
-            applicant_user
+            applicant_user,
+            app_data.submitted_file_id
         )
 
         # Update item_score in application_data
