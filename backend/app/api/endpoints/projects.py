@@ -288,8 +288,8 @@ async def create_test_project_with_applications(
         print("[CREATE-TEST-APPS] Step 2: Adding survey items with GRADE scoring...")
         from app.models.competency import CompetencyItem, MatchingType, ValueSourceType
 
-        # 특정 항목들을 선택 (BASIC_CERT_LEVEL, 학력, 경력 등)
-        priority_codes = ['BASIC_CERT_LEVEL', 'DETAIL_EDUCATION', 'DETAIL_COACHING_HISTORY', 'DETAIL_COACHING_FIELD']
+        # 특정 항목들을 선택 (현재 항목 구조에 맞게 업데이트)
+        priority_codes = ['CERT_COACH', 'EDU_COACHING', 'EXP_COACHING_TRAINING', 'EXP_COACHING_HOURS']
         result = await db.execute(
             select(CompetencyItem)
             .where(CompetencyItem.is_active == True)
@@ -331,29 +331,32 @@ async def create_test_project_with_applications(
                 project_items.append(project_item)
 
                 # GRADE 채점 기준 추가 (항목 유형별)
-                if comp_item.item_code == 'BASIC_CERT_LEVEL':
-                    # KSC/KPC/KAC 인증번호 기반 등급
+                if comp_item.item_code == 'CERT_COACH':
+                    # 코칭 관련 자격증 등급 (cert_name 필드에서 자격증 명칭 추출)
                     grade_config = json.dumps({
                         "type": "string",
+                        "matchMode": "contains",
                         "grades": [
                             {"value": "KSC", "score": float(score)},
                             {"value": "KPC", "score": float(score * Decimal("0.7"))},
-                            {"value": "KAC", "score": float(score * Decimal("0.4"))}
+                            {"value": "KAC", "score": float(score * Decimal("0.4"))},
+                            {"value": "ACC", "score": float(score * Decimal("0.3"))},
+                            {"value": "PCC", "score": float(score * Decimal("0.8"))},
+                            {"value": "MCC", "score": float(score)}
                         ]
                     })
                     criteria = ScoringCriteria(
                         project_item_id=project_item.project_item_id,
                         matching_type=MatchingType.GRADE,
                         expected_value=grade_config,
-                        score=Decimal("0"),  # GRADE에서는 expected_value JSON에서 점수 결정
-                        value_source=ValueSourceType.USER_FIELD,
-                        source_field="coach_certification_number",
-                        extract_pattern="^(.{3})"  # 앞 3글자 추출
+                        score=Decimal("0"),
+                        value_source=ValueSourceType.JSON_FIELD,
+                        source_field="cert_name"
                     )
                     db.add(criteria)
                     grade_criteria_map[comp_item.item_code] = {"max": float(score), "type": "cert"}
 
-                elif comp_item.item_code == 'DETAIL_EDUCATION' or comp_item.template == 'degree':
+                elif comp_item.item_code == 'EDU_COACHING' or comp_item.template == 'degree':
                     # 학위별 등급
                     grade_config = json.dumps({
                         "type": "string",
@@ -463,16 +466,34 @@ async def create_test_project_with_applications(
                 )
                 comp_item = comp_result.scalar_one_or_none()
 
-                # 항목 유형별로 적절한 값 설정
-                if comp_item and comp_item.item_code == 'BASIC_CERT_LEVEL':
-                    submitted_value = cert_number  # 인증번호
-                elif comp_item and (comp_item.item_code == 'DETAIL_EDUCATION' or comp_item.template == 'degree'):
-                    # 학위 정보 (JSON)
+                # 항목 유형별로 적절한 값 설정 (현재 항목 구조에 맞게 업데이트)
+                if comp_item and comp_item.item_code == 'CERT_COACH':
+                    # 코칭 관련 자격증 (TEXT_FILE 템플릿, cert_name 필드 포함)
+                    submitted_value = json.dumps({
+                        "cert_name": cert_levels[i-1],  # KSC/KPC/KAC
+                        "cert_year": 2023 - (i % 5),
+                        "cert_file": None
+                    })
+                elif comp_item and (comp_item.item_code == 'EDU_COACHING' or comp_item.template == 'degree'):
+                    # 학력 정보 (DEGREE 템플릿)
                     submitted_value = json.dumps({
                         "degree_level": degree_levels[i-1],
+                        "school": "테스트대학교",
                         "major": "코칭학",
-                        "school_name": "테스트대학교"
+                        "proof": None
                     })
+                elif comp_item and comp_item.item_code == 'EXP_COACHING_TRAINING':
+                    # 코칭연수 (COACHING_TIME 템플릿, 복수입력)
+                    training_count = (i % 3) + 1  # 1~3개 연수
+                    trainings = []
+                    for t in range(training_count):
+                        trainings.append({
+                            "description": f"코칭연수{t+1}",
+                            "year": 2023 - t,
+                            "hours": 20 + (t * 10),
+                            "proof": None
+                        })
+                    submitted_value = json.dumps(trainings)
                 else:
                     # 숫자값 (코칭 시간 등)
                     submitted_value = str(numeric_values[i-1])
