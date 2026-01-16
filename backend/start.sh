@@ -154,6 +154,15 @@ if DATABASE_URL:
             except Exception as e:
                 print(f"[WARN] enum itemtemplate.{val}: {e}")
 
+        # Add missing enum values to matchingtype
+        matchingtype_values = ['GRADE', 'EXACT', 'CONTAINS', 'RANGE', 'EXISTS', 'ANY']
+        for val in matchingtype_values:
+            try:
+                cur.execute(f"ALTER TYPE matchingtype ADD VALUE IF NOT EXISTS '{val}'")
+                print(f"[OK] enum matchingtype.{val} ensured")
+            except Exception as e:
+                print(f"[WARN] enum matchingtype.{val}: {e}")
+
         # Update competency_items categories based on item_code patterns
         category_updates = [
             # CERT_* or ADDON_CERT_* → CERTIFICATION
