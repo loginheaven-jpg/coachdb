@@ -2027,6 +2027,15 @@ export default function ApplicationSubmitPage() {
                                   <Select.Option key={opt} value={opt}>{opt}</Select.Option>
                                 ))}
                               </Select>
+                            ) : field.field_type === 'multiselect' ? (
+                              <Select
+                                mode="multiple"
+                                placeholder={field.placeholder || `${field.field_label} 선택 (복수 가능)`}
+                              >
+                                {options.map((opt: string) => (
+                                  <Select.Option key={opt} value={opt}>{opt}</Select.Option>
+                                ))}
+                              </Select>
                             ) : field.field_type === 'number' ? (
                               <InputNumber
                                 className="w-full"
