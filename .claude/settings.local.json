@@ -107,7 +107,12 @@
       "Bash(__NEW_LINE__ echo \"=== 1. 고아 파일 탐지 API 호출 ===\")",
       "Bash(npm install:*)",
       "Bash(npx playwright:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(TEST_URL=http://localhost:3000 npx playwright test:*)",
+      "Bash(TEST_COACH_EMAIL=\"viproject@naver.com\" TEST_COACH_PASSWORD=\"1234qwer\" TEST_ADMIN_EMAIL=\"viproject@naver.com\" TEST_ADMIN_PASSWORD=\"1234qwer\" npx playwright:*)",
+      "Bash(TEST_COACH_EMAIL=\"viproject@naver.com\" TEST_COACH_PASSWORD=\"1234qwer\" TEST_ADMIN_EMAIL=\"viproject@naver.com\" TEST_ADMIN_PASSWORD=\"1234qwer\" npx playwright test:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzIiwicm9sZXMiOlsiUFJPSkVDVF9NQU5BR0VSIiwiVkVSSUZJRVIiLCJDT0FDSCIsIlJFVklFV0VSIl0sImV4cCI6MTc2NzQ1MjA0OCwidHlwZSI6ImFjY2VzcyJ9.uV6c66VZ8s3gPJp-tgE8Ka_kKHtZIE9NMW5sZ8zM488\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzIiwicm9sZXMiOlsiUFJPSkVDVF9NQU5BR0VSIiwiVkVSSUZJRVIiLCJDT0FDSCIsIlJFVklFV0VSIl0sImV4cCI6MTc2NzQ1MzAyMywidHlwZSI6ImFjY2VzcyJ9.cm5HPJcC1DqBeTvX7QYuCTKeONwPGssdMi6CaUpWysw\")"
     ],
     "deny": [],
     "ask": []

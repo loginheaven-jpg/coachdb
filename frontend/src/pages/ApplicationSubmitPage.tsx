@@ -2336,8 +2336,26 @@ export default function ApplicationSubmitPage() {
                 />
               )}
 
+              {/* 필수 증빙 미첨부 - 빨간색 에러 */}
+              {!isViewMode && getMissingRequiredProofs().length > 0 && (
+                <Alert
+                  type="error"
+                  showIcon
+                  icon={<CloseCircleOutlined />}
+                  className="mt-4"
+                  message="필수 증빙 미첨부"
+                  description={
+                    <ul className="list-disc pl-4 mt-2 mb-0">
+                      {getMissingRequiredProofs().map((item, index) => (
+                        <li key={index}>{item}</li>
+                      ))}
+                    </ul>
+                  }
+                />
+              )}
+
               {/* 선택 항목 미입력 - 노란색 경고, 보완 권장 */}
-              {!isViewMode && getMissingRequiredItems().length === 0 && getMissingOptionalItems().length > 0 && (
+              {!isViewMode && getMissingRequiredItems().length === 0 && getMissingRequiredProofs().length === 0 && getMissingOptionalItems().length > 0 && (
                 <Alert
                   type="warning"
                   showIcon
