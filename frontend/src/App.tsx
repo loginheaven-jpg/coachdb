@@ -13,11 +13,7 @@ import StaffDashboard from './pages/StaffDashboard'
 import AdminDashboard from './pages/AdminDashboard'
 import ProjectListPage from './pages/ProjectListPage'
 import ProjectManagePage from './pages/ProjectManagePage'
-import ProjectCreatePage from './pages/ProjectCreatePage'
-import ProjectDetailPage from './pages/ProjectDetailPage'
-import ProjectEditPage from './pages/ProjectEditPage'
-import ProjectApplicationsPage from './pages/ProjectApplicationsPage'
-import ProjectReviewPage from './pages/ProjectReviewPage'
+import ProjectUnifiedPage from './pages/ProjectUnifiedPage'
 import EvaluationDashboard from './pages/EvaluationDashboard'
 import ProjectEvaluationCreatePage from './pages/ProjectEvaluationCreatePage'
 import ApplicationSubmitPage from './pages/ApplicationSubmitPage'
@@ -32,17 +28,22 @@ import authService from './services/authService'
 // 레거시 라우트 리다이렉트 컴포넌트
 function LegacyProjectRedirect() {
   const { projectId } = useParams()
-  return <Navigate to={`/projects/manage/${projectId}`} replace />
+  return <Navigate to={`/projects/manage/${projectId}?tab=info`} replace />
 }
 
 function LegacyProjectEditRedirect() {
   const { projectId } = useParams()
-  return <Navigate to={`/projects/manage/${projectId}/edit`} replace />
+  return <Navigate to={`/projects/manage/${projectId}?tab=info`} replace />
 }
 
 function LegacyProjectApplicationsRedirect() {
   const { projectId } = useParams()
-  return <Navigate to={`/projects/manage/${projectId}/applications`} replace />
+  return <Navigate to={`/projects/manage/${projectId}?tab=applications`} replace />
+}
+
+function LegacyProjectReviewRedirect() {
+  const { projectId } = useParams()
+  return <Navigate to={`/projects/manage/${projectId}?tab=selection`} replace />
 }
 
 function LegacyApplyRedirect() {
@@ -220,50 +221,36 @@ function App() {
             </ProtectedRoute>
           }
         />
-        {/* 새 과제 생성 */}
+        {/* 새 과제 생성 - ProjectUnifiedPage (create mode) */}
         <Route
           path="/projects/create"
           element={
             <ProtectedRoute allowedRoles={ADMIN_ROLES}>
-              <ProjectCreatePage />
+              <ProjectUnifiedPage />
             </ProtectedRoute>
           }
         />
-        {/* 과제 상세 (관리) */}
+        {/* 과제 상세/수정 - ProjectUnifiedPage (edit mode) */}
         <Route
           path="/projects/manage/:projectId"
           element={
             <ProtectedRoute allowedRoles={ADMIN_ROLES}>
-              <ProjectDetailPage />
+              <ProjectUnifiedPage />
             </ProtectedRoute>
           }
         />
-        {/* 과제 수정 */}
+        {/* 레거시 라우트 리다이렉트 */}
         <Route
           path="/projects/manage/:projectId/edit"
-          element={
-            <ProtectedRoute allowedRoles={ADMIN_ROLES}>
-              <ProjectEditPage />
-            </ProtectedRoute>
-          }
+          element={<LegacyProjectEditRedirect />}
         />
-        {/* 응모자 목록 */}
         <Route
           path="/projects/manage/:projectId/applications"
-          element={
-            <ProtectedRoute allowedRoles={ADMIN_ROLES}>
-              <ProjectApplicationsPage />
-            </ProtectedRoute>
-          }
+          element={<LegacyProjectApplicationsRedirect />}
         />
-        {/* 심사 및 선발 */}
         <Route
           path="/projects/manage/:projectId/review"
-          element={
-            <ProtectedRoute allowedRoles={ADMIN_ROLES}>
-              <ProjectReviewPage />
-            </ProtectedRoute>
-          }
+          element={<LegacyProjectReviewRedirect />}
         />
 
         {/* Protected routes - Staff */}

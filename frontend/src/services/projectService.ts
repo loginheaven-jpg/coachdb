@@ -148,6 +148,7 @@ export interface ProjectUpdate {
   project_name?: string
   project_type?: ProjectType | null  // 과제 구분
   description?: string | null
+  support_program_name?: string | null
   recruitment_start_date?: string
   recruitment_end_date?: string
   project_start_date?: string | null
