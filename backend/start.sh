@@ -128,7 +128,7 @@ if DATABASE_URL:
             print(f"[WARN] enum projecttype: {e}")
 
         try:
-            cur.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS project_type projecttype DEFAULT 'other'")
+            cur.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS project_type projecttype DEFAULT 'other'::projecttype")
             print("[OK] projects.project_type ensured")
         except Exception as e:
             print(f"[WARN] projects.project_type: {e}")
