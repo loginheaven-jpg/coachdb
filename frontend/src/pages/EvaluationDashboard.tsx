@@ -102,15 +102,21 @@ export default function EvaluationDashboard() {
       title: '작업',
       key: 'actions',
       width: 120,
-      render: (_: any, record: ProjectListItem) => (
-        <Button
-          type="primary"
-          icon={<FormOutlined />}
-          onClick={() => navigate(`/projects/manage/${record.project_id}/review`)}
-        >
-          심사하기
-        </Button>
-      )
+      render: (_: any, record: ProjectListItem) => {
+        // 심사중 상태인 경우에만 버튼 활성화
+        const isReviewing = record.display_status === 'reviewing' || record.status === 'reviewing'
+        return (
+          <Button
+            type="primary"
+            icon={<FormOutlined />}
+            onClick={() => navigate(`/projects/manage/${record.project_id}/review`)}
+            disabled={!isReviewing}
+            title={!isReviewing ? '심사중 상태의 과제만 심사할 수 있습니다' : undefined}
+          >
+            심사하기
+          </Button>
+        )
+      }
     }
   ]
 

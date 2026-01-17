@@ -18,6 +18,7 @@ import { useAuthStore } from '../stores/authStore'
 import applicationService from '../services/applicationService'
 import projectService from '../services/projectService'
 import notificationService, { Notification } from '../services/notificationService'
+import verificationService from '../services/verificationService'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import 'dayjs/locale/ko'
@@ -130,10 +131,21 @@ export default function DashboardPage() {
         pendingEvaluations = reviewProjects.length
       }
 
+      // 증빙 검토 대기 건수 (VERIFIER 또는 SUPER_ADMIN)
+      let pendingVerifications = 0
+      if (isVerifier || isSuperAdmin) {
+        try {
+          const verifications = await verificationService.getPendingVerifications()
+          pendingVerifications = verifications.length
+        } catch (error) {
+          console.error('증빙 검토 건수 로드 실패:', error)
+        }
+      }
+
       setStats({
         myApplications,
         managedProjects,
-        pendingVerifications: 0, // TODO: 증빙검토 API 연동
+        pendingVerifications,
         pendingEvaluations
       })
     } catch (error) {

@@ -17,7 +17,8 @@ import {
   Tooltip,
   Progress,
   Divider,
-  Checkbox
+  Checkbox,
+  Popconfirm
 } from 'antd'
 import {
   ArrowLeftOutlined,
@@ -322,26 +323,43 @@ export default function ProjectReviewPage() {
           </Tooltip>
           {canManageSelection && (
             <>
-              <Tooltip title="선발">
-                <Button
-                  size="small"
-                  type="primary"
-                  ghost
-                  icon={<CheckCircleOutlined />}
-                  onClick={() => handleUpdateSelection(record.application_id, SelectionResult.SELECTED)}
-                  disabled={record.selection_result === 'selected'}
-                />
-              </Tooltip>
-              <Tooltip title="탈락">
-                <Button
-                  size="small"
-                  danger
-                  ghost
-                  icon={<CloseCircleOutlined />}
-                  onClick={() => handleUpdateSelection(record.application_id, SelectionResult.REJECTED)}
-                  disabled={record.selection_result === 'rejected'}
-                />
-              </Tooltip>
+              <Popconfirm
+                title="선발 확인"
+                description={`${record.user_name}님을 선발하시겠습니까?`}
+                onConfirm={() => handleUpdateSelection(record.application_id, SelectionResult.SELECTED)}
+                okText="선발"
+                cancelText="취소"
+                disabled={record.selection_result === 'selected'}
+              >
+                <Tooltip title="선발">
+                  <Button
+                    size="small"
+                    type="primary"
+                    ghost
+                    icon={<CheckCircleOutlined />}
+                    disabled={record.selection_result === 'selected'}
+                  />
+                </Tooltip>
+              </Popconfirm>
+              <Popconfirm
+                title="탈락 확인"
+                description={`${record.user_name}님을 탈락 처리하시겠습니까?`}
+                onConfirm={() => handleUpdateSelection(record.application_id, SelectionResult.REJECTED)}
+                okText="탈락"
+                cancelText="취소"
+                okButtonProps={{ danger: true }}
+                disabled={record.selection_result === 'rejected'}
+              >
+                <Tooltip title="탈락">
+                  <Button
+                    size="small"
+                    danger
+                    ghost
+                    icon={<CloseCircleOutlined />}
+                    disabled={record.selection_result === 'rejected'}
+                  />
+                </Tooltip>
+              </Popconfirm>
             </>
           )}
         </Space>

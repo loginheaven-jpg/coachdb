@@ -1076,11 +1076,16 @@ export default function ApplicationSubmitPage() {
             placeholder={competencyItem.description || '선택해주세요.'}
             style={{ width: '100%' }}
           >
-            {selectOptions.map((opt: { value: string; label: string }) => (
-              <Select.Option key={opt.value} value={opt.value}>
-                {opt.label}
-              </Select.Option>
-            ))}
+            {selectOptions.map((opt: string | { value: string; label: string }) => {
+              // 문자열 배열과 객체 배열 모두 지원
+              const value = typeof opt === 'string' ? opt : opt.value
+              const label = typeof opt === 'string' ? opt : opt.label
+              return (
+                <Select.Option key={value} value={value}>
+                  {label}
+                </Select.Option>
+              )
+            })}
           </Select>
         )
 
@@ -1093,11 +1098,16 @@ export default function ApplicationSubmitPage() {
             placeholder={competencyItem.description || '선택해주세요 (복수 선택 가능).'}
             style={{ width: '100%' }}
           >
-            {multiOptions.map((opt: { value: string; label: string }) => (
-              <Select.Option key={opt.value} value={opt.value}>
-                {opt.label}
-              </Select.Option>
-            ))}
+            {multiOptions.map((opt: string | { value: string; label: string }) => {
+              // 문자열 배열과 객체 배열 모두 지원
+              const value = typeof opt === 'string' ? opt : opt.value
+              const label = typeof opt === 'string' ? opt : opt.label
+              return (
+                <Select.Option key={value} value={value}>
+                  {label}
+                </Select.Option>
+              )
+            })}
           </Select>
         )
 
