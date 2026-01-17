@@ -175,6 +175,7 @@ export default function ApplicationSubmitPage() {
   useEffect(() => {
     console.log('[ApplicationSubmitPage] repeatableData changed:', JSON.stringify(repeatableData))
   }, [repeatableData])
+
   const [existingApplicationId, setExistingApplicationId] = useState<number | null>(null)
   const [existingApplication, setExistingApplication] = useState<any>(null)
   const [linkedCompetencyData, setLinkedCompetencyData] = useState<Record<number, ApplicationData>>({})
@@ -195,6 +196,10 @@ export default function ApplicationSubmitPage() {
   const [competenciesLoaded, setCompetenciesLoaded] = useState(false)
   const [activeTab, setActiveTab] = useState('personal')
   const { user, setUser } = useAuthStore()
+
+  // 변경 감지를 위한 상태
+  const [hasChanges, setHasChanges] = useState(false)
+  const [initialFormSnapshot, setInitialFormSnapshot] = useState<string | null>(null)
 
   // 탭 완료 상태 및 진행률 계산
   const isPersonalTabComplete = (): boolean => {
@@ -226,6 +231,103 @@ export default function ApplicationSubmitPage() {
     }
     return missing
   }
+
+  // 선택 항목 미입력 목록 (보완 권장)
+  const getMissingOptionalItems = (): string[] => {
+    const missing: string[] = []
+    const surveyItems = projectItems.filter(item =>
+      !USER_PROFILE_ITEM_CODES.includes(item.competency_item?.item_code || '')
+    )
+
+    for (const item of surveyItems) {
+      if (item.is_required) continue  // 필수 항목은 스킵
+      const competencyItem = item.competency_item
+      if (!competencyItem) continue
+
+      // 값이 없는 선택항목
+      if (competencyItem.is_repeatable) {
+        const entries = repeatableData[item.project_item_id] || []
+        if (entries.length === 0) {
+          missing.push(competencyItem.item_name)
+        }
+      } else {
+        const data = linkedCompetencyData[item.project_item_id]
+        if (!data?.submitted_value) {
+          missing.push(competencyItem.item_name)
+        }
+      }
+    }
+    return missing
+  }
+
+  // 필수 증빙 미첨부 목록
+  const getMissingRequiredProofs = (): string[] => {
+    const missing: string[] = []
+    const surveyItems = projectItems.filter(item =>
+      !USER_PROFILE_ITEM_CODES.includes(item.competency_item?.item_code || '')
+    )
+
+    for (const item of surveyItems) {
+      const proofLevel = (item.proof_required_level || '').toLowerCase()
+      if (proofLevel !== 'required') continue
+
+      const competencyItem = item.competency_item
+      if (!competencyItem) continue
+
+      // 증빙 파일 첨부 여부 확인
+      if (competencyItem.is_repeatable) {
+        const entries = repeatableData[item.project_item_id] || []
+        const hasAnyWithoutProof = entries.length > 0 && entries.some(entry => !entry.file_id)
+        if (hasAnyWithoutProof) {
+          missing.push(`${competencyItem.item_name} 증빙`)
+        }
+      } else {
+        const fileKey = `item_${item.project_item_id}`
+        const uploadedFile = uploadedFiles[fileKey]
+        const linkedData = linkedCompetencyData[item.project_item_id]
+        // 값이 있는데 증빙이 없는 경우만 체크
+        if (linkedData?.submitted_value && !uploadedFile?.file_id && !linkedData?.submitted_file_id) {
+          missing.push(`${competencyItem.item_name} 증빙`)
+        }
+      }
+    }
+    return missing
+  }
+
+  // 제출 가능 여부 (필수항목 + 필수증빙 완료)
+  const canSubmit = (): boolean => {
+    return getMissingRequiredItems().length === 0 && getMissingRequiredProofs().length === 0
+  }
+
+  // 현재 폼 상태의 스냅샷 생성
+  const getFormSnapshot = (): string => {
+    const formValues = form.getFieldsValue()
+    return JSON.stringify({
+      formValues,
+      repeatableData,
+      uploadedFileKeys: Object.keys(uploadedFiles)
+    })
+  }
+
+  // 변경 감지
+  const detectChanges = (): boolean => {
+    if (!initialFormSnapshot) return false  // 초기 스냅샷이 없으면 변경 없음
+    return getFormSnapshot() !== initialFormSnapshot
+  }
+
+  // 초기 스냅샷 저장 (데이터 로드 완료 후 호출)
+  const saveInitialSnapshot = () => {
+    setTimeout(() => {
+      setInitialFormSnapshot(getFormSnapshot())
+    }, 100)  // 폼 데이터가 설정된 후 스냅샷 저장
+  }
+
+  // 변경 감지 (repeatableData, uploadedFiles 변경 시)
+  useEffect(() => {
+    if (initialFormSnapshot) {
+      setHasChanges(detectChanges())
+    }
+  }, [repeatableData, uploadedFiles, initialFormSnapshot])
 
   const isSurveyTabComplete = (): boolean => {
     return getMissingRequiredItems().length === 0
@@ -778,6 +880,10 @@ export default function ApplicationSubmitPage() {
       message.error('과제 정보를 불러오는데 실패했습니다.')
     } finally {
       setLoading(false)
+      // 수정 모드에서 초기 스냅샷 저장 (변경 감지용)
+      if (isEditMode) {
+        saveInitialSnapshot()
+      }
     }
   }
 
@@ -1548,6 +1654,7 @@ export default function ApplicationSubmitPage() {
               onFinish={handleSubmitWithConfirmation}
               scrollToFirstError={{ behavior: 'smooth', block: 'center' }}
               disabled={isViewMode}
+              onValuesChange={() => setHasChanges(detectChanges())}
             >
               <Tabs
                 activeKey={activeTab}
@@ -1686,8 +1793,8 @@ export default function ApplicationSubmitPage() {
                   help="과제에서 수행하고자 하는 역할을 선택해주세요."
                 >
                   <Select size="large" placeholder="역할을 선택하세요">
-                    <Select.Option value="leader">리더코치 (과제 전체 진행 및 조율)</Select.Option>
                     <Select.Option value="participant">참여코치 (코칭 세션 진행)</Select.Option>
+                    <Select.Option value="leader">리더코치 (과제 전체 진행 및 조율)</Select.Option>
                     <Select.Option value="supervisor">수퍼비전 코치 (참여코치 지도/피드백)</Select.Option>
                   </Select>
                 </Form.Item>
@@ -2104,17 +2211,35 @@ export default function ApplicationSubmitPage() {
                 ]}
               />
 
-              {/* 미입력 필수 항목 요약 */}
+              {/* 필수 항목 미입력 - 빨간색 에러 */}
               {!isViewMode && getMissingRequiredItems().length > 0 && (
+                <Alert
+                  type="error"
+                  showIcon
+                  icon={<CloseCircleOutlined />}
+                  className="mt-4"
+                  message="필수 항목 미입력"
+                  description={
+                    <ul className="list-disc pl-4 mt-2 mb-0">
+                      {getMissingRequiredItems().map((item, index) => (
+                        <li key={index}>{item}</li>
+                      ))}
+                    </ul>
+                  }
+                />
+              )}
+
+              {/* 선택 항목 미입력 - 노란색 경고, 보완 권장 */}
+              {!isViewMode && getMissingRequiredItems().length === 0 && getMissingOptionalItems().length > 0 && (
                 <Alert
                   type="warning"
                   showIcon
                   icon={<ExclamationCircleOutlined />}
                   className="mt-4"
-                  message="미입력 필수 항목"
+                  message="선택항목 중 미입력사항 (보완 권장)"
                   description={
                     <ul className="list-disc pl-4 mt-2 mb-0">
-                      {getMissingRequiredItems().map((item, index) => (
+                      {getMissingOptionalItems().map((item, index) => (
                         <li key={index}>{item}</li>
                       ))}
                     </ul>
@@ -2136,9 +2261,10 @@ export default function ApplicationSubmitPage() {
                       htmlType="submit"
                       size="large"
                       loading={submitting}
-                      icon={<SendOutlined />}
+                      icon={isEditMode && !hasChanges ? <CheckCircleOutlined /> : <SendOutlined />}
+                      disabled={!canSubmit()}
                     >
-                      {isEditMode ? '수정사항 제출' : '지원서 제출'}
+                      {!isEditMode ? '지원서 제출' : (hasChanges ? '수정사항 제출' : '확인')}
                     </Button>
                   )}
                   {isViewMode && canEdit() && (
