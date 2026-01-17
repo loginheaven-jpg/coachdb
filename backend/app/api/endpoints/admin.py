@@ -1304,6 +1304,52 @@ async def bulk_delete_users(
             print(f"[BULK DELETE USERS] Deleting user: {user.name} ({user.email})")
 
             # 관련 데이터 삭제 (cascade)
+
+            # 0. Evaluations 삭제 (코치 평가 데이터)
+            await db.execute(text("""
+                DELETE FROM evaluations WHERE coach_user_id = :user_id OR evaluated_by = :user_id
+            """), {"user_id": user_id})
+
+            # 0-1. Verifications 삭제 (검증 기록)
+            await db.execute(text("""
+                DELETE FROM verifications WHERE verifier_id = :user_id
+            """), {"user_id": user_id})
+
+            # 0-2. Projects FK 업데이트 (project_manager_id, created_by)
+            await db.execute(text("""
+                UPDATE projects SET project_manager_id = NULL WHERE project_manager_id = :user_id
+            """), {"user_id": user_id})
+
+            # created_by는 NOT NULL이므로 현재 관리자에게 재할당
+            await db.execute(text("""
+                UPDATE projects SET created_by = :admin_id WHERE created_by = :user_id
+            """), {"user_id": user_id, "admin_id": current_user.user_id})
+
+            # 0-3. RoleRequests processed_by 업데이트
+            await db.execute(text("""
+                UPDATE role_requests SET processed_by = NULL WHERE processed_by = :user_id
+            """), {"user_id": user_id})
+
+            # 0-4. ApplicationData reviewed_by 업데이트
+            await db.execute(text("""
+                UPDATE application_data SET reviewed_by = NULL WHERE reviewed_by = :user_id
+            """), {"user_id": user_id})
+
+            # 0-5. CompetencyItems created_by 업데이트
+            await db.execute(text("""
+                UPDATE competency_items SET created_by = NULL WHERE created_by = :user_id
+            """), {"user_id": user_id})
+
+            # 0-6. CoachCompetencies verified_by 업데이트
+            await db.execute(text("""
+                UPDATE coach_competencies SET verified_by = NULL WHERE verified_by = :user_id
+            """), {"user_id": user_id})
+
+            # 0-7. SystemConfig updated_by 업데이트
+            await db.execute(text("""
+                UPDATE system_config SET updated_by = NULL WHERE updated_by = :user_id
+            """), {"user_id": user_id})
+
             # 1. ApplicationData 삭제 (applications FK)
             await db.execute(text("""
                 DELETE FROM application_data
@@ -1352,24 +1398,25 @@ async def bulk_delete_users(
                 DELETE FROM applications WHERE user_id = :user_id
             """), {"user_id": user_id})
 
-            # 7. Files 삭제 (사용자가 업로드한 모든 파일)
-            await db.execute(text("""
-                DELETE FROM files WHERE uploaded_by = :user_id
-            """), {"user_id": user_id})
-
-            # 8. Coach Competencies 삭제
+            # 7. 파일 참조 테이블 먼저 삭제 (Files FK 참조 순서 중요!)
+            # 7-1. Coach Competencies 삭제
             await db.execute(text("""
                 DELETE FROM coach_competencies WHERE user_id = :user_id
             """), {"user_id": user_id})
 
-            # 9. Coach Education History 삭제
+            # 7-2. Coach Education History 삭제 (certificate_file_id FK)
             await db.execute(text("""
                 DELETE FROM coach_education_history WHERE user_id = :user_id
             """), {"user_id": user_id})
 
-            # 10. Certifications 삭제
+            # 7-3. Certifications 삭제 (certificate_file_id FK)
             await db.execute(text("""
                 DELETE FROM certifications WHERE user_id = :user_id
+            """), {"user_id": user_id})
+
+            # 7-4. Files 삭제 (사용자가 업로드한 모든 파일 - FK 참조 해제 후)
+            await db.execute(text("""
+                DELETE FROM files WHERE uploaded_by = :user_id
             """), {"user_id": user_id})
 
             # 11. Coach Profile 삭제
