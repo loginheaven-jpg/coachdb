@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Modal,
   Spin,
@@ -13,7 +14,9 @@ import {
   Empty,
   message,
   Descriptions,
-  Divider
+  Divider,
+  Tooltip,
+  Button
 } from 'antd'
 import {
   UserOutlined,
@@ -21,7 +24,9 @@ import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   ClockCircleOutlined,
-  StarOutlined
+  StarOutlined,
+  QuestionCircleOutlined,
+  FileTextOutlined
 } from '@ant-design/icons'
 import projectService, {
   UserProjectHistory,
@@ -38,11 +43,10 @@ interface ApplicantHistoryModalProps {
   onClose: () => void
 }
 
-// Score labels
+// Score labels (1-3점)
 const SCORE_LABELS: Record<number, { label: string; color: string }> = {
-  4: { label: '매우 우수', color: 'green' },
-  3: { label: '우수', color: 'blue' },
-  2: { label: '보통', color: 'orange' },
+  3: { label: '우수', color: 'green' },
+  2: { label: '보통', color: 'blue' },
   1: { label: '미흡', color: 'red' }
 }
 
@@ -97,6 +101,7 @@ export default function ApplicantHistoryModal({
   userName,
   onClose
 }: ApplicantHistoryModalProps) {
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<UserProjectHistory | null>(null)
 
@@ -118,6 +123,14 @@ export default function ApplicantHistoryModal({
       message.error('이력을 불러오는데 실패했습니다.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  // 지원서 보기 핸들러
+  const handleViewApplication = (record: UserProjectHistoryItem) => {
+    if (record.application_id) {
+      onClose() // 모달 닫기
+      navigate(`/coach/projects/${record.project_id}/apply?mode=view&applicationId=${record.application_id}`)
     }
   }
 
@@ -146,30 +159,46 @@ export default function ApplicantHistoryModal({
       render: (role: string | null) => getRoleTag(role)
     },
     {
-      title: '상태',
+      title: (
+        <Tooltip title="해당 과제의 현재 진행 상태">
+          상태 <QuestionCircleOutlined className="text-gray-400" />
+        </Tooltip>
+      ),
       dataIndex: 'status',
       key: 'status',
-      width: 90,
+      width: 100,
       render: (status: string) => getStatusTag(status)
     },
     {
-      title: '결과',
+      title: (
+        <Tooltip title="응모자의 선발 결과 (대기/선발/탈락)">
+          결과 <QuestionCircleOutlined className="text-gray-400" />
+        </Tooltip>
+      ),
       dataIndex: 'selection_result',
       key: 'selection_result',
-      width: 80,
+      width: 90,
       render: (result: string | null) => getSelectionTag(result)
     },
     {
-      title: '최종점수',
+      title: (
+        <Tooltip title="정량점수 + 정성점수를 가중치로 합산한 점수">
+          최종점수 <QuestionCircleOutlined className="text-gray-400" />
+        </Tooltip>
+      ),
       dataIndex: 'final_score',
       key: 'final_score',
-      width: 80,
+      width: 90,
       align: 'center' as const,
       render: (score: number | null) =>
         score !== null ? <Text strong>{score.toFixed(1)}</Text> : '-'
     },
     {
-      title: '참여평가',
+      title: (
+        <Tooltip title="과제 종료 후 참여도 평가 (1~3점)">
+          참여평가 <QuestionCircleOutlined className="text-gray-400" />
+        </Tooltip>
+      ),
       key: 'evaluation',
       width: 100,
       render: (_: any, record: UserProjectHistoryItem) => {
@@ -182,6 +211,25 @@ export default function ApplicantHistoryModal({
           </Tag>
         )
       }
+    },
+    {
+      title: '지원서',
+      key: 'application',
+      width: 80,
+      align: 'center' as const,
+      render: (_: any, record: UserProjectHistoryItem) =>
+        record.application_id ? (
+          <Button
+            type="link"
+            size="small"
+            icon={<FileTextOutlined />}
+            onClick={() => handleViewApplication(record)}
+          >
+            보기
+          </Button>
+        ) : (
+          <Text type="secondary">-</Text>
+        )
     }
   ]
 
@@ -284,7 +332,7 @@ export default function ApplicantHistoryModal({
                 expandedRowRender,
                 rowExpandable: (record) => !!record.evaluation
               }}
-              scroll={{ y: 400 }}
+              scroll={{ x: 850, y: 400 }}
             />
           ) : (
             <Empty description="과제 참여 이력이 없습니다" />

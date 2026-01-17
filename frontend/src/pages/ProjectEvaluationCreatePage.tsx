@@ -71,10 +71,9 @@ export default function ProjectEvaluationCreatePage() {
             message="평가 기준"
             description={
               <div>
-                <p><strong>4점:</strong> 매우 적극적으로 참여함</p>
-                <p><strong>3점:</strong> 만족할만한 참여</p>
-                <p><strong>2점:</strong> 적극적 참여가 어려움</p>
-                <p><strong>1점:</strong> 탈락</p>
+                <p><strong>3점:</strong> 우수 (적극적으로 참여함)</p>
+                <p><strong>2점:</strong> 보통 (만족할만한 참여)</p>
+                <p><strong>1점:</strong> 미흡 (참여가 부족함)</p>
               </div>
             }
             type="info"
@@ -113,10 +112,9 @@ export default function ProjectEvaluationCreatePage() {
             >
               <Radio.Group size="large">
                 <Space direction="vertical">
-                  <Radio value={4}>4점 - 매우 적극적으로 참여함</Radio>
-                  <Radio value={3}>3점 - 만족할만한 참여</Radio>
-                  <Radio value={2}>2점 - 적극적 참여가 어려움</Radio>
-                  <Radio value={1}>1점 - 탈락</Radio>
+                  <Radio value={3}>3점 - 우수</Radio>
+                  <Radio value={2}>2점 - 보통</Radio>
+                  <Radio value={1}>1점 - 미흡</Radio>
                 </Space>
               </Radio.Group>
             </Form.Item>

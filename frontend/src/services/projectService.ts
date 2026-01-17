@@ -351,7 +351,7 @@ export interface CustomQuestion extends CustomQuestionBase {
 // Coach Evaluation Types
 // ============================================================================
 export interface CoachEvaluationBase {
-  participation_score: number // 1-4
+  participation_score: number // 1-3 (1=미흡, 2=보통, 3=우수)
   feedback_text: string | null
   special_notes: string | null
 }
@@ -383,6 +383,7 @@ export interface CoachEvaluation extends CoachEvaluationBase {
 // ============================================================================
 export interface UserProjectHistoryItem {
   project_id: number
+  application_id: number | null  // For viewing application details
   project_name: string
   project_type: string | null
   role: string | null  // applied_role

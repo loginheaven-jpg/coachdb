@@ -45,11 +45,10 @@ interface ParticipantWithEvaluation extends ProjectApplicationListItem {
   evaluation?: CoachEvaluation | null
 }
 
-// Score label mapping
+// Score label mapping (1-3점)
 const SCORE_LABELS: Record<number, { label: string; color: string }> = {
-  4: { label: '매우 우수', color: 'green' },
-  3: { label: '우수', color: 'blue' },
-  2: { label: '보통', color: 'orange' },
+  3: { label: '우수', color: 'green' },
+  2: { label: '보통', color: 'blue' },
   1: { label: '미흡', color: 'red' }
 }
 
@@ -532,10 +531,9 @@ export default function ProjectClosureTab() {
               type="info"
               message="평가 기준"
               description={
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  <div><Tag color="green">4점</Tag> 매우 우수</div>
-                  <div><Tag color="blue">3점</Tag> 우수</div>
-                  <div><Tag color="orange">2점</Tag> 보통</div>
+                <div className="grid grid-cols-3 gap-2 mt-2">
+                  <div><Tag color="green">3점</Tag> 우수</div>
+                  <div><Tag color="blue">2점</Tag> 보통</div>
                   <div><Tag color="red">1점</Tag> 미흡</div>
                 </div>
               }
@@ -554,7 +552,6 @@ export default function ProjectClosureTab() {
               >
                 <Radio.Group>
                   <Space direction="vertical">
-                    <Radio value={4}>4점 - 매우 우수</Radio>
                     <Radio value={3}>3점 - 우수</Radio>
                     <Radio value={2}>2점 - 보통</Radio>
                     <Radio value={1}>1점 - 미흡</Radio>

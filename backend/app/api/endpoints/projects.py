@@ -1799,6 +1799,7 @@ async def get_user_project_history(
 
         history_item = UserProjectHistoryItem(
             project_id=project.project_id,
+            application_id=app.application_id,
             project_name=project.project_name,
             project_type=project.project_type.value if project.project_type else None,
             role=app.applied_role,

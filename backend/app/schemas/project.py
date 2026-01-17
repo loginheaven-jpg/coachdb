@@ -276,7 +276,7 @@ class CustomQuestionAnswerResponse(CustomQuestionAnswerBase):
 # ============================================================================
 class CoachEvaluationBase(BaseModel):
     """Base coach evaluation schema"""
-    participation_score: int = Field(..., ge=1, le=4, description="1=중도이탈, 2=곤란, 3=원만, 4=매우적극")
+    participation_score: int = Field(..., ge=1, le=3, description="1=미흡, 2=보통, 3=우수")
     feedback_text: Optional[str] = None
     special_notes: Optional[str] = None
 
@@ -289,7 +289,7 @@ class CoachEvaluationCreate(CoachEvaluationBase):
 
 class CoachEvaluationUpdate(BaseModel):
     """Schema for updating a coach evaluation"""
-    participation_score: Optional[int] = Field(None, ge=1, le=4)
+    participation_score: Optional[int] = Field(None, ge=1, le=3)
     feedback_text: Optional[str] = None
     special_notes: Optional[str] = None
 
@@ -342,6 +342,7 @@ class ProjectStaffListResponse(BaseModel):
 class UserProjectHistoryItem(BaseModel):
     """Single project history item for a user"""
     project_id: int
+    application_id: Optional[int] = None  # For viewing application details
     project_name: str
     project_type: Optional[str] = None
     role: Optional[str] = None  # applied_role
