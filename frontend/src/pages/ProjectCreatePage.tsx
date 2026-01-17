@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Typography,
@@ -15,6 +15,7 @@ import {
 } from 'antd'
 import { ArrowLeftOutlined, SaveOutlined } from '@ant-design/icons'
 import projectService, { ProjectCreate, ProjectStatus, ProjectType, PROJECT_TYPE_LABELS } from '../services/projectService'
+import adminService from '../services/adminService'
 import PageGuide from '../components/shared/PageGuide'
 import { PAGE_GUIDES } from '../constants/pageGuides'
 
@@ -26,6 +27,24 @@ export default function ProjectCreatePage() {
   const navigate = useNavigate()
   const [form] = Form.useForm()
   const [loading, setLoading] = useState(false)
+  const [allUsers, setAllUsers] = useState<{ user_id: number; name: string; email: string }[]>([])
+  const [loadingUsers, setLoadingUsers] = useState(false)
+
+  // 사용자 목록 로드
+  useEffect(() => {
+    const loadUsers = async () => {
+      setLoadingUsers(true)
+      try {
+        const users = await adminService.getUsers()
+        setAllUsers(users)
+      } catch (error) {
+        console.error('사용자 목록 로드 실패:', error)
+      } finally {
+        setLoadingUsers(false)
+      }
+    }
+    loadUsers()
+  }, [])
 
   const handleSubmit = async (values: any) => {
     setLoading(true)
@@ -174,14 +193,29 @@ export default function ProjectCreatePage() {
 
             <Form.Item
               name="project_manager_id"
-              label="과제관리자 ID (선택사항)"
-              help="과제 관리를 다른 사람에게 위임할 때 입력합니다. 입력하지 않으면 본인이 관리자가 됩니다. (생성자도 관리 권한 유지)"
+              label="과제관리자 (선택사항)"
+              help="이 과제 관리를 다른 사람에게 위임할 때 선택합니다. 선택하지 않으면 본인이 관리자가 됩니다."
             >
-              <InputNumber
-                style={{ width: '100%' }}
-                min={1}
+              <Select
+                showSearch
+                allowClear
                 size="large"
-                placeholder="위임할 사용자 ID (미입력 시 본인)"
+                placeholder="위임할 사용자 검색 (미선택 시 본인)"
+                loading={loadingUsers}
+                optionFilterProp="children"
+                filterOption={(input, option) => {
+                  const user = allUsers.find(u => u.user_id === option?.value)
+                  if (!user) return false
+                  const searchText = input.toLowerCase()
+                  return (
+                    user.name.toLowerCase().includes(searchText) ||
+                    user.email.toLowerCase().includes(searchText)
+                  )
+                }}
+                options={allUsers.map(user => ({
+                  value: user.user_id,
+                  label: `${user.name} (${user.email})`
+                }))}
               />
             </Form.Item>
 
