@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import date, datetime, timezone, timedelta
 from decimal import Decimal
-from app.models.project import ProjectStatus
+from app.models.project import ProjectStatus, ProjectType
 from app.models.competency import ProofRequiredLevel
 from app.schemas.competency import ProjectItemCreate
 
@@ -59,6 +59,7 @@ class UserBasicInfo(BaseModel):
 class ProjectBase(BaseModel):
     """Base project schema with common fields"""
     project_name: str = Field(..., max_length=200)
+    project_type: Optional[ProjectType] = ProjectType.OTHER  # 과제 구분
     description: Optional[str] = None
     support_program_name: Optional[str] = Field(None, max_length=200)
     recruitment_start_date: date
@@ -106,6 +107,7 @@ class ProjectCreateExtended(ProjectCreate):
 class ProjectUpdate(BaseModel):
     """Schema for updating a project"""
     project_name: Optional[str] = Field(None, max_length=200)
+    project_type: Optional[ProjectType] = None  # 과제 구분
     description: Optional[str] = None
     support_program_name: Optional[str] = Field(None, max_length=200)
     recruitment_start_date: Optional[date] = None
@@ -151,6 +153,7 @@ class ProjectListResponse(BaseModel):
     """Project list response for efficient queries"""
     project_id: int
     project_name: str
+    project_type: Optional[ProjectType] = None  # 과제 구분
     recruitment_start_date: date
     recruitment_end_date: date
     project_start_date: Optional[date] = None

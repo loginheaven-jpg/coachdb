@@ -1683,11 +1683,12 @@ export default function ApplicationSubmitPage() {
                   name="applied_role"
                   label="신청 역할"
                   rules={[{ required: true, message: '신청 역할을 선택해주세요.' }]}
+                  help="과제에서 수행하고자 하는 역할을 선택해주세요."
                 >
                   <Select size="large" placeholder="역할을 선택하세요">
-                    <Select.Option value="leader">리더코치</Select.Option>
-                    <Select.Option value="participant">참여코치</Select.Option>
-                    <Select.Option value="supervisor">수퍼비전 코치</Select.Option>
+                    <Select.Option value="leader">리더코치 (과제 전체 진행 및 조율)</Select.Option>
+                    <Select.Option value="participant">참여코치 (코칭 세션 진행)</Select.Option>
+                    <Select.Option value="supervisor">수퍼비전 코치 (참여코치 지도/피드백)</Select.Option>
                   </Select>
                 </Form.Item>
 

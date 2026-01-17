@@ -17,7 +17,7 @@ import {
   Modal
 } from 'antd'
 import { ArrowLeftOutlined, CheckCircleOutlined, WarningOutlined, FormOutlined, FileTextOutlined, SettingOutlined } from '@ant-design/icons'
-import projectService, { ProjectDetail, ProjectUpdate, ProjectStatus, ScoreValidation } from '../services/projectService'
+import projectService, { ProjectDetail, ProjectUpdate, ProjectStatus, ScoreValidation, ProjectType, PROJECT_TYPE_LABELS } from '../services/projectService'
 import SurveyBuilder from '../components/SurveyBuilder'
 import PageGuide from '../components/shared/PageGuide'
 import { PAGE_GUIDES } from '../constants/pageGuides'
@@ -78,6 +78,7 @@ export default function ProjectEditPage() {
       // 폼에 데이터 설정
       form.setFieldsValue({
         project_name: data.project_name,
+        project_type: data.project_type || ProjectType.OTHER,
         description: data.description,
         recruitment_period: [
           dayjs(data.recruitment_start_date),
@@ -105,6 +106,7 @@ export default function ProjectEditPage() {
   // 폼 데이터를 ProjectUpdate로 변환
   const getUpdateData = (values: any): ProjectUpdate => ({
     project_name: values.project_name,
+    project_type: values.project_type || ProjectType.OTHER,
     description: values.description || null,
     recruitment_start_date: values.recruitment_period[0].format('YYYY-MM-DD'),
     recruitment_end_date: values.recruitment_period[1].format('YYYY-MM-DD'),
@@ -185,6 +187,20 @@ export default function ProjectEditPage() {
           onFinish={handleSubmit}
         >
           <Form.Item
+            name="project_type"
+            label="과제 구분"
+            rules={[{ required: true, message: '과제 구분을 선택해주세요.' }]}
+          >
+            <Select size="large" placeholder="과제 구분 선택">
+              {Object.entries(PROJECT_TYPE_LABELS).map(([value, label]) => (
+                <Select.Option key={value} value={value}>
+                  {label}
+                </Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
+
+          <Form.Item
             name="project_name"
             label="과제명"
             rules={[{ required: true, message: '과제명을 입력해주세요.' }]}
@@ -229,7 +245,7 @@ export default function ProjectEditPage() {
           <Form.Item
             name="actual_period"
             label="과제 기간 (실제)"
-            help="실제 과제가 진행된 기간입니다."
+            help="과제 종료 시 실제 진행 기간을 입력합니다."
           >
             <RangePicker
               style={{ width: '100%' }}
@@ -256,14 +272,14 @@ export default function ProjectEditPage() {
 
           <Form.Item
             name="project_manager_id"
-            label="과제관리자 ID"
-            help="과제를 관리할 사용자의 ID를 입력해주세요."
+            label="과제관리자 ID (선택사항)"
+            help="과제 관리를 다른 사람에게 위임할 때 입력합니다. 입력하지 않으면 본인이 관리자가 됩니다. (생성자도 관리 권한 유지)"
           >
             <InputNumber
               style={{ width: '100%' }}
               min={1}
               size="large"
-              placeholder="사용자 ID"
+              placeholder="위임할 사용자 ID (미입력 시 본인)"
             />
           </Form.Item>
 
@@ -285,12 +301,11 @@ export default function ProjectEditPage() {
 
           <Form.Item
             name="overall_feedback"
-            label="과제 총평"
-            help="과제 종료 후 전체 총평을 입력할 수 있습니다."
+            label="과제 총평 (과제 종료 후 작성)"
           >
             <TextArea
               rows={4}
-              placeholder="과제 전반에 대한 총평을 입력해주세요."
+              placeholder="과제 종료 후 전반에 대한 총평을 입력해주세요."
             />
           </Form.Item>
 

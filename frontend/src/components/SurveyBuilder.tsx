@@ -114,9 +114,9 @@ const GRADE_TEMPLATES: Record<string, GradeTemplateConfig> = {
     source_field: 'degree_level',
     grades: [
       { value: '박사', score: 10 },
+      { value: '박사수료', score: 7 },
       { value: '석사', score: 5 },
-      { value: '학사', score: 3 },
-      { value: '전문학사', score: 1 }
+      { value: '학사', score: 3 }
     ],
     description: '학력 선택값(degree_level)으로 자동 판별'
   },
@@ -670,6 +670,14 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
   // 설문 구성 내용 (모달/탭 공통)
   const surveyContent = (
     <>
+      {/* 설문 항목 안내 */}
+      <Alert
+        type="info"
+        message="모집 시 응모자가 입력할 항목을 정의합니다."
+        style={{ marginBottom: 16 }}
+        showIcon
+      />
+
       {/* Sticky Score Display */}
       <div style={{
         position: 'sticky',
@@ -835,8 +843,8 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                                         // 증빙 감점 로드 (저장된 값은 음수이므로 절대값으로 변환)
                                         enable_proof_penalty: config.proofPenalty !== undefined && config.proofPenalty !== null,
                                         proof_penalty_amount: config.proofPenalty ? Math.abs(config.proofPenalty) : undefined,
-                                        // 집계 방식 로드
-                                        aggregation_mode: existingCriteria.aggregation_mode || AggregationMode.FIRST
+                                        // 집계 방식 로드 (복수입력 항목은 BEST_MATCH 기본)
+                                        aggregation_mode: existingCriteria.aggregation_mode || (selection.item.is_repeatable ? AggregationMode.BEST_MATCH : AggregationMode.FIRST)
                                       })
                                     } catch {
                                       gradeConfigForm.resetFields()
@@ -850,11 +858,19 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                                         value_source: template.value_source,
                                         source_field: template.source_field || '',
                                         extract_pattern: template.extract_pattern || '',
-                                        grades: template.grades
+                                        grades: template.grades,
+                                        // 복수입력 항목은 BEST_MATCH 기본
+                                        aggregation_mode: selection.item.is_repeatable ? AggregationMode.BEST_MATCH : AggregationMode.FIRST
                                       })
                                       message.info(`'${selection.item.item_name}' 항목의 추천 설정이 자동으로 적용되었습니다. 필요시 수정하세요.`)
                                     } else {
+                                      // 템플릿이 없을 때도 복수입력이면 BEST_MATCH 설정
                                       gradeConfigForm.resetFields()
+                                      if (selection.item.is_repeatable) {
+                                        gradeConfigForm.setFieldsValue({
+                                          aggregation_mode: AggregationMode.BEST_MATCH
+                                        })
+                                      }
                                     }
                                   }
                                 }}
@@ -939,7 +955,7 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
         <div style={{ marginTop: 24, textAlign: 'right' }}>
           <Space>
             <Button icon={<EyeOutlined />} onClick={() => setShowPreview(true)}>
-              테스트입력
+              미리보기
             </Button>
             <Button
               type="primary"
@@ -1183,6 +1199,10 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
               maxScore = getMaxGradeScore(values.grades || [])
             }
 
+            // 복수입력 항목은 기본 BEST_MATCH
+            const currentItem = selections.get(gradeConfigItemId)?.item
+            const defaultAggMode = currentItem?.is_repeatable ? AggregationMode.BEST_MATCH : AggregationMode.FIRST
+
             const newCriteria: ScoringCriteriaCreate = {
               matching_type: MatchingType.GRADE,
               expected_value: JSON.stringify(gradeConfig),
@@ -1190,7 +1210,7 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
               value_source: values.value_source || ValueSourceType.SUBMITTED,
               source_field: values.source_field || null,
               extract_pattern: values.extract_pattern || null,
-              aggregation_mode: values.aggregation_mode || AggregationMode.FIRST
+              aggregation_mode: values.aggregation_mode || defaultAggMode
             }
 
             // 기존 GRADE가 아닌 criteria는 유지하고 GRADE만 교체
@@ -1325,13 +1345,13 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                   </Space>
                 }
               >
-                <Select>
-                  <Select.Option value={AggregationMode.FIRST}>첫 번째만 (기본)</Select.Option>
+                <Select defaultValue={AggregationMode.BEST_MATCH}>
+                  <Select.Option value={AggregationMode.BEST_MATCH}>최고 점수 매칭 (권장)</Select.Option>
+                  <Select.Option value={AggregationMode.FIRST}>첫 번째만</Select.Option>
                   <Select.Option value={AggregationMode.SUM}>합산 (숫자 범위용)</Select.Option>
                   <Select.Option value={AggregationMode.MAX}>최대값</Select.Option>
                   <Select.Option value={AggregationMode.COUNT}>입력 개수</Select.Option>
                   <Select.Option value={AggregationMode.ANY_MATCH}>하나라도 매칭 (문자열용)</Select.Option>
-                  <Select.Option value={AggregationMode.BEST_MATCH}>최고 점수 매칭</Select.Option>
                 </Select>
               </Form.Item>
             )}
@@ -1523,8 +1543,8 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
               }}
             </Form.Item>
 
-            {/* 증빙 감점 설정 - 증빙필수/선택일 때만 표시 */}
-            {gradeConfigItemId && selections.get(gradeConfigItemId)?.proof_required_level !== ProofRequiredLevel.NOT_REQUIRED && (
+            {/* 증빙 감점 설정 - 증빙선택일 때만 표시 (증빙필수일 때는 감점 불필요) */}
+            {gradeConfigItemId && selections.get(gradeConfigItemId)?.proof_required_level === ProofRequiredLevel.OPTIONAL && (
               <div style={{ marginTop: 16, padding: 16, backgroundColor: '#fafafa', borderRadius: 8, border: '1px solid #e8e8e8' }}>
                 <Text strong style={{ display: 'block', marginBottom: 12 }}>📋 증빙 감점 설정</Text>
                 <Form.Item noStyle shouldUpdate>
@@ -1632,7 +1652,7 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
       }}
       footer={[
         <Button key="preview" icon={<EyeOutlined />} onClick={() => setShowPreview(true)}>
-          테스트입력
+          미리보기
         </Button>,
         <Button key="cancel" onClick={handleClose}>
           취소
@@ -1872,6 +1892,10 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
             maxScore = getMaxGradeScore(values.grades || [])
           }
 
+          // 복수입력 항목은 기본 BEST_MATCH
+          const currentItem = selections.get(gradeConfigItemId)?.item
+          const defaultAggMode = currentItem?.is_repeatable ? AggregationMode.BEST_MATCH : AggregationMode.FIRST
+
           const newCriteria: ScoringCriteriaCreate = {
             matching_type: MatchingType.GRADE,
             expected_value: JSON.stringify(gradeConfig),
@@ -1879,7 +1903,7 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
             value_source: values.value_source || ValueSourceType.SUBMITTED,
             source_field: values.source_field || null,
             extract_pattern: values.extract_pattern || null,
-            aggregation_mode: values.aggregation_mode || AggregationMode.FIRST
+            aggregation_mode: values.aggregation_mode || defaultAggMode
           }
 
           // 기존 GRADE가 아닌 criteria는 유지하고 GRADE만 교체
@@ -1983,13 +2007,13 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                 </Space>
               }
             >
-              <Select>
-                <Select.Option value={AggregationMode.FIRST}>첫 번째만 (기본)</Select.Option>
+              <Select defaultValue={AggregationMode.BEST_MATCH}>
+                <Select.Option value={AggregationMode.BEST_MATCH}>최고 점수 매칭 (권장)</Select.Option>
+                <Select.Option value={AggregationMode.FIRST}>첫 번째만</Select.Option>
                 <Select.Option value={AggregationMode.SUM}>합산 (숫자 범위용)</Select.Option>
                 <Select.Option value={AggregationMode.MAX}>최대값</Select.Option>
                 <Select.Option value={AggregationMode.COUNT}>입력 개수</Select.Option>
                 <Select.Option value={AggregationMode.ANY_MATCH}>하나라도 매칭 (문자열용)</Select.Option>
-                <Select.Option value={AggregationMode.BEST_MATCH}>최고 점수 매칭</Select.Option>
               </Select>
             </Form.Item>
           )}
@@ -2167,8 +2191,8 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
             }}
           </Form.Item>
 
-          {/* 증빙 감점 설정 - 증빙필수/선택일 때만 표시 */}
-          {gradeConfigItemId && selections.get(gradeConfigItemId)?.proof_required_level !== ProofRequiredLevel.NOT_REQUIRED && (
+          {/* 증빙 감점 설정 - 증빙선택일 때만 표시 (증빙필수일 때는 감점 불필요) */}
+          {gradeConfigItemId && selections.get(gradeConfigItemId)?.proof_required_level === ProofRequiredLevel.OPTIONAL && (
             <div style={{ marginTop: 16, padding: 16, backgroundColor: '#fafafa', borderRadius: 8, border: '1px solid #e8e8e8' }}>
               <Text strong style={{ display: 'block', marginBottom: 12 }}>📋 증빙 감점 설정</Text>
               <Form.Item noStyle shouldUpdate>

@@ -16,6 +16,19 @@ export enum ProjectStatus {
   CLOSED = 'closed'             // 종료
 }
 
+export enum ProjectType {
+  PUBLIC_COACHING = 'public_coaching',      // 공익코칭
+  BUSINESS_COACHING = 'business_coaching',  // 비즈니스코칭
+  OTHER = 'other'                           // 기타
+}
+
+// 과제 구분 한글 라벨
+export const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {
+  [ProjectType.PUBLIC_COACHING]: '공익코칭',
+  [ProjectType.BUSINESS_COACHING]: '비즈니스코칭',
+  [ProjectType.OTHER]: '기타'
+}
+
 // 표시용 상태 (display_status)
 export type DisplayStatus = 'draft' | 'pending' | 'recruiting' | 'recruiting_ended' | 'reviewing' | 'in_progress' | 'evaluating' | 'closed'
 
@@ -115,6 +128,7 @@ export interface UserBasicInfo {
 
 export interface ProjectBase {
   project_name: string
+  project_type?: ProjectType | null  // 과제 구분
   description: string | null
   support_program_name?: string | null
   recruitment_start_date: string // ISO date string
@@ -131,6 +145,7 @@ export interface ProjectCreate extends ProjectBase {
 
 export interface ProjectUpdate {
   project_name?: string
+  project_type?: ProjectType | null  // 과제 구분
   description?: string | null
   recruitment_start_date?: string
   recruitment_end_date?: string
@@ -167,6 +182,7 @@ export interface ProjectDetail extends Project {
 export interface ProjectListItem {
   project_id: number
   project_name: string
+  project_type?: ProjectType | null  // 과제 구분
   recruitment_start_date: string
   recruitment_end_date: string
   project_start_date: string | null

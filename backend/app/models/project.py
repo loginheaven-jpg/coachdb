@@ -18,6 +18,12 @@ class ProjectStatus(str, enum.Enum):
     CLOSED = "closed"            # 종료
 
 
+class ProjectType(str, enum.Enum):
+    PUBLIC_COACHING = "public_coaching"      # 공익코칭
+    BUSINESS_COACHING = "business_coaching"  # 비즈니스코칭
+    OTHER = "other"                          # 기타
+
+
 class Project(Base):
     """Project model - recruitment projects for coaches"""
 
@@ -25,6 +31,7 @@ class Project(Base):
 
     project_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     project_name = Column(String(200), nullable=False)
+    project_type = Column(Enum(ProjectType), nullable=True, default=ProjectType.OTHER)  # 과제 구분
     support_program_name = Column(String(200), nullable=True)  # 지원 사업명
     description = Column(Text, nullable=True)
 

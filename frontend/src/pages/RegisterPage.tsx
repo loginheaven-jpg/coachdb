@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Form, Input, Button, Card, message, Typography, Select, InputNumber, Checkbox, Alert } from 'antd'
+import { Form, Input, Button, Card, message, Typography, Select, InputNumber, Checkbox, Alert, Modal } from 'antd'
 import { UserOutlined, LockOutlined, MailOutlined, PhoneOutlined, HomeOutlined } from '@ant-design/icons'
 import authService from '../services/authService'
 import { useAuthStore } from '../stores/authStore'
@@ -65,8 +65,15 @@ export default function RegisterPage() {
         message.success('회원가입이 완료되었습니다!')
       }
 
-      // 통합 대시보드로 이동
-      navigate('/dashboard')
+      // 역량 정보 입력 유도 팝업
+      Modal.confirm({
+        title: '회원가입 완료',
+        content: '역량 정보를 입력하시면 과제 응모에 편리합니다. 지금 입력하시겠습니까?',
+        okText: '역량정보 입력',
+        cancelText: '아니요',
+        onOk: () => navigate('/coach/competencies'),
+        onCancel: () => navigate('/dashboard')
+      })
     } catch (error: any) {
       message.error(error.response?.data?.detail || '회원가입에 실패했습니다.')
     } finally {

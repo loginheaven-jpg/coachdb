@@ -298,11 +298,13 @@ def match_grade_value(
 
         # 기본 처리 (FIRST 모드 또는 단일 값)
         extracted_str = str(extracted_value).strip()
+        matched = False
 
         if match_mode == "any":
             # "어떤 값이든" - 내용이 있으면 첫 번째 등급 점수 반환
             if extracted_str:
                 base_score = Decimal(str(grades[0].get("score", 0))) if grades else Decimal('0')
+                matched = True
             else:
                 return Decimal('0')
         else:
@@ -314,18 +316,21 @@ def match_grade_value(
                     # 포함 매칭
                     if grade_value in extracted_lower:
                         base_score = Decimal(str(grade.get("score", 0)))
+                        matched = True
                         break
                 else:
                     # 정확히 일치 (기본)
                     if grade_value == extracted_lower:
                         base_score = Decimal(str(grade.get("score", 0)))
+                        matched = True
                         break
 
         # 증빙 감점 적용 (string 타입에도 적용)
         if proof_penalty and not submitted_file_id:
             base_score += Decimal(str(proof_penalty))
 
-        return max(base_score, Decimal('0')) if base_score > 0 else None
+        # 매칭된 경우 최소 0점 보장, 매칭 안된 경우 None 반환
+        return max(base_score, Decimal('0')) if matched else None
 
 
 def match_value(submitted_value: str, expected_value: str, matching_type: MatchingType) -> bool:

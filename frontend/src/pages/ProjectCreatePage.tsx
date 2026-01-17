@@ -10,10 +10,11 @@ import {
   Button,
   message,
   Space,
-  Alert
+  Alert,
+  Select
 } from 'antd'
 import { ArrowLeftOutlined, SaveOutlined } from '@ant-design/icons'
-import projectService, { ProjectCreate, ProjectStatus } from '../services/projectService'
+import projectService, { ProjectCreate, ProjectStatus, ProjectType, PROJECT_TYPE_LABELS } from '../services/projectService'
 import PageGuide from '../components/shared/PageGuide'
 import { PAGE_GUIDES } from '../constants/pageGuides'
 
@@ -31,6 +32,7 @@ export default function ProjectCreatePage() {
     try {
       const projectData: ProjectCreate = {
         project_name: values.project_name,
+        project_type: values.project_type || ProjectType.OTHER,
         description: values.description || null,
         support_program_name: values.support_program_name || null,
         recruitment_start_date: values.recruitment_period[0].format('YYYY-MM-DD'),
@@ -89,6 +91,21 @@ export default function ProjectCreatePage() {
               max_participants: 20
             }}
           >
+            <Form.Item
+              name="project_type"
+              label="과제 구분"
+              rules={[{ required: true, message: '과제 구분을 선택해주세요.' }]}
+              initialValue={ProjectType.OTHER}
+            >
+              <Select size="large" placeholder="과제 구분 선택">
+                {Object.entries(PROJECT_TYPE_LABELS).map(([value, label]) => (
+                  <Select.Option key={value} value={value}>
+                    {label}
+                  </Select.Option>
+                ))}
+              </Select>
+            </Form.Item>
+
             <Form.Item
               name="project_name"
               label="과제명"
@@ -158,13 +175,13 @@ export default function ProjectCreatePage() {
             <Form.Item
               name="project_manager_id"
               label="과제관리자 ID (선택사항)"
-              help="과제를 관리할 사용자의 ID를 입력해주세요."
+              help="과제 관리를 다른 사람에게 위임할 때 입력합니다. 입력하지 않으면 본인이 관리자가 됩니다. (생성자도 관리 권한 유지)"
             >
               <InputNumber
                 style={{ width: '100%' }}
                 min={1}
                 size="large"
-                placeholder="사용자 ID"
+                placeholder="위임할 사용자 ID (미입력 시 본인)"
               />
             </Form.Item>
 
