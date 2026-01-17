@@ -1305,14 +1305,14 @@ async def bulk_delete_users(
 
             # 관련 데이터 삭제 (cascade)
 
-            # 0. Evaluations 삭제 (코치 평가 데이터)
+            # 0. Coach Evaluations 삭제 (코치 평가 데이터)
             await db.execute(text("""
-                DELETE FROM evaluations WHERE coach_user_id = :user_id OR evaluated_by = :user_id
+                DELETE FROM coach_evaluations WHERE coach_user_id = :user_id OR evaluated_by = :user_id
             """), {"user_id": user_id})
 
-            # 0-1. Verifications 삭제 (검증 기록)
+            # 0-1. Verification Records 삭제 (검증 기록)
             await db.execute(text("""
-                DELETE FROM verifications WHERE verifier_id = :user_id
+                DELETE FROM verification_records WHERE verifier_id = :user_id
             """), {"user_id": user_id})
 
             # 0-2. Projects FK 업데이트 (project_manager_id, created_by)
@@ -1436,7 +1436,7 @@ async def bulk_delete_users(
 
             # 11. ProjectStaff 삭제 (심사위원/검토자 배정)
             await db.execute(text("""
-                DELETE FROM project_staff WHERE user_id = :user_id
+                DELETE FROM project_staff WHERE staff_user_id = :user_id
             """), {"user_id": user_id})
 
             # 12. User 삭제
