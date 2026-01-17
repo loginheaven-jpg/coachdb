@@ -166,6 +166,7 @@ export default function ApplicationSubmitPage() {
   const formValues = Form.useWatch([], form)
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [tempSaving, setTempSaving] = useState(false)
   const [savingProfile, setSavingProfile] = useState(false)
   const [project, setProject] = useState<ProjectDetail | null>(null)
   const [projectItems, setProjectItems] = useState<ProjectItem[]>([])
@@ -1563,6 +1564,98 @@ export default function ApplicationSubmitPage() {
     }
   }
 
+  // 임시저장 - 필수항목 검증 없이 현재 입력 내용 저장
+  const handleTempSave = async () => {
+    if (!projectId) return
+    setTempSaving(true)
+    try {
+      const values = form.getFieldsValue()
+      let applicationId: number
+
+      // 수정 모드면 기존 지원서 사용, 아니면 새로 생성
+      if (isEditMode && existingApplicationId) {
+        applicationId = existingApplicationId
+        await applicationService.updateApplication(applicationId, {
+          motivation: values.motivation || null,
+          applied_role: values.applied_role || null
+        })
+      } else {
+        const application = await applicationService.createApplication({
+          project_id: parseInt(projectId),
+          motivation: values.motivation || null,
+          applied_role: values.applied_role || null
+        })
+        applicationId = application.application_id
+        // 새로 생성된 경우 URL 업데이트 (수정 모드로 전환)
+        setExistingApplicationId(applicationId)
+        setSearchParams({ applicationId: String(applicationId), mode: 'edit' })
+      }
+
+      // 설문 항목 데이터 저장
+      const applicationData: ApplicationDataSubmit[] = projectItems.map(item => {
+        const competencyItem = item.competency_item
+        const isRepeatable = competencyItem?.is_repeatable
+
+        let submittedValue: string | null = null
+        let submittedFileId: number | null = null
+
+        if (isRepeatable) {
+          const entries = repeatableData[item.project_item_id] || []
+          if (entries.length > 0) {
+            const entriesWithFiles = entries.map((entry, idx) => {
+              const fileKey = `${item.project_item_id}_${idx}`
+              const fileInfo = uploadedFiles[fileKey]
+              return { ...entry, _file_id: fileInfo?.file_id || null }
+            })
+            submittedValue = JSON.stringify(entriesWithFiles)
+            const firstFileKey = `${item.project_item_id}_0`
+            const firstFileInfo = uploadedFiles[firstFileKey]
+            submittedFileId = firstFileInfo?.file_id || null
+          }
+        } else {
+          const fieldValue = values[`item_${item.project_item_id}`]
+          if (fieldValue !== undefined && fieldValue !== null) {
+            if (typeof fieldValue === 'object' || Array.isArray(fieldValue)) {
+              submittedValue = JSON.stringify(fieldValue)
+            } else {
+              submittedValue = String(fieldValue)
+            }
+          }
+          const fileKey = `${item.project_item_id}_0`
+          const fileInfo = uploadedFiles[fileKey]
+          submittedFileId = fileInfo?.file_id || null
+        }
+
+        return {
+          item_id: competencyItem?.item_id || 0,
+          submitted_value: submittedValue,
+          submitted_file_id: submittedFileId
+        }
+      }).filter(data => data.item_id > 0)
+
+      // 개별 데이터 저장 (submitApplication은 상태 변경을 포함하므로 사용하지 않음)
+      for (const data of applicationData) {
+        if (data.submitted_value || data.submitted_file_id) {
+          await applicationService.saveApplicationData(applicationId, data)
+        }
+      }
+
+      message.success('임시저장 완료! 나중에 이어서 작성할 수 있습니다.')
+      // 초기 스냅샷 업데이트 (변경 감지용)
+      setInitialFormSnapshot(JSON.stringify({
+        formValues: form.getFieldsValue(),
+        repeatableData: JSON.stringify(repeatableData),
+        uploadedFiles: JSON.stringify(Object.keys(uploadedFiles))
+      }))
+      setHasChanges(false)
+    } catch (error: any) {
+      console.error('임시저장 실패:', error)
+      message.error(error.response?.data?.detail || '임시저장에 실패했습니다.')
+    } finally {
+      setTempSaving(false)
+    }
+  }
+
   if (loading || !project) {
     return (
       <div className="min-h-screen bg-gray-100 py-8 flex items-center justify-center">
@@ -1799,7 +1892,7 @@ export default function ApplicationSubmitPage() {
                           </Card>
                         )}
                         {/* Basic application info */}
-                        <Card size="small" title="기본 정보" className="mb-4">
+                        <Card size="small" title="지원정보" className="mb-4">
                 <Form.Item
                   name="applied_role"
                   label="신청 역할"
@@ -2269,6 +2362,16 @@ export default function ApplicationSubmitPage() {
                   >
                     {isViewMode ? '목록으로' : '취소'}
                   </Button>
+                  {!isViewMode && (
+                    <Button
+                      size="large"
+                      loading={tempSaving}
+                      icon={<SaveOutlined />}
+                      onClick={handleTempSave}
+                    >
+                      임시저장
+                    </Button>
+                  )}
                   {!isViewMode && (
                     <Button
                       type="primary"
