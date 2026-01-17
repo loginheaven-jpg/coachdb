@@ -223,7 +223,7 @@ export default function ApplicationSubmitPage() {
           missing.push(competencyItem.item_name)
         }
       } else {
-        const data = linkedCompetencyData[item.item_id]
+        const data = linkedCompetencyData[item.project_item_id]
         if (!data?.submitted_value) {
           missing.push(competencyItem.item_name)
         }
