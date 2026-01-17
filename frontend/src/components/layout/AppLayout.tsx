@@ -251,7 +251,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
               mode="horizontal"
               selectedKeys={[getSelectedKey()]}
               items={menuItems}
-              style={{ flex: 1, minWidth: 0, border: 'none' }}
+              style={{ border: 'none', flexShrink: 0 }}
             />
           )}
         </div>
