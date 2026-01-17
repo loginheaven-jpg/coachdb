@@ -128,7 +128,16 @@ if DATABASE_URL:
             print(f"[WARN] enum projecttype: {e}")
 
         try:
-            cur.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS project_type projecttype DEFAULT 'other'::projecttype")
+            # Check if column exists first
+            cur.execute("""
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'projects' AND column_name = 'project_type'
+            """)
+            if not cur.fetchone():
+                # Add the column without default
+                cur.execute("ALTER TABLE projects ADD COLUMN project_type projecttype")
+                # Update existing rows
+                cur.execute("UPDATE projects SET project_type = 'other'")
             print("[OK] projects.project_type ensured")
         except Exception as e:
             print(f"[WARN] projects.project_type: {e}")

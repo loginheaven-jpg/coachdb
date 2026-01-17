@@ -34,10 +34,10 @@ def upgrade() -> None:
         WHERE table_name = 'projects' AND column_name = 'project_type'
     """))
     if not result.fetchone():
-        # Add the column - cast default value properly for PostgreSQL enum
+        # Add the column without default (to avoid PostgreSQL enum cast issues)
         op.add_column('projects', sa.Column('project_type', sa.Enum('public_coaching', 'business_coaching', 'other', name='projecttype'), nullable=True))
-        # Set default after adding column
-        op.execute("ALTER TABLE projects ALTER COLUMN project_type SET DEFAULT 'other'::projecttype")
+        # Update existing rows to have 'other' as value
+        op.execute("UPDATE projects SET project_type = 'other' WHERE project_type IS NULL")
 
 
 def downgrade() -> None:
