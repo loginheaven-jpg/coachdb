@@ -1714,8 +1714,17 @@ export default function ApplicationSubmitPage() {
             }
           />
         )}
+        {/* 마감 후 보기 모드 안내 */}
+        {isViewMode && isDeadlinePassed && (
+          <Alert
+            type="warning"
+            showIcon
+            className="mb-4"
+            message="모집이 마감되어 지원서를 수정할 수 없습니다."
+          />
+        )}
 
-        {isDeadlinePassed ? (
+        {isDeadlinePassed && !isViewMode ? (
           <Card>
             <Alert
               type="error"
