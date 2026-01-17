@@ -1,16 +1,63 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Typography, Card, Row, Col, Statistic, Button, Spin } from 'antd'
+import { Typography, Card, Row, Col, Statistic, Button, Spin, Timeline, Empty } from 'antd'
 import {
   FileTextOutlined,
   FolderOutlined,
   AuditOutlined,
   TrophyOutlined,
-  ArrowRightOutlined
+  ArrowRightOutlined,
+  SendOutlined,
+  EditOutlined,
+  WarningOutlined,
+  BellOutlined,
+  ClockCircleOutlined,
+  CheckCircleOutlined
 } from '@ant-design/icons'
 import { useAuthStore } from '../stores/authStore'
 import applicationService from '../services/applicationService'
 import projectService from '../services/projectService'
+import notificationService, { Notification } from '../services/notificationService'
+import dayjs from 'dayjs'
+import relativeTime from 'dayjs/plugin/relativeTime'
+import 'dayjs/locale/ko'
+
+dayjs.extend(relativeTime)
+dayjs.locale('ko')
+
+// 알림 타입별 아이콘 및 색상 매핑
+const getNotificationIcon = (type: string) => {
+  switch (type) {
+    case 'application_draft_saved':
+      return <EditOutlined style={{ color: '#8c8c8c' }} />
+    case 'application_submitted':
+    case 'APPLICATION_SUBMITTED':
+      return <SendOutlined style={{ color: '#52c41a' }} />
+    case 'APPLICATION_UPDATED':
+      return <EditOutlined style={{ color: '#1890ff' }} />
+    case 'SELECTION_RESULT':
+    case 'selection_result':
+      return <TrophyOutlined style={{ color: '#faad14' }} />
+    case 'SUPPLEMENT_REQUEST':
+    case 'supplement_request':
+      return <WarningOutlined style={{ color: '#ff4d4f' }} />
+    case 'SUPPLEMENT_SUBMITTED':
+      return <CheckCircleOutlined style={{ color: '#52c41a' }} />
+    case 'PROJECT_UPDATE':
+      return <BellOutlined style={{ color: '#1890ff' }} />
+    case 'DEADLINE_REMINDER':
+      return <ClockCircleOutlined style={{ color: '#ff7a45' }} />
+    case 'REVIEW_COMPLETE':
+    case 'review_complete':
+      return <CheckCircleOutlined style={{ color: '#722ed1' }} />
+    case 'verification_supplement_request':
+      return <WarningOutlined style={{ color: '#ff4d4f' }} />
+    case 'verification_completed':
+      return <CheckCircleOutlined style={{ color: '#52c41a' }} />
+    default:
+      return <BellOutlined style={{ color: '#8c8c8c' }} />
+  }
+}
 
 const { Title, Text } = Typography
 
@@ -24,6 +71,8 @@ export default function DashboardPage() {
     pendingVerifications: 0,
     pendingEvaluations: 0
   })
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [loadingNotifications, setLoadingNotifications] = useState(true)
 
   // Get user's roles
   const getUserRoles = (): string[] => {
@@ -42,6 +91,22 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadStats()
+  }, [])
+
+  // 알림 로드
+  useEffect(() => {
+    const loadNotifications = async () => {
+      try {
+        setLoadingNotifications(true)
+        const data = await notificationService.getMyNotifications(false, 20)
+        setNotifications(data)
+      } catch (error) {
+        console.error('알림 로드 실패:', error)
+      } finally {
+        setLoadingNotifications(false)
+      }
+    }
+    loadNotifications()
   }, [])
 
   const loadStats = async () => {
@@ -181,29 +246,87 @@ export default function DashboardPage() {
         )}
       </Row>
 
-      {/* 빠른 시작 안내 */}
-      <Card className="mt-8">
-        <Title level={4}>빠른 시작</Title>
-        <Row gutter={[16, 16]} className="mt-4">
-          <Col>
-            <Button type="primary" onClick={() => navigate('/projects')}>
-              모집중인 과제 보기
-            </Button>
-          </Col>
-          <Col>
-            <Button onClick={() => navigate('/coach/competencies')}>
-              내 역량 정보 관리
-            </Button>
-          </Col>
-          {(isProjectManager || isSuperAdmin) && (
-            <Col>
-              <Button onClick={() => navigate('/projects/create')}>
-                새 과제 만들기
+      {/* 빠른 시작 + 최근 활동 Row */}
+      <Row gutter={[16, 16]} className="mt-8">
+        <Col xs={24} lg={12}>
+          <Card title="빠른 시작">
+            <div className="space-y-2">
+              <Button type="primary" block onClick={() => navigate('/projects')}>
+                모집중인 과제 보기
               </Button>
-            </Col>
-          )}
-        </Row>
-      </Card>
+              <Button block onClick={() => navigate('/coach/competencies')}>
+                내 역량 정보 관리
+              </Button>
+              {(isProjectManager || isSuperAdmin) && (
+                <Button block onClick={() => navigate('/projects/create')}>
+                  새 과제 만들기
+                </Button>
+              )}
+            </div>
+          </Card>
+        </Col>
+
+        <Col xs={24} lg={12}>
+          <Card title="최근 활동">
+            {loadingNotifications ? (
+              <div className="text-center py-8">
+                <Spin />
+              </div>
+            ) : notifications.length === 0 ? (
+              <Empty
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description="아직 활동 내역이 없습니다."
+              />
+            ) : (
+              <div style={{ maxHeight: '300px', overflowY: 'auto', paddingRight: '8px' }}>
+                <Timeline
+                  items={notifications.map((notification) => ({
+                    dot: getNotificationIcon(notification.type),
+                    children: (
+                      <div
+                        className={`cursor-pointer hover:bg-gray-50 p-2 rounded ${!notification.is_read ? 'bg-blue-50' : ''}`}
+                        onClick={async () => {
+                          // 알림 읽음 처리
+                          if (!notification.is_read) {
+                            await notificationService.markAsRead(notification.notification_id)
+                            setNotifications(prev =>
+                              prev.map(n =>
+                                n.notification_id === notification.notification_id
+                                  ? { ...n, is_read: true }
+                                  : n
+                              )
+                            )
+                          }
+                          // 관련 페이지로 이동
+                          if (notification.related_competency_id) {
+                            navigate('/coach/competencies')
+                          } else if (notification.related_application_id) {
+                            navigate('/my-applications')
+                          } else if (notification.related_project_id) {
+                            navigate('/projects')
+                          }
+                        }}
+                      >
+                        <Text strong={!notification.is_read}>{notification.title}</Text>
+                        {notification.message && (
+                          <Text className="block text-gray-500 text-sm" style={{ whiteSpace: 'pre-wrap' }}>
+                            {notification.message.length > 100
+                              ? notification.message.substring(0, 100) + '...'
+                              : notification.message}
+                          </Text>
+                        )}
+                        <Text className="block text-gray-400 text-xs mt-1">
+                          {dayjs(notification.created_at).fromNow()}
+                        </Text>
+                      </div>
+                    ),
+                  }))}
+                />
+              </div>
+            )}
+          </Card>
+        </Col>
+      </Row>
     </div>
   )
 }

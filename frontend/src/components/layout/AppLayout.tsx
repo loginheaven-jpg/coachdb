@@ -1,10 +1,46 @@
-import { Layout, Menu, Dropdown, Button, Avatar } from 'antd'
+import { useState, useEffect } from 'react'
+import { Layout, Menu, Dropdown, Button, Avatar, Badge, Popover, List, Typography, Empty, Spin } from 'antd'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
-import { UserOutlined, LogoutOutlined, SettingOutlined, LoginOutlined, FolderOutlined, FileTextOutlined, AuditOutlined, TrophyOutlined, ToolOutlined } from '@ant-design/icons'
+import {
+  UserOutlined, LogoutOutlined, SettingOutlined, LoginOutlined, FolderOutlined,
+  FileTextOutlined, AuditOutlined, TrophyOutlined, ToolOutlined, BellOutlined,
+  SendOutlined, EditOutlined, WarningOutlined, ClockCircleOutlined, CheckCircleOutlined
+} from '@ant-design/icons'
 import authService from '../../services/authService'
+import notificationService, { Notification } from '../../services/notificationService'
 import { message } from 'antd'
 import type { MenuProps } from 'antd'
+import dayjs from 'dayjs'
+import relativeTime from 'dayjs/plugin/relativeTime'
+import 'dayjs/locale/ko'
+
+dayjs.extend(relativeTime)
+dayjs.locale('ko')
+
+const { Text } = Typography
+
+// 알림 타입별 아이콘
+const getNotificationIcon = (type: string) => {
+  switch (type) {
+    case 'application_submitted':
+    case 'APPLICATION_SUBMITTED':
+      return <SendOutlined style={{ color: '#52c41a' }} />
+    case 'SELECTION_RESULT':
+    case 'selection_result':
+      return <TrophyOutlined style={{ color: '#faad14' }} />
+    case 'SUPPLEMENT_REQUEST':
+    case 'supplement_request':
+    case 'verification_supplement_request':
+      return <WarningOutlined style={{ color: '#ff4d4f' }} />
+    case 'REVIEW_COMPLETE':
+    case 'review_complete':
+    case 'verification_completed':
+      return <CheckCircleOutlined style={{ color: '#52c41a' }} />
+    default:
+      return <BellOutlined style={{ color: '#8c8c8c' }} />
+  }
+}
 
 const { Header, Content } = Layout
 
@@ -17,7 +53,86 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const navigate = useNavigate()
   const location = useLocation()
 
+  // 알림 상태
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [loadingNotifications, setLoadingNotifications] = useState(false)
+  const [popoverVisible, setPopoverVisible] = useState(false)
+
   const userRoles = user ? (JSON.parse(user.roles) as string[]) : []
+
+  // 알림 개수 로드 (주기적 갱신)
+  useEffect(() => {
+    if (!user) return
+
+    const loadUnreadCount = async () => {
+      try {
+        const count = await notificationService.getUnreadCount()
+        setUnreadCount(count)
+      } catch (error) {
+        console.error('알림 개수 로드 실패:', error)
+      }
+    }
+
+    loadUnreadCount()
+    // 30초마다 갱신
+    const interval = setInterval(loadUnreadCount, 30000)
+    return () => clearInterval(interval)
+  }, [user])
+
+  // Popover 열릴 때 알림 목록 로드
+  const handlePopoverVisibleChange = async (visible: boolean) => {
+    setPopoverVisible(visible)
+    if (visible && user) {
+      setLoadingNotifications(true)
+      try {
+        const data = await notificationService.getMyNotifications(false, 10)
+        setNotifications(data)
+      } catch (error) {
+        console.error('알림 목록 로드 실패:', error)
+      } finally {
+        setLoadingNotifications(false)
+      }
+    }
+  }
+
+  // 알림 클릭 처리
+  const handleNotificationClick = async (notification: Notification) => {
+    // 읽음 처리
+    if (!notification.is_read) {
+      await notificationService.markAsRead(notification.notification_id)
+      setUnreadCount(prev => Math.max(0, prev - 1))
+      setNotifications(prev =>
+        prev.map(n =>
+          n.notification_id === notification.notification_id
+            ? { ...n, is_read: true }
+            : n
+        )
+      )
+    }
+    setPopoverVisible(false)
+    // 관련 페이지로 이동
+    if (notification.related_competency_id) {
+      navigate('/coach/competencies')
+    } else if (notification.related_application_id) {
+      navigate('/my-applications')
+    } else if (notification.related_project_id) {
+      navigate('/projects')
+    } else {
+      navigate('/dashboard')
+    }
+  }
+
+  // 모두 읽음 처리
+  const handleMarkAllAsRead = async () => {
+    try {
+      await notificationService.markAllAsRead()
+      setUnreadCount(0)
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
+    } catch (error) {
+      console.error('모두 읽음 처리 실패:', error)
+    }
+  }
 
   const handleLogout = () => {
     authService.logout()
@@ -142,12 +257,90 @@ export default function AppLayout({ children }: AppLayoutProps) {
         </div>
 
         {user ? (
-          <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-            <Button type="text" className="flex items-center gap-2">
-              <Avatar icon={<UserOutlined />} size="small" />
-              <span>{user.name}</span>
-            </Button>
-          </Dropdown>
+          <div className="flex items-center gap-4">
+            {/* 알림 아이콘 */}
+            <Popover
+              content={
+                <div style={{ width: 350 }}>
+                  <div className="flex justify-between items-center mb-2 pb-2 border-b">
+                    <Text strong>알림</Text>
+                    {unreadCount > 0 && (
+                      <Button type="link" size="small" onClick={handleMarkAllAsRead}>
+                        모두 읽음
+                      </Button>
+                    )}
+                  </div>
+                  {loadingNotifications ? (
+                    <div className="text-center py-4">
+                      <Spin size="small" />
+                    </div>
+                  ) : notifications.length === 0 ? (
+                    <Empty
+                      image={Empty.PRESENTED_IMAGE_SIMPLE}
+                      description="새 알림이 없습니다"
+                      style={{ margin: '16px 0' }}
+                    />
+                  ) : (
+                    <List
+                      size="small"
+                      dataSource={notifications}
+                      style={{ maxHeight: 300, overflowY: 'auto' }}
+                      renderItem={(notification) => (
+                        <List.Item
+                          className={`cursor-pointer hover:bg-gray-50 ${!notification.is_read ? 'bg-blue-50' : ''}`}
+                          style={{ padding: '8px 4px' }}
+                          onClick={() => handleNotificationClick(notification)}
+                        >
+                          <List.Item.Meta
+                            avatar={getNotificationIcon(notification.type)}
+                            title={<Text strong={!notification.is_read}>{notification.title}</Text>}
+                            description={
+                              <Text type="secondary" style={{ fontSize: 12 }}>
+                                {dayjs(notification.created_at).fromNow()}
+                              </Text>
+                            }
+                          />
+                        </List.Item>
+                      )}
+                    />
+                  )}
+                  <div className="pt-2 mt-2 border-t text-center">
+                    <Button
+                      type="link"
+                      size="small"
+                      onClick={() => {
+                        setPopoverVisible(false)
+                        navigate('/dashboard')
+                      }}
+                    >
+                      전체 보기
+                    </Button>
+                  </div>
+                </div>
+              }
+              title={null}
+              trigger="click"
+              open={popoverVisible}
+              onOpenChange={handlePopoverVisibleChange}
+              placement="bottomRight"
+            >
+              <Badge count={unreadCount} size="small" offset={[-2, 2]}>
+                <Button
+                  type="text"
+                  icon={<BellOutlined style={{ fontSize: 18 }} />}
+                  className="flex items-center justify-center"
+                />
+              </Badge>
+            </Popover>
+
+            {/* 사용자 드롭다운 */}
+            <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
+              <Button type="text" className="flex items-center gap-2">
+                <Avatar icon={<UserOutlined />} size="small" />
+                <span>{user.name}</span>
+              </Button>
+            </Dropdown>
+          </div>
         ) : (
           <Button
             type="text"
