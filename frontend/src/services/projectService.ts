@@ -196,6 +196,7 @@ export interface ProjectListItem {
   current_participants: number | null  // 확정된 참여자 수
   created_by: number  // 생성자 ID
   project_manager_id: number | null  // 과제관리자 ID
+  project_manager_name: string | null  // 과제관리자 이름
   created_at: string
 }
 
@@ -375,6 +376,33 @@ export interface CoachEvaluation extends CoachEvaluationBase {
   updated_at: string | null
   coach: UserBasicInfo | null
   evaluator: UserBasicInfo | null
+}
+
+// ============================================================================
+// User Project History (응모자 이력)
+// ============================================================================
+export interface UserProjectHistoryItem {
+  project_id: number
+  project_name: string
+  project_type: string | null
+  role: string | null  // applied_role
+  selection_result: string | null
+  final_score: number | null
+  project_start_date: string | null
+  project_end_date: string | null
+  status: string
+  evaluation: CoachEvaluation | null
+}
+
+export interface UserProjectHistory {
+  user_id: number
+  user_name: string
+  user_email: string
+  total_projects: number
+  selected_count: number
+  avg_score: number | null
+  avg_evaluation_score: number | null
+  history: UserProjectHistoryItem[]
 }
 
 // ============================================================================
@@ -738,6 +766,18 @@ const projectService = {
    */
   async removeProjectStaff(projectId: number, staffUserId: number): Promise<void> {
     await api.delete(`/projects/${projectId}/staff/${staffUserId}`)
+  },
+
+  // ============================================================================
+  // User Project History (응모자 이력)
+  // ============================================================================
+
+  /**
+   * Get user's project participation history with evaluations
+   */
+  async getUserProjectHistory(userId: number): Promise<UserProjectHistory> {
+    const response = await api.get(`/projects/users/${userId}/history`)
+    return response.data
   },
 
   // ============================================================================

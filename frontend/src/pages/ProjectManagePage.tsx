@@ -18,10 +18,8 @@ import {
   ArrowLeftOutlined,
   PlusOutlined,
   EditOutlined,
-  EyeOutlined,
   FolderOpenOutlined,
   UserOutlined,
-  CheckCircleOutlined,
   DeleteOutlined,
   TeamOutlined
 } from '@ant-design/icons'
@@ -138,12 +136,12 @@ export default function ProjectManagePage() {
     return <Tag color={config.color}>{config.text}</Tag>
   }
 
-  const columns = [
+  // 기본 컬럼
+  const baseColumns = [
     {
       title: '과제명',
       dataIndex: 'project_name',
       key: 'project_name',
-      width: '28%',
       render: (text: string, record: ProjectListItem) => (
         <a onClick={() => navigate(`/projects/manage/${record.project_id}`)}>
           {text}
@@ -153,7 +151,7 @@ export default function ProjectManagePage() {
     {
       title: '모집 기간',
       key: 'recruitment_period',
-      width: '16%',
+      width: 130,
       render: (_: any, record: ProjectListItem) => (
         <div>
           <div>{dayjs(record.recruitment_start_date).format('YYYY-MM-DD')}</div>
@@ -165,7 +163,7 @@ export default function ProjectManagePage() {
     {
       title: '과제 기간',
       key: 'project_period',
-      width: '16%',
+      width: 130,
       render: (_: any, record: ProjectListItem) => {
         if (!record.project_start_date || !record.project_end_date) {
           return <Text type="secondary">미정</Text>
@@ -183,13 +181,13 @@ export default function ProjectManagePage() {
       title: '상태',
       dataIndex: 'status',
       key: 'status',
-      width: '10%',
+      width: 100,
       render: (_: ProjectStatus, record: ProjectListItem) => getStatusTag(record.display_status, record.status),
     },
     {
       title: '정원',
       key: 'participants',
-      width: '10%',
+      width: 100,
       render: (_: any, record: ProjectListItem) => {
         const appCount = record.application_count || 0
         const selectedCount = record.current_participants || 0
@@ -201,63 +199,56 @@ export default function ProjectManagePage() {
         return <span>{appCount} / {record.max_participants}</span>
       },
     },
-    {
-      title: '작업',
-      key: 'actions',
-      width: '20%',
-      render: (_: any, record: ProjectListItem) => {
-        const isDraft = record.status === 'draft'
-
-        return (
-          <Space wrap>
-            <Button
-              type="link"
-              size="small"
-              icon={<EyeOutlined />}
-              onClick={() => navigate(`/projects/manage/${record.project_id}`)}
-            >
-              상세
-            </Button>
-            <Button
-              type="link"
-              size="small"
-              icon={<EditOutlined />}
-              onClick={() => navigate(`/projects/manage/${record.project_id}/edit`)}
-            >
-              수정
-            </Button>
-            <Button
-              type="link"
-              size="small"
-              icon={<TeamOutlined />}
-              onClick={() => navigate(`/projects/manage/${record.project_id}/applications`)}
-            >
-              응모자
-            </Button>
-            {isDraft && (
-              <Popconfirm
-                title="과제 삭제"
-                description="이 과제를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."
-                onConfirm={() => handleDeleteProject(record.project_id)}
-                okText="삭제"
-                cancelText="취소"
-                okButtonProps={{ danger: true }}
-              >
-                <Button
-                  type="link"
-                  size="small"
-                  icon={<DeleteOutlined />}
-                  danger
-                >
-                  삭제
-                </Button>
-              </Popconfirm>
-            )}
-          </Space>
-        )
-      },
-    },
   ]
+
+  // SUPER_ADMIN용 과제관리자 컬럼
+  const managerColumn = {
+    title: '관리자',
+    key: 'project_manager',
+    width: 100,
+    render: (_: any, record: ProjectListItem) => (
+      <Text>{record.project_manager_name || '-'}</Text>
+    ),
+  }
+
+  // 작업 컬럼 (삭제만)
+  const actionColumn = {
+    title: '작업',
+    key: 'actions',
+    width: 80,
+    render: (_: any, record: ProjectListItem) => {
+      const isDraft = record.status === 'draft'
+
+      if (!isDraft) {
+        return null
+      }
+
+      return (
+        <Popconfirm
+          title="과제 삭제"
+          description="이 과제를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."
+          onConfirm={() => handleDeleteProject(record.project_id)}
+          okText="삭제"
+          cancelText="취소"
+          okButtonProps={{ danger: true }}
+        >
+          <Button
+            type="link"
+            size="small"
+            icon={<DeleteOutlined />}
+            danger
+          >
+            삭제
+          </Button>
+        </Popconfirm>
+      )
+    },
+  }
+
+  // 컬럼 조합: SUPER_ADMIN이면 관리자 컬럼 추가
+  const columns = isSuperAdmin
+    ? [...baseColumns, managerColumn, actionColumn]
+    : [...baseColumns, actionColumn]
 
   // 통계 계산
   const stats = {

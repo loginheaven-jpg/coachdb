@@ -19,11 +19,13 @@ import {
   ClockCircleOutlined,
   ExclamationCircleOutlined,
   FileTextOutlined,
-  ReloadOutlined
+  ReloadOutlined,
+  HistoryOutlined
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import { useProjectEdit } from '../../contexts/ProjectEditContext'
 import projectService, { ProjectApplicationListItem } from '../../services/projectService'
+import ApplicantHistoryModal from '../../components/ApplicantHistoryModal'
 import dayjs from 'dayjs'
 
 const { Text } = Typography
@@ -99,6 +101,17 @@ export default function ProjectApplicationsTab() {
   const [applications, setApplications] = useState<ProjectApplicationListItem[]>([])
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined)
 
+  // History modal state
+  const [historyModalOpen, setHistoryModalOpen] = useState(false)
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null)
+  const [selectedUserName, setSelectedUserName] = useState<string>('')
+
+  const handleOpenHistory = (userId: number, userName: string) => {
+    setSelectedUserId(userId)
+    setSelectedUserName(userName)
+    setHistoryModalOpen(true)
+  }
+
   const loadData = useCallback(async () => {
     if (!projectId) return
 
@@ -132,7 +145,12 @@ export default function ProjectApplicationsTab() {
       width: 180,
       render: (_, record) => (
         <Space direction="vertical" size={0}>
-          <Text strong>{record.applicant.name}</Text>
+          <a
+            onClick={() => handleOpenHistory(record.user_id, record.applicant.name)}
+            className="font-medium"
+          >
+            {record.applicant.name}
+          </a>
           <Text type="secondary" className="text-xs">{record.applicant.email}</Text>
         </Space>
       )
@@ -308,6 +326,17 @@ export default function ProjectApplicationsTab() {
           size="middle"
         />
       </Card>
+
+      {/* 응모자 이력 모달 */}
+      <ApplicantHistoryModal
+        open={historyModalOpen}
+        userId={selectedUserId}
+        userName={selectedUserName}
+        onClose={() => {
+          setHistoryModalOpen(false)
+          setSelectedUserId(null)
+        }}
+      />
     </div>
   )
 }

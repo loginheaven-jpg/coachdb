@@ -821,6 +821,16 @@ async def list_projects(
         projects = result.scalars().all()
         print(f"[LIST PROJECTS] Found {len(projects)} projects")
 
+        # Batch fetch project manager names
+        manager_ids = [p.project_manager_id for p in projects if p.project_manager_id]
+        manager_names = {}
+        if manager_ids:
+            manager_result = await db.execute(
+                select(User.user_id, User.name).where(User.user_id.in_(manager_ids))
+            )
+            for user_id, name in manager_result.all():
+                manager_names[user_id] = name
+
         # Build response with application counts
         response_list = []
         for project in projects:
@@ -862,6 +872,7 @@ async def list_projects(
                 current_participants=current_participants,
                 created_by=project.created_by,
                 project_manager_id=project.project_manager_id,
+                project_manager_name=manager_names.get(project.project_manager_id) if project.project_manager_id else None,
                 created_at=project.created_at
             )
             response_list.append(response_item)
@@ -1703,6 +1714,119 @@ async def delete_coach_evaluation(
 
     await db.delete(evaluation)
     await db.commit()
+
+
+# ============================================================================
+# User Project History (응모자 이력) Endpoint
+# ============================================================================
+@router.get("/users/{user_id}/history")
+async def get_user_project_history(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get user's project participation history with evaluations.
+
+    Returns:
+    - All projects the user has applied to
+    - Selection results
+    - Final scores
+    - Coach evaluations for completed projects
+
+    **Required roles**: Any authenticated user (for reviewing applicants)
+    """
+    from app.schemas.project import (
+        UserProjectHistoryItem,
+        UserProjectHistoryResponse,
+        CoachEvaluationResponse,
+        UserBasicInfo
+    )
+
+    # Get user info
+    user_result = await db.execute(
+        select(User).where(User.user_id == user_id)
+    )
+    target_user = user_result.scalar_one_or_none()
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="사용자를 찾을 수 없습니다"
+        )
+
+    # Get all applications for this user
+    apps_result = await db.execute(
+        select(Application, Project)
+        .join(Project, Application.project_id == Project.project_id)
+        .where(Application.user_id == user_id)
+        .order_by(Project.created_at.desc())
+    )
+    applications = apps_result.all()
+
+    # Get all evaluations for this user
+    evals_result = await db.execute(
+        select(CoachEvaluation)
+        .where(CoachEvaluation.coach_user_id == user_id)
+    )
+    evaluations = {e.project_id: e for e in evals_result.scalars().all()}
+
+    # Build history items
+    history = []
+    total_score = 0
+    score_count = 0
+    total_eval_score = 0
+    eval_count = 0
+    selected_count = 0
+
+    for app, project in applications:
+        # Get evaluation for this project if exists
+        evaluation = evaluations.get(project.project_id)
+        eval_response = None
+        if evaluation:
+            eval_response = CoachEvaluationResponse(
+                evaluation_id=evaluation.evaluation_id,
+                project_id=evaluation.project_id,
+                coach_user_id=evaluation.coach_user_id,
+                evaluated_by=evaluation.evaluated_by,
+                participation_score=evaluation.participation_score,
+                feedback_text=evaluation.feedback_text,
+                special_notes=evaluation.special_notes,
+                evaluated_at=evaluation.evaluated_at,
+                updated_at=evaluation.updated_at
+            )
+            total_eval_score += evaluation.participation_score
+            eval_count += 1
+
+        history_item = UserProjectHistoryItem(
+            project_id=project.project_id,
+            project_name=project.project_name,
+            project_type=project.project_type.value if project.project_type else None,
+            role=app.applied_role,
+            selection_result=app.selection_result,
+            final_score=float(app.final_score) if app.final_score else None,
+            project_start_date=project.project_start_date,
+            project_end_date=project.project_end_date,
+            status=project.status.value,
+            evaluation=eval_response
+        )
+        history.append(history_item)
+
+        if app.selection_result == 'selected':
+            selected_count += 1
+        if app.final_score:
+            total_score += float(app.final_score)
+            score_count += 1
+
+    return UserProjectHistoryResponse(
+        user_id=target_user.user_id,
+        user_name=target_user.name,
+        user_email=target_user.email,
+        total_projects=len(history),
+        selected_count=selected_count,
+        avg_score=total_score / score_count if score_count > 0 else None,
+        avg_evaluation_score=total_eval_score / eval_count if eval_count > 0 else None,
+        history=history
+    )
 
 
 # ============================================================================

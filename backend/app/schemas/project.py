@@ -168,6 +168,7 @@ class ProjectListResponse(BaseModel):
     current_participants: Optional[int] = None  # 확정된 참여자 수
     created_by: int  # 생성자 ID
     project_manager_id: Optional[int] = None  # 과제관리자 ID
+    project_manager_name: Optional[str] = None  # 과제관리자 이름
     created_at: datetime
 
     class Config:
@@ -333,3 +334,36 @@ class ProjectStaffListResponse(BaseModel):
     """List of project staff members"""
     staff_list: List[ProjectStaffResponse]
     total_count: int
+
+
+# ============================================================================
+# User Project History (응모자 이력) Schemas
+# ============================================================================
+class UserProjectHistoryItem(BaseModel):
+    """Single project history item for a user"""
+    project_id: int
+    project_name: str
+    project_type: Optional[str] = None
+    role: Optional[str] = None  # applied_role
+    selection_result: Optional[str] = None
+    final_score: Optional[float] = None
+    project_start_date: Optional[date] = None
+    project_end_date: Optional[date] = None
+    status: str
+    # Evaluation for this project (if exists)
+    evaluation: Optional[CoachEvaluationResponse] = None
+
+    class Config:
+        from_attributes = True
+
+
+class UserProjectHistoryResponse(BaseModel):
+    """User's project history response"""
+    user_id: int
+    user_name: str
+    user_email: str
+    total_projects: int
+    selected_count: int
+    avg_score: Optional[float] = None
+    avg_evaluation_score: Optional[float] = None
+    history: List[UserProjectHistoryItem]

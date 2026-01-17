@@ -38,6 +38,7 @@ import scoringService, {
 } from '../../services/scoringService'
 import ReviewerEvaluationModal from '../../components/ReviewerEvaluationModal'
 import SelectionModal from '../../components/SelectionModal'
+import ApplicantHistoryModal from '../../components/ApplicantHistoryModal'
 import dayjs from 'dayjs'
 
 const { Text } = Typography
@@ -85,6 +86,17 @@ export default function ProjectSelectionTab() {
   const [evaluationModalOpen, setEvaluationModalOpen] = useState(false)
   const [selectionModalOpen, setSelectionModalOpen] = useState(false)
   const [selectedApplicationId, setSelectedApplicationId] = useState<number | null>(null)
+
+  // History modal states
+  const [historyModalOpen, setHistoryModalOpen] = useState(false)
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null)
+  const [selectedUserName, setSelectedUserName] = useState<string>('')
+
+  const handleOpenHistory = (userId: number, userName: string) => {
+    setSelectedUserId(userId)
+    setSelectedUserName(userName)
+    setHistoryModalOpen(true)
+  }
 
   // Action loading states
   const [calculatingScores, setCalculatingScores] = useState(false)
@@ -207,7 +219,12 @@ export default function ProjectSelectionTab() {
       width: 180,
       render: (_, record) => (
         <Space direction="vertical" size={0}>
-          <Text strong>{record.user_name}</Text>
+          <a
+            onClick={() => handleOpenHistory(record.user_id, record.user_name)}
+            className="font-medium"
+          >
+            {record.user_name}
+          </a>
           <Text type="secondary" className="text-xs">{record.user_email}</Text>
         </Space>
       )
@@ -486,6 +503,17 @@ export default function ProjectSelectionTab() {
           }}
         />
       )}
+
+      {/* 응모자 이력 모달 */}
+      <ApplicantHistoryModal
+        open={historyModalOpen}
+        userId={selectedUserId}
+        userName={selectedUserName}
+        onClose={() => {
+          setHistoryModalOpen(false)
+          setSelectedUserId(null)
+        }}
+      />
     </div>
   )
 }
