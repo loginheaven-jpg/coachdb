@@ -18,7 +18,8 @@ import {
   Modal,
   Tabs,
   Collapse,
-  Checkbox
+  Checkbox,
+  Progress
 } from 'antd'
 import { ArrowLeftOutlined, SendOutlined, UploadOutlined, InfoCircleOutlined, UserOutlined, CheckCircleOutlined, SaveOutlined, DeleteOutlined, LoadingOutlined, EditOutlined, ClockCircleOutlined, DownloadOutlined, CloseCircleOutlined, ExclamationCircleOutlined, FileTextOutlined, PlusOutlined, InboxOutlined, EyeOutlined } from '@ant-design/icons'
 import projectService, { ProjectDetail, ProjectItem, ItemTemplate } from '../services/projectService'
@@ -194,6 +195,79 @@ export default function ApplicationSubmitPage() {
   const [competenciesLoaded, setCompetenciesLoaded] = useState(false)
   const [activeTab, setActiveTab] = useState('personal')
   const { user, setUser } = useAuthStore()
+
+  // 탭 완료 상태 및 진행률 계산
+  const isPersonalTabComplete = (): boolean => {
+    const values = form.getFieldsValue()
+    return !!(values.applied_role && values.motivation)
+  }
+
+  // 필수 항목 미입력 목록
+  const getMissingRequiredItems = (): string[] => {
+    const missing: string[] = []
+    const surveyItems = projectItems.filter(item => !USER_PROFILE_ITEM_CODES.includes(item.competency_item?.item_code || ''))
+
+    for (const item of surveyItems) {
+      if (!item.is_required) continue
+      const competencyItem = item.competency_item
+      if (!competencyItem) continue
+
+      if (competencyItem.is_repeatable) {
+        const entries = repeatableData[item.project_item_id] || []
+        if (entries.length === 0) {
+          missing.push(competencyItem.item_name)
+        }
+      } else {
+        const data = linkedCompetencyData[item.item_id]
+        if (!data?.submitted_value) {
+          missing.push(competencyItem.item_name)
+        }
+      }
+    }
+    return missing
+  }
+
+  const isSurveyTabComplete = (): boolean => {
+    return getMissingRequiredItems().length === 0
+  }
+
+  // 진행률 계산 (필수 항목 기준)
+  const getProgress = (): { completed: number; total: number; percent: number } => {
+    const surveyItems = projectItems.filter(item =>
+      item.is_required && !USER_PROFILE_ITEM_CODES.includes(item.competency_item?.item_code || '')
+    )
+    const total = surveyItems.length
+    const completed = total - getMissingRequiredItems().length
+    const percent = total > 0 ? Math.round((completed / total) * 100) : 100
+    return { completed, total, percent }
+  }
+
+  // 시간 합산 계산 (코칭연수/코칭경력)
+  const calculateTotalHours = (groupName: string): number => {
+    const surveyItems = projectItems.filter(item => {
+      const category = item.competency_item?.category || ''
+      const template = item.competency_item?.template || ''
+      const itemCode = item.competency_item?.item_code || ''
+
+      if (groupName === '코칭연수') {
+        return itemCode === 'EXP_COACHING_TRAINING' || template === 'coaching_time'
+      }
+      if (groupName === '코칭경력') {
+        return (category === 'EXPERIENCE' && template === 'coaching_experience') ||
+               itemCode === 'EXP_COACHING_HOURS'
+      }
+      return false
+    })
+
+    let totalHours = 0
+    for (const item of surveyItems) {
+      const entries = repeatableData[item.project_item_id] || []
+      for (const entry of entries) {
+        totalHours += Number(entry.hours) || 0
+      }
+    }
+    return totalHours
+  }
 
   // 수정 모드로 전환
   const switchToEditMode = () => {
@@ -1337,8 +1411,20 @@ export default function ApplicationSubmitPage() {
         // 프로필 업데이트 실패해도 지원서는 이미 제출됐으므로 에러 표시 안 함
       }
 
-      message.success(isEditMode ? '지원서가 수정되었습니다.' : '지원서가 제출되었습니다.')
-      navigate('/coach/my-applications')
+      // 제출 완료 피드백 강화
+      Modal.success({
+        title: isEditMode ? '지원서가 수정되었습니다' : '지원서가 제출되었습니다',
+        content: (
+          <div>
+            <p>지원해 주셔서 감사합니다.</p>
+            <p style={{ marginTop: 8 }}>
+              모집마감일(<strong>{dayjs(project?.recruitment_end_date).format('YYYY-MM-DD')}</strong>)까지 지원서 수정이 가능합니다.
+            </p>
+          </div>
+        ),
+        okText: '확인',
+        onOk: () => navigate('/coach/my-applications')
+      })
     } catch (error: any) {
       console.error('지원서 제출 실패:', error)
       message.error(error.response?.data?.detail || '지원서 제출에 실패했습니다.')
@@ -1391,6 +1477,20 @@ export default function ApplicationSubmitPage() {
             )}
           </Descriptions>
         </Card>
+
+        {/* 수정 가능 기간 안내 (보기 모드에서만 표시) */}
+        {isViewMode && !isDeadlinePassed && (
+          <Alert
+            type="info"
+            showIcon
+            className="mb-4"
+            message={
+              <span>
+                모집마감일(<strong>{dayjs(project.recruitment_end_date).format('YYYY-MM-DD')}</strong>)까지 지원서 수정이 가능합니다.
+              </span>
+            }
+          />
+        )}
 
         {isDeadlinePassed ? (
           <Card>
@@ -1451,6 +1551,9 @@ export default function ApplicationSubmitPage() {
                       <span>
                         <UserOutlined />
                         기본정보
+                        {isPersonalTabComplete() && (
+                          <CheckCircleOutlined style={{ color: '#52c41a', marginLeft: 8 }} />
+                        )}
                       </span>
                     ),
                     children: (
@@ -1543,10 +1646,27 @@ export default function ApplicationSubmitPage() {
                       <span>
                         <FileTextOutlined />
                         역량 정보
+                        {isSurveyTabComplete() && (
+                          <CheckCircleOutlined style={{ color: '#52c41a', marginLeft: 8 }} />
+                        )}
                       </span>
                     ),
                     children: (
                       <>
+                        {/* Progress bar */}
+                        {!isViewMode && (
+                          <Card size="small" className="mb-4">
+                            <div className="flex items-center gap-4">
+                              <span className="font-medium">진행률:</span>
+                              <Progress
+                                percent={getProgress().percent}
+                                status={getProgress().percent === 100 ? 'success' : 'active'}
+                                format={() => `${getProgress().completed}/${getProgress().total} 필수항목`}
+                                style={{ flex: 1 }}
+                              />
+                            </div>
+                          </Card>
+                        )}
                         {/* Basic application info */}
                         <Card size="small" title="기본 정보" className="mb-4">
                 <Form.Item
@@ -1595,8 +1715,25 @@ export default function ApplicationSubmitPage() {
                       const groupItems = groupedItems[groupName]
                       if (!groupItems || groupItems.length === 0) return null
 
+                      // 시간 합산 표시 대상 그룹
+                      const totalHours = ['코칭연수', '코칭경력'].includes(groupName)
+                        ? calculateTotalHours(groupName)
+                        : 0
+
                       return (
-                        <Panel key={groupName} header={`${groupName} (${groupItems.length})`}>
+                        <Panel
+                          key={groupName}
+                          header={
+                            <span>
+                              {groupName} ({groupItems.length})
+                              {totalHours > 0 && (
+                                <Tag color="green" style={{ marginLeft: 8 }}>
+                                  총 {totalHours}시간
+                                </Tag>
+                              )}
+                            </span>
+                          }
+                        >
                           <Space direction="vertical" style={{ width: '100%' }} size="middle">
                     {groupItems.map((item) => {
                       const competencyItem = item.competency_item
@@ -1615,8 +1752,10 @@ export default function ApplicationSubmitPage() {
                             {/* 그룹 헤더 */}
                             <div className="flex justify-between items-center mb-2 pb-2 border-b">
                               <div className="flex items-center gap-2">
-                                <span className="font-medium">{competencyItem.item_name}</span>
-                                {item.is_required && <Tag color="red">필수</Tag>}
+                                <span className="font-medium">
+                                  {competencyItem.item_name}
+                                  {item.is_required && <span style={{ color: '#ff4d4f', marginLeft: 4 }}>*</span>}
+                                </span>
                                 <Tag color="blue">복수 입력 가능</Tag>
                                 <Text type="secondary">({entries.length}개)</Text>
                               </div>
@@ -1775,8 +1914,10 @@ export default function ApplicationSubmitPage() {
                           {/* 그룹 헤더 (단일 항목용) */}
                           <div className="flex justify-between items-center mb-2 pb-2 border-b">
                             <div className="flex items-center gap-2">
-                              <span className="font-medium">{competencyItem.item_name}</span>
-                              {item.is_required && <Tag color="red">필수</Tag>}
+                              <span className="font-medium">
+                                {competencyItem.item_name}
+                                {item.is_required && <span style={{ color: '#ff4d4f', marginLeft: 4 }}>*</span>}
+                              </span>
                             </div>
                           </div>
 
@@ -1951,6 +2092,24 @@ export default function ApplicationSubmitPage() {
                   }
                 ]}
               />
+
+              {/* 미입력 필수 항목 요약 */}
+              {!isViewMode && getMissingRequiredItems().length > 0 && (
+                <Alert
+                  type="warning"
+                  showIcon
+                  icon={<ExclamationCircleOutlined />}
+                  className="mt-4"
+                  message="미입력 필수 항목"
+                  description={
+                    <ul className="list-disc pl-4 mt-2 mb-0">
+                      {getMissingRequiredItems().map((item, index) => (
+                        <li key={index}>{item}</li>
+                      ))}
+                    </ul>
+                  }
+                />
+              )}
 
               <Form.Item className="mb-0 mt-4">
                 <Space className="w-full justify-end">

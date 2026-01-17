@@ -15,7 +15,8 @@ import {
   EditOutlined,
   EyeOutlined,
   CheckCircleOutlined,
-  FileTextOutlined
+  FileTextOutlined,
+  ClockCircleOutlined
 } from '@ant-design/icons'
 import projectService, { ProjectListItem, ProjectStatus } from '../services/projectService'
 import applicationService, { ParticipationProject } from '../services/applicationService'
@@ -85,6 +86,25 @@ export default function ProjectListPage() {
     return <Tag color={config.color}>{config.text}</Tag>
   }
 
+  // D-day 계산 및 표시
+  const getDdayTag = (endDate: string) => {
+    const today = dayjs().startOf('day')
+    const deadline = dayjs(endDate).startOf('day')
+    const diff = deadline.diff(today, 'day')
+
+    if (diff < 0) {
+      return <Tag color="default">마감</Tag>
+    } else if (diff === 0) {
+      return <Tag color="red" icon={<ClockCircleOutlined />}>D-Day</Tag>
+    } else if (diff <= 3) {
+      return <Tag color="red">D-{diff}</Tag>
+    } else if (diff <= 7) {
+      return <Tag color="orange">D-{diff}</Tag>
+    } else {
+      return <Tag color="blue">D-{diff}</Tag>
+    }
+  }
+
   const columns = [
     {
       title: '과제명',
@@ -107,12 +127,17 @@ export default function ProjectListPage() {
     {
       title: '모집 기간',
       key: 'recruitment_period',
-      width: '18%',
+      width: '20%',
       render: (_: any, record: ProjectListItem) => (
         <div>
-          <div>{dayjs(record.recruitment_start_date).format('YYYY-MM-DD')}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span>{dayjs(record.recruitment_start_date).format('YYYY-MM-DD')}</span>
+          </div>
           <div className="text-xs text-gray-500">~</div>
-          <div>{dayjs(record.recruitment_end_date).format('YYYY-MM-DD')}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span>{dayjs(record.recruitment_end_date).format('YYYY-MM-DD')}</span>
+            {getDdayTag(record.recruitment_end_date)}
+          </div>
         </div>
       ),
     },
