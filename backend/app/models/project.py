@@ -9,7 +9,8 @@ class ProjectStatus(str, enum.Enum):
     DRAFT = "draft"              # 초안 (임시저장, 비공개)
     PENDING = "pending"          # 승인대기 (SUPER_ADMIN 승인 필요)
     REJECTED = "rejected"        # 반려됨 (수정 후 재상신 가능)
-    READY = "ready"              # 승인완료 (모집대기/모집중은 날짜로 계산)
+    APPROVED = "approved"        # 승인완료 (SUPER_ADMIN 승인됨, 모집개시 전)
+    READY = "ready"              # 모집개시 (과제관리자가 모집 시작)
     RECRUITING = "recruiting"    # 접수중 (legacy, 호환용 - 사용하지 않음)
     REVIEWING = "reviewing"      # 심사중
     IN_PROGRESS = "in_progress"  # 과제진행중

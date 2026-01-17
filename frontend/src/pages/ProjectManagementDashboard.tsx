@@ -37,8 +37,9 @@ const getStatusTag = (status: string, displayStatus?: string) => {
   const statusMap: Record<string, { color: string; text: string }> = {
     draft: { color: 'default', text: '초안' },
     pending: { color: 'orange', text: '승인대기' },
+    approved: { color: 'blue', text: '승인완료' },
     rejected: { color: 'red', text: '반려됨' },
-    ready: { color: 'blue', text: '승인됨' },
+    ready: { color: 'green', text: '모집개시' },
     recruiting: { color: 'green', text: '모집중' },
     reviewing: { color: 'purple', text: '심사중' },
     in_progress: { color: 'cyan', text: '진행중' },
@@ -75,17 +76,18 @@ export default function ProjectManagementDashboard() {
   const userRoles = getUserRoles()
   const isSuperAdmin = userRoles.includes('SUPER_ADMIN')
 
-  // 정렬 함수: 승인대기(pending) > 반려됨(rejected) > 나머지 (관리자 액션 필요한 항목 우선)
+  // 정렬 함수: 승인대기(pending) > 반려됨(rejected) > 승인완료(approved) > 나머지 (관리자 액션 필요한 항목 우선)
   const sortByPriority = (projects: ProjectListItem[]) => {
     const statusPriority: Record<string, number> = {
       pending: 0,      // 최우선: 승인 필요
       rejected: 1,     // 두 번째: 재상신 대기
-      draft: 2,
-      ready: 3,
-      recruiting: 4,
-      reviewing: 5,
-      in_progress: 6,
-      closed: 7
+      approved: 2,     // 세 번째: 모집개시 필요
+      draft: 3,
+      ready: 4,
+      recruiting: 5,
+      reviewing: 6,
+      in_progress: 7,
+      closed: 8
     }
 
     return [...projects].sort((a, b) => {
@@ -131,6 +133,7 @@ export default function ProjectManagementDashboard() {
     total: projects.length,
     draft: projects.filter(p => p.status === 'draft').length,
     pending: projects.filter(p => p.status === 'pending').length,
+    approved: projects.filter(p => p.status === 'approved').length,
     rejected: projects.filter(p => p.status === 'rejected').length,
     ready: projects.filter(p => p.status === 'ready').length,
   }
@@ -185,6 +188,20 @@ export default function ProjectManagementDashboard() {
       fetchProjects()
     } catch (error: any) {
       message.error(error.response?.data?.detail || '재상신에 실패했습니다.')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  // 모집개시
+  const handleStartRecruitment = async (projectId: number) => {
+    setActionLoading(true)
+    try {
+      await projectService.startRecruitment(projectId)
+      message.success('과제가 모집개시 되었습니다.')
+      fetchProjects()
+    } catch (error: any) {
+      message.error(error.response?.data?.detail || '모집개시에 실패했습니다.')
     } finally {
       setActionLoading(false)
     }
@@ -290,6 +307,19 @@ export default function ProjectManagementDashboard() {
                 </Tooltip>
               </>
             )}
+
+            {/* 본인 과제: 승인완료 과제 모집개시 */}
+            {isOwner && record.status === 'approved' && (
+              <Tooltip title="모집개시">
+                <Button
+                  size="small"
+                  type="primary"
+                  icon={<SendOutlined />}
+                  onClick={() => handleStartRecruitment(record.project_id)}
+                  loading={actionLoading}
+                />
+              </Tooltip>
+            )}
           </Space>
         )
       }
@@ -335,7 +365,7 @@ export default function ProjectManagementDashboard() {
           <Card>
             <Statistic
               title="승인됨"
-              value={stats.ready}
+              value={stats.approved + stats.ready}
               prefix={<CheckCircleOutlined />}
               valueStyle={{ color: '#52c41a' }}
             />

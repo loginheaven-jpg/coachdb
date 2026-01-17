@@ -135,8 +135,7 @@ export default function ProjectCreatePage() {
 
             <Form.Item
               name="support_program_name"
-              label="지원 사업명 (선택사항)"
-              help="이 과제가 특정 지원 사업의 일부인 경우 입력해주세요."
+              label="지원 사업명 (이 과제가 특정 지원 사업의 일부인 경우 입력)"
             >
               <Input placeholder="예: 한국코치협회 2025 상반기 코치양성 지원사업" size="large" />
             </Form.Item>
@@ -165,8 +164,7 @@ export default function ProjectCreatePage() {
 
             <Form.Item
               name="project_period"
-              label="과제 기간 (선택사항)"
-              help="과제 진행 예정 기간입니다. 나중에 수정할 수 있습니다."
+              label="과제 기간 (과제 진행 예정 기간, 나중에 수정 가능)"
             >
               <RangePicker
                 style={{ width: '100%' }}
@@ -193,8 +191,7 @@ export default function ProjectCreatePage() {
 
             <Form.Item
               name="project_manager_id"
-              label="과제관리자 (선택사항)"
-              help="이 과제 관리를 다른 사람에게 위임할 때 선택합니다. 선택하지 않으면 본인이 관리자가 됩니다."
+              label="과제관리자 (다른 사람에게 위임 시 선택, 미선택시 본인이 관리자)"
             >
               <Select
                 showSearch

@@ -20,7 +20,10 @@ def calculate_display_status(
     한국 시간대(KST)를 기준으로 계산합니다.
 
     - draft → "draft" (초안)
-    - ready + 오늘 < 모집시작일 → "pending" (모집대기)
+    - pending → "pending" (승인대기)
+    - approved → "approved" (승인완료, 모집개시 전)
+    - rejected → "rejected" (반려됨)
+    - ready + 오늘 < 모집시작일 → "recruiting_wait" (모집대기)
     - ready + 모집시작일 ≤ 오늘 ≤ 모집종료일 → "recruiting" (모집중)
     - ready + 오늘 > 모집종료일 → "recruiting_ended" (모집종료)
     - 그 외 → DB 상태 그대로

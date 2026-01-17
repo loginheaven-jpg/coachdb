@@ -2197,12 +2197,12 @@ async def finalize_project(
             detail=f"설문 점수가 100점이 아닙니다. 현재: {total_score}점"
         )
 
-    # 3. 상태 변경 - SUPER_ADMIN은 바로 READY, 그 외는 PENDING
+    # 3. 상태 변경 - SUPER_ADMIN은 바로 APPROVED (승인완료), 그 외는 PENDING (승인대기)
     from app.core.utils import get_user_roles
     user_roles = get_user_roles(current_user)
 
     if "SUPER_ADMIN" in user_roles:
-        project.status = ProjectStatus.READY
+        project.status = ProjectStatus.APPROVED
     else:
         project.status = ProjectStatus.PENDING
 
@@ -2256,11 +2256,12 @@ async def approve_project(
     current_user: User = Depends(require_role(["SUPER_ADMIN"]))
 ):
     """
-    과제 승인 - PENDING 상태를 READY로 변경
+    과제 승인 - PENDING 상태를 APPROVED로 변경
 
     **Required roles**: SUPER_ADMIN only
 
-    승인 시 과제 생성자에게 알림과 이메일이 발송됩니다.
+    승인 시 과제 생성자에게 알림이 발송됩니다.
+    과제관리자가 모집개시하면 READY 상태로 전환됩니다.
     """
     from app.schemas.project import calculate_display_status
     from app.models.notification import Notification, NotificationType
@@ -2274,8 +2275,8 @@ async def approve_project(
             detail=f"승인대기 상태의 과제만 승인할 수 있습니다. 현재 상태: {project.status.value}"
         )
 
-    # Change status to READY
-    project.status = ProjectStatus.READY
+    # Change status to APPROVED
+    project.status = ProjectStatus.APPROVED
     await db.commit()
     await db.refresh(project)
 
@@ -2284,7 +2285,7 @@ async def approve_project(
         user_id=project.created_by,
         type=NotificationType.PROJECT_APPROVED.value if hasattr(NotificationType, 'PROJECT_APPROVED') else "project_approved",
         title="과제가 승인되었습니다",
-        message=f"'{project.project_name}' 과제가 승인되어 모집시작일에 공개됩니다.",
+        message=f"'{project.project_name}' 과제가 승인되었습니다. 과제 수정 화면에서 모집개시 해주세요.",
         related_project_id=project.project_id,
         email_sent=False
     )
@@ -2370,6 +2371,65 @@ async def reject_project(
     )
     db.add(notification)
     await db.commit()
+
+    # display_status 계산
+    display_status = calculate_display_status(
+        project.status,
+        project.recruitment_start_date,
+        project.recruitment_end_date
+    )
+
+    return ProjectResponse(
+        project_id=project.project_id,
+        project_name=project.project_name,
+        description=project.description,
+        support_program_name=project.support_program_name,
+        recruitment_start_date=project.recruitment_start_date,
+        recruitment_end_date=project.recruitment_end_date,
+        project_start_date=project.project_start_date,
+        project_end_date=project.project_end_date,
+        max_participants=project.max_participants,
+        project_manager_id=project.project_manager_id,
+        status=project.status,
+        display_status=display_status,
+        actual_start_date=project.actual_start_date,
+        actual_end_date=project.actual_end_date,
+        overall_feedback=project.overall_feedback,
+        created_by=project.created_by,
+        created_at=project.created_at,
+        updated_at=project.updated_at
+    )
+
+
+@router.post("/{project_id}/start-recruitment", response_model=ProjectResponse)
+async def start_recruitment(
+    project_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER", "VERIFIER", "REVIEWER", "COACH"]))
+):
+    """
+    모집개시 - APPROVED 상태를 READY로 변경
+
+    **Required roles**: 과제 생성자 또는 과제관리자
+
+    승인완료된 과제를 모집개시 상태로 전환합니다.
+    """
+    from app.schemas.project import calculate_display_status
+
+    project = await get_project_or_404(project_id, db)
+    check_project_manager_permission(project, current_user)
+
+    # Only APPROVED status can start recruitment
+    if project.status != ProjectStatus.APPROVED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"승인완료 상태의 과제만 모집개시할 수 있습니다. 현재 상태: {project.status.value}"
+        )
+
+    # Change status to READY
+    project.status = ProjectStatus.READY
+    await db.commit()
+    await db.refresh(project)
 
     # display_status 계산
     display_status = calculate_display_status(

@@ -191,6 +191,15 @@ if DATABASE_URL:
             except Exception as e:
                 print(f"[WARN] enum matchingtype.{val}: {e}")
 
+        # Add missing enum values to projectstatus (approved status)
+        projectstatus_values = ['approved']
+        for val in projectstatus_values:
+            try:
+                cur.execute(f"ALTER TYPE projectstatus ADD VALUE IF NOT EXISTS '{val}'")
+                print(f"[OK] enum projectstatus.{val} ensured")
+            except Exception as e:
+                print(f"[WARN] enum projectstatus.{val}: {e}")
+
         # Update competency_items categories based on item_code patterns
         category_updates = [
             # CERT_* or ADDON_CERT_* → CERTIFICATION

@@ -14,7 +14,9 @@ import {
   Alert,
   Divider,
   Tabs,
-  Modal
+  Modal,
+  Row,
+  Col
 } from 'antd'
 import { ArrowLeftOutlined, CheckCircleOutlined, WarningOutlined, FormOutlined, FileTextOutlined, SettingOutlined } from '@ant-design/icons'
 import projectService, { ProjectDetail, ProjectUpdate, ProjectStatus, ScoreValidation, ProjectType, PROJECT_TYPE_LABELS } from '../services/projectService'
@@ -205,19 +207,43 @@ export default function ProjectEditPage() {
           layout="vertical"
           onFinish={handleSubmit}
         >
-          <Form.Item
-            name="project_type"
-            label="과제 구분"
-            rules={[{ required: true, message: '과제 구분을 선택해주세요.' }]}
-          >
-            <Select size="large" placeholder="과제 구분 선택">
-              {Object.entries(PROJECT_TYPE_LABELS).map(([value, label]) => (
-                <Select.Option key={value} value={value}>
-                  {label}
-                </Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="project_type"
+                label="과제 구분"
+                rules={[{ required: true, message: '과제 구분을 선택해주세요.' }]}
+              >
+                <Select size="large" placeholder="과제 구분 선택">
+                  {Object.entries(PROJECT_TYPE_LABELS).map(([value, label]) => (
+                    <Select.Option key={value} value={value}>
+                      {label}
+                    </Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="status"
+                label="과제 상태"
+                rules={[{ required: true }]}
+                help="상태 변경은 임시저장/정식저장 버튼을 사용해주세요."
+              >
+                <Select size="large" disabled>
+                  <Select.Option value="draft">초안</Select.Option>
+                  <Select.Option value="pending">승인대기</Select.Option>
+                  <Select.Option value="approved">승인완료</Select.Option>
+                  <Select.Option value="rejected">반려됨</Select.Option>
+                  <Select.Option value="ready">모집개시</Select.Option>
+                  <Select.Option value="reviewing">심사중</Select.Option>
+                  <Select.Option value="in_progress">과제진행중</Select.Option>
+                  <Select.Option value="evaluating">과제평가중</Select.Option>
+                  <Select.Option value="closed">종료</Select.Option>
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
 
           <Form.Item
             name="project_name"
@@ -291,8 +317,7 @@ export default function ProjectEditPage() {
 
           <Form.Item
             name="project_manager_id"
-            label="과제관리자 (선택사항)"
-            help="이 과제 관리를 다른 사람에게 위임할 때 선택합니다. 선택하지 않으면 본인이 관리자가 됩니다."
+            label="과제관리자 (다른 사람에게 위임 시 선택, 미선택시 본인이 관리자)"
           >
             <Select
               showSearch
@@ -315,22 +340,6 @@ export default function ProjectEditPage() {
                 label: `${user.name} (${user.email})`
               }))}
             />
-          </Form.Item>
-
-          <Form.Item
-            name="status"
-            label="과제 상태"
-            rules={[{ required: true }]}
-            help="상태 변경은 임시저장/정식저장 버튼을 사용해주세요."
-          >
-            <Select size="large">
-              <Select.Option value="draft">초안</Select.Option>
-              <Select.Option value="ready">모집개시 (정식저장)</Select.Option>
-              <Select.Option value="reviewing">심사중</Select.Option>
-              <Select.Option value="in_progress">과제진행중</Select.Option>
-              <Select.Option value="evaluating">과제평가중</Select.Option>
-              <Select.Option value="closed">종료</Select.Option>
-            </Select>
           </Form.Item>
 
           <Form.Item

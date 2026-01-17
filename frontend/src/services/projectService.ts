@@ -7,7 +7,8 @@ export enum ProjectStatus {
   DRAFT = 'draft',              // 초안 (임시저장, 비공개)
   PENDING = 'pending',          // 승인대기 (SUPER_ADMIN 승인 필요)
   REJECTED = 'rejected',        // 반려됨 (수정 후 재상신 가능)
-  READY = 'ready',              // 승인완료 (모집대기/모집중은 날짜로 계산)
+  APPROVED = 'approved',        // 승인완료 (SUPER_ADMIN 승인됨, 모집개시 전)
+  READY = 'ready',              // 모집개시 (과제관리자가 모집 시작)
   RECRUITING = 'recruiting',    // 접수중 (legacy)
   REVIEWING = 'reviewing',      // 심사중
   IN_PROGRESS = 'in_progress',  // 과제진행중
@@ -30,7 +31,7 @@ export const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {
 }
 
 // 표시용 상태 (display_status)
-export type DisplayStatus = 'draft' | 'pending' | 'recruiting' | 'recruiting_ended' | 'reviewing' | 'in_progress' | 'evaluating' | 'closed'
+export type DisplayStatus = 'draft' | 'pending' | 'rejected' | 'approved' | 'recruiting' | 'recruiting_ended' | 'reviewing' | 'in_progress' | 'evaluating' | 'closed'
 
 export enum CoachRole {
   LEADER = 'leader',
@@ -617,7 +618,7 @@ const projectService = {
 
   /**
    * 과제 승인 (SUPER_ADMIN only)
-   * PENDING 상태의 과제를 READY로 변경
+   * PENDING 상태의 과제를 APPROVED로 변경
    */
   async approveProject(projectId: number): Promise<Project> {
     const response = await api.post(`/projects/${projectId}/approve`)
@@ -639,6 +640,15 @@ const projectService = {
    */
   async resubmitProject(projectId: number): Promise<Project> {
     const response = await api.post(`/projects/${projectId}/resubmit`)
+    return response.data
+  },
+
+  /**
+   * 모집개시 (과제 생성자/관리자)
+   * APPROVED 상태의 과제를 READY로 변경
+   */
+  async startRecruitment(projectId: number): Promise<Project> {
+    const response = await api.post(`/projects/${projectId}/start-recruitment`)
     return response.data
   },
 
