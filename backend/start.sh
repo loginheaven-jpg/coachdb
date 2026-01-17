@@ -114,6 +114,25 @@ if DATABASE_URL:
             except Exception as e:
                 print(f"[WARN] notifications.{col_name}: {e}")
 
+        # Add projecttype enum and column to projects
+        try:
+            cur.execute("""
+                DO $$ BEGIN
+                    CREATE TYPE projecttype AS ENUM ('public_coaching', 'business_coaching', 'other');
+                EXCEPTION
+                    WHEN duplicate_object THEN null;
+                END $$;
+            """)
+            print("[OK] enum projecttype ensured")
+        except Exception as e:
+            print(f"[WARN] enum projecttype: {e}")
+
+        try:
+            cur.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS project_type projecttype DEFAULT 'other'")
+            print("[OK] projects.project_type ensured")
+        except Exception as e:
+            print(f"[WARN] projects.project_type: {e}")
+
         # Add aggregationmode enum and column to scoring_criteria
         try:
             cur.execute("""
