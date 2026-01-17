@@ -618,8 +618,8 @@ export default function ApplicationSubmitPage() {
               }
             }
 
-            // 파일 정보도 linkedCompetencyData에 저장 (세부정보에서 가져온 파일)
-            if (existingComp.file_info || existingComp.file_id) {
+            // 값 또는 파일 정보가 있는 경우 linkedCompetencyData에 저장
+            if (existingComp.value || existingComp.file_info || existingComp.file_id) {
               newLinkedCompetencyData[item.project_item_id] = {
                 data_id: 0,  // 신규 지원이므로 data_id 없음
                 application_id: 0,
@@ -636,11 +636,11 @@ export default function ApplicationSubmitPage() {
                 supplement_requested_at: null,
                 // Linked competency 정보
                 linked_competency_value: existingComp.value,
-                linked_competency_file_id: existingComp.file_id,
-                linked_competency_file_info: existingComp.file_info,
+                linked_competency_file_id: existingComp.file_id || null,
+                linked_competency_file_info: existingComp.file_info || null,
                 linked_competency_verification_status: existingComp.verification_status
               }
-              console.log(`[Pre-fill] Item ${itemId} file info loaded: file_id=${existingComp.file_id}`)
+              console.log(`[Pre-fill] Item ${itemId} linked data loaded: value=${!!existingComp.value}, file_id=${existingComp.file_id}`)
             }
           }
         })
@@ -2327,8 +2327,8 @@ export default function ApplicationSubmitPage() {
                 ]}
               />
 
-              {/* 필수 항목 미입력 - 빨간색 에러 */}
-              {!isViewMode && getMissingRequiredItems().length > 0 && (
+              {/* 필수 항목 미입력 - 빨간색 에러 (역량정보 탭에서만 표시) */}
+              {!isViewMode && activeTab === 'survey' && getMissingRequiredItems().length > 0 && (
                 <Alert
                   type="error"
                   showIcon
@@ -2345,8 +2345,8 @@ export default function ApplicationSubmitPage() {
                 />
               )}
 
-              {/* 필수 증빙 미첨부 - 빨간색 에러 */}
-              {!isViewMode && getMissingRequiredProofs().length > 0 && (
+              {/* 필수 증빙 미첨부 - 빨간색 에러 (역량정보 탭에서만 표시) */}
+              {!isViewMode && activeTab === 'survey' && getMissingRequiredProofs().length > 0 && (
                 <Alert
                   type="error"
                   showIcon
@@ -2363,8 +2363,8 @@ export default function ApplicationSubmitPage() {
                 />
               )}
 
-              {/* 선택 항목 미입력 - 노란색 경고, 보완 권장 */}
-              {!isViewMode && getMissingRequiredItems().length === 0 && getMissingRequiredProofs().length === 0 && getMissingOptionalItems().length > 0 && (
+              {/* 선택 항목 미입력 - 노란색 경고, 보완 권장 (역량정보 탭에서만 표시) */}
+              {!isViewMode && activeTab === 'survey' && getMissingRequiredItems().length === 0 && getMissingRequiredProofs().length === 0 && getMissingOptionalItems().length > 0 && (
                 <Alert
                   type="warning"
                   showIcon
