@@ -19,12 +19,25 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Create the enum type first
-    project_type_enum = sa.Enum('public_coaching', 'business_coaching', 'other', name='projecttype')
-    project_type_enum.create(op.get_bind(), checkfirst=True)
+    # Create the enum type first (if not exists)
+    conn = op.get_bind()
 
-    # Add the column with default value
-    op.add_column('projects', sa.Column('project_type', sa.Enum('public_coaching', 'business_coaching', 'other', name='projecttype'), nullable=True, server_default='other'))
+    # Check if enum exists
+    result = conn.execute(sa.text("SELECT 1 FROM pg_type WHERE typname = 'projecttype'"))
+    if not result.fetchone():
+        project_type_enum = sa.Enum('public_coaching', 'business_coaching', 'other', name='projecttype')
+        project_type_enum.create(conn, checkfirst=True)
+
+    # Check if column exists
+    result = conn.execute(sa.text("""
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'projects' AND column_name = 'project_type'
+    """))
+    if not result.fetchone():
+        # Add the column - cast default value properly for PostgreSQL enum
+        op.add_column('projects', sa.Column('project_type', sa.Enum('public_coaching', 'business_coaching', 'other', name='projecttype'), nullable=True))
+        # Set default after adding column
+        op.execute("ALTER TABLE projects ALTER COLUMN project_type SET DEFAULT 'other'::projecttype")
 
 
 def downgrade() -> None:
