@@ -224,7 +224,12 @@ export default function ApplicationSubmitPage() {
         }
       } else {
         const data = linkedCompetencyData[item.project_item_id]
-        if (!data?.submitted_value) {
+        const formValue = form.getFieldValue(`item_${item.project_item_id}`)
+        // 폼 값 확인: 배열인 경우 빈 배열도 미입력으로 처리
+        const hasFormValue = formValue !== undefined && formValue !== null && formValue !== '' &&
+          !(Array.isArray(formValue) && formValue.length === 0)
+        // linkedCompetencyData와 form 값 모두 확인
+        if (!data?.submitted_value && !hasFormValue) {
           missing.push(competencyItem.item_name)
         }
       }
@@ -252,7 +257,12 @@ export default function ApplicationSubmitPage() {
         }
       } else {
         const data = linkedCompetencyData[item.project_item_id]
-        if (!data?.submitted_value) {
+        const formValue = form.getFieldValue(`item_${item.project_item_id}`)
+        // 폼 값 확인: 배열인 경우 빈 배열도 미입력으로 처리
+        const hasFormValue = formValue !== undefined && formValue !== null && formValue !== '' &&
+          !(Array.isArray(formValue) && formValue.length === 0)
+        // linkedCompetencyData와 form 값 모두 확인
+        if (!data?.submitted_value && !hasFormValue) {
           missing.push(competencyItem.item_name)
         }
       }
