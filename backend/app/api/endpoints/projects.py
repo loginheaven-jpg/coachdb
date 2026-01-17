@@ -2833,12 +2833,13 @@ async def get_project_staff(
                 detail="과제를 찾을 수 없습니다"
             )
 
-        # Check permission: SUPER_ADMIN or project manager
+        # Check permission: SUPER_ADMIN or project manager or creator
         user_roles = [r.value if hasattr(r, 'value') else r for r in current_user.roles]
         is_super_admin = "SUPER_ADMIN" in user_roles
         is_project_manager = project.project_manager_id == current_user.user_id
+        is_creator = project.created_by == current_user.user_id
 
-        if not (is_super_admin or is_project_manager):
+        if not (is_super_admin or is_project_manager or is_creator):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="심사위원 관리 권한이 없습니다"
@@ -2910,12 +2911,13 @@ async def add_project_staff(
             detail="과제를 찾을 수 없습니다"
         )
 
-    # Check permission: SUPER_ADMIN or project manager
+    # Check permission: SUPER_ADMIN or project manager or creator
     user_roles = [r.value if hasattr(r, 'value') else r for r in current_user.roles]
     is_super_admin = "SUPER_ADMIN" in user_roles
     is_project_manager = project.project_manager_id == current_user.user_id
+    is_creator = project.created_by == current_user.user_id
 
-    if not (is_super_admin or is_project_manager):
+    if not (is_super_admin or is_project_manager or is_creator):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="심사위원 관리 권한이 없습니다"
@@ -2993,12 +2995,13 @@ async def remove_project_staff(
             detail="과제를 찾을 수 없습니다"
         )
 
-    # Check permission: SUPER_ADMIN or project manager
+    # Check permission: SUPER_ADMIN or project manager or creator
     user_roles = [r.value if hasattr(r, 'value') else r for r in current_user.roles]
     is_super_admin = "SUPER_ADMIN" in user_roles
     is_project_manager = project.project_manager_id == current_user.user_id
+    is_creator = project.created_by == current_user.user_id
 
-    if not (is_super_admin or is_project_manager):
+    if not (is_super_admin or is_project_manager or is_creator):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="심사위원 관리 권한이 없습니다"

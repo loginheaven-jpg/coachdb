@@ -90,8 +90,7 @@ export default function ProjectInfoTab() {
           dayjs(project.actual_end_date)
         ] : null,
         max_participants: project.max_participants,
-        project_manager_id: project.project_manager_id,
-        overall_feedback: project.overall_feedback
+        project_manager_id: project.project_manager_id
       })
     }
   }, [project, form])
@@ -109,8 +108,7 @@ export default function ProjectInfoTab() {
     actual_start_date: values.actual_period ? values.actual_period[0].format('YYYY-MM-DD') : null,
     actual_end_date: values.actual_period ? values.actual_period[1].format('YYYY-MM-DD') : null,
     max_participants: values.max_participants,
-    project_manager_id: values.project_manager_id || null,
-    overall_feedback: values.overall_feedback || null
+    project_manager_id: values.project_manager_id || null
   })
 
   // 임시저장 핸들러
@@ -317,19 +315,6 @@ export default function ProjectInfoTab() {
           }))}
         />
       </Form.Item>
-
-      {/* 과제 총평 - 수정 모드에서만 표시 */}
-      {!isCreateMode && (
-        <Form.Item
-          name="overall_feedback"
-          label="과제 총평 (과제 종료 후 작성)"
-        >
-          <TextArea
-            rows={4}
-            placeholder="과제 종료 후 전반에 대한 총평을 입력해주세요."
-          />
-        </Form.Item>
-      )}
     </Form>
   )
 }
