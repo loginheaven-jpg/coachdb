@@ -162,6 +162,8 @@ export default function ApplicationSubmitPage() {
   const isEditMode = !!applicationIdParam
 
   const [form] = Form.useForm()
+  // 폼 값 변경 감지 - getMissingRequiredItems가 폼 값 변경시 재계산되도록 함
+  const formValues = Form.useWatch([], form)
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [savingProfile, setSavingProfile] = useState(false)
@@ -224,7 +226,8 @@ export default function ApplicationSubmitPage() {
         }
       } else {
         const data = linkedCompetencyData[item.project_item_id]
-        const formValue = form.getFieldValue(`item_${item.project_item_id}`)
+        // formValues는 Form.useWatch로 감시되어 변경시 재렌더링됨
+        const formValue = formValues?.[`item_${item.project_item_id}`]
         // 폼 값 확인: 배열인 경우 빈 배열도 미입력으로 처리
         const hasFormValue = formValue !== undefined && formValue !== null && formValue !== '' &&
           !(Array.isArray(formValue) && formValue.length === 0)
@@ -257,7 +260,8 @@ export default function ApplicationSubmitPage() {
         }
       } else {
         const data = linkedCompetencyData[item.project_item_id]
-        const formValue = form.getFieldValue(`item_${item.project_item_id}`)
+        // formValues는 Form.useWatch로 감시되어 변경시 재렌더링됨
+        const formValue = formValues?.[`item_${item.project_item_id}`]
         // 폼 값 확인: 배열인 경우 빈 배열도 미입력으로 처리
         const hasFormValue = formValue !== undefined && formValue !== null && formValue !== '' &&
           !(Array.isArray(formValue) && formValue.length === 0)
