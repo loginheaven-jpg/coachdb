@@ -2331,9 +2331,9 @@ async def finalize_project(
     user_roles = get_user_roles(current_user)
 
     if "SUPER_ADMIN" in user_roles:
-        project.status = ProjectStatus.APPROVED.value
+        project.status = "approved"  # Direct string for PostgreSQL enum
     else:
-        project.status = ProjectStatus.PENDING.value
+        project.status = "pending"  # Direct string for PostgreSQL enum
 
     await db.commit()
     await db.refresh(project)
@@ -2406,8 +2406,8 @@ async def approve_project(
                 detail=f"승인대기 상태의 과제만 승인할 수 있습니다. 현재 상태: {project.status.value}"
             )
 
-        # Change status to APPROVED (use .value to match DB enum values)
-        project.status = ProjectStatus.APPROVED.value
+        # Change status to APPROVED (direct string for PostgreSQL enum)
+        project.status = "approved"
         await db.commit()
         await db.refresh(project)
 
@@ -2497,8 +2497,8 @@ async def reject_project(
             detail="반려 사유를 입력해주세요."
         )
 
-    # Change status to REJECTED (use .value to match DB enum values)
-    project.status = ProjectStatus.REJECTED.value
+    # Change status to REJECTED (direct string for PostgreSQL enum)
+    project.status = "rejected"
     await db.commit()
     await db.refresh(project)
 
@@ -2570,8 +2570,8 @@ async def start_recruitment(
             detail=f"승인완료 상태의 과제만 모집개시할 수 있습니다. 현재 상태: {project.status.value}"
         )
 
-    # Change status to READY (use .value to match DB enum values)
-    project.status = ProjectStatus.READY.value
+    # Change status to READY (direct string for PostgreSQL enum)
+    project.status = "ready"
     await db.commit()
     await db.refresh(project)
 
@@ -2636,8 +2636,8 @@ async def resubmit_project(
             detail=f"반려된 과제만 재상신할 수 있습니다. 현재 상태: {project.status.value}"
         )
 
-    # Change status to PENDING (use .value to match DB enum values)
-    project.status = ProjectStatus.PENDING.value
+    # Change status to PENDING (direct string for PostgreSQL enum)
+    project.status = "pending"
     await db.commit()
     await db.refresh(project)
 
@@ -2697,8 +2697,8 @@ async def unpublish_project(
             detail=f"READY 상태의 과제만 초안으로 되돌릴 수 있습니다. 현재 상태: {project.status.value}"
         )
 
-    # Revert to DRAFT status (use .value to match DB enum values)
-    project.status = ProjectStatus.DRAFT.value
+    # Revert to DRAFT status (direct string for PostgreSQL enum)
+    project.status = "draft"
     await db.commit()
     await db.refresh(project)
 
