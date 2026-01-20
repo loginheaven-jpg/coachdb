@@ -61,15 +61,8 @@ async def init_db():
         sync_engine = create_engine(sync_url, isolation_level="AUTOCOMMIT")
 
         with sync_engine.connect() as conn:
-            # Add missing projectstatus enum values
-            projectstatus_values = ['READY', 'IN_PROGRESS', 'EVALUATING', 'CLOSED', 'DRAFT']
-            for value in projectstatus_values:
-                try:
-                    conn.execute(text(f"ALTER TYPE projectstatus ADD VALUE IF NOT EXISTS '{value}'"))
-                    print(f"[DB] Added enum value '{value}' to projectstatus")
-                except Exception as e:
-                    if "already exists" not in str(e).lower():
-                        print(f"[DB] Could not add enum value '{value}': {e}")
+            # ProjectStatus enum uses lowercase values (draft, pending, approved, etc.)
+            # These already exist in the database, no need to add them
 
             # Add missing proofrequiredlevel enum values
             # SQLAlchemy sends uppercase enum names, so we need both cases
