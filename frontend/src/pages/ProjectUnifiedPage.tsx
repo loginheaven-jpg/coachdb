@@ -7,7 +7,9 @@ import {
   Space,
   Modal,
   Spin,
-  message
+  message,
+  Tag,
+  Input
 } from 'antd'
 import {
   ArrowLeftOutlined,
@@ -18,9 +20,13 @@ import {
   TrophyOutlined,
   CheckCircleOutlined,
   SaveOutlined,
-  SendOutlined
+  SendOutlined,
+  CheckOutlined,
+  CloseOutlined
 } from '@ant-design/icons'
 import { ProjectEditProvider, useProjectEdit } from '../contexts/ProjectEditContext'
+import { useAuthStore } from '../stores/authStore'
+import projectService from '../services/projectService'
 import ProjectInfoTab from './project/ProjectInfoTab'
 import ProjectSurveyTab from './project/ProjectSurveyTab'
 import ProjectReviewPlanTab from './project/ProjectReviewPlanTab'
@@ -52,9 +58,24 @@ const TAB_CONFIG: TabConfig[] = [
 // ============================================================================
 // Inner Component (uses context)
 // ============================================================================
+// 상태 표시용 라벨
+const STATUS_LABELS: Record<string, { label: string; color: string }> = {
+  draft: { label: '초안', color: 'default' },
+  pending: { label: '승인대기', color: 'orange' },
+  rejected: { label: '반려됨', color: 'red' },
+  approved: { label: '승인완료', color: 'green' },
+  ready: { label: '모집개시', color: 'blue' },
+  recruiting: { label: '접수중', color: 'blue' },
+  reviewing: { label: '심사중', color: 'purple' },
+  in_progress: { label: '과제진행', color: 'cyan' },
+  evaluating: { label: '평가중', color: 'geekblue' },
+  closed: { label: '종료', color: 'default' }
+}
+
 function ProjectUnifiedPageInner() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
+  const { hasRole } = useAuthStore()
   const {
     project,
     loading,
@@ -72,6 +93,64 @@ function ProjectUnifiedPageInner() {
     setActiveTab,
     isRecruitmentStarted
   } = useProjectEdit()
+
+  // 승인/반려 상태
+  const [approving, setApproving] = useState(false)
+  const [rejecting, setRejecting] = useState(false)
+  const [rejectModalOpen, setRejectModalOpen] = useState(false)
+  const [rejectReason, setRejectReason] = useState('')
+
+  // 권한 확인
+  const isSuperAdmin = hasRole('SUPER_ADMIN')
+  const canApprove = isSuperAdmin && project?.status === 'pending'
+
+  // 승인 처리
+  const handleApprove = async () => {
+    if (!project) return
+    Modal.confirm({
+      title: '과제 승인',
+      content: `'${project.project_name}' 과제를 승인하시겠습니까?`,
+      okText: '승인',
+      cancelText: '취소',
+      onOk: async () => {
+        setApproving(true)
+        try {
+          await projectService.approveProject(project.project_id)
+          message.success('과제가 승인되었습니다.')
+          loadProject() // 상태 갱신
+        } catch (error: any) {
+          message.error(error.response?.data?.detail || '승인 처리에 실패했습니다.')
+        } finally {
+          setApproving(false)
+        }
+      }
+    })
+  }
+
+  // 반려 모달 열기
+  const handleRejectClick = () => {
+    setRejectReason('')
+    setRejectModalOpen(true)
+  }
+
+  // 반려 처리
+  const handleReject = async () => {
+    if (!project || !rejectReason.trim()) {
+      message.warning('반려 사유를 입력해주세요.')
+      return
+    }
+    setRejecting(true)
+    try {
+      await projectService.rejectProject(project.project_id, rejectReason.trim())
+      message.success('과제가 반려되었습니다.')
+      setRejectModalOpen(false)
+      loadProject() // 상태 갱신
+    } catch (error: any) {
+      message.error(error.response?.data?.detail || '반려 처리에 실패했습니다.')
+    } finally {
+      setRejecting(false)
+    }
+  }
 
   // 초기 데이터 로드
   useEffect(() => {
@@ -235,9 +314,39 @@ function ProjectUnifiedPageInner() {
           >
             과제 목록
           </Button>
-          <Title level={3} className="mb-0">
-            {isCreateMode ? '새 과제 만들기' : project?.project_name || '과제 수정'}
-          </Title>
+          <div className="flex justify-between items-start">
+            <div>
+              <Title level={3} className="mb-0">
+                {isCreateMode ? '새 과제 만들기' : project?.project_name || '과제 수정'}
+              </Title>
+              {/* 상태 표시 */}
+              {!isCreateMode && project && (
+                <Tag color={STATUS_LABELS[project.status]?.color || 'default'} className="mt-2">
+                  {STATUS_LABELS[project.status]?.label || project.status}
+                </Tag>
+              )}
+            </div>
+            {/* SUPER_ADMIN 승인/반려 버튼 */}
+            {canApprove && (
+              <Space>
+                <Button
+                  type="primary"
+                  icon={<CheckOutlined />}
+                  loading={approving}
+                  onClick={handleApprove}
+                >
+                  승인
+                </Button>
+                <Button
+                  danger
+                  icon={<CloseOutlined />}
+                  onClick={handleRejectClick}
+                >
+                  반려
+                </Button>
+              </Space>
+            )}
+          </div>
         </div>
 
         {/* 탭 영역 */}
@@ -277,6 +386,27 @@ function ProjectUnifiedPageInner() {
           </div>
         </div>
       </div>
+
+      {/* 반려 사유 입력 모달 */}
+      <Modal
+        title="과제 반려"
+        open={rejectModalOpen}
+        onCancel={() => setRejectModalOpen(false)}
+        onOk={handleReject}
+        okText="반려"
+        cancelText="취소"
+        okButtonProps={{ danger: true, loading: rejecting }}
+      >
+        <div className="py-4">
+          <p className="mb-2 text-gray-600">반려 사유를 입력해주세요:</p>
+          <Input.TextArea
+            rows={4}
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            placeholder="반려 사유를 상세히 입력해주세요. (필수)"
+          />
+        </div>
+      </Modal>
     </div>
   )
 }
