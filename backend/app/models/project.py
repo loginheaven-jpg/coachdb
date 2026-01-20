@@ -53,11 +53,7 @@ class Project(Base):
     project_achievements = Column(Text, nullable=True)  # 과제 성과
     project_special_notes = Column(Text, nullable=True)  # 특이사항
 
-    status = Column(
-        Enum(ProjectStatus, values_callable=lambda obj: [e.value for e in obj]),
-        nullable=False,
-        default=ProjectStatus.DRAFT
-    )
+    status = Column(Enum(ProjectStatus), nullable=False, default=ProjectStatus.DRAFT)
     max_participants = Column(Integer, nullable=False)
 
     # 평가 가중치 (기본값: 정량 70%, 정성 30%)

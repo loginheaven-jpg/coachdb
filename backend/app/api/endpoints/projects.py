@@ -2326,15 +2326,16 @@ async def finalize_project(
         )
 
     # 3. 상태 변경 - SUPER_ADMIN은 바로 APPROVED (승인완료), 그 외는 PENDING (승인대기)
-    # (use .value to match DB enum values)
+    # Use raw SQL to bypass SQLAlchemy enum handling
     from app.core.utils import get_user_roles
+    from sqlalchemy import text
     user_roles = get_user_roles(current_user)
 
-    if "SUPER_ADMIN" in user_roles:
-        project.status = "approved"  # Direct string for PostgreSQL enum
-    else:
-        project.status = "pending"  # Direct string for PostgreSQL enum
-
+    new_status = "approved" if "SUPER_ADMIN" in user_roles else "pending"
+    await db.execute(
+        text("UPDATE projects SET status = :status, updated_at = now() WHERE project_id = :pid"),
+        {"status": new_status, "pid": project.project_id}
+    )
     await db.commit()
     await db.refresh(project)
 
@@ -2406,8 +2407,12 @@ async def approve_project(
                 detail=f"승인대기 상태의 과제만 승인할 수 있습니다. 현재 상태: {project.status.value}"
             )
 
-        # Change status to APPROVED (direct string for PostgreSQL enum)
-        project.status = "approved"
+        # Change status to APPROVED using raw SQL to bypass SQLAlchemy enum handling
+        from sqlalchemy import text
+        await db.execute(
+            text("UPDATE projects SET status = 'approved', updated_at = now() WHERE project_id = :pid"),
+            {"pid": project.project_id}
+        )
         await db.commit()
         await db.refresh(project)
 
@@ -2497,8 +2502,12 @@ async def reject_project(
             detail="반려 사유를 입력해주세요."
         )
 
-    # Change status to REJECTED (direct string for PostgreSQL enum)
-    project.status = "rejected"
+    # Change status to REJECTED using raw SQL to bypass SQLAlchemy enum handling
+    from sqlalchemy import text
+    await db.execute(
+        text("UPDATE projects SET status = 'rejected', updated_at = now() WHERE project_id = :pid"),
+        {"pid": project.project_id}
+    )
     await db.commit()
     await db.refresh(project)
 
@@ -2570,8 +2579,12 @@ async def start_recruitment(
             detail=f"승인완료 상태의 과제만 모집개시할 수 있습니다. 현재 상태: {project.status.value}"
         )
 
-    # Change status to READY (direct string for PostgreSQL enum)
-    project.status = "ready"
+    # Change status to READY using raw SQL to bypass SQLAlchemy enum handling
+    from sqlalchemy import text
+    await db.execute(
+        text("UPDATE projects SET status = 'ready', updated_at = now() WHERE project_id = :pid"),
+        {"pid": project.project_id}
+    )
     await db.commit()
     await db.refresh(project)
 
@@ -2636,8 +2649,12 @@ async def resubmit_project(
             detail=f"반려된 과제만 재상신할 수 있습니다. 현재 상태: {project.status.value}"
         )
 
-    # Change status to PENDING (direct string for PostgreSQL enum)
-    project.status = "pending"
+    # Change status to PENDING using raw SQL to bypass SQLAlchemy enum handling
+    from sqlalchemy import text
+    await db.execute(
+        text("UPDATE projects SET status = 'pending', updated_at = now() WHERE project_id = :pid"),
+        {"pid": project.project_id}
+    )
     await db.commit()
     await db.refresh(project)
 
@@ -2697,8 +2714,12 @@ async def unpublish_project(
             detail=f"READY 상태의 과제만 초안으로 되돌릴 수 있습니다. 현재 상태: {project.status.value}"
         )
 
-    # Revert to DRAFT status (direct string for PostgreSQL enum)
-    project.status = "draft"
+    # Revert to DRAFT status using raw SQL to bypass SQLAlchemy enum handling
+    from sqlalchemy import text
+    await db.execute(
+        text("UPDATE projects SET status = 'draft', updated_at = now() WHERE project_id = :pid"),
+        {"pid": project.project_id}
+    )
     await db.commit()
     await db.refresh(project)
 
