@@ -2326,22 +2326,17 @@ async def finalize_project(
         )
 
     # 3. 상태 변경 - SUPER_ADMIN은 바로 APPROVED (승인완료), 그 외는 PENDING (승인대기)
-    # Use raw SQL to bypass SQLAlchemy enum handling
+    # Update status using ORM (TypeDecorator handles enum conversion)
     from app.core.utils import get_user_roles
-    from sqlalchemy import text
     user_roles = get_user_roles(current_user)
 
-    new_status = "approved" if "SUPER_ADMIN" in user_roles else "pending"
-    await db.execute(
-        text("UPDATE projects SET status = :status, updated_at = now() WHERE project_id = :pid"),
-        {"status": new_status, "pid": project.project_id}
-    )
+    project.status = ProjectStatus.APPROVED if "SUPER_ADMIN" in user_roles else ProjectStatus.PENDING
     await db.commit()
-    # Don't refresh - SQLAlchemy enum can't parse lowercase DB values
+    await db.refresh(project)
 
     # display_status 계산
     display_status = calculate_display_status(
-        new_status,
+        project.status,
         project.recruitment_start_date,
         project.recruitment_end_date
     )
@@ -2358,7 +2353,7 @@ async def finalize_project(
         project_end_date=project.project_end_date,
         max_participants=project.max_participants,
         project_manager_id=project.project_manager_id,
-        status=new_status,  # Use the new status directly
+        status=project.status,
         display_status=display_status,
         actual_start_date=project.actual_start_date,
         actual_end_date=project.actual_end_date,
@@ -2407,14 +2402,10 @@ async def approve_project(
                 detail=f"승인대기 상태의 과제만 승인할 수 있습니다. 현재 상태: {project.status.value}"
             )
 
-        # Change status to APPROVED using raw SQL to bypass SQLAlchemy enum handling
-        from sqlalchemy import text
-        await db.execute(
-            text("UPDATE projects SET status = 'approved', updated_at = now() WHERE project_id = :pid"),
-            {"pid": project.project_id}
-        )
+        # Change status to APPROVED (TypeDecorator handles enum conversion)
+        project.status = ProjectStatus.APPROVED
         await db.commit()
-        # Don't refresh - SQLAlchemy enum can't parse lowercase DB values
+        await db.refresh(project)
 
         # 과제 생성자에게 알림 생성 (created_by가 있는 경우에만)
         if project.created_by:
@@ -2429,9 +2420,9 @@ async def approve_project(
             db.add(notification)
             await db.commit()
 
-        # display_status 계산 - use string 'approved' since we just set it
+        # display_status 계산
         display_status = calculate_display_status(
-            "approved",
+            project.status,
             project.recruitment_start_date,
             project.recruitment_end_date
         )
@@ -2448,7 +2439,7 @@ async def approve_project(
             project_end_date=project.project_end_date,
             max_participants=project.max_participants,
             project_manager_id=project.project_manager_id,
-            status="approved",  # Use string directly
+            status=project.status,
             display_status=display_status,
             actual_start_date=project.actual_start_date,
             actual_end_date=project.actual_end_date,
@@ -2502,14 +2493,10 @@ async def reject_project(
             detail="반려 사유를 입력해주세요."
         )
 
-    # Change status to REJECTED using raw SQL to bypass SQLAlchemy enum handling
-    from sqlalchemy import text
-    await db.execute(
-        text("UPDATE projects SET status = 'rejected', updated_at = now() WHERE project_id = :pid"),
-        {"pid": project.project_id}
-    )
+    # Change status to REJECTED (TypeDecorator handles enum conversion)
+    project.status = ProjectStatus.REJECTED
     await db.commit()
-    # Don't refresh - SQLAlchemy enum can't parse lowercase DB values
+    await db.refresh(project)
 
     # 과제 생성자에게 알림 생성 (created_by가 있는 경우에만)
     if project.created_by:
@@ -2526,7 +2513,7 @@ async def reject_project(
 
     # display_status 계산
     display_status = calculate_display_status(
-        "rejected",
+        project.status,
         project.recruitment_start_date,
         project.recruitment_end_date
     )
@@ -2543,7 +2530,7 @@ async def reject_project(
         project_end_date=project.project_end_date,
         max_participants=project.max_participants,
         project_manager_id=project.project_manager_id,
-        status="rejected",  # Use string directly
+        status=project.status,
         display_status=display_status,
         actual_start_date=project.actual_start_date,
         actual_end_date=project.actual_end_date,
@@ -2579,18 +2566,14 @@ async def start_recruitment(
             detail=f"승인완료 상태의 과제만 모집개시할 수 있습니다. 현재 상태: {project.status.value}"
         )
 
-    # Change status to READY using raw SQL to bypass SQLAlchemy enum handling
-    from sqlalchemy import text
-    await db.execute(
-        text("UPDATE projects SET status = 'ready', updated_at = now() WHERE project_id = :pid"),
-        {"pid": project.project_id}
-    )
+    # Change status to READY (TypeDecorator handles enum conversion)
+    project.status = ProjectStatus.READY
     await db.commit()
-    # Don't refresh - SQLAlchemy enum can't parse lowercase DB values
+    await db.refresh(project)
 
     # display_status 계산
     display_status = calculate_display_status(
-        "ready",
+        project.status,
         project.recruitment_start_date,
         project.recruitment_end_date
     )
@@ -2607,7 +2590,7 @@ async def start_recruitment(
         project_end_date=project.project_end_date,
         max_participants=project.max_participants,
         project_manager_id=project.project_manager_id,
-        status="ready",  # Use string directly
+        status=project.status,
         display_status=display_status,
         actual_start_date=project.actual_start_date,
         actual_end_date=project.actual_end_date,
@@ -2649,18 +2632,14 @@ async def resubmit_project(
             detail=f"반려된 과제만 재상신할 수 있습니다. 현재 상태: {project.status.value}"
         )
 
-    # Change status to PENDING using raw SQL to bypass SQLAlchemy enum handling
-    from sqlalchemy import text
-    await db.execute(
-        text("UPDATE projects SET status = 'pending', updated_at = now() WHERE project_id = :pid"),
-        {"pid": project.project_id}
-    )
+    # Change status to PENDING (TypeDecorator handles enum conversion)
+    project.status = ProjectStatus.PENDING
     await db.commit()
-    # Don't refresh - SQLAlchemy enum can't parse lowercase DB values
+    await db.refresh(project)
 
     # display_status 계산
     display_status = calculate_display_status(
-        "pending",
+        project.status,
         project.recruitment_start_date,
         project.recruitment_end_date
     )
@@ -2677,7 +2656,7 @@ async def resubmit_project(
         project_end_date=project.project_end_date,
         max_participants=project.max_participants,
         project_manager_id=project.project_manager_id,
-        status="pending",  # Use string directly
+        status=project.status,
         display_status=display_status,
         actual_start_date=project.actual_start_date,
         actual_end_date=project.actual_end_date,
@@ -2714,18 +2693,14 @@ async def unpublish_project(
             detail=f"READY 상태의 과제만 초안으로 되돌릴 수 있습니다. 현재 상태: {project.status.value}"
         )
 
-    # Revert to DRAFT status using raw SQL to bypass SQLAlchemy enum handling
-    from sqlalchemy import text
-    await db.execute(
-        text("UPDATE projects SET status = 'draft', updated_at = now() WHERE project_id = :pid"),
-        {"pid": project.project_id}
-    )
+    # Revert to DRAFT status using ORM (TypeDecorator handles enum conversion)
+    project.status = ProjectStatus.DRAFT
     await db.commit()
-    # Don't refresh - SQLAlchemy enum can't parse lowercase DB values
+    await db.refresh(project)
 
     # display_status 계산
     display_status = calculate_display_status(
-        "draft",
+        project.status,
         project.recruitment_start_date,
         project.recruitment_end_date
     )
@@ -2742,7 +2717,7 @@ async def unpublish_project(
         project_end_date=project.project_end_date,
         max_participants=project.max_participants,
         project_manager_id=project.project_manager_id,
-        status="draft",  # Use string directly
+        status=project.status,
         display_status=display_status,
         actual_start_date=project.actual_start_date,
         actual_end_date=project.actual_end_date,

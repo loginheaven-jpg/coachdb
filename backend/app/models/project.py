@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, BigInteger, String, Text, Enum, Date, DateTime, ForeignKey, Numeric, func
+from sqlalchemy import Column, Integer, BigInteger, String, Text, Enum, Date, DateTime, ForeignKey, Numeric, func, TypeDecorator
 from sqlalchemy.orm import relationship
 import enum
 
@@ -17,6 +17,38 @@ class ProjectStatus(str, enum.Enum):
     EVALUATING = "evaluating"    # 과제평가중
     COMPLETED = "completed"      # (레거시, 사용 안함)
     CLOSED = "closed"            # 종료
+
+
+class ProjectStatusType(TypeDecorator):
+    """Custom type to handle ProjectStatus enum conversion with PostgreSQL.
+
+    PostgreSQL enum stores lowercase values ('draft', 'approved', etc.)
+    Python enum has uppercase names (DRAFT, APPROVED, etc.)
+    This TypeDecorator handles the conversion in both directions.
+    """
+    impl = String(20)
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        """Python → DB: Convert enum to lowercase string value"""
+        if value is None:
+            return None
+        if isinstance(value, ProjectStatus):
+            return value.value  # e.g., ProjectStatus.APPROVED → "approved"
+        if isinstance(value, str):
+            return value  # Already a string, pass through
+        return str(value)
+
+    def process_result_value(self, value, dialect):
+        """DB → Python: Convert lowercase string to enum"""
+        if value is None:
+            return None
+        # Find enum member by value (lowercase)
+        for member in ProjectStatus:
+            if member.value == value:
+                return member
+        # If not found, return the raw value (for debugging)
+        return value
 
 
 class ProjectType(str, enum.Enum):
@@ -53,7 +85,7 @@ class Project(Base):
     project_achievements = Column(Text, nullable=True)  # 과제 성과
     project_special_notes = Column(Text, nullable=True)  # 특이사항
 
-    status = Column(Enum(ProjectStatus), nullable=False, default=ProjectStatus.DRAFT)
+    status = Column(ProjectStatusType(), nullable=False, default=ProjectStatus.DRAFT)
     max_participants = Column(Integer, nullable=False)
 
     # 평가 가중치 (기본값: 정량 70%, 정성 30%)
