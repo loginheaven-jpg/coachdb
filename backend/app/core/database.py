@@ -73,7 +73,7 @@ async def init_db():
                 'REVIEWING': 'reviewing',
                 'IN_PROGRESS': 'in_progress',
                 'EVALUATING': 'evaluating',
-                'COMPLETED': 'completed',
+                'COMPLETED': 'closed',  # 'completed' enum doesn't exist, map to 'closed'
                 'CLOSED': 'closed'
             }
             for old_val, new_val in status_mapping.items():
