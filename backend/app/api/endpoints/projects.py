@@ -695,6 +695,7 @@ async def create_project(
     return ProjectResponse(
         project_id=new_project.project_id,
         project_name=new_project.project_name,
+        project_type=new_project.project_type,
         description=new_project.description,
         support_program_name=new_project.support_program_name,
         recruitment_start_date=new_project.recruitment_start_date,
@@ -1219,6 +1220,7 @@ async def update_project(
     return ProjectResponse(
         project_id=project.project_id,
         project_name=project.project_name,
+        project_type=project.project_type,
         description=project.description,
         support_program_name=project.support_program_name,
         recruitment_start_date=project.recruitment_start_date,
@@ -2344,6 +2346,7 @@ async def finalize_project(
     return ProjectResponse(
         project_id=project.project_id,
         project_name=project.project_name,
+        project_type=project.project_type,
         description=project.description,
         support_program_name=project.support_program_name,
         recruitment_start_date=project.recruitment_start_date,
@@ -2427,6 +2430,7 @@ async def approve_project(
     return ProjectResponse(
         project_id=project.project_id,
         project_name=project.project_name,
+        project_type=project.project_type,
         description=project.description,
         support_program_name=project.support_program_name,
         recruitment_start_date=project.recruitment_start_date,
@@ -2566,6 +2570,7 @@ async def start_recruitment(
     return ProjectResponse(
         project_id=project.project_id,
         project_name=project.project_name,
+        project_type=project.project_type,
         description=project.description,
         support_program_name=project.support_program_name,
         recruitment_start_date=project.recruitment_start_date,
@@ -2631,6 +2636,7 @@ async def resubmit_project(
     return ProjectResponse(
         project_id=project.project_id,
         project_name=project.project_name,
+        project_type=project.project_type,
         description=project.description,
         support_program_name=project.support_program_name,
         recruitment_start_date=project.recruitment_start_date,
@@ -2691,6 +2697,7 @@ async def unpublish_project(
     return ProjectResponse(
         project_id=project.project_id,
         project_name=project.project_name,
+        project_type=project.project_type,
         description=project.description,
         support_program_name=project.support_program_name,
         recruitment_start_date=project.recruitment_start_date,
