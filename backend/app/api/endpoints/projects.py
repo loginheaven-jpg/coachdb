@@ -2395,61 +2395,71 @@ async def approve_project(
     from app.schemas.project import calculate_display_status
     from app.models.notification import Notification, NotificationType
 
-    project = await get_project_or_404(project_id, db)
+    try:
+        project = await get_project_or_404(project_id, db)
 
-    # Only PENDING status can be approved
-    if project.status != ProjectStatus.PENDING:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"승인대기 상태의 과제만 승인할 수 있습니다. 현재 상태: {project.status.value}"
-        )
+        # Only PENDING status can be approved
+        if project.status != ProjectStatus.PENDING:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"승인대기 상태의 과제만 승인할 수 있습니다. 현재 상태: {project.status.value}"
+            )
 
-    # Change status to APPROVED
-    project.status = ProjectStatus.APPROVED
-    await db.commit()
-    await db.refresh(project)
-
-    # 과제 생성자에게 알림 생성 (created_by가 있는 경우에만)
-    if project.created_by:
-        notification = Notification(
-            user_id=project.created_by,
-            type=NotificationType.PROJECT_APPROVED.value if hasattr(NotificationType, 'PROJECT_APPROVED') else "project_approved",
-            title="과제가 승인되었습니다",
-            message=f"'{project.project_name}' 과제가 승인되었습니다. 과제 수정 화면에서 모집개시 해주세요.",
-            related_project_id=project.project_id,
-            email_sent=False
-        )
-        db.add(notification)
+        # Change status to APPROVED
+        project.status = ProjectStatus.APPROVED
         await db.commit()
+        await db.refresh(project)
 
-    # display_status 계산
-    display_status = calculate_display_status(
-        project.status,
-        project.recruitment_start_date,
-        project.recruitment_end_date
-    )
+        # 과제 생성자에게 알림 생성 (created_by가 있는 경우에만)
+        if project.created_by:
+            notification = Notification(
+                user_id=project.created_by,
+                type=NotificationType.PROJECT_APPROVED.value if hasattr(NotificationType, 'PROJECT_APPROVED') else "project_approved",
+                title="과제가 승인되었습니다",
+                message=f"'{project.project_name}' 과제가 승인되었습니다. 과제 수정 화면에서 모집개시 해주세요.",
+                related_project_id=project.project_id,
+                email_sent=False
+            )
+            db.add(notification)
+            await db.commit()
 
-    return ProjectResponse(
-        project_id=project.project_id,
-        project_name=project.project_name,
-        project_type=project.project_type,
-        description=project.description,
-        support_program_name=project.support_program_name,
-        recruitment_start_date=project.recruitment_start_date,
-        recruitment_end_date=project.recruitment_end_date,
-        project_start_date=project.project_start_date,
-        project_end_date=project.project_end_date,
-        max_participants=project.max_participants,
-        project_manager_id=project.project_manager_id,
-        status=project.status,
-        display_status=display_status,
-        actual_start_date=project.actual_start_date,
-        actual_end_date=project.actual_end_date,
-        overall_feedback=project.overall_feedback,
-        created_by=project.created_by,
-        created_at=project.created_at,
-        updated_at=project.updated_at
-    )
+        # display_status 계산
+        display_status = calculate_display_status(
+            project.status,
+            project.recruitment_start_date,
+            project.recruitment_end_date
+        )
+
+        return ProjectResponse(
+            project_id=project.project_id,
+            project_name=project.project_name,
+            project_type=project.project_type,
+            description=project.description,
+            support_program_name=project.support_program_name,
+            recruitment_start_date=project.recruitment_start_date,
+            recruitment_end_date=project.recruitment_end_date,
+            project_start_date=project.project_start_date,
+            project_end_date=project.project_end_date,
+            max_participants=project.max_participants,
+            project_manager_id=project.project_manager_id,
+            status=project.status,
+            display_status=display_status,
+            actual_start_date=project.actual_start_date,
+            actual_end_date=project.actual_end_date,
+            overall_feedback=project.overall_feedback,
+            created_by=project.created_by,
+            created_at=project.created_at,
+            updated_at=project.updated_at
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        print(f"Error in approve_project: {e}\n{traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"과제 승인 실패: {str(e)}"
+        )
 
 
 @router.post("/{project_id}/reject", response_model=ProjectResponse)
