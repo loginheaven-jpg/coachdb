@@ -133,9 +133,13 @@ class ProjectResponse(ProjectBase):
     actual_start_date: Optional[date] = None
     actual_end_date: Optional[date] = None
     overall_feedback: Optional[str] = None
-    created_by: int
+    created_by: Optional[int] = None  # 일부 레거시 데이터에서 null일 수 있음
     created_at: datetime
     updated_at: Optional[datetime] = None
+    # ProjectBase의 필수 필드를 Optional로 오버라이드 (DB에 null인 경우 대응)
+    recruitment_start_date: Optional[date] = None
+    recruitment_end_date: Optional[date] = None
+    max_participants: Optional[int] = None
 
     class Config:
         from_attributes = True
