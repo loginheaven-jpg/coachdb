@@ -62,7 +62,32 @@ async def init_db():
 
         with sync_engine.connect() as conn:
             # ProjectStatus enum uses lowercase values (draft, pending, approved, etc.)
-            # These already exist in the database, no need to add them
+            # Convert any existing uppercase status values to lowercase
+            status_mapping = {
+                'DRAFT': 'draft',
+                'PENDING': 'pending',
+                'REJECTED': 'rejected',
+                'APPROVED': 'approved',
+                'READY': 'ready',
+                'RECRUITING': 'recruiting',
+                'REVIEWING': 'reviewing',
+                'IN_PROGRESS': 'in_progress',
+                'EVALUATING': 'evaluating',
+                'COMPLETED': 'completed',
+                'CLOSED': 'closed'
+            }
+            for old_val, new_val in status_mapping.items():
+                try:
+                    # Use text column cast to avoid enum type issues
+                    result = conn.execute(text(
+                        f"UPDATE projects SET status = '{new_val}' "
+                        f"WHERE status::text = '{old_val}'"
+                    ))
+                    if result.rowcount > 0:
+                        print(f"[DB] Converted {result.rowcount} projects from '{old_val}' to '{new_val}'")
+                except Exception as e:
+                    # Ignore if value doesn't exist
+                    pass
 
             # Add missing proofrequiredlevel enum values
             # SQLAlchemy sends uppercase enum names, so we need both cases
