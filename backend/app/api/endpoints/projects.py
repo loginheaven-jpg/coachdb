@@ -5,6 +5,7 @@ from typing import List, Optional
 
 from app.core.database import get_db
 from app.core.security import get_current_user, require_role
+from app.core.utils import get_user_roles
 from app.models.user import User, UserStatus
 from app.models.project import Project, ProjectStatus, ProjectStaff
 from app.models.application import Application, ApplicationData, ApplicationStatus
@@ -2966,7 +2967,7 @@ async def get_project_staff(
             )
 
         # Check permission: SUPER_ADMIN or project manager or creator
-        user_roles = [r.value if hasattr(r, 'value') else r for r in current_user.roles]
+        user_roles = get_user_roles(current_user)
         is_super_admin = "SUPER_ADMIN" in user_roles
         is_project_manager = project.project_manager_id == current_user.user_id
         is_creator = project.created_by == current_user.user_id
@@ -3044,7 +3045,7 @@ async def add_project_staff(
         )
 
     # Check permission: SUPER_ADMIN or project manager or creator
-    user_roles = [r.value if hasattr(r, 'value') else r for r in current_user.roles]
+    user_roles = get_user_roles(current_user)
     is_super_admin = "SUPER_ADMIN" in user_roles
     is_project_manager = project.project_manager_id == current_user.user_id
     is_creator = project.created_by == current_user.user_id
@@ -3128,7 +3129,7 @@ async def remove_project_staff(
         )
 
     # Check permission: SUPER_ADMIN or project manager or creator
-    user_roles = [r.value if hasattr(r, 'value') else r for r in current_user.roles]
+    user_roles = get_user_roles(current_user)
     is_super_admin = "SUPER_ADMIN" in user_roles
     is_project_manager = project.project_manager_id == current_user.user_id
     is_creator = project.created_by == current_user.user_id

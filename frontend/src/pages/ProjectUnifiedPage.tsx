@@ -180,24 +180,32 @@ function ProjectUnifiedPageInner() {
     setSearchParams({ tab: key }, { replace: true })
   }
 
-  // 생성완료 검증 및 처리
+  // 승인신청 검증 및 처리
   const handleFinalize = async () => {
     const errors: string[] = []
 
-    // 1. 설문 100점 검증
+    // 1. 과제정보 필수 필드 검증
+    if (!project?.recruitment_start_date || !project?.recruitment_end_date) {
+      errors.push('과제정보: 모집기간 미입력')
+    }
+    if (!project?.project_start_date || !project?.project_end_date) {
+      errors.push('과제정보: 과제기간 미입력')
+    }
+
+    // 2. 설문 100점 검증
     if (!scoreValidation?.is_valid) {
       errors.push(`설문 점수: ${scoreValidation?.total_score || 0}/100점 (100점 필요)`)
     }
 
-    // 2. 심사위원 1명 이상
+    // 3. 심사위원 1명 이상
     if (staffList.length === 0) {
       errors.push('심사위원: 0명 (최소 1명 필요)')
     }
 
-    // 3. 미충족 시 팝업
+    // 4. 미충족 시 팝업
     if (errors.length > 0) {
       Modal.warning({
-        title: '생성완료 조건 미충족',
+        title: '승인신청 조건 미충족',
         content: (
           <ul className="list-disc pl-4 mt-2">
             {errors.map((err, i) => (
@@ -209,11 +217,11 @@ function ProjectUnifiedPageInner() {
       return
     }
 
-    // 4. 확인 팝업
+    // 5. 확인 팝업
     Modal.confirm({
-      title: '과제 생성완료',
-      content: '생성완료 후 관리자 승인을 기다려야 합니다. 진행하시겠습니까?',
-      okText: '생성완료',
+      title: '승인 신청',
+      content: '승인신청 후 관리자 승인을 기다려야 합니다. 진행하시겠습니까?',
+      okText: '승인신청',
       cancelText: '취소',
       onOk: async () => {
         const success = await submitForApproval()
@@ -381,7 +389,7 @@ function ProjectUnifiedPageInner() {
               loading={finalizing}
               onClick={handleFinalize}
             >
-              생성완료
+              승인신청
             </Button>
           </div>
         </div>

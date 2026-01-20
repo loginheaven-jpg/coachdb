@@ -143,14 +143,14 @@ export function ProjectEditProvider({ projectId, children }: ProjectEditProvider
     }
   }, [projectId, loadProject])
 
-  // 생성완료 (승인 요청)
+  // 승인신청 (승인 요청)
   const submitForApproval = useCallback(async (): Promise<boolean> => {
     if (!projectId) return false
     setFinalizing(true)
     try {
       // pending 상태로 변경하여 승인 요청
       await projectService.updateProject(projectId, { status: ProjectStatus.PENDING })
-      message.success('생성완료! 관리자 승인을 기다려주세요.')
+      message.success('승인신청 완료! 관리자 승인을 기다려주세요.')
       await loadProject()
       return true
     } catch (error: any) {
