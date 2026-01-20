@@ -78,16 +78,15 @@ async def init_db():
             }
             for old_val, new_val in status_mapping.items():
                 try:
-                    # Use text column cast to avoid enum type issues
+                    # Cast new value to projectstatus enum type explicitly
                     result = conn.execute(text(
-                        f"UPDATE projects SET status = '{new_val}' "
+                        f"UPDATE projects SET status = '{new_val}'::projectstatus "
                         f"WHERE status::text = '{old_val}'"
                     ))
                     if result.rowcount > 0:
                         print(f"[DB] Converted {result.rowcount} projects from '{old_val}' to '{new_val}'")
                 except Exception as e:
-                    # Ignore if value doesn't exist
-                    pass
+                    print(f"[DB] Status conversion error for {old_val}: {e}")
 
             # Add missing proofrequiredlevel enum values
             # SQLAlchemy sends uppercase enum names, so we need both cases
