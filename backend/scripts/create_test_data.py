@@ -48,7 +48,7 @@ async def create_test_projects(async_session_maker):
                     recruitment_end_date=today + timedelta(days=30),
                     project_start_date=today + timedelta(days=35),
                     project_end_date=today + timedelta(days=65),
-                    status=ProjectStatus.RECRUITING,
+                    status=ProjectStatus.recruiting,
                     max_participants=10,
                     created_by=admin_user.user_id
                 )

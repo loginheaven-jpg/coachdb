@@ -112,7 +112,7 @@ async def create_test_project(
             project_start_date=project_start,
             project_end_date=project_end,
             max_participants=template["max_participants"],
-            status=ProjectStatus.READY,
+            status=ProjectStatus.ready,
             project_manager_id=current_user.user_id,
             created_by=current_user.user_id
         )
@@ -276,7 +276,7 @@ async def create_test_project_with_applications(
             project_start_date=project_start,
             project_end_date=project_end,
             max_participants=5,
-            status=ProjectStatus.REVIEWING,
+            status=ProjectStatus.reviewing,
             project_manager_id=current_user.user_id,
             created_by=current_user.user_id
         )
@@ -674,7 +674,7 @@ async def create_project(
         project_dict['project_manager_id'] = current_user.user_id
 
     # 항상 DRAFT 상태로 생성 (status 필드 무시)
-    project_dict['status'] = ProjectStatus.DRAFT
+    project_dict['status'] = ProjectStatus.draft
 
     # Create new project
     new_project = Project(
@@ -761,12 +761,12 @@ async def list_projects(
                 or_(
                     # READY 상태 + 모집기간 내
                     (
-                        (Project.status == ProjectStatus.READY) &
+                        (Project.status == ProjectStatus.ready) &
                         (Project.recruitment_start_date <= today) &
                         (Project.recruitment_end_date >= today)
                     ),
                     # Legacy: RECRUITING status
-                    Project.status == ProjectStatus.RECRUITING
+                    Project.status == ProjectStatus.recruiting
                 )
             )
         elif mode == "manage":
@@ -801,12 +801,12 @@ async def list_projects(
                         Project.project_manager_id == current_user.user_id,
                         # Approved (READY) + within recruitment dates = public
                         (
-                            (Project.status == ProjectStatus.READY) &
+                            (Project.status == ProjectStatus.ready) &
                             (Project.recruitment_start_date <= today) &
                             (Project.recruitment_end_date >= today)
                         ),
                         # Legacy: RECRUITING status (backward compatibility)
-                        Project.status == ProjectStatus.RECRUITING
+                        Project.status == ProjectStatus.recruiting
                     )
                 )
 
@@ -2330,7 +2330,7 @@ async def finalize_project(
     from app.core.utils import get_user_roles
     user_roles = get_user_roles(current_user)
 
-    project.status = ProjectStatus.APPROVED if "SUPER_ADMIN" in user_roles else ProjectStatus.PENDING
+    project.status = ProjectStatus.approved if "SUPER_ADMIN" in user_roles else ProjectStatus.pending
     await db.commit()
     await db.refresh(project)
 
@@ -2396,14 +2396,14 @@ async def approve_project(
         project = await get_project_or_404(project_id, db)
 
         # Only PENDING status can be approved
-        if project.status != ProjectStatus.PENDING:
+        if project.status != ProjectStatus.pending:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"승인대기 상태의 과제만 승인할 수 있습니다. 현재 상태: {project.status.value}"
             )
 
         # Change status to APPROVED (TypeDecorator handles enum conversion)
-        project.status = ProjectStatus.APPROVED
+        project.status = ProjectStatus.approved
         await db.commit()
         await db.refresh(project)
 
@@ -2480,7 +2480,7 @@ async def reject_project(
     project = await get_project_or_404(project_id, db)
 
     # Only PENDING status can be rejected
-    if project.status != ProjectStatus.PENDING:
+    if project.status != ProjectStatus.pending:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"승인대기 상태의 과제만 반려할 수 있습니다. 현재 상태: {project.status.value}"
@@ -2494,7 +2494,7 @@ async def reject_project(
         )
 
     # Change status to REJECTED (TypeDecorator handles enum conversion)
-    project.status = ProjectStatus.REJECTED
+    project.status = ProjectStatus.rejected
     await db.commit()
     await db.refresh(project)
 
@@ -2560,14 +2560,14 @@ async def start_recruitment(
     check_project_manager_permission(project, current_user)
 
     # Only APPROVED status can start recruitment
-    if project.status != ProjectStatus.APPROVED:
+    if project.status != ProjectStatus.approved:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"승인완료 상태의 과제만 모집개시할 수 있습니다. 현재 상태: {project.status.value}"
         )
 
     # Change status to READY (TypeDecorator handles enum conversion)
-    project.status = ProjectStatus.READY
+    project.status = ProjectStatus.ready
     await db.commit()
     await db.refresh(project)
 
@@ -2626,14 +2626,14 @@ async def resubmit_project(
         )
 
     # Only REJECTED status can be resubmitted
-    if project.status != ProjectStatus.REJECTED:
+    if project.status != ProjectStatus.rejected:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"반려된 과제만 재상신할 수 있습니다. 현재 상태: {project.status.value}"
         )
 
     # Change status to PENDING (TypeDecorator handles enum conversion)
-    project.status = ProjectStatus.PENDING
+    project.status = ProjectStatus.pending
     await db.commit()
     await db.refresh(project)
 
@@ -2687,14 +2687,14 @@ async def unpublish_project(
     check_project_manager_permission(project, current_user)
 
     # Only READY status can be reverted to DRAFT
-    if project.status != ProjectStatus.READY:
+    if project.status != ProjectStatus.ready:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"READY 상태의 과제만 초안으로 되돌릴 수 있습니다. 현재 상태: {project.status.value}"
         )
 
     # Revert to DRAFT status using ORM (TypeDecorator handles enum conversion)
-    project.status = ProjectStatus.DRAFT
+    project.status = ProjectStatus.draft
     await db.commit()
     await db.refresh(project)
 
