@@ -2409,17 +2409,18 @@ async def approve_project(
     await db.commit()
     await db.refresh(project)
 
-    # 과제 생성자에게 알림 생성
-    notification = Notification(
-        user_id=project.created_by,
-        type=NotificationType.PROJECT_APPROVED.value if hasattr(NotificationType, 'PROJECT_APPROVED') else "project_approved",
-        title="과제가 승인되었습니다",
-        message=f"'{project.project_name}' 과제가 승인되었습니다. 과제 수정 화면에서 모집개시 해주세요.",
-        related_project_id=project.project_id,
-        email_sent=False
-    )
-    db.add(notification)
-    await db.commit()
+    # 과제 생성자에게 알림 생성 (created_by가 있는 경우에만)
+    if project.created_by:
+        notification = Notification(
+            user_id=project.created_by,
+            type=NotificationType.PROJECT_APPROVED.value if hasattr(NotificationType, 'PROJECT_APPROVED') else "project_approved",
+            title="과제가 승인되었습니다",
+            message=f"'{project.project_name}' 과제가 승인되었습니다. 과제 수정 화면에서 모집개시 해주세요.",
+            related_project_id=project.project_id,
+            email_sent=False
+        )
+        db.add(notification)
+        await db.commit()
 
     # display_status 계산
     display_status = calculate_display_status(
@@ -2490,17 +2491,18 @@ async def reject_project(
     await db.commit()
     await db.refresh(project)
 
-    # 과제 생성자에게 알림 생성
-    notification = Notification(
-        user_id=project.created_by,
-        type=NotificationType.PROJECT_REJECTED.value if hasattr(NotificationType, 'PROJECT_REJECTED') else "project_rejected",
-        title="과제가 반려되었습니다",
-        message=f"'{project.project_name}' 과제가 반려되었습니다. 사유: {request.reason}",
-        related_project_id=project.project_id,
-        email_sent=False
-    )
-    db.add(notification)
-    await db.commit()
+    # 과제 생성자에게 알림 생성 (created_by가 있는 경우에만)
+    if project.created_by:
+        notification = Notification(
+            user_id=project.created_by,
+            type=NotificationType.PROJECT_REJECTED.value if hasattr(NotificationType, 'PROJECT_REJECTED') else "project_rejected",
+            title="과제가 반려되었습니다",
+            message=f"'{project.project_name}' 과제가 반려되었습니다. 사유: {request.reason}",
+            related_project_id=project.project_id,
+            email_sent=False
+        )
+        db.add(notification)
+        await db.commit()
 
     # display_status 계산
     display_status = calculate_display_status(
@@ -2512,6 +2514,7 @@ async def reject_project(
     return ProjectResponse(
         project_id=project.project_id,
         project_name=project.project_name,
+        project_type=project.project_type,
         description=project.description,
         support_program_name=project.support_program_name,
         recruitment_start_date=project.recruitment_start_date,
