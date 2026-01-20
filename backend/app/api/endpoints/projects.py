@@ -2337,11 +2337,11 @@ async def finalize_project(
         {"status": new_status, "pid": project.project_id}
     )
     await db.commit()
-    await db.refresh(project)
+    # Don't refresh - SQLAlchemy enum can't parse lowercase DB values
 
     # display_status 계산
     display_status = calculate_display_status(
-        project.status,
+        new_status,
         project.recruitment_start_date,
         project.recruitment_end_date
     )
@@ -2358,7 +2358,7 @@ async def finalize_project(
         project_end_date=project.project_end_date,
         max_participants=project.max_participants,
         project_manager_id=project.project_manager_id,
-        status=project.status,
+        status=new_status,  # Use the new status directly
         display_status=display_status,
         actual_start_date=project.actual_start_date,
         actual_end_date=project.actual_end_date,
@@ -2414,7 +2414,7 @@ async def approve_project(
             {"pid": project.project_id}
         )
         await db.commit()
-        await db.refresh(project)
+        # Don't refresh - SQLAlchemy enum can't parse lowercase DB values
 
         # 과제 생성자에게 알림 생성 (created_by가 있는 경우에만)
         if project.created_by:
@@ -2429,9 +2429,9 @@ async def approve_project(
             db.add(notification)
             await db.commit()
 
-        # display_status 계산
+        # display_status 계산 - use string 'approved' since we just set it
         display_status = calculate_display_status(
-            project.status,
+            "approved",
             project.recruitment_start_date,
             project.recruitment_end_date
         )
@@ -2448,7 +2448,7 @@ async def approve_project(
             project_end_date=project.project_end_date,
             max_participants=project.max_participants,
             project_manager_id=project.project_manager_id,
-            status=project.status,
+            status="approved",  # Use string directly
             display_status=display_status,
             actual_start_date=project.actual_start_date,
             actual_end_date=project.actual_end_date,
@@ -2509,7 +2509,7 @@ async def reject_project(
         {"pid": project.project_id}
     )
     await db.commit()
-    await db.refresh(project)
+    # Don't refresh - SQLAlchemy enum can't parse lowercase DB values
 
     # 과제 생성자에게 알림 생성 (created_by가 있는 경우에만)
     if project.created_by:
@@ -2526,7 +2526,7 @@ async def reject_project(
 
     # display_status 계산
     display_status = calculate_display_status(
-        project.status,
+        "rejected",
         project.recruitment_start_date,
         project.recruitment_end_date
     )
@@ -2543,7 +2543,7 @@ async def reject_project(
         project_end_date=project.project_end_date,
         max_participants=project.max_participants,
         project_manager_id=project.project_manager_id,
-        status=project.status,
+        status="rejected",  # Use string directly
         display_status=display_status,
         actual_start_date=project.actual_start_date,
         actual_end_date=project.actual_end_date,
@@ -2586,11 +2586,11 @@ async def start_recruitment(
         {"pid": project.project_id}
     )
     await db.commit()
-    await db.refresh(project)
+    # Don't refresh - SQLAlchemy enum can't parse lowercase DB values
 
     # display_status 계산
     display_status = calculate_display_status(
-        project.status,
+        "ready",
         project.recruitment_start_date,
         project.recruitment_end_date
     )
@@ -2607,7 +2607,7 @@ async def start_recruitment(
         project_end_date=project.project_end_date,
         max_participants=project.max_participants,
         project_manager_id=project.project_manager_id,
-        status=project.status,
+        status="ready",  # Use string directly
         display_status=display_status,
         actual_start_date=project.actual_start_date,
         actual_end_date=project.actual_end_date,
@@ -2656,11 +2656,11 @@ async def resubmit_project(
         {"pid": project.project_id}
     )
     await db.commit()
-    await db.refresh(project)
+    # Don't refresh - SQLAlchemy enum can't parse lowercase DB values
 
     # display_status 계산
     display_status = calculate_display_status(
-        project.status,
+        "pending",
         project.recruitment_start_date,
         project.recruitment_end_date
     )
@@ -2677,7 +2677,7 @@ async def resubmit_project(
         project_end_date=project.project_end_date,
         max_participants=project.max_participants,
         project_manager_id=project.project_manager_id,
-        status=project.status,
+        status="pending",  # Use string directly
         display_status=display_status,
         actual_start_date=project.actual_start_date,
         actual_end_date=project.actual_end_date,
@@ -2721,11 +2721,11 @@ async def unpublish_project(
         {"pid": project.project_id}
     )
     await db.commit()
-    await db.refresh(project)
+    # Don't refresh - SQLAlchemy enum can't parse lowercase DB values
 
     # display_status 계산
     display_status = calculate_display_status(
-        project.status,
+        "draft",
         project.recruitment_start_date,
         project.recruitment_end_date
     )
@@ -2742,7 +2742,7 @@ async def unpublish_project(
         project_end_date=project.project_end_date,
         max_participants=project.max_participants,
         project_manager_id=project.project_manager_id,
-        status=project.status,
+        status="draft",  # Use string directly
         display_status=display_status,
         actual_start_date=project.actual_start_date,
         actual_end_date=project.actual_end_date,
