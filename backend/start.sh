@@ -191,10 +191,15 @@ if DATABASE_URL:
             except Exception as e:
                 print(f"[WARN] enum matchingtype.{val}: {e}")
 
-        # First, add lowercase enum values to projectstatus so existing data can be read
-        lowercase_status_values = ['approved', 'draft', 'pending', 'rejected', 'ready',
-                                   'recruiting', 'reviewing', 'in_progress', 'evaluating', 'closed']
-        for val in lowercase_status_values:
+        # Add both lowercase and UPPERCASE enum values to projectstatus
+        # PostgreSQL enum values are case-sensitive
+        all_status_values = [
+            'approved', 'draft', 'pending', 'rejected', 'ready',
+            'recruiting', 'reviewing', 'in_progress', 'evaluating', 'closed',
+            'APPROVED', 'DRAFT', 'PENDING', 'REJECTED', 'READY',
+            'RECRUITING', 'REVIEWING', 'IN_PROGRESS', 'EVALUATING', 'CLOSED'
+        ]
+        for val in all_status_values:
             try:
                 cur.execute(f"ALTER TYPE projectstatus ADD VALUE IF NOT EXISTS '{val}'")
                 print(f"[OK] enum projectstatus.{val} ensured")
@@ -202,7 +207,7 @@ if DATABASE_URL:
                 if "already exists" not in str(e).lower():
                     print(f"[WARN] enum projectstatus.{val}: {e}")
 
-        # Now convert lowercase status values to UPPERCASE
+        # Now convert lowercase status values in data to UPPERCASE
         status_conversions = [
             ('approved', 'APPROVED'),
             ('draft', 'DRAFT'),

@@ -61,11 +61,15 @@ async def init_db():
         sync_engine = create_engine(sync_url, isolation_level="AUTOCOMMIT")
 
         with sync_engine.connect() as conn:
-            # ProjectStatus enum uses UPPERCASE values matching PostgreSQL
-            # First, add lowercase enum values so existing data can be read
-            lowercase_status_values = ['approved', 'draft', 'pending', 'rejected', 'ready',
-                                      'recruiting', 'reviewing', 'in_progress', 'evaluating', 'closed']
-            for val in lowercase_status_values:
+            # ProjectStatus enum: add both lowercase and UPPERCASE values
+            # PostgreSQL enum values are case-sensitive
+            all_status_values = [
+                'approved', 'draft', 'pending', 'rejected', 'ready',
+                'recruiting', 'reviewing', 'in_progress', 'evaluating', 'closed',
+                'APPROVED', 'DRAFT', 'PENDING', 'REJECTED', 'READY',
+                'RECRUITING', 'REVIEWING', 'IN_PROGRESS', 'EVALUATING', 'CLOSED'
+            ]
+            for val in all_status_values:
                 try:
                     conn.execute(text(f"ALTER TYPE projectstatus ADD VALUE IF NOT EXISTS '{val}'"))
                     print(f"[DB] Added enum value '{val}' to projectstatus")
