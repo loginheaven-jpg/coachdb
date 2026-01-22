@@ -276,14 +276,32 @@ Backend `.env` 필요:
 - 위의 모든 수정작업이 위 원칙대로 완료되면 묻지 않고 자동으로 commit 하고 push까지 진행한 뒤 보고한다.
 
 ### 9. Commit 메시지 작성 원칙
-- Commit 메시지는 명확하고 구체적으로 작성 (제목처럼)
+- **Commit 메시지 형식**: `YYYYMMDD-HHMM-메시지 내용`
+- Railway 배포 번호와 GitHub commit hash가 다르므로, 날짜-시간으로 배포 식별
+- 한국시간(KST) 기준으로 작성
+
+**Commit 절차**:
+```bash
+# 날짜-시간 자동 생성 (KST)
+DATETIME=$(date '+%Y%m%d-%H%M')
+
+# Commit 생성
+git commit -m "${DATETIME}-Fix: 증빙 컨펌 후 모달 UI 상태 반영 안되는 버그 수정
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
+
+# Push
+git push origin main
+```
+
+- 메시지는 명확하고 구체적으로 작성 (제목처럼)
 - 무엇을 변경/수정했는지 한눈에 파악할 수 있도록 작성
-- Railway 배포 시 "Deployed via GitHub" 섹션에서 commit 메시지로 배포 내용 식별
+- 날짜-시간 prefix로 시간순 정렬 및 unique 식별 가능
 - 예시:
-  - ✅ "Fix: 증빙 컨펌 후 모달 UI 상태 반영 안되는 버그 수정"
-  - ✅ "Add: 프로젝트 평가 점수 계산 로직 추가"
-  - ❌ "fix bug" (너무 모호함)
-  - ❌ "update" (무엇을 업데이트했는지 불명확)
+  - ✅ "20260122-2305-Fix: 증빙 컨펌 후 모달 UI 상태 반영 안되는 버그 수정"
+  - ✅ "20260122-1430-Add: 프로젝트 평가 점수 계산 로직 추가"
+  - ❌ "fix bug" (너무 모호함, 날짜-시간 없음)
+  - ❌ "update" (무엇을 업데이트했는지 불명확, 날짜-시간 없음)
 
 ### 10. 근거 파일
 - 항상 Claude.md, ARCHITECTURE.MD 파일을 기준으로 작업을 시작하고 작업이 마쳤을 때 내용의 변경이 있으면 ARCHITECTURE.MD 파일을 업데이트하여 최신개발사항이 반영되어 있도록 해야한다. 
