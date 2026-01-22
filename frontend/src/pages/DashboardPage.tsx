@@ -312,6 +312,11 @@ export default function DashboardPage() {
                           // 관련 페이지로 이동
                           if (notification.related_competency_id) {
                             navigate('/coach/competencies')
+                          } else if (notification.related_application_id && notification.related_project_id) {
+                            // 응모 서류 보완 요청인 경우 직접 수정 화면으로 이동
+                            navigate(
+                              `/projects/${notification.related_project_id}/apply?applicationId=${notification.related_application_id}&mode=edit`
+                            )
                           } else if (notification.related_application_id) {
                             navigate('/my-applications')
                           } else if (notification.related_project_id) {

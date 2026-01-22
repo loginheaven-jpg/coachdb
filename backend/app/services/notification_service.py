@@ -120,7 +120,11 @@ async def send_supplement_request_notification(
     deadline: Optional[str] = None
 ) -> Notification:
     """Send notification for supplement request (서류 보충 요청)"""
-    title = f"서류 보충이 필요합니다: {item_name}"
+    # Include project name in title for better context
+    if project_name:
+        title = f"[{project_name}] 서류 보충이 필요합니다: {item_name}"
+    else:
+        title = f"서류 보충이 필요합니다: {item_name}"
 
     return await create_notification_with_email(
         db=db,
