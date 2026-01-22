@@ -191,14 +191,33 @@ if DATABASE_URL:
             except Exception as e:
                 print(f"[WARN] enum matchingtype.{val}: {e}")
 
-        # Add missing enum values to projectstatus (approved status)
-        projectstatus_values = ['approved']
-        for val in projectstatus_values:
+        # Convert any lowercase projectstatus values to UPPERCASE
+        # (PostgreSQL enum only has UPPERCASE values from initial migration)
+        status_conversions = [
+            ('approved', 'APPROVED'),
+            ('draft', 'DRAFT'),
+            ('pending', 'PENDING'),
+            ('rejected', 'REJECTED'),
+            ('ready', 'READY'),
+            ('recruiting', 'RECRUITING'),
+            ('reviewing', 'REVIEWING'),
+            ('in_progress', 'IN_PROGRESS'),
+            ('evaluating', 'EVALUATING'),
+            ('closed', 'CLOSED'),
+        ]
+        for old_val, new_val in status_conversions:
             try:
-                cur.execute(f"ALTER TYPE projectstatus ADD VALUE IF NOT EXISTS '{val}'")
-                print(f"[OK] enum projectstatus.{val} ensured")
+                cur.execute(f"""
+                    UPDATE projects
+                    SET status = '{new_val}'::projectstatus
+                    WHERE status::text = '{old_val}'
+                """)
+                if cur.rowcount > 0:
+                    print(f"[OK] Converted {cur.rowcount} projects from '{old_val}' to '{new_val}'")
             except Exception as e:
-                print(f"[WARN] enum projectstatus.{val}: {e}")
+                # Ignore if old_val doesn't exist in data
+                if "invalid input value" not in str(e):
+                    print(f"[WARN] status conversion {old_val}: {e}")
 
         # Update competency_items categories based on item_code patterns
         category_updates = [
