@@ -6,18 +6,22 @@ from app.core.database import Base
 
 
 class ProjectStatus(str, enum.Enum):
-    """Project status enum - names match PostgreSQL enum values (lowercase)"""
-    draft = "draft"              # 초안 (임시저장, 비공개)
-    pending = "pending"          # 승인대기 (SUPER_ADMIN 승인 필요)
-    rejected = "rejected"        # 반려됨 (수정 후 재상신 가능)
-    approved = "approved"        # 승인완료 (SUPER_ADMIN 승인됨, 모집개시 전)
-    ready = "ready"              # 모집개시 (과제관리자가 모집 시작)
-    recruiting = "recruiting"    # 접수중 (legacy, 호환용 - 사용하지 않음)
-    reviewing = "reviewing"      # 심사중
-    in_progress = "in_progress"  # 과제진행중
-    evaluating = "evaluating"    # 과제평가중
-    completed = "completed"      # (레거시, 사용 안함)
-    closed = "closed"            # 종료
+    """Project status enum - names match PostgreSQL enum values (UPPERCASE)
+
+    IMPORTANT: Enum member NAMES must match PostgreSQL enum VALUES exactly.
+    SQLAlchemy uses enum member names (not values) for database queries.
+    PostgreSQL enum 'projectstatus' has UPPERCASE values from initial migration.
+    """
+    DRAFT = "DRAFT"              # 초안 (임시저장, 비공개)
+    PENDING = "PENDING"          # 승인대기 (SUPER_ADMIN 승인 필요)
+    REJECTED = "REJECTED"        # 반려됨 (수정 후 재상신 가능)
+    APPROVED = "APPROVED"        # 승인완료 (SUPER_ADMIN 승인됨, 모집개시 전)
+    READY = "READY"              # 모집개시 (과제관리자가 모집 시작)
+    RECRUITING = "RECRUITING"    # 접수중 (legacy, 호환용 - 사용하지 않음)
+    REVIEWING = "REVIEWING"      # 심사중
+    IN_PROGRESS = "IN_PROGRESS"  # 과제진행중
+    EVALUATING = "EVALUATING"    # 과제평가중
+    CLOSED = "CLOSED"            # 종료
 
 
 class ProjectType(str, enum.Enum):
@@ -54,11 +58,11 @@ class Project(Base):
     project_achievements = Column(Text, nullable=True)  # 과제 성과
     project_special_notes = Column(Text, nullable=True)  # 특이사항
 
-    # Use native PostgreSQL enum - enum names now match DB values (lowercase)
+    # Use native PostgreSQL enum - enum names now match DB values (UPPERCASE)
     status = Column(
         Enum(ProjectStatus, name='projectstatus', create_type=False),
         nullable=False,
-        default=ProjectStatus.draft
+        default=ProjectStatus.DRAFT
     )
     max_participants = Column(Integer, nullable=False)
 

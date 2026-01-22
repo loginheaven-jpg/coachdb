@@ -61,32 +61,8 @@ async def init_db():
         sync_engine = create_engine(sync_url, isolation_level="AUTOCOMMIT")
 
         with sync_engine.connect() as conn:
-            # ProjectStatus enum uses lowercase values (draft, pending, approved, etc.)
-            # Convert any existing uppercase status values to lowercase
-            status_mapping = {
-                'DRAFT': 'draft',
-                'PENDING': 'pending',
-                'REJECTED': 'rejected',
-                'APPROVED': 'approved',
-                'READY': 'ready',
-                'RECRUITING': 'recruiting',
-                'REVIEWING': 'reviewing',
-                'IN_PROGRESS': 'in_progress',
-                'EVALUATING': 'evaluating',
-                'COMPLETED': 'closed',  # 'completed' enum doesn't exist, map to 'closed'
-                'CLOSED': 'closed'
-            }
-            for old_val, new_val in status_mapping.items():
-                try:
-                    # Cast new value to projectstatus enum type explicitly
-                    result = conn.execute(text(
-                        f"UPDATE projects SET status = '{new_val}'::projectstatus "
-                        f"WHERE status::text = '{old_val}'"
-                    ))
-                    if result.rowcount > 0:
-                        print(f"[DB] Converted {result.rowcount} projects from '{old_val}' to '{new_val}'")
-                except Exception as e:
-                    print(f"[DB] Status conversion error for {old_val}: {e}")
+            # ProjectStatus enum uses UPPERCASE values matching PostgreSQL
+            # No conversion needed - enum names match DB values exactly
 
             # Add missing proofrequiredlevel enum values
             # SQLAlchemy sends uppercase enum names, so we need both cases

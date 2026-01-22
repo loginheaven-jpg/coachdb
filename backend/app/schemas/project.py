@@ -28,7 +28,7 @@ def calculate_display_status(
     - ready + 오늘 > 모집종료일 → "recruiting_ended" (모집종료)
     - 그 외 → DB 상태 그대로
     """
-    if status == ProjectStatus.ready:
+    if status == ProjectStatus.READY:
         # 날짜가 없으면 기본 상태 반환
         if not recruitment_start_date or not recruitment_end_date:
             return status.value
@@ -75,7 +75,7 @@ class ProjectBase(BaseModel):
 
 class ProjectCreate(ProjectBase):
     """Schema for creating a new project"""
-    status: Optional[ProjectStatus] = ProjectStatus.draft
+    status: Optional[ProjectStatus] = ProjectStatus.DRAFT
 
 
 # CustomQuestionCreateExtended는 ProjectCreateExtended보다 먼저 정의되어야 함
