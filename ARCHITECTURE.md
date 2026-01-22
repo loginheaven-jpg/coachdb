@@ -1865,6 +1865,19 @@ git commit -m "docs: update ARCHITECTURE.md - add new notification type"
   - 내용: "과제정보, 설문항목(100점 배점), 심사계획(심사위원지정 포함) 이 완료되어야 과제를 상신할 수 있습니다. 이를 관리자가 승인하고 모집기간이 도래하면 응모코치들께 과제가 노출됩니다."
   - 사용자 경험 개선: 과제 생성 프로세스에 대한 명확한 안내 제공
 
+- **증빙 검증 중복 키 에러 수정**
+  - 문제: 보완필요 처리 후 재컨펌 시 `duplicate key value violates unique constraint "uq_competency_verifier"` 에러 발생
+  - 원인: `verification_records` 테이블의 (competency_id, verifier_id) unique constraint
+    - Reset/보완필요 처리 시 기존 레코드의 `is_valid`를 False로 변경 (삭제하지 않음)
+    - 재컨펌 시 is_valid=True인 레코드만 확인하여 기존 레코드 존재를 감지하지 못함
+    - 새 레코드 INSERT 시도 → unique constraint 위반
+  - 해결: 컨펌 엔드포인트 로직 개선 (`backend/app/api/endpoints/verifications.py:357-406`)
+    - is_valid 조건 없이 (competency_id, verifier_id) 조합으로 기존 레코드 확인
+    - 기존 레코드가 있고 is_valid=True → 이미 컨펌했다고 에러
+    - 기존 레코드가 있고 is_valid=False → UPDATE (is_valid=True, verified_at 갱신)
+    - 기존 레코드가 없음 → INSERT
+  - 효과: 보완필요 후 재컨펌 시 정상 동작, 중복 레코드 생성 방지
+
 ### 2026-01-22
 - **ARCHITECTURE.md 대폭 확장** (Claude Sonnet 4.5)
   - 목차 추가 (13개 주요 섹션)

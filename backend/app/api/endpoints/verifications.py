@@ -354,46 +354,55 @@ async def confirm_verification(
             detail="이미 검증 완료된 증빙입니다"
         )
 
-    # 기존 유효한 컨펌 기록 확인
+    # 기존 컨펌 기록 확인 (is_valid 상관없이)
     existing_result = await db.execute(
         select(VerificationRecord).where(
             and_(
                 VerificationRecord.competency_id == competency_id,
-                VerificationRecord.verifier_id == current_user.user_id,
-                VerificationRecord.is_valid == True
+                VerificationRecord.verifier_id == current_user.user_id
             )
         )
     )
     existing_record = existing_result.scalar_one_or_none()
 
     if existing_record:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="이미 컨펌한 증빙입니다"
+        # 이미 유효한 컨펌이 있는 경우
+        if existing_record.is_valid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="이미 컨펌한 증빙입니다"
+            )
+        # 무효화된 레코드가 있는 경우 (보완필요 후 재컨펌) → 재활성화
+        else:
+            existing_record.is_valid = True
+            existing_record.verified_at = datetime.now(timezone.utc)
+            await db.commit()
+            await db.refresh(existing_record)
+            record_to_return = existing_record
+    else:
+        # 새 컨펌 기록 생성
+        new_record = VerificationRecord(
+            competency_id=competency_id,
+            verifier_id=current_user.user_id,
+            verified_at=datetime.now(timezone.utc),
+            is_valid=True
         )
-
-    # 새 컨펌 기록 생성
-    new_record = VerificationRecord(
-        competency_id=competency_id,
-        verifier_id=current_user.user_id,
-        verified_at=datetime.now(timezone.utc),
-        is_valid=True
-    )
-    db.add(new_record)
-    await db.commit()
-    await db.refresh(new_record)
+        db.add(new_record)
+        await db.commit()
+        await db.refresh(new_record)
+        record_to_return = new_record
 
     # 전역 검증 상태 확인 및 업데이트
     required_count = await get_required_verifier_count(db)
     await check_and_update_global_verification(db, competency_id, required_count)
 
     return VerificationRecordResponse(
-        record_id=new_record.record_id,
-        competency_id=new_record.competency_id,
-        verifier_id=new_record.verifier_id,
+        record_id=record_to_return.record_id,
+        competency_id=record_to_return.competency_id,
+        verifier_id=record_to_return.verifier_id,
         verifier_name=current_user.name,
-        verified_at=new_record.verified_at,
-        is_valid=new_record.is_valid
+        verified_at=record_to_return.verified_at,
+        is_valid=record_to_return.is_valid
     )
 
 
