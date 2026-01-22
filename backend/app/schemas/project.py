@@ -31,7 +31,7 @@ def calculate_display_status(
     if status == ProjectStatus.READY:
         # 날짜가 없으면 기본 상태 반환
         if not recruitment_start_date or not recruitment_end_date:
-            return status.value
+            return status.value.lower()  # ✅ Always return lowercase
         # 한국 시간대 기준으로 오늘 날짜 계산
         today = datetime.now(KST).date()
         if today < recruitment_start_date:
@@ -40,7 +40,7 @@ def calculate_display_status(
             return "recruiting"  # 모집중
         else:
             return "recruiting_ended"  # 모집종료 (심사중으로 전환 필요)
-    return status.value
+    return status.value.lower()  # ✅ Always return lowercase for frontend consistency
 
 
 # ============================================================================

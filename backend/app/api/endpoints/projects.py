@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
 from typing import List, Optional
+import logging
 
 from app.core.database import get_db
 from app.core.security import get_current_user, require_role
@@ -42,6 +43,8 @@ from app.schemas.competency import (
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
+# Logger for project creation tracking
+logger = logging.getLogger(__name__)
 
 # ============================================================================
 # Test Project Creation
@@ -186,6 +189,9 @@ async def create_test_project(
             new_project.recruitment_end_date
         )
         print(f"[CREATE-TEST] display_status={display_status}")
+
+        # Log project creation for tracking
+        logger.info(f"[PROJECT_CREATE] name='{new_project.project_name}', id={new_project.project_id}, creator={current_user.email}, status={new_project.status}, endpoint='/projects/create-test'")
 
         response = ProjectResponse(
             project_id=new_project.project_id,
@@ -591,6 +597,10 @@ async def create_test_project_with_applications(
         )
 
         print(f"[CREATE-TEST-APPS] === SUCCESS: Created project {new_project.project_id} with 10 applications ===")
+
+        # Log project creation for tracking
+        logger.info(f"[PROJECT_CREATE] name='{new_project.project_name}', id={new_project.project_id}, creator={current_user.email}, status={new_project.status}, endpoint='/projects/create-test-with-applications'")
+
         return response
 
     except Exception as e:
@@ -692,6 +702,9 @@ async def create_project(
         new_project.recruitment_start_date,
         new_project.recruitment_end_date
     )
+
+    # Log project creation for tracking
+    logger.info(f"[PROJECT_CREATE] name='{new_project.project_name}', id={new_project.project_id}, creator={current_user.email}, status={new_project.status}, endpoint='/projects'")
 
     return ProjectResponse(
         project_id=new_project.project_id,

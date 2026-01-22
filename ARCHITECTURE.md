@@ -1865,6 +1865,30 @@ git commit -m "docs: update ARCHITECTURE.md - add new notification type"
   - 내용: "과제정보, 설문항목(100점 배점), 심사계획(심사위원지정 포함) 이 완료되어야 과제를 상신할 수 있습니다. 이를 관리자가 승인하고 모집기간이 도래하면 응모코치들께 과제가 노출됩니다."
   - 사용자 경험 개선: 과제 생성 프로세스에 대한 명확한 안내 제공
 
+- **display_status 대소문자 정규화 수정 (CRITICAL)**
+  - 문제: 테스트 과제 생성 후 "과제심사" 페이지에서 "심사하기" 버튼이 비활성화 상태
+  - 원인: Backend와 Frontend 간 enum 케이스 불일치
+    - Backend: `ProjectStatus.REVIEWING = "REVIEWING"` (대문자)
+    - Frontend: `status === 'reviewing'` (소문자 기대)
+    - `calculate_display_status()` 함수가 `status.value` 직접 반환 (대문자)
+    - 버튼 활성화 조건: `display_status === 'reviewing'` 체크 실패
+  - 해결: `backend/app/schemas/project.py` (line 34, 43)
+    - 모든 display_status 반환값을 `.lower()`로 정규화
+    - `return status.value.lower()  # ✅ Always return lowercase`
+  - 효과: 모든 프로젝트 상태가 frontend와 일관되게 소문자로 표시, 심사하기 버튼 정상 활성화
+  - 관련 커밋: cb2a6c1, 02b6a4a (기존 enum 케이스 수정 작업의 연장)
+
+- **과제 생성 로깅 추가 (OPTIONAL)**
+  - 배경: "재사용테스트1_TIMESTAMP" 형태 과제들의 출처 불명 (실제로는 수동 생성)
+  - 목적: 향후 유사 상황 발생 시 추적 가능하도록 로깅 강화
+  - 변경: `backend/app/api/endpoints/projects.py`
+    - 3개 프로젝트 생성 엔드포인트에 로깅 추가
+    - `POST /projects` (일반 생성, line 706-707)
+    - `POST /projects/create-test` (테스트 과제, line 193)
+    - `POST /projects/create-test-with-applications` (응모완료 테스트, line 602)
+  - 로그 형식: `[PROJECT_CREATE] name='{name}', id={id}, creator={email}, status={status}, endpoint='{endpoint}'`
+  - 효과: 모든 과제 생성 이벤트 추적 가능
+
 - **증빙 검증 중복 키 에러 수정**
   - 문제: 보완필요 처리 후 재컨펌 시 `duplicate key value violates unique constraint "uq_competency_verifier"` 에러 발생
   - 원인: `verification_records` 테이블의 (competency_id, verifier_id) unique constraint
