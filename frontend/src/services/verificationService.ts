@@ -41,6 +41,7 @@ export interface CompetencyVerificationStatus {
   required_count: number
   records: VerificationRecordResponse[]
   activities: ActivityRecord[]
+  my_verification: VerificationRecordResponse | null
 }
 
 export interface PendingVerificationItem {

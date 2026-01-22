@@ -455,7 +455,7 @@ export default function VerificationPage() {
         width={700}
         footer={[
           // 컨펌/취소 버튼
-          selectedCompetency && !getMyVerification(selectedCompetency.competency_id) ? (
+          selectedCompetency && !selectedCompetency.my_verification ? (
             <Button
               key="confirm"
               type="primary"
@@ -465,10 +465,10 @@ export default function VerificationPage() {
             >
               컨펌
             </Button>
-          ) : selectedCompetency && getMyVerification(selectedCompetency.competency_id) ? (
+          ) : selectedCompetency && selectedCompetency.my_verification ? (
             <Button
               key="cancel"
-              onClick={() => handleCancelVerification(getMyVerification(selectedCompetency.competency_id)!.record_id)}
+              onClick={() => handleCancelVerification(selectedCompetency.my_verification.record_id)}
             >
               컨펌 취소
             </Button>
@@ -556,12 +556,19 @@ export default function VerificationPage() {
                 )}
               </Descriptions.Item>
               <Descriptions.Item label="검증 현황">
-                <Progress
-                  percent={(selectedCompetency.verification_count / selectedCompetency.required_count) * 100}
-                  format={() => `${selectedCompetency.verification_count}/${selectedCompetency.required_count}`}
-                  status={selectedCompetency.verification_count >= selectedCompetency.required_count ? 'success' : 'active'}
-                  style={{ width: 200 }}
-                />
+                <div>
+                  <Progress
+                    percent={(selectedCompetency.verification_count / selectedCompetency.required_count) * 100}
+                    format={() => `${selectedCompetency.verification_count}/${selectedCompetency.required_count}`}
+                    status={selectedCompetency.verification_count >= selectedCompetency.required_count ? 'success' : 'active'}
+                    style={{ width: 200 }}
+                  />
+                  {selectedCompetency.my_verification && (
+                    <Tag color="green" style={{ marginTop: 8 }}>
+                      <CheckCircleOutlined /> 내가 컨펌함
+                    </Tag>
+                  )}
+                </div>
               </Descriptions.Item>
             </Descriptions>
 

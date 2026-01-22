@@ -44,6 +44,7 @@ class CompetencyVerificationStatus(BaseModel):
     required_count: int  # 필요한 컨펌 수
     records: List[VerificationRecordResponse] = []  # 기존 유지 (호환성)
     activities: List[ActivityRecord] = []  # 통합 활동 기록 (컨펌 + 보완요청 + 리셋)
+    my_verification: Optional[VerificationRecordResponse] = None  # 현재 사용자의 컨펌 여부
 
     class Config:
         from_attributes = True

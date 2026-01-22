@@ -304,6 +304,13 @@ async def get_verification_status(
             uploaded_at=competency.file.uploaded_at
         )
 
+    # Find current user's verification record
+    my_verification = None
+    for record in records_with_names:
+        if record.verifier_id == current_user.user_id:
+            my_verification = record
+            break
+
     return CompetencyVerificationStatus(
         competency_id=competency.competency_id,
         user_id=competency.user_id,
@@ -318,7 +325,8 @@ async def get_verification_status(
         verification_count=len(valid_records),
         required_count=required_count,
         records=records_with_names,
-        activities=activities
+        activities=activities,
+        my_verification=my_verification
     )
 
 
