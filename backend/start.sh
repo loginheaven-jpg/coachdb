@@ -191,8 +191,18 @@ if DATABASE_URL:
             except Exception as e:
                 print(f"[WARN] enum matchingtype.{val}: {e}")
 
-        # Convert any lowercase projectstatus values to UPPERCASE
-        # (PostgreSQL enum only has UPPERCASE values from initial migration)
+        # First, add lowercase enum values to projectstatus so existing data can be read
+        lowercase_status_values = ['approved', 'draft', 'pending', 'rejected', 'ready',
+                                   'recruiting', 'reviewing', 'in_progress', 'evaluating', 'closed']
+        for val in lowercase_status_values:
+            try:
+                cur.execute(f"ALTER TYPE projectstatus ADD VALUE IF NOT EXISTS '{val}'")
+                print(f"[OK] enum projectstatus.{val} ensured")
+            except Exception as e:
+                if "already exists" not in str(e).lower():
+                    print(f"[WARN] enum projectstatus.{val}: {e}")
+
+        # Now convert lowercase status values to UPPERCASE
         status_conversions = [
             ('approved', 'APPROVED'),
             ('draft', 'DRAFT'),
@@ -215,9 +225,7 @@ if DATABASE_URL:
                 if cur.rowcount > 0:
                     print(f"[OK] Converted {cur.rowcount} projects from '{old_val}' to '{new_val}'")
             except Exception as e:
-                # Ignore if old_val doesn't exist in data
-                if "invalid input value" not in str(e):
-                    print(f"[WARN] status conversion {old_val}: {e}")
+                print(f"[WARN] status conversion {old_val} -> {new_val}: {e}")
 
         # Update competency_items categories based on item_code patterns
         category_updates = [

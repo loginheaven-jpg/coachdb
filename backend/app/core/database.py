@@ -62,7 +62,18 @@ async def init_db():
 
         with sync_engine.connect() as conn:
             # ProjectStatus enum uses UPPERCASE values matching PostgreSQL
-            # Convert any lowercase status values in data to UPPERCASE
+            # First, add lowercase enum values so existing data can be read
+            lowercase_status_values = ['approved', 'draft', 'pending', 'rejected', 'ready',
+                                      'recruiting', 'reviewing', 'in_progress', 'evaluating', 'closed']
+            for val in lowercase_status_values:
+                try:
+                    conn.execute(text(f"ALTER TYPE projectstatus ADD VALUE IF NOT EXISTS '{val}'"))
+                    print(f"[DB] Added enum value '{val}' to projectstatus")
+                except Exception as e:
+                    if "already exists" not in str(e).lower():
+                        print(f"[DB] Could not add enum value '{val}': {e}")
+
+            # Now convert lowercase status values in data to UPPERCASE
             status_conversions = [
                 ('approved', 'APPROVED'),
                 ('draft', 'DRAFT'),
@@ -84,9 +95,7 @@ async def init_db():
                     if result.rowcount > 0:
                         print(f"[DB] Converted {result.rowcount} projects from '{old_val}' to '{new_val}'")
                 except Exception as e:
-                    # Ignore if old_val doesn't exist in enum or data
-                    if "invalid input value" not in str(e):
-                        print(f"[DB] Status conversion {old_val}: {e}")
+                    print(f"[DB] Status conversion {old_val} -> {new_val}: {e}")
 
             # Add missing proofrequiredlevel enum values
             # SQLAlchemy sends uppercase enum names, so we need both cases
