@@ -247,8 +247,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
               }
             }}
           >
-            <span className="text-xl font-bold text-blue-600 leading-tight">PPMS</span>
-            <span className="text-[10px] text-gray-400 leading-tight">Project & coach Profile Management System</span>
+            <span className="text-xl font-bold text-blue-600 leading-tight">PCMS</span>
+            <span className="text-[10px] text-gray-400 leading-tight">Project & Coach pool Management System</span>
           </div>
 
           {user && menuItems.length > 0 && (

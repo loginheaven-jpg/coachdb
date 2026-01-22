@@ -112,7 +112,7 @@ export default function AdminDashboard() {
         <div className="mb-4">
           <Title level={2} className="mb-0">관리자 대시보드</Title>
           <Text className="block text-gray-600">
-            환영합니다, {user?.name}님! - PPMS (Project & coach Profile Management System)
+            환영합니다, {user?.name}님! - PCMS (Project & Coach pool Management System)
           </Text>
         </div>
 

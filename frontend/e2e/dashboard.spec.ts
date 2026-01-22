@@ -79,14 +79,14 @@ test.describe('네비게이션', () => {
     await expect(page).toHaveURL(/\/my-applications/)
   })
 
-  test('PPMS 로고 클릭 시 대시보드로 이동', async ({ page }) => {
+  test('PCMS 로고 클릭 시 대시보드로 이동', async ({ page }) => {
     // 과제참여 페이지로 이동 후 로드 대기
     await page.locator('.ant-menu-item:has-text("과제참여")').click()
     await page.waitForURL('/projects', { timeout: 10000 })
     await page.waitForLoadState('networkidle')
 
-    // 헤더의 PPMS 로고 클릭
-    await page.locator('header .text-xl:has-text("PPMS")').click()
+    // 헤더의 PCMS 로고 클릭
+    await page.locator('header .text-xl:has-text("PCMS")').click()
     await expect(page).toHaveURL(/\/dashboard/)
   })
 })

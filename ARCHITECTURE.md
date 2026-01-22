@@ -27,7 +27,7 @@
 ## 프로젝트 개요
 
 ### 기본 정보
-- **프로젝트명**: PCMS (Professional Coach Management System)
+- **프로젝트명**: PCMS (Project & Coach pool Management System)
 - **부제**: 코치 역량 데이터베이스 및 프로젝트 매칭 시스템
 - **한 줄 요약**: 코치의 역량을 중앙 DB에 저장하고, 프로젝트 지원 시 재사용할 수 있는 "전자지갑" 시스템
 - **주요 사용자**:
@@ -1128,7 +1128,7 @@ Railway Auto-Deploy
 #!/bin/bash
 set -e
 
-echo "=== Starting CoachDB Backend ==="
+echo "=== Starting PCMS Backend ==="
 
 # 1. DATABASE_URL 확인
 if [ -z "$DATABASE_URL" ]; then
@@ -1850,6 +1850,21 @@ git commit -m "docs: update ARCHITECTURE.md - add new notification type"
 
 ## 변경 이력
 
+### 2026-01-23
+- **서비스 공식 명칭 변경**
+  - 기존: PPMS (Project & coach Profile Management System)
+  - 변경: **PCMS (Project & Coach pool Management System)**
+  - 영향 범위:
+    - Frontend: AppLayout, LoginPage, RegisterPage, AdminDashboard, CoachDashboard, DashboardPage
+    - Backend: Email template (base.html)
+    - E2E Tests: dashboard.spec.ts
+    - Documentation: ARCHITECTURE.md
+
+- **과제 생성 페이지 개선**
+  - 페이지 진입 시 안내 팝업 추가
+  - 내용: "과제정보, 설문항목(100점 배점), 심사계획(심사위원지정 포함) 이 완료되어야 과제를 상신할 수 있습니다. 이를 관리자가 승인하고 모집기간이 도래하면 응모코치들께 과제가 노출됩니다."
+  - 사용자 경험 개선: 과제 생성 프로세스에 대한 명확한 안내 제공
+
 ### 2026-01-22
 - **ARCHITECTURE.md 대폭 확장** (Claude Sonnet 4.5)
   - 목차 추가 (13개 주요 섹션)
@@ -1904,6 +1919,6 @@ git commit -m "docs: update ARCHITECTURE.md - add new notification type"
 
 ---
 
-**Last Updated**: 2026-01-22 by Claude Sonnet 4.5
+**Last Updated**: 2026-01-23 by Claude Sonnet 4.5
 
-**Document Version**: 2.0 (Major expansion)
+**Document Version**: 2.1 (Service name change + Project create page improvement)

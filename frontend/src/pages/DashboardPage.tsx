@@ -169,7 +169,7 @@ export default function DashboardPage() {
       <div className="mb-8">
         <Title level={2}>안녕하세요, {user?.name}님!</Title>
         <Text type="secondary" className="text-lg">
-          PPMS에 오신 것을 환영합니다.
+          PCMS에 오신 것을 환영합니다.
         </Text>
       </div>
 

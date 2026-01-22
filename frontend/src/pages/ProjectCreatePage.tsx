@@ -11,7 +11,8 @@ import {
   message,
   Space,
   Alert,
-  Select
+  Select,
+  Modal
 } from 'antd'
 import { ArrowLeftOutlined, SaveOutlined } from '@ant-design/icons'
 import projectService, { ProjectCreate, ProjectStatus, ProjectType, PROJECT_TYPE_LABELS } from '../services/projectService'
@@ -44,6 +45,21 @@ export default function ProjectCreatePage() {
       }
     }
     loadUsers()
+  }, [])
+
+  // 페이지 진입 시 안내 팝업 표시
+  useEffect(() => {
+    Modal.info({
+      title: '과제 생성 안내',
+      content: (
+        <div>
+          <p>과제정보, 설문항목(100점 배점), 심사계획(심사위원지정 포함) 이 완료되어야 과제를 상신할 수 있습니다.</p>
+          <p>이를 관리자가 승인하고 모집기간이 도래하면 응모코치들께 과제가 노출됩니다.</p>
+        </div>
+      ),
+      okText: '확인',
+      width: 500
+    })
   }, [])
 
   const handleSubmit = async (values: any) => {

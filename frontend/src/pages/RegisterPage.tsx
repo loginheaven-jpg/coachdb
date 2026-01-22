@@ -94,14 +94,14 @@ export default function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-100 py-8">
       <Card className="w-full max-w-2xl">
         <div className="text-center mb-4">
-          <Title level={2} className="text-blue-600 mb-1">PPMS</Title>
-          <p className="text-gray-500 text-sm">Project & coach Profile Management System</p>
+          <Title level={2} className="text-blue-600 mb-1">PCMS</Title>
+          <p className="text-gray-500 text-sm">Project & Coach pool Management System</p>
         </div>
         <Title level={4} className="text-center mb-2">
           회원가입
         </Title>
         <Text className="block text-center text-gray-600 mb-6">
-          PPMS에 오신 것을 환영합니다
+          PCMS에 오신 것을 환영합니다
         </Text>
 
         <Form
