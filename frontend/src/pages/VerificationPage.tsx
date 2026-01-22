@@ -654,6 +654,7 @@ export default function VerificationPage() {
           rows={4}
           maxLength={1000}
           showCount
+          style={{ marginBottom: 8 }}
         />
       </Modal>
 
