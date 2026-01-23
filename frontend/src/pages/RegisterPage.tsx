@@ -8,13 +8,15 @@ import { useAuthStore } from '../stores/authStore'
 const { Title, Text } = Typography
 const { Option } = Select
 
-// 역할 옵션 - 응모자 외 역할은 관리자 승인 필요
-// 참고: 과제관리자(PROJECT_MANAGER)는 별도 역할이 아님 - 누구나 과제 생성 가능하며 본인 과제만 관리
+// 역할 옵션
+// - COACH: 기본 역할 (모든 사용자)
+// - VERIFIER: 증빙검토 역할 (전역 권한, 관리자 승인 필요)
+// - REVIEWER: 가입 시 불필요 (과제별로 과제관리자가 지정)
+// - PROJECT_MANAGER: 가입 시 불필요 (누구나 과제 생성 가능, 본인 과제만 관리)
+// - SUPER_ADMIN: 내부 지정 (가입 옵션 아님)
 const ROLE_OPTIONS = [
   { value: 'COACH', label: '응모자', requiresApproval: false },
-  { value: 'VERIFIER', label: '검토자', requiresApproval: true },
-  { value: 'REVIEWER', label: '심사자', requiresApproval: true },
-  { value: 'SUPER_ADMIN', label: '어드민', requiresApproval: true }
+  { value: 'VERIFIER', label: '검토자', requiresApproval: true }
 ]
 
 // 코칭 분야 옵션
