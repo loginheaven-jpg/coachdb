@@ -72,7 +72,13 @@ class Application(Base):
     frozen_at = Column(DateTime(timezone=True), nullable=True)  # 동결 시점
 
     # 서류검토 상태 (심사개시 기능용)
-    document_status = Column(Enum(DocumentStatus), nullable=False, default=DocumentStatus.PENDING)
+    # DB enum은 소문자 값 사용, create_type=False로 기존 enum 재사용
+    document_status = Column(
+        Enum('pending', 'in_review', 'supplement_requested', 'approved', 'disqualified',
+             name='documentstatus', create_type=False),
+        nullable=False,
+        server_default='pending'
+    )
     document_disqualification_reason = Column(Text, nullable=True)  # 서류탈락 사유
     document_disqualified_at = Column(DateTime(timezone=True), nullable=True)  # 서류탈락 시점
 
