@@ -18,7 +18,9 @@ import {
   Progress,
   Divider,
   Checkbox,
-  Popconfirm
+  Popconfirm,
+  List,
+  Alert
 } from 'antd'
 import {
   ArrowLeftOutlined,
@@ -33,10 +35,13 @@ import {
   FormOutlined,
   SettingOutlined,
   StarOutlined,
-  CloseCircleOutlined
+  CloseCircleOutlined,
+  PlayCircleOutlined,
+  FileExclamationOutlined,
+  FileProtectOutlined
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
-import projectService, { ProjectDetail } from '../services/projectService'
+import projectService, { ProjectDetail, StartReviewPreviewResponse, StartReviewPreviewItem, ProjectStatus } from '../services/projectService'
 import { useAuthStore } from '../stores/authStore'
 import scoringService, {
   ApplicationWithScores,
@@ -98,6 +103,12 @@ export default function ProjectReviewPage() {
   // Action loading states
   const [calculatingScores, setCalculatingScores] = useState(false)
   const [finalizingScores, setFinalizingScores] = useState(false)
+
+  // 심사개시 관련 state
+  const [startReviewModalOpen, setStartReviewModalOpen] = useState(false)
+  const [startReviewPreview, setStartReviewPreview] = useState<StartReviewPreviewResponse | null>(null)
+  const [startingReview, setStartingReview] = useState(false)
+  const [loadingPreview, setLoadingPreview] = useState(false)
 
   // 권한 체크: SUPER_ADMIN 또는 과제관리자만 선발/탈락 가능
   const isSuperAdmin = user?.roles?.includes('SUPER_ADMIN')
@@ -221,6 +232,62 @@ export default function ProjectReviewPage() {
     }
   }
 
+  // 심사개시 미리보기 (서류탈락 대상 확인)
+  const handlePreviewStartReview = async () => {
+    if (!projectId) return
+
+    try {
+      setLoadingPreview(true)
+      const preview = await projectService.previewStartReview(parseInt(projectId))
+      setStartReviewPreview(preview)
+      setStartReviewModalOpen(true)
+    } catch (error: any) {
+      console.error('Preview start review failed:', error)
+      message.error(error.response?.data?.detail || '심사개시 미리보기에 실패했습니다.')
+    } finally {
+      setLoadingPreview(false)
+    }
+  }
+
+  // 심사개시 실행
+  const handleStartReview = async () => {
+    if (!projectId) return
+
+    try {
+      setStartingReview(true)
+      const result = await projectService.startReview(parseInt(projectId))
+      message.success(
+        `심사가 개시되었습니다. 서류완료: ${result.qualified_count}건, 서류탈락: ${result.disqualified_count}건`
+      )
+      setStartReviewModalOpen(false)
+      setStartReviewPreview(null)
+      loadData()
+    } catch (error: any) {
+      console.error('Start review failed:', error)
+      message.error(error.response?.data?.detail || '심사개시에 실패했습니다.')
+    } finally {
+      setStartingReview(false)
+    }
+  }
+
+  // 서류상태 태그
+  const getDocumentStatusTag = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return <Tag icon={<ClockCircleOutlined />} color="default">대기</Tag>
+      case 'in_review':
+        return <Tag icon={<ClockCircleOutlined />} color="processing">검토중</Tag>
+      case 'supplement_requested':
+        return <Tag icon={<ExclamationCircleOutlined />} color="warning">보완요청</Tag>
+      case 'approved':
+        return <Tag icon={<FileProtectOutlined />} color="success">서류완료</Tag>
+      case 'disqualified':
+        return <Tag icon={<FileExclamationOutlined />} color="error">서류탈락</Tag>
+      default:
+        return <Tag>{status}</Tag>
+    }
+  }
+
   const columns: ColumnsType<ApplicationWithScores> = [
     {
       title: '순위',
@@ -251,6 +318,13 @@ export default function ProjectReviewPage() {
       key: 'applied_role',
       width: 100,
       render: (role: string | null) => getRoleTag(role)
+    },
+    {
+      title: '서류상태',
+      dataIndex: 'document_status',
+      key: 'document_status',
+      width: 100,
+      render: (status: string) => getDocumentStatusTag(status)
     },
     {
       title: '정량점수',
@@ -468,6 +542,23 @@ export default function ProjectReviewPage() {
           </Col>
           <Col>
             <Space>
+              {/* 심사개시 버튼 - 심사중 상태이고 아직 심사개시 전일 때만 표시 */}
+              {canManageSelection && project?.status === ProjectStatus.REVIEWING && !project.review_started_at && (
+                <Button
+                  type="primary"
+                  danger
+                  icon={<PlayCircleOutlined />}
+                  onClick={handlePreviewStartReview}
+                  loading={loadingPreview}
+                >
+                  심사개시
+                </Button>
+              )}
+              {project?.review_started_at && (
+                <Tag color="green" icon={<CheckCircleOutlined />}>
+                  심사개시됨 ({dayjs(project.review_started_at).format('MM-DD HH:mm')})
+                </Tag>
+              )}
               <Button
                 icon={<CalculatorOutlined />}
                 onClick={handleCalculateScores}
@@ -515,7 +606,7 @@ export default function ProjectReviewPage() {
             showSizeChanger: true,
             showTotal: (total) => `총 ${total}명`
           }}
-          scroll={{ x: 1300 }}
+          scroll={{ x: 1400 }}
           locale={{
             emptyText: '아직 응모자가 없습니다.'
           }}
@@ -598,6 +689,106 @@ export default function ProjectReviewPage() {
           }}
         />
       )}
+
+      {/* 심사개시 확인 모달 */}
+      <Modal
+        title={
+          <Space>
+            <PlayCircleOutlined style={{ color: '#ff4d4f' }} />
+            심사개시 확인
+          </Space>
+        }
+        open={startReviewModalOpen}
+        maskClosable={false}
+        onOk={handleStartReview}
+        onCancel={() => {
+          setStartReviewModalOpen(false)
+          setStartReviewPreview(null)
+        }}
+        okText="심사개시"
+        okButtonProps={{ danger: true, loading: startingReview }}
+        cancelText="취소"
+        width={600}
+      >
+        {startReviewPreview && (
+          <div className="space-y-4">
+            <Alert
+              type="warning"
+              message="주의: 심사개시 후에는 되돌릴 수 없습니다"
+              description="심사개시 후에는 응모자의 보완 제출이 차단되며, 서류검토 미완료 건은 서류탈락 처리됩니다."
+              showIcon
+            />
+
+            <Row gutter={16} className="mt-4">
+              <Col span={12}>
+                <Card size="small">
+                  <Statistic
+                    title="서류완료 (심사 대상)"
+                    value={startReviewPreview.qualified_count}
+                    suffix="건"
+                    valueStyle={{ color: '#52c41a' }}
+                    prefix={<FileProtectOutlined />}
+                  />
+                </Card>
+              </Col>
+              <Col span={12}>
+                <Card size="small">
+                  <Statistic
+                    title="서류탈락 예정"
+                    value={startReviewPreview.disqualified_count}
+                    suffix="건"
+                    valueStyle={{ color: '#ff4d4f' }}
+                    prefix={<FileExclamationOutlined />}
+                  />
+                </Card>
+              </Col>
+            </Row>
+
+            {startReviewPreview.disqualified_count > 0 && (
+              <div className="mt-4">
+                <Text strong className="block mb-2">서류탈락 예정 목록:</Text>
+                <List<StartReviewPreviewItem>
+                  size="small"
+                  bordered
+                  dataSource={startReviewPreview.disqualified_list}
+                  style={{ maxHeight: 200, overflow: 'auto' }}
+                  renderItem={(item: StartReviewPreviewItem) => (
+                    <List.Item>
+                      <Space>
+                        <FileExclamationOutlined style={{ color: '#ff4d4f' }} />
+                        <Text strong>{item.user_name}</Text>
+                        <Text type="secondary">({item.user_email})</Text>
+                        <Text type="danger">- {item.reason}</Text>
+                      </Space>
+                    </List.Item>
+                  )}
+                />
+              </div>
+            )}
+
+            {startReviewPreview.qualified_count > 0 && (
+              <div className="mt-4">
+                <Text strong className="block mb-2">서류완료 목록:</Text>
+                <List<StartReviewPreviewItem>
+                  size="small"
+                  bordered
+                  dataSource={startReviewPreview.qualified_list}
+                  style={{ maxHeight: 200, overflow: 'auto' }}
+                  renderItem={(item: StartReviewPreviewItem) => (
+                    <List.Item>
+                      <Space>
+                        <FileProtectOutlined style={{ color: '#52c41a' }} />
+                        <Text strong>{item.user_name}</Text>
+                        <Text type="secondary">({item.user_email})</Text>
+                      </Space>
+                    </List.Item>
+                  )}
+                />
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }

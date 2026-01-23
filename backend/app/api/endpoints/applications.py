@@ -1352,6 +1352,14 @@ async def submit_supplement(
             detail="You can only submit supplements for your own applications"
         )
 
+    # Check if review has started (심사개시 후 보완 제출 차단)
+    project = await db.get(Project, application.project_id)
+    if project and project.review_started_at:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="심사가 개시되어 보완 제출이 불가능합니다."
+        )
+
     # Get application data
     data_result = await db.execute(
         select(ApplicationData).where(

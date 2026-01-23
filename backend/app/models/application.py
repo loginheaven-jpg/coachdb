@@ -30,6 +30,15 @@ class CoachRole(str, enum.Enum):
     SUPERVISOR = "supervisor"     # 수퍼비전 코치
 
 
+class DocumentStatus(str, enum.Enum):
+    """서류검토 상태 (Application 레벨)"""
+    PENDING = "pending"                    # 검토 대기
+    IN_REVIEW = "in_review"                # 검토 중
+    SUPPLEMENT_REQUESTED = "supplement_requested"  # 보완 요청 중
+    APPROVED = "approved"                  # 서류 완료
+    DISQUALIFIED = "disqualified"          # 서류 탈락
+
+
 class Application(Base):
     """Track coach applications to projects"""
 
@@ -61,6 +70,11 @@ class Application(Base):
     # 마감 후 스냅샷 동결 관련 필드
     is_frozen = Column(Boolean, nullable=False, default=False)  # 마감 후 데이터 동결 여부
     frozen_at = Column(DateTime(timezone=True), nullable=True)  # 동결 시점
+
+    # 서류검토 상태 (심사개시 기능용)
+    document_status = Column(Enum(DocumentStatus), nullable=False, default=DocumentStatus.PENDING)
+    document_disqualification_reason = Column(Text, nullable=True)  # 서류탈락 사유
+    document_disqualified_at = Column(DateTime(timezone=True), nullable=True)  # 서류탈락 시점
 
     # Prevent duplicate applications to same project
     __table_args__ = (

@@ -9,7 +9,7 @@ from app.core.security import get_current_user, require_role
 from app.core.utils import get_user_roles
 from app.models.user import User, UserStatus
 from app.models.project import Project, ProjectStatus, ProjectStaff
-from app.models.application import Application, ApplicationData, ApplicationStatus
+from app.models.application import Application, ApplicationData, ApplicationStatus, DocumentStatus, SelectionResult
 from datetime import datetime
 from app.models.custom_question import CustomQuestion, CustomQuestionAnswer
 from app.models.evaluation import CoachEvaluation
@@ -3182,3 +3182,245 @@ async def remove_project_staff(
     await db.commit()
 
     return None
+
+
+# ============================================================================
+# 심사개시 (Start Review) API
+# ============================================================================
+
+@router.get("/{project_id}/preview-start-review")
+async def preview_start_review(
+    project_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    심사개시 미리보기 - 서류검토 미완료 건 목록 조회
+
+    심사개시 버튼 클릭 시 미완료 건 수와 목록을 먼저 보여주기 위한 API
+
+    Returns:
+        - total_applications: 전체 제출된 응모 수
+        - qualified_count: 서류검토 완료 응모 수 (심사 대상)
+        - disqualified_count: 서류검토 미완료 응모 수 (서류탈락 예정)
+        - disqualified_list: 미완료 응모 목록 (응모자명, 미완료 항목 수)
+    """
+    # 프로젝트 조회
+    project = await db.get(Project, project_id)
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="프로젝트를 찾을 수 없습니다."
+        )
+
+    # 권한 체크
+    user_roles = get_user_roles(current_user)
+    is_super_admin = "SUPER_ADMIN" in user_roles
+    is_project_manager = "PROJECT_MANAGER" in user_roles
+    is_creator = project.created_by == current_user.user_id
+    is_manager = project.project_manager_id == current_user.user_id
+
+    if not (is_super_admin or is_project_manager or is_creator or is_manager):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="심사개시 권한이 없습니다."
+        )
+
+    # 이미 심사 시작됨
+    if project.review_started_at:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="이미 심사가 시작된 과제입니다."
+        )
+
+    # 제출된 응모 조회
+    apps_result = await db.execute(
+        select(Application)
+        .options()
+        .where(
+            Application.project_id == project_id,
+            Application.status == ApplicationStatus.SUBMITTED
+        )
+    )
+    applications = apps_result.scalars().all()
+
+    qualified_list = []
+    disqualified_list = []
+
+    for app in applications:
+        # 응모자 정보 조회
+        user = await db.get(User, app.user_id)
+        user_name = user.name if user else f"User {app.user_id}"
+
+        # ApplicationData 조회
+        data_result = await db.execute(
+            select(ApplicationData)
+            .where(ApplicationData.application_id == app.application_id)
+        )
+        data_items = data_result.scalars().all()
+
+        # 미완료 항목 수 계산
+        pending_items = [
+            item for item in data_items
+            if item.verification_status != 'approved'
+        ]
+
+        user_email = user.email if user else ""
+
+        app_info = {
+            "application_id": app.application_id,
+            "user_id": app.user_id,
+            "user_name": user_name,
+            "user_email": user_email,
+            "total_items": len(data_items),
+            "pending_items_count": len(pending_items),
+            "pending_statuses": [
+                {
+                    "data_id": item.data_id,
+                    "item_id": item.item_id,
+                    "status": item.verification_status
+                }
+                for item in pending_items
+            ]
+        }
+
+        if len(pending_items) == 0 and len(data_items) > 0:
+            qualified_list.append(app_info)
+        else:
+            # 서류탈락 사유 생성
+            if len(data_items) == 0:
+                reason = "제출된 증빙서류 없음"
+            else:
+                reason = f"미완료 항목 {len(pending_items)}건"
+            app_info["reason"] = reason
+            disqualified_list.append(app_info)
+
+    return {
+        "project_id": project_id,
+        "project_name": project.project_name,
+        "total_applications": len(applications),
+        "qualified_count": len(qualified_list),
+        "disqualified_count": len(disqualified_list),
+        "qualified_list": qualified_list,
+        "disqualified_list": disqualified_list
+    }
+
+
+@router.post("/{project_id}/start-review")
+async def start_review(
+    project_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    심사 개시 - 이 시점부터:
+    1. 모든 응모자의 보완 제출 차단
+    2. 서류검토 미완료 건 자동 서류탈락 처리
+    3. 서류검토 완료 건만 심사 대상으로 표시
+
+    **Required roles**: SUPER_ADMIN, PROJECT_MANAGER, 또는 과제 생성자/관리자
+
+    Returns:
+        - message: 처리 결과 메시지
+        - qualified_count: 심사 대상 수
+        - disqualified_count: 서류탈락 수
+        - review_started_at: 심사개시 시점
+    """
+    # 프로젝트 조회
+    project = await db.get(Project, project_id)
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="프로젝트를 찾을 수 없습니다."
+        )
+
+    # 권한 체크
+    user_roles = get_user_roles(current_user)
+    is_super_admin = "SUPER_ADMIN" in user_roles
+    is_project_manager = "PROJECT_MANAGER" in user_roles
+    is_creator = project.created_by == current_user.user_id
+    is_manager = project.project_manager_id == current_user.user_id
+
+    if not (is_super_admin or is_project_manager or is_creator or is_manager):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="심사개시 권한이 없습니다."
+        )
+
+    # 이미 심사 시작됨
+    if project.review_started_at:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="이미 심사가 시작된 과제입니다."
+        )
+
+    # 프로젝트 상태 확인 (REVIEWING 상태여야 함)
+    if project.status != ProjectStatus.REVIEWING:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"REVIEWING 상태의 과제만 심사개시 가능합니다. 현재 상태: {project.status.value}"
+        )
+
+    # 제출된 응모 조회
+    apps_result = await db.execute(
+        select(Application)
+        .where(
+            Application.project_id == project_id,
+            Application.status == ApplicationStatus.SUBMITTED
+        )
+    )
+    applications = apps_result.scalars().all()
+
+    disqualified_count = 0
+    qualified_count = 0
+    now = datetime.utcnow()
+
+    for app in applications:
+        # ApplicationData 조회
+        data_result = await db.execute(
+            select(ApplicationData)
+            .where(ApplicationData.application_id == app.application_id)
+        )
+        data_items = data_result.scalars().all()
+
+        # 모든 항목이 approved인 경우만 qualified
+        all_approved = all(
+            item.verification_status == 'approved'
+            for item in data_items
+        ) if data_items else False
+
+        if all_approved and len(data_items) > 0:
+            app.document_status = DocumentStatus.APPROVED
+            qualified_count += 1
+        else:
+            # 미완료 건 서류탈락 처리
+            pending_items = [
+                item for item in data_items
+                if item.verification_status != 'approved'
+            ]
+            app.document_status = DocumentStatus.DISQUALIFIED
+            app.document_disqualification_reason = (
+                f"심사개시 시점에 {len(pending_items)}건의 서류가 검토 미완료 상태입니다."
+            )
+            app.document_disqualified_at = now
+            app.selection_result = SelectionResult.REJECTED  # 자동 탈락
+            disqualified_count += 1
+
+    # 프로젝트 심사개시 시점 기록
+    project.review_started_at = now
+
+    await db.commit()
+
+    logger.info(
+        f"[START_REVIEW] project_id={project_id}, "
+        f"qualified={qualified_count}, disqualified={disqualified_count}, "
+        f"by={current_user.email}"
+    )
+
+    return {
+        "message": "심사가 개시되었습니다.",
+        "project_id": project_id,
+        "qualified_count": qualified_count,
+        "disqualified_count": disqualified_count,
+        "review_started_at": project.review_started_at.isoformat() if project.review_started_at else None
+    }

@@ -77,6 +77,9 @@ class Project(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
 
+    # 심사개시 시점 (이 시점 이후 보완 제출 차단, 미완료 건 서류탈락)
+    review_started_at = Column(DateTime(timezone=True), nullable=True)
+
     # Relationships
     creator = relationship("User", back_populates="created_projects", foreign_keys=[created_by])
     project_manager = relationship("User", foreign_keys=[project_manager_id])

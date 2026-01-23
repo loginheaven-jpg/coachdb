@@ -303,6 +303,7 @@
 - project_manager_id: BIGINT FK → users.user_id
 - created_by: BIGINT FK → users.user_id
 - project_achievements, project_special_notes: TEXT
+- review_started_at: TIMESTAMP  # 심사개시 시점 (이 시점 이후 보완 제출 차단)
 - created_at, updated_at: TIMESTAMP
 ```
 
@@ -322,6 +323,9 @@
 - is_frozen: BOOLEAN DEFAULT FALSE
 - frozen_at: TIMESTAMP
 - submitted_at, reviewed_at: TIMESTAMP
+- document_status: ENUM DEFAULT 'pending'  # pending, in_review, supplement_requested, approved, disqualified (심사개시용)
+- document_disqualification_reason: TEXT  # 서류탈락 사유
+- document_disqualified_at: TIMESTAMP  # 서류탈락 시점
 - UNIQUE(project_id, user_id)  # 중복 지원 방지
 ```
 
@@ -674,6 +678,8 @@ POST   /api/projects/{id}/submit    # 과제 상신 (draft → pending)
 POST   /api/projects/{id}/approve   # 과제 승인 (SUPER_ADMIN, pending → approved)
 POST   /api/projects/{id}/reject    # 과제 반려 (SUPER_ADMIN, pending → draft)
 POST   /api/projects/{id}/start-recruitment  # 모집 시작 (approved → ready)
+GET    /api/projects/{id}/preview-start-review  # 심사개시 미리보기 (서류탈락 대상 조회)
+POST   /api/projects/{id}/start-review  # 심사개시 (보완 차단, 미완료 건 서류탈락)
 GET    /api/projects/{id}/items     # 프로젝트 수집 항목 목록
 ```
 
@@ -1941,6 +1947,27 @@ git commit -m "docs: update ARCHITECTURE.md - add new notification type"
 ### 2025-01-22
 - ARCHITECTURE.md 최초 작성 (662줄 기본 구조)
 
+### 2026-01-23
+- **심사개시(Start Review) 기능 추가**
+  - 기능 개요: 서류검토 완료 후 심사 단계 진입 기능
+  - DB 변경:
+    - `applications.document_status`: 서류검토 상태 (pending, in_review, supplement_requested, approved, disqualified)
+    - `applications.document_disqualification_reason`: 서류탈락 사유
+    - `applications.document_disqualified_at`: 서류탈락 시점
+    - `projects.review_started_at`: 심사개시 시점
+  - API 추가:
+    - `GET /api/projects/{id}/preview-start-review`: 심사개시 미리보기 (서류탈락 대상 목록 조회)
+    - `POST /api/projects/{id}/start-review`: 심사개시 (보완 제출 차단, 미완료 건 서류탈락 처리)
+  - 프론트엔드 변경:
+    - `ProjectReviewPage.tsx`: 심사개시 버튼 및 확인 모달 추가
+    - 응모자 목록에 '서류상태' 컬럼 추가
+  - 프로세스:
+    1. REVIEWING 상태에서 과제관리자가 "심사개시" 버튼 클릭
+    2. 미리보기에서 서류완료/서류탈락 예정 목록 확인
+    3. 확인 후 심사개시 실행
+    4. 심사개시 이후: 보완 제출 차단, 미완료 건 자동 서류탈락
+    5. 심사자는 서류완료 응모건만 평가 가능
+
 ---
 
 ## 참고 문서
@@ -1956,6 +1983,6 @@ git commit -m "docs: update ARCHITECTURE.md - add new notification type"
 
 ---
 
-**Last Updated**: 2026-01-23 by Claude Sonnet 4.5
+**Last Updated**: 2026-01-23 by Claude Opus 4.5
 
-**Document Version**: 2.1 (Service name change + Project create page improvement)
+**Document Version**: 2.2 (Start Review feature added)

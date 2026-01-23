@@ -171,6 +171,7 @@ export interface Project extends ProjectBase {
   created_by: number
   created_at: string
   updated_at: string | null
+  review_started_at: string | null  // 심사개시 시점
 }
 
 export interface ProjectDetail extends Project {
@@ -179,6 +180,27 @@ export interface ProjectDetail extends Project {
   application_count: number | null
   selected_count: number | null
   current_participants?: number  // 확정된 참여자 수
+}
+
+// 심사개시 미리보기 응답 타입
+export interface StartReviewPreviewItem {
+  application_id: number
+  user_id: number
+  user_name: string
+  user_email: string
+  total_items: number
+  pending_items_count: number
+  reason?: string  // 서류탈락 사유 (disqualified_list에만 포함)
+}
+
+export interface StartReviewPreviewResponse {
+  project_id: number
+  project_name: string
+  total_applications: number
+  qualified_count: number
+  disqualified_count: number
+  qualified_list: StartReviewPreviewItem[]
+  disqualified_list: StartReviewPreviewItem[]
 }
 
 export interface ProjectListItem {
@@ -198,6 +220,7 @@ export interface ProjectListItem {
   project_manager_id: number | null  // 과제관리자 ID
   project_manager_name: string | null  // 과제관리자 이름
   created_at: string
+  review_started_at: string | null  // 심사개시 시점
 }
 
 // ============================================================================
@@ -430,8 +453,10 @@ export interface ProjectApplicationListItem {
   last_updated: string | null
   is_frozen: boolean
   frozen_at: string | null
-  document_verification_status: string  // pending, partial, approved, rejected, supplement_requested
+  document_verification_status: string  // pending, partial, approved, rejected, supplement_requested (계산값)
   supplement_count: number
+  document_status: string  // pending, in_review, supplement_requested, approved, disqualified (심사개시 후 저장된 값)
+  document_disqualification_reason: string | null  // 서류탈락 사유
 }
 
 // ============================================================================
@@ -480,6 +505,30 @@ const projectService = {
    */
   async createTestProjectWithApplications(): Promise<Project> {
     const response = await api.post('/projects/create-test-with-applications')
+    return response.data
+  },
+
+  /**
+   * Preview start review - 심사개시 미리보기
+   * Returns qualified/disqualified application counts and lists
+   */
+  async previewStartReview(projectId: number): Promise<StartReviewPreviewResponse> {
+    const response = await api.get(`/projects/${projectId}/preview-start-review`)
+    return response.data
+  },
+
+  /**
+   * Start review - 심사 개시
+   * Disqualifies incomplete applications and locks the project for supplement submissions
+   */
+  async startReview(projectId: number): Promise<{
+    message: string
+    project_id: number
+    qualified_count: number
+    disqualified_count: number
+    review_started_at: string
+  }> {
+    const response = await api.post(`/projects/${projectId}/start-review`)
     return response.data
   },
 

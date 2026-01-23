@@ -136,6 +136,8 @@ class ProjectResponse(ProjectBase):
     created_by: Optional[int] = None  # 일부 레거시 데이터에서 null일 수 있음
     created_at: Optional[datetime] = None  # 레거시 데이터 대응
     updated_at: Optional[datetime] = None
+    # 심사개시 시점
+    review_started_at: Optional[datetime] = None
     # ProjectBase의 필수 필드를 Optional로 오버라이드 (DB에 null인 경우 대응)
     recruitment_start_date: Optional[date] = None
     recruitment_end_date: Optional[date] = None
@@ -175,6 +177,7 @@ class ProjectListResponse(BaseModel):
     project_manager_id: Optional[int] = None  # 과제관리자 ID
     project_manager_name: Optional[str] = None  # 과제관리자 이름
     created_at: datetime
+    review_started_at: Optional[datetime] = None  # 심사개시 시점
 
     class Config:
         from_attributes = True

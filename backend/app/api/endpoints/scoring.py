@@ -716,7 +716,10 @@ async def get_applications_with_scores(
             "selection_reason": app.selection_reason if hasattr(app, 'selection_reason') else None,
             "submitted_at": app.submitted_at.isoformat() if app.submitted_at else None,
             "evaluation_count": eval_count,
-            "rank": rank if app.final_score is not None else None
+            "rank": rank if app.final_score is not None else None,
+            # 서류검토 상태
+            "document_status": app.document_status.value if app.document_status else "pending",
+            "document_disqualification_reason": app.document_disqualification_reason
         })
 
     return response

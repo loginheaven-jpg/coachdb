@@ -468,7 +468,7 @@ export default function VerificationPage() {
           ) : selectedCompetency && selectedCompetency.my_verification ? (
             <Button
               key="cancel"
-              onClick={() => handleCancelVerification(selectedCompetency.my_verification.record_id)}
+              onClick={() => handleCancelVerification(selectedCompetency.my_verification!.record_id)}
             >
               컨펌 취소
             </Button>

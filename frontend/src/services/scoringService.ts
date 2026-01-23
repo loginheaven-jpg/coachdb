@@ -161,6 +161,9 @@ export interface ApplicationWithScores {
   submitted_at: string | null
   evaluation_count: number
   rank: number | null
+  // 서류검토 상태
+  document_status: string
+  document_disqualification_reason: string | null
 }
 
 // ============================================================================

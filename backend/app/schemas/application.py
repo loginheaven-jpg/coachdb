@@ -100,6 +100,10 @@ class ApplicationResponse(ApplicationBase):
     # 마감 후 스냅샷 동결 관련
     is_frozen: bool = False
     frozen_at: Optional[datetime] = None
+    # 서류검토 상태 (심사개시 기능용)
+    document_status: str = "pending"
+    document_disqualification_reason: Optional[str] = None
+    document_disqualified_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -175,9 +179,12 @@ class ProjectApplicationListItem(BaseModel):
     last_updated: Optional[datetime] = None
     is_frozen: bool = False
     frozen_at: Optional[datetime] = None
-    # 서류 검토 상태 요약
+    # 서류 검토 상태 요약 (계산값)
     document_verification_status: str  # pending, partial, approved, rejected, supplement_requested
     supplement_count: int = 0
+    # 서류검토 상태 (심사개시 후 저장된 값)
+    document_status: str = "pending"  # pending, in_review, supplement_requested, approved, disqualified
+    document_disqualification_reason: Optional[str] = None
 
     class Config:
         from_attributes = True
