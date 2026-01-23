@@ -717,8 +717,8 @@ async def get_applications_with_scores(
             "submitted_at": app.submitted_at.isoformat() if app.submitted_at else None,
             "evaluation_count": eval_count,
             "rank": rank if app.final_score is not None else None,
-            # 서류검토 상태
-            "document_status": app.document_status.value if app.document_status else "pending",
+            # 증빙검토 상태 (document_status는 문자열 enum)
+            "document_status": app.document_status if app.document_status else "pending",
             "document_disqualification_reason": app.document_disqualification_reason
         })
 
