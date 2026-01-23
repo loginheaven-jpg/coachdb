@@ -2089,8 +2089,12 @@ export default function ApplicationSubmitPage() {
                                     </div>
                                   )}
 
-                                  {/* 검토상태 표시 */}
+                                  {/* 검토상태 표시 - 파일 첨부된 경우에만 */}
                                   {(() => {
+                                    // 증빙 불필요(NOT_REQUIRED) 또는 (선택+파일없음)인 경우 검토상태 미표시
+                                    if (proofLevel === 'not_required') return null
+                                    if (proofLevel === 'optional' && !hasFile) return null
+
                                     const linkedData = linkedCompetencyData[item.project_item_id]
                                     if (!linkedData) return null
                                     const verificationStatus = linkedData.linked_competency_verification_status || linkedData.verification_status
@@ -2283,8 +2287,13 @@ export default function ApplicationSubmitPage() {
                               </div>
                             )})()}
 
-                            {/* 검토상태 표시 */}
+                            {/* 검토상태 표시 - 파일 첨부된 경우에만 */}
                             {(() => {
+                              const proofLevelCheck = (item.proof_required_level || '').toLowerCase()
+                              // 증빙 불필요(NOT_REQUIRED) 또는 (선택+파일없음)인 경우 검토상태 미표시
+                              if (proofLevelCheck === 'not_required') return null
+                              if (proofLevelCheck === 'optional' && !singleHasFile) return null
+
                               const linkedData = linkedCompetencyData[item.project_item_id]
                               if (!linkedData) return null
                               const verificationStatus = linkedData.linked_competency_verification_status || linkedData.verification_status

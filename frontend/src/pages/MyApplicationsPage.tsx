@@ -142,7 +142,7 @@ export default function MyApplicationsPage() {
       render: (status: string) => getStatusTag(status),
     },
     {
-      title: '서류 검증',
+      title: '증빙검토',
       dataIndex: 'document_verification_status',
       key: 'document_verification_status',
       render: (_: string, record: ParticipationProject) =>

@@ -167,7 +167,7 @@ export default function ProjectApplicationsPage() {
       render: (status: string) => getStatusTag(status)
     },
     {
-      title: '서류검토',
+      title: '증빙검토',
       key: 'doc_status',
       width: 120,
       render: (_, record) => getDocVerificationTag(

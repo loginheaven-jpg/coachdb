@@ -13,7 +13,7 @@ from app.core.security import get_current_user
 from app.core.utils import get_user_roles
 from app.models.user import User, UserRole
 from app.models.application import Application, ApplicationData
-from app.models.competency import CoachCompetency, CompetencyItem
+from app.models.competency import CoachCompetency, CompetencyItem, ProjectItem, ProofRequiredLevel
 from app.models.project import Project, ProjectStatus
 from app.models.custom_question import CustomQuestion, CustomQuestionAnswer
 from app.models.notification import Notification, NotificationType
@@ -211,21 +211,42 @@ async def get_my_applications(
         )
         app_data_items = app_data_result.scalars().all()
 
-        # Calculate document verification status and supplement info
+        # Get project items for proof_required_level check
+        project_items_result = await db.execute(
+            select(ProjectItem).where(ProjectItem.project_id == project.project_id)
+        )
+        project_items = {pi.item_id: pi for pi in project_items_result.scalars().all()}
+
+        # Calculate document verification status (증빙검토 상태)
+        # - NOT_REQUIRED 또는 (OPTIONAL + 파일 없음) → 검토 불필요 (approved로 취급)
+        # - 파일 첨부된 항목만 실제 검토 상태 확인
         supplement_count = 0
         if not app_data_items:
-            doc_verification_status = "pending"
+            doc_verification_status = "approved"  # 항목 없으면 검토 완료로 처리
         else:
-            statuses = [item.verification_status for item in app_data_items]
-            supplement_count = sum(1 for s in statuses if s == "supplement_requested")
+            effective_statuses = []
+            for item in app_data_items:
+                pi = project_items.get(item.item_id)
+                proof_level = pi.proof_required_level if pi else None
+
+                # 증빙 불필요 항목은 approved로 취급
+                if proof_level == ProofRequiredLevel.NOT_REQUIRED:
+                    effective_statuses.append("approved")
+                elif proof_level == ProofRequiredLevel.OPTIONAL and item.submitted_file_id is None:
+                    effective_statuses.append("approved")
+                else:
+                    # 실제 검토 상태 사용
+                    effective_statuses.append(item.verification_status)
+                    if item.verification_status == "supplement_requested":
+                        supplement_count += 1
 
             if supplement_count > 0:
                 doc_verification_status = "supplement_requested"
-            elif all(s == "approved" for s in statuses):
+            elif all(s == "approved" for s in effective_statuses):
                 doc_verification_status = "approved"
-            elif any(s == "rejected" for s in statuses):
+            elif any(s == "rejected" for s in effective_statuses):
                 doc_verification_status = "rejected"
-            elif any(s == "approved" for s in statuses):
+            elif any(s == "approved" for s in effective_statuses):
                 doc_verification_status = "partial"
             else:
                 doc_verification_status = "pending"

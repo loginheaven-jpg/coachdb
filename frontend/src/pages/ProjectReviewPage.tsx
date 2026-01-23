@@ -715,7 +715,7 @@ export default function ProjectReviewPage() {
             <Alert
               type="warning"
               message="주의: 심사개시 후에는 되돌릴 수 없습니다"
-              description="심사개시 후에는 응모자의 보완 제출이 차단되며, 서류검토 미완료 건은 서류탈락 처리됩니다."
+              description="심사개시 후에는 응모자의 보완 제출이 차단되며, 증빙검토 미완료 건은 서류탈락 처리됩니다."
               showIcon
             />
 
