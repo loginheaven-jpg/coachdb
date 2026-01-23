@@ -642,7 +642,7 @@ def check_project_manager_permission(project: Project, current_user: User):
 async def create_project(
     project_data: ProjectCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER", "VERIFIER", "REVIEWER", "COACH"]))
+    current_user: User = Depends(get_current_user)
 ):
     """
     Create a new project
@@ -1176,12 +1176,12 @@ async def update_project(
     project_id: int,
     project_data: ProjectUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER"]))
+    current_user: User = Depends(get_current_user)
 ):
     """
     Update project information
 
-    **Required roles**: SUPER_ADMIN, PROJECT_MANAGER (only for their own projects)
+    **Required roles**: 인증된 사용자 (본인 과제만 수정 가능)
 
     **Note**: 상태(status) 변경은 이 엔드포인트로 할 수 없습니다.
     - DRAFT → READY: POST /projects/{id}/finalize 사용
@@ -1242,12 +1242,12 @@ async def update_project(
 async def delete_project(
     project_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER"]))
+    current_user: User = Depends(get_current_user)
 ):
     """
     Delete a project and all related data
 
-    **Required roles**: SUPER_ADMIN, PROJECT_MANAGER (only for their own projects)
+    **Required roles**: 인증된 사용자 (본인 과제만 삭제 가능)
     """
     import traceback
     from sqlalchemy import delete, text
@@ -1351,7 +1351,7 @@ async def delete_project(
 async def create_custom_question(
     question_data: CustomQuestionCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER"]))
+    current_user: User = Depends(get_current_user)
 ):
     """
     Create a custom question for a project
@@ -1401,7 +1401,7 @@ async def update_custom_question(
     question_id: int,
     question_data: CustomQuestionUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER"]))
+    current_user: User = Depends(get_current_user)
 ):
     """
     Update a custom question
@@ -1438,7 +1438,7 @@ async def update_custom_question(
 async def delete_custom_question(
     question_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER"]))
+    current_user: User = Depends(get_current_user)
 ):
     """
     Delete a custom question
@@ -1472,7 +1472,7 @@ async def create_coach_evaluation(
     project_id: int,
     evaluation_data: CoachEvaluationCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER"]))
+    current_user: User = Depends(get_current_user)
 ):
     """
     Create coach evaluation for a project
@@ -1555,7 +1555,7 @@ async def create_coach_evaluation(
 async def get_project_evaluations(
     project_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER"]))
+    current_user: User = Depends(get_current_user)
 ):
     """
     Get all coach evaluations for a project
@@ -1620,7 +1620,7 @@ async def update_coach_evaluation(
     evaluation_id: int,
     evaluation_data: CoachEvaluationUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER"]))
+    current_user: User = Depends(get_current_user)
 ):
     """
     Update coach evaluation
@@ -1690,7 +1690,7 @@ async def update_coach_evaluation(
 async def delete_coach_evaluation(
     evaluation_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER"]))
+    current_user: User = Depends(get_current_user)
 ):
     """
     Delete coach evaluation
@@ -1904,7 +1904,7 @@ async def add_project_item(
     project_id: int,
     item_data: ProjectItemCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER"]))
+    current_user: User = Depends(get_current_user)
 ):
     """
     Add a competency item to project (설문항목 추가)
@@ -2033,7 +2033,7 @@ async def update_project_item(
     project_item_id: int,
     item_data: ProjectItemCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER"]))
+    current_user: User = Depends(get_current_user)
 ):
     """
     Update a project item (설문항목 수정)
@@ -2144,7 +2144,7 @@ async def delete_project_item(
     project_id: int,
     project_item_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER"]))
+    current_user: User = Depends(get_current_user)
 ):
     """
     Delete a project item (설문항목 삭제)
@@ -2253,7 +2253,7 @@ async def validate_project_score(
 async def finalize_project(
     project_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER", "VERIFIER", "REVIEWER", "COACH"]))
+    current_user: User = Depends(get_current_user)
 ):
     """
     승인요청 - 모든 조건 검증 후 PENDING 상태로 전환 (SUPER_ADMIN 승인 대기)
@@ -2542,7 +2542,7 @@ async def reject_project(
 async def start_recruitment(
     project_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER", "VERIFIER", "REVIEWER", "COACH"]))
+    current_user: User = Depends(get_current_user)
 ):
     """
     모집개시 - APPROVED 상태를 READY로 변경
@@ -2602,7 +2602,7 @@ async def start_recruitment(
 async def resubmit_project(
     project_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER", "VERIFIER", "REVIEWER", "COACH"]))
+    current_user: User = Depends(get_current_user)
 ):
     """
     재상신 - REJECTED 상태를 PENDING으로 변경
@@ -2668,7 +2668,7 @@ async def resubmit_project(
 async def unpublish_project(
     project_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER"]))
+    current_user: User = Depends(get_current_user)
 ):
     """
     초안으로 되돌리기 - READY 상태를 DRAFT로 변경
@@ -2732,7 +2732,7 @@ async def unpublish_project(
 async def freeze_applications(
     project_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER"]))
+    current_user: User = Depends(get_current_user)
 ):
     """
     Freeze all submitted applications for a project.

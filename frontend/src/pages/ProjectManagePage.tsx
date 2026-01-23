@@ -52,10 +52,8 @@ export default function ProjectManagePage() {
   // 수퍼어드민 여부
   const isSuperAdmin = user?.email === 'loginheaven@gmail.com' || userRoles.includes('SUPER_ADMIN')
 
-  // 과제 생성 권한 (PROJECT_MANAGER 이상)
-  const canCreateProject = userRoles.some(r =>
-    ['SUPER_ADMIN', 'PROJECT_MANAGER', 'VERIFIER', 'REVIEWER', 'admin'].includes(r)
-  )
+  // 과제 생성 권한: 모든 인증된 사용자 (본인 과제만 관리 가능, SUPER_ADMIN 승인 필요)
+  const canCreateProject = true
 
   useEffect(() => {
     loadData()

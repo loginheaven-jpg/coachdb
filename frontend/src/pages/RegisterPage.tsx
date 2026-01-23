@@ -9,11 +9,11 @@ const { Title, Text } = Typography
 const { Option } = Select
 
 // 역할 옵션 - 응모자 외 역할은 관리자 승인 필요
+// 참고: 과제관리자(PROJECT_MANAGER)는 별도 역할이 아님 - 누구나 과제 생성 가능하며 본인 과제만 관리
 const ROLE_OPTIONS = [
   { value: 'COACH', label: '응모자', requiresApproval: false },
   { value: 'VERIFIER', label: '검토자', requiresApproval: true },
   { value: 'REVIEWER', label: '심사자', requiresApproval: true },
-  { value: 'PROJECT_MANAGER', label: '과제관리자', requiresApproval: true },
   { value: 'SUPER_ADMIN', label: '어드민', requiresApproval: true }
 ]
 

@@ -31,11 +31,15 @@
 - **부제**: 코치 역량 데이터베이스 및 프로젝트 매칭 시스템
 - **한 줄 요약**: 코치의 역량을 중앙 DB에 저장하고, 프로젝트 지원 시 재사용할 수 있는 "전자지갑" 시스템
 - **주요 사용자**:
-  - **코치 (COACH)**: 역량 관리, 프로젝트 지원
-  - **실무자 (STAFF/VERIFIER)**: 증빙서류 검토 및 검증
-  - **평가자 (REVIEWER)**: 코치 평가 및 심사
-  - **프로젝트 관리자 (PROJECT_MANAGER)**: 프로젝트 생성, 평가 기준 설정
+  - **코치 (COACH)**: 역량 관리, 프로젝트 지원, 과제 생성 가능 (본인 과제만 관리)
+  - **실무자 (VERIFIER)**: 증빙서류 검토 및 검증
+  - **평가자 (REVIEWER)**: 코치 평가 및 심사 (특정 과제에 배정)
   - **시스템 관리자 (SUPER_ADMIN)**: 시스템 설정, 역량 항목 정의, 과제 승인
+
+- **권한 체계 핵심 원칙**:
+  - 과제 생성: 모든 인증된 사용자 가능 (SUPER_ADMIN 승인 후 공개)
+  - 과제 관리: 본인이 생성한 과제만 관리 가능 (`created_by` 기반)
+  - 과제관리자(PROJECT_MANAGER)는 별도 가입 역할이 아님 (레거시 호환 유지)
 
 ### 핵심 목적
 1. **역량 정보의 중앙 관리** (전자지갑)
@@ -204,16 +208,17 @@
 
 **역할 정의** (`UserRole` enum):
 - `SUPER_ADMIN`: 시스템 전체 관리, 역량 항목 정의, 과제 승인
-- `PROJECT_MANAGER`: 프로젝트 생성/관리, 평가 기준 설정
 - `VERIFIER`: 증빙서류 검증 (실무자)
-- `REVIEWER`: 코치 평가/심사
-- `COACH`: 일반 코치
+- `REVIEWER`: 코치 평가/심사 (특정 과제에 배정)
+- `COACH`: 일반 코치 (기본 역할)
+- ~~`PROJECT_MANAGER`~~: Deprecated - 가입 시 별도 요청 불필요 (누구나 과제 생성 가능)
 - ~~`ADMIN`, `STAFF`~~: Deprecated (하위 호환성 유지)
 
 **권한 체계**:
 - 복수 역할 지원: `roles` 필드는 JSON 배열
-- Dependency 기반 권한 체크: `require_roles([UserRole.ADMIN, UserRole.STAFF])`
-- 프론트엔드 권한 체크: `authStore.hasRole(['ADMIN', 'STAFF'])`
+- **과제 접근 권한**: 소유권(created_by) 기반, 본인 과제만 관리
+- Dependency 기반 권한 체크: `require_roles([UserRole.VERIFIER])`
+- 프론트엔드 권한 체크: `authStore.hasRole(['VERIFIER', 'SUPER_ADMIN'])`
 
 #### 3.3. 파일 업로드 보안
 - 실행 파일 차단: `.exe`, `.bat`, `.sh`, `.ps1` 등
