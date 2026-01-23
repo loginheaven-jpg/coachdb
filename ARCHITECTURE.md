@@ -376,6 +376,36 @@
 - is_archived: BOOLEAN DEFAULT FALSE
 ```
 
+#### 10. verification_records (증빙검토 기록)
+```sql
+- record_id: BIGINT PRIMARY KEY
+- competency_id: BIGINT FK → coach_competencies.competency_id (nullable)
+- application_data_id: BIGINT FK → application_data.data_id (nullable)
+- verifier_id: BIGINT FK → users.user_id
+- verified_at: TIMESTAMP
+- is_valid: BOOLEAN DEFAULT TRUE  # reset 시 false 처리
+- created_at: TIMESTAMP DEFAULT NOW()
+
+-- Constraints:
+-- CHECK: (competency_id IS NOT NULL AND application_data_id IS NULL) OR (competency_id IS NULL AND application_data_id IS NOT NULL)
+-- UNIQUE: (competency_id, verifier_id) - 한 Verifier가 같은 역량을 중복 컨펌 방지
+-- UNIQUE: (application_data_id, verifier_id) - 한 Verifier가 같은 지원서 항목을 중복 컨펌 방지
+```
+
+#### 11. system_configs (시스템 설정)
+```sql
+- config_id: BIGINT PRIMARY KEY
+- key: VARCHAR(100) UNIQUE NOT NULL
+- value: TEXT NOT NULL
+- description: TEXT
+- updated_by: BIGINT FK → users.user_id
+- updated_at: TIMESTAMP
+- created_at: TIMESTAMP DEFAULT NOW()
+
+-- 주요 설정:
+-- REQUIRED_VERIFIER_COUNT: 증빙 승인에 필요한 Verifier 수 (기본값: 2)
+```
+
 ### PostgreSQL Enum Types
 
 #### ⚠️ CRITICAL: Enum 값 대소문자 정책
@@ -974,62 +1004,99 @@ async def start_recruitment(project_id: int, current_user: User, db: AsyncSessio
 
 ### 2. 증빙검토 흐름
 
+#### 핵심 원칙
+> **검토 = 증빙서류 검토**
+> 증빙서류가 없는 항목은 검토 대상이 아님
+
+#### N명 Verifier 컨펌 시스템
+
+| 설정 | 값 | 설명 |
+|------|------|------|
+| `REQUIRED_VERIFIER_COUNT` | 2 (기본) | 증빙 승인에 필요한 최소 Verifier 수 |
+| 설정 위치 | `/admin/settings` | SUPER_ADMIN 전용 |
+
+#### 검토 대상 분류
+
+| 출처 | 조건 | 검토 여부 |
+|------|------|----------|
+| **CoachCompetency** (역량정보) | 증빙 첨부됨 | ✅ 검토 대상 |
+| **ApplicationData** (지원서) | `proof_required_level=REQUIRED` + 파일 첨부 | ✅ 검토 대상 |
+| **ApplicationData** (지원서) | `proof_required_level=OPTIONAL` + 파일 첨부 | ✅ 검토 대상 |
+| **ApplicationData** (지원서) | `proof_required_level=OPTIONAL` + 파일 없음 | ❌ 자동 승인 |
+| **ApplicationData** (지원서) | `proof_required_level=NOT_REQUIRED` | ❌ 자동 승인 |
+
+#### 검토 흐름도
+
 ```
-실무자 → 검토 대기 목록 조회 → 응모 선택 → 항목별 검토
-                                       ↓
-                            ┌──────────────────┐
-                            │ ReviewLock 확인  │
-                            │ (30분 잠금)      │
-                            └────┬─────────────┘
-                                 ↓
-                            ┌──────────────────┐
-                            │ PDF 뷰어로 증빙  │
-                            │ 파일 확인        │
-                            └────┬─────────────┘
-                                 ↓
-                   ┌─────────────────────────┐
-                   │ 증빙이 적합한가?        │
-                   └───┬─────────────┬───────┘
-                       │ YES         │ NO
-                       ↓             ↓
-                 ┌──────────┐  ┌──────────────┐
-                 │확인완료  │  │ 보완 요청     │
-                 │(approve) │  │ - 사유 입력   │
-                 │          │  │ - 마감일 설정 │
-                 └────┬─────┘  └──────┬───────┘
-                      │                │
-                      │                │ 알림 발송 (SUPPLEMENT_REQUEST)
-                      │                │ "[과제명] 서류 보충이 필요합니다: 항목명"
-                      │                ↓
-                      │         ┌─────────────────┐
-                      │         │ 코치가 보완 제출│
-                      │         │ (마감 전까지)   │
-                      │         │ - 알림 클릭     │
-                      │         │ - 직접 수정화면 │
-                      │         └────────┬────────┘
-                      │                  │
-                      └──────────────────┘
-                            │
-                            │ 모든 항목 검토 완료
-                            ↓
-                   ┌──────────────────┐
-                   │ 자동 점수 계산   │
-                   │ (scoring_service)│
-                   │ - 매칭 조건 확인 │
-                   │ - 집계 방식 적용 │
-                   └────────┬─────────┘
-                            ↓
-                   ┌──────────────────┐
-                   │ auto_score 업데이트│
-                   │ Application 테이블│
-                   └──────────────────┘
+Verifier → /admin/verifications 증빙검토 페이지
+                ↓
+    ┌─────────────────────────────────────────┐
+    │ 검토 대기 목록 (CoachCompetency +       │
+    │              ApplicationData 통합)       │
+    └────────────────┬────────────────────────┘
+                     ↓
+          ┌──────────────────────┐
+          │ 증빙 상세 확인       │
+          │ (PDF 뷰어)           │
+          └──────────┬───────────┘
+                     ↓
+         ┌───────────────────────┐
+         │ 증빙이 적합한가?      │
+         └───┬─────────────┬─────┘
+             │ YES         │ NO
+             ↓             ↓
+       ┌──────────┐  ┌──────────────────┐
+       │ 컨펌     │  │ 보완 요청         │
+       │ (confirm)│  │ - 사유 입력       │
+       └────┬─────┘  │ - 마감일 설정     │
+            │        │ - 모든 컨펌 초기화 │
+            │        └──────────────────┘
+            ↓
+    ┌───────────────────────┐
+    │ N명 컨펌 완료 체크    │
+    │ (verification_records)│
+    └───┬───────────────────┘
+        │
+        │ N명 도달?
+        ├─────────────────────────────────────┐
+        │ YES                                 │ NO
+        ↓                                     ↓
+  ┌─────────────────────┐            ┌────────────────┐
+  │ 최종 승인 처리      │            │ 다음 Verifier  │
+  │ - is_globally_      │            │ 대기           │
+  │   verified = true   │            └────────────────┘
+  │ - verification_     │
+  │   status = approved │
+  └──────────┬──────────┘
+             │
+             │ (ApplicationData인 경우)
+             ↓
+  ┌─────────────────────────────┐
+  │ CoachCompetency 반영        │
+  │ - 신규 생성 또는 업데이트   │
+  │ - is_globally_verified=true │
+  │ → 다른 과제에서 재사용 가능 │
+  └─────────────────────────────┘
 ```
 
-**프론트엔드**: `VerificationPage.tsx`
+#### 심사개시 시 자동 처리
+
+| 조건 | 처리 |
+|------|------|
+| `proof_required_level=NOT_REQUIRED` | 자동 `approved` |
+| `proof_required_level=OPTIONAL` + 파일 없음 | 자동 `approved` |
+| `proof_required_level=OPTIONAL/REQUIRED` + 파일 있음 + N명 컨펌 완료 | `approved` → 서류완료 |
+| `proof_required_level=OPTIONAL/REQUIRED` + 파일 있음 + N명 컨펌 미완료 | `pending` → 서류탈락 |
+
+**프론트엔드**: `VerificationPage.tsx`, `SystemSettingsPage.tsx`
 
 **백엔드**:
+- `GET /api/verifications/pending` - 검토 대기 목록 (CoachCompetency + ApplicationData 통합)
+- `POST /api/verifications/confirm` - 컨펌 처리 (N명 도달 시 최종 승인)
+- `POST /api/verifications/reset` - 보완 요청 (모든 컨펌 초기화)
+- `GET /api/admin/configs/{key}` - 시스템 설정 조회
+- `PUT /api/admin/configs/{key}` - 시스템 설정 수정
 - `POST /api/applications/{app_id}/data/{data_id}/request-supplement` (보완 요청)
-- `POST /api/verifications/{id}/approve` (승인)
 
 ### 3. 동시 검토 지원 (ReviewLock)
 
@@ -1968,6 +2035,33 @@ git commit -m "docs: update ARCHITECTURE.md - add new notification type"
     4. 심사개시 이후: 보완 제출 차단, 미완료 건 자동 서류탈락
     5. 심사자는 서류완료 응모건만 평가 가능
 
+- **증빙검토 시스템 확장 (N명 Verifier 컨펌)**
+  - 핵심 원칙: **검토 = 증빙서류 검토** (증빙 없는 항목은 검토 대상 아님)
+  - 기능 개요: CoachCompetency와 ApplicationData 통합 검토, N명 Verifier 컨펌 시스템
+  - DB 변경:
+    - `verification_records.application_data_id`: ApplicationData 지원 (기존 competency_id에 추가)
+    - `verification_records` CHECK constraint: `chk_one_target` (둘 중 하나만 설정)
+    - `verification_records` UNIQUE constraint: `uq_appdata_verifier` (application_data_id, verifier_id)
+    - `system_configs` 테이블: 시스템 설정 저장 (REQUIRED_VERIFIER_COUNT 등)
+  - API 변경:
+    - `GET /api/verifications/pending`: CoachCompetency + ApplicationData 통합 조회
+    - `POST /api/verifications/confirm`: 두 타입 모두 지원 (N명 컨펌 완료 시 최종 승인)
+    - `GET /api/admin/configs/{key}`: 시스템 설정 조회 (SUPER_ADMIN)
+    - `PUT /api/admin/configs/{key}`: 시스템 설정 수정 (SUPER_ADMIN)
+  - 프론트엔드 변경:
+    - `SystemSettingsPage.tsx`: SUPER_ADMIN 설정 페이지 (Verifier 인원수 설정)
+    - `VerificationPage.tsx`: ApplicationData 항목 표시 지원
+    - `App.tsx`: `/admin/settings` 라우트 추가
+    - `SuperAdminDashboard.tsx`: 설정 메뉴 활성화
+  - 심사개시 로직 개선 (`projects.py`):
+    - `proof_required_level=NOT_REQUIRED` → 자동 approved
+    - `proof_required_level=OPTIONAL` + 파일 없음 → 자동 approved
+    - 증빙 있는 항목만 N명 컨펌 검사
+  - CoachCompetency 자동 반영 (`reflect_to_coach_competency()`):
+    - ApplicationData가 N명 컨펌 완료 시 → CoachCompetency에 자동 반영
+    - `is_globally_verified=true` 설정 → 다른 과제에서 재사용 가능
+  - 마이그레이션: `2026_01_23_0100-appdt0123b2c3_add_application_data_id_to_verification.py`
+
 ---
 
 ## 참고 문서
@@ -1985,4 +2079,4 @@ git commit -m "docs: update ARCHITECTURE.md - add new notification type"
 
 **Last Updated**: 2026-01-23 by Claude Opus 4.5
 
-**Document Version**: 2.2 (Start Review feature added)
+**Document Version**: 2.3 (N-Verifier Confirmation System added)

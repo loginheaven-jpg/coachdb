@@ -20,6 +20,7 @@ import ApplicationSubmitPage from './pages/ApplicationSubmitPage'
 import AdminCompetencyItemsPage from './pages/AdminCompetencyItemsPage'
 import UserManagementPage from './pages/UserManagementPage'
 import VerificationPage from './pages/VerificationPage'
+import SystemSettingsPage from './pages/SystemSettingsPage'
 import ProtectedRoute from './components/shared/ProtectedRoute'
 import AppLayout from './components/layout/AppLayout'
 import { useAuthStore } from './stores/authStore'
@@ -332,6 +333,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'PROJECT_MANAGER', 'VERIFIER']}>
               <VerificationPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/settings"
+          element={
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+              <SystemSettingsPage />
             </ProtectedRoute>
           }
         />

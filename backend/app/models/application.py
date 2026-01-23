@@ -139,6 +139,7 @@ class ApplicationData(Base):
     linked_competency = relationship("CoachCompetency", back_populates="application_data")
     submitted_file = relationship("File", foreign_keys=[submitted_file_id])
     reviewer = relationship("User", foreign_keys=[reviewed_by])
+    verification_records = relationship("VerificationRecord", back_populates="application_data", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<ApplicationData(data_id={self.data_id}, application_id={self.application_id}, item_id={self.item_id}, status={self.verification_status})>"

@@ -13,7 +13,7 @@ from app.models.application import Application, ApplicationData, ApplicationStat
 from datetime import datetime
 from app.models.custom_question import CustomQuestion, CustomQuestionAnswer
 from app.models.evaluation import CoachEvaluation
-from app.models.competency import ProjectItem, ScoringCriteria, CompetencyItem, CoachCompetency
+from app.models.competency import ProjectItem, ScoringCriteria, CompetencyItem, CoachCompetency, ProofRequiredLevel
 from app.schemas.project import (
     ProjectCreate,
     ProjectUpdate,
@@ -3228,6 +3228,13 @@ async def preview_start_review(
     )
     applications = apps_result.scalars().all()
 
+    # ProjectItem 매핑 조회 (item_id -> proof_required_level)
+    project_items_result = await db.execute(
+        select(ProjectItem).where(ProjectItem.project_id == project_id)
+    )
+    project_items = project_items_result.scalars().all()
+    proof_levels = {pi.item_id: pi.proof_required_level for pi in project_items}
+
     qualified_list = []
     disqualified_list = []
 
@@ -3243,11 +3250,19 @@ async def preview_start_review(
         )
         data_items = data_result.scalars().all()
 
-        # 미완료 항목 수 계산
-        pending_items = [
-            item for item in data_items
-            if item.verification_status != 'approved'
-        ]
+        # 미완료 항목 수 계산 (자동승인 예정 항목 제외)
+        pending_items = []
+        for item in data_items:
+            if item.verification_status != 'approved':
+                proof_level = proof_levels.get(item.item_id)
+                # NOT_REQUIRED → 자동 승인 예정이므로 제외
+                if proof_level == ProofRequiredLevel.NOT_REQUIRED:
+                    continue
+                # OPTIONAL + 파일 미첨부 → 자동 승인 예정이므로 제외
+                if proof_level == ProofRequiredLevel.OPTIONAL and item.submitted_file_id is None:
+                    continue
+                # 그 외는 진짜 미완료 항목
+                pending_items.append(item)
 
         user_email = user.email if user else ""
 
@@ -3359,6 +3374,13 @@ async def start_review(
     qualified_count = 0
     now = datetime.utcnow()
 
+    # ProjectItem 매핑 조회 (item_id -> proof_required_level)
+    project_items_result = await db.execute(
+        select(ProjectItem).where(ProjectItem.project_id == project_id)
+    )
+    project_items = project_items_result.scalars().all()
+    proof_levels = {pi.item_id: pi.proof_required_level for pi in project_items}
+
     for app in applications:
         # ApplicationData 조회
         data_result = await db.execute(
@@ -3366,6 +3388,19 @@ async def start_review(
             .where(ApplicationData.application_id == app.application_id)
         )
         data_items = data_result.scalars().all()
+
+        # 증빙 불필요 항목 자동 승인 처리
+        for item in data_items:
+            if item.verification_status != 'approved':
+                proof_level = proof_levels.get(item.item_id)
+                # NOT_REQUIRED → 자동 승인
+                if proof_level == ProofRequiredLevel.NOT_REQUIRED:
+                    item.verification_status = 'approved'
+                    logger.info(f"[START_REVIEW] Auto-approved item {item.data_id} (NOT_REQUIRED)")
+                # OPTIONAL + 파일 미첨부 → 자동 승인
+                elif proof_level == ProofRequiredLevel.OPTIONAL and item.submitted_file_id is None:
+                    item.verification_status = 'approved'
+                    logger.info(f"[START_REVIEW] Auto-approved item {item.data_id} (OPTIONAL + no file)")
 
         # 모든 항목이 approved인 경우만 qualified
         all_approved = all(

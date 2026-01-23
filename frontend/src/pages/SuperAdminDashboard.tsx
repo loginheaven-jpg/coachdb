@@ -90,11 +90,10 @@ export default function SuperAdminDashboard() {
     },
     {
       title: '시스템 설정',
-      description: '시스템 환경 설정 (준비중)',
+      description: '증빙검토 Verifier 인원수 등 시스템 설정',
       icon: <SettingOutlined style={{ fontSize: 24 }} />,
-      path: '#',
-      color: '#8c8c8c',
-      disabled: true
+      path: '/admin/settings',
+      color: '#722ed1'
     }
   ]
 
