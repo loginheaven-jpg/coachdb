@@ -14,7 +14,8 @@ import {
   Col,
   Tooltip,
   Progress,
-  Popconfirm
+  Popconfirm,
+  Alert
 } from 'antd'
 import {
   CalculatorOutlined,
@@ -294,17 +295,17 @@ export default function ProjectSelectionTab() {
     {
       title: '작업',
       key: 'actions',
-      width: canManageSelection ? 150 : 80,
+      width: canManageSelection ? 180 : 100,
       fixed: 'right',
       render: (_, record) => (
         <Space>
-          <Tooltip title="평가">
-            <Button
-              size="small"
-              icon={<FormOutlined />}
-              onClick={() => handleOpenEvaluation(record.application_id)}
-            />
-          </Tooltip>
+          <Button
+            size="small"
+            icon={<FormOutlined />}
+            onClick={() => handleOpenEvaluation(record.application_id)}
+          >
+            평가
+          </Button>
           {canManageSelection && (
             <>
               <Popconfirm
@@ -459,6 +460,12 @@ export default function ProjectSelectionTab() {
 
       {/* 응모자 테이블 */}
       <Card>
+        <Alert
+          message="이름을 클릭하시면 응모자와 응모서류를 보실 수 있습니다."
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+        />
         <Table
           columns={columns}
           dataSource={applications}
