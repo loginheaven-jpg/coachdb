@@ -8,6 +8,11 @@ import {
   Row,
   Col,
   Tag,
+  Button,
+  Space,
+  Popconfirm,
+  Modal,
+  Table,
   message
 } from 'antd'
 import { useProjectEdit } from '../../contexts/ProjectEditContext'
@@ -15,9 +20,11 @@ import projectService, {
   ProjectUpdate,
   ProjectStatus,
   ProjectType,
-  PROJECT_TYPE_LABELS
+  PROJECT_TYPE_LABELS,
+  StartReviewPreviewResponse
 } from '../../services/projectService'
 import adminService from '../../services/adminService'
+import { useAuthStore } from '../../stores/authStore'
 import dayjs from 'dayjs'
 
 const { TextArea } = Input
@@ -49,9 +56,15 @@ export default function ProjectInfoTab() {
     setProject
   } = useProjectEdit()
 
+  const { user } = useAuthStore()
   const [allUsers, setAllUsers] = useState<{ user_id: number; name: string; email: string }[]>([])
   const [loadingUsers, setLoadingUsers] = useState(false)
   const [localSaving, setLocalSaving] = useState(false)
+
+  // 진행버튼 관련 상태
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [startReviewModalOpen, setStartReviewModalOpen] = useState(false)
+  const [startReviewPreview, setStartReviewPreview] = useState<StartReviewPreviewResponse | null>(null)
 
   // 사용자 목록 로드
   useEffect(() => {
@@ -165,9 +178,140 @@ export default function ProjectInfoTab() {
     return () => window.removeEventListener('projectTempSave', handler)
   }, [handleTempSave])
 
-  // 현재 상태 표시
-  const currentStatus = project?.status || 'draft'
+  // 현재 상태 표시 (백엔드는 대문자, 프론트엔드 맵은 소문자)
+  const currentStatus = (project?.status || 'draft').toLowerCase()
   const statusInfo = STATUS_TAG_MAP[currentStatus] || { color: 'default', text: currentStatus }
+
+  // 권한 확인: 과제관리자 또는 생성자 또는 SUPER_ADMIN
+  const isManager = user && project && (
+    user.roles?.includes('SUPER_ADMIN') ||
+    user.user_id === project.project_manager_id ||
+    user.user_id === project.created_by
+  )
+
+  // 모집개시 핸들러
+  const handleStartRecruitment = async () => {
+    if (!projectId) return
+    setActionLoading('startRecruitment')
+    try {
+      await projectService.startRecruitment(projectId)
+      message.success('모집이 개시되었습니다.')
+      loadProject()
+    } catch (error: any) {
+      message.error(error.response?.data?.detail || '모집개시에 실패했습니다.')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  // 응모마감 핸들러
+  const handleFreezeApplications = async () => {
+    if (!projectId) return
+    setActionLoading('freeze')
+    try {
+      const result = await projectService.freezeApplications(projectId)
+      message.success(`응모가 마감되었습니다. (${result.frozen_count}건 동결)`)
+      loadProject()
+    } catch (error: any) {
+      message.error(error.response?.data?.detail || '응모마감에 실패했습니다.')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  // 심사개시 미리보기
+  const handlePreviewStartReview = async () => {
+    if (!projectId) return
+    setActionLoading('previewReview')
+    try {
+      const preview = await projectService.previewStartReview(projectId)
+      setStartReviewPreview(preview)
+      setStartReviewModalOpen(true)
+    } catch (error: any) {
+      message.error(error.response?.data?.detail || '심사개시 미리보기에 실패했습니다.')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  // 심사개시 확정
+  const handleConfirmStartReview = async () => {
+    if (!projectId) return
+    setActionLoading('startReview')
+    try {
+      const result = await projectService.startReview(projectId)
+      message.success(`심사가 개시되었습니다. (서류완료: ${result.qualified_count}건, 서류탈락: ${result.disqualified_count}건)`)
+      setStartReviewModalOpen(false)
+      setStartReviewPreview(null)
+      loadProject()
+    } catch (error: any) {
+      message.error(error.response?.data?.detail || '심사개시에 실패했습니다.')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  // 진행버튼 렌더링
+  const renderProgressButton = () => {
+    if (!isManager || isCreateMode) return null
+
+    // APPROVED 상태 → 모집개시 버튼
+    if (currentStatus === 'approved') {
+      return (
+        <Popconfirm
+          title="모집개시"
+          description="모집을 개시하시겠습니까? 코치들이 지원할 수 있게 됩니다."
+          onConfirm={handleStartRecruitment}
+          okText="모집개시"
+          cancelText="취소"
+        >
+          <Button
+            type="primary"
+            loading={actionLoading === 'startRecruitment'}
+          >
+            모집개시
+          </Button>
+        </Popconfirm>
+      )
+    }
+
+    // READY 상태 → 응모마감 버튼
+    if (currentStatus === 'ready') {
+      return (
+        <Popconfirm
+          title="응모마감"
+          description="응모를 마감하시겠습니까? 더 이상 새로운 응모를 받지 않습니다."
+          onConfirm={handleFreezeApplications}
+          okText="응모마감"
+          cancelText="취소"
+        >
+          <Button
+            type="primary"
+            danger
+            loading={actionLoading === 'freeze'}
+          >
+            응모마감
+          </Button>
+        </Popconfirm>
+      )
+    }
+
+    // REVIEWING 상태 + 심사개시 전 → 심사개시 버튼
+    if (currentStatus === 'reviewing' && !project?.review_started_at) {
+      return (
+        <Button
+          type="primary"
+          danger
+          onClick={handlePreviewStartReview}
+          loading={actionLoading === 'previewReview'}
+        >
+          심사개시
+        </Button>
+      )
+    }
+
+    return null
+  }
 
   return (
     <Form
@@ -193,9 +337,15 @@ export default function ProjectInfoTab() {
         </Col>
         <Col span={12}>
           <Form.Item label="과제 상태">
-            <Tag color={statusInfo.color} style={{ fontSize: 14, padding: '4px 12px' }}>
-              {statusInfo.text}
-            </Tag>
+            <Space>
+              <Tag color={statusInfo.color} style={{ fontSize: 14, padding: '4px 12px' }}>
+                {statusInfo.text}
+              </Tag>
+              {project?.review_started_at && currentStatus === 'reviewing' && (
+                <Tag color="red" style={{ fontSize: 12 }}>심사개시됨</Tag>
+              )}
+              {renderProgressButton()}
+            </Space>
           </Form.Item>
         </Col>
       </Row>
@@ -315,6 +465,79 @@ export default function ProjectInfoTab() {
           }))}
         />
       </Form.Item>
+
+      {/* 심사개시 확인 모달 */}
+      <Modal
+        title="심사개시 확인"
+        open={startReviewModalOpen}
+        onOk={handleConfirmStartReview}
+        onCancel={() => {
+          setStartReviewModalOpen(false)
+          setStartReviewPreview(null)
+        }}
+        okText="심사개시"
+        cancelText="취소"
+        okButtonProps={{ danger: true, loading: actionLoading === 'startReview' }}
+        width={700}
+      >
+        {startReviewPreview && (
+          <div>
+            <p style={{ marginBottom: 16 }}>
+              <strong>{startReviewPreview.project_name}</strong> 과제의 심사를 개시합니다.
+            </p>
+            <Row gutter={16} style={{ marginBottom: 16 }}>
+              <Col span={8}>
+                <div style={{ textAlign: 'center', padding: 16, background: '#f5f5f5', borderRadius: 8 }}>
+                  <div style={{ fontSize: 24, fontWeight: 'bold' }}>{startReviewPreview.total_applications}</div>
+                  <div>총 응모</div>
+                </div>
+              </Col>
+              <Col span={8}>
+                <div style={{ textAlign: 'center', padding: 16, background: '#f6ffed', borderRadius: 8 }}>
+                  <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>{startReviewPreview.qualified_count}</div>
+                  <div>서류완료</div>
+                </div>
+              </Col>
+              <Col span={8}>
+                <div style={{ textAlign: 'center', padding: 16, background: '#fff2f0', borderRadius: 8 }}>
+                  <div style={{ fontSize: 24, fontWeight: 'bold', color: '#ff4d4f' }}>{startReviewPreview.disqualified_count}</div>
+                  <div>서류탈락 예정</div>
+                </div>
+              </Col>
+            </Row>
+
+            {startReviewPreview.disqualified_count > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ marginBottom: 8, color: '#ff4d4f', fontWeight: 'bold' }}>
+                  ⚠ 서류탈락 예정 목록 ({startReviewPreview.disqualified_count}건)
+                </div>
+                <Table
+                  size="small"
+                  dataSource={startReviewPreview.disqualified_list}
+                  rowKey="application_id"
+                  pagination={false}
+                  scroll={{ y: 200 }}
+                  columns={[
+                    { title: '이름', dataIndex: 'user_name', width: 100 },
+                    { title: '이메일', dataIndex: 'user_email', width: 180 },
+                    { title: '미완료 항목', dataIndex: 'pending_items_count', width: 90, render: (v) => `${v}건` },
+                    { title: '사유', dataIndex: 'reason', ellipsis: true }
+                  ]}
+                />
+              </div>
+            )}
+
+            <div style={{ padding: 12, background: '#fffbe6', borderRadius: 8, color: '#ad8b00' }}>
+              <strong>⚠ 주의사항</strong>
+              <ul style={{ margin: '8px 0 0 0', paddingLeft: 20 }}>
+                <li>심사개시 후에는 코치의 보완 제출이 차단됩니다.</li>
+                <li>서류탈락된 응모건은 심사 대상에서 제외됩니다.</li>
+                <li>이 작업은 되돌릴 수 없습니다.</li>
+              </ul>
+            </div>
+          </div>
+        )}
+      </Modal>
     </Form>
   )
 }

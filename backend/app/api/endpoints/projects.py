@@ -774,14 +774,17 @@ async def list_projects(
                 )
             # SUPER_ADMIN은 필터 없이 전체 조회
         elif mode == "review":
-            # 과제심사 모드: 심사자로 할당된 과제만 (수퍼어드민은 전체)
+            # 과제심사 모드: 심사개시된 과제 + 심사자로 할당된 과제만
+            # 심사개시(review_started_at)가 설정된 과제만 표시 (심사 대상 필터링)
+            query = query.where(Project.review_started_at.isnot(None))
+
             if "SUPER_ADMIN" not in user_roles:
                 # ProjectStaff 테이블에서 현재 사용자가 할당된 과제만 조회
                 staff_subquery = select(ProjectStaff.project_id).where(
                     ProjectStaff.staff_user_id == current_user.user_id
                 )
                 query = query.where(Project.project_id.in_(staff_subquery))
-            # SUPER_ADMIN은 필터 없이 전체 조회
+            # SUPER_ADMIN도 심사개시된 과제만 표시
         else:
             # 기본 모드 (Legacy): 기존 동작 유지
             if "SUPER_ADMIN" not in user_roles:

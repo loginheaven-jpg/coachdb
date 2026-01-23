@@ -206,7 +206,7 @@ export default function ProjectDetailPage() {
       pending: { color: 'gold', text: '모집대기' },
       ready: { color: 'gold', text: '모집대기' },  // fallback
       recruiting: { color: 'blue', text: '모집중' },
-      recruiting_ended: { color: 'purple', text: '모집종료' },
+      recruiting_ended: { color: 'purple', text: '응모마감' },
       reviewing: { color: 'orange', text: '심사중' },
       in_progress: { color: 'cyan', text: '과제진행중' },
       evaluating: { color: 'geekblue', text: '과제평가중' },

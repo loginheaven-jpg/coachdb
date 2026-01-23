@@ -26,7 +26,7 @@ const getStatusTag = (status: string, displayStatus?: string) => {
     rejected: { color: 'red', text: '반려됨' },
     ready: { color: 'blue', text: '승인됨' },
     recruiting: { color: 'green', text: '모집중' },
-    recruiting_ended: { color: 'purple', text: '모집마감' },
+    recruiting_ended: { color: 'purple', text: '응모마감' },
     reviewing: { color: 'purple', text: '심사중' },
     in_progress: { color: 'cyan', text: '진행중' },
     closed: { color: 'default', text: '종료' },
