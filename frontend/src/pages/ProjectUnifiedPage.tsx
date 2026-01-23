@@ -22,7 +22,8 @@ import {
   SaveOutlined,
   SendOutlined,
   CheckOutlined,
-  CloseOutlined
+  CloseOutlined,
+  EyeOutlined
 } from '@ant-design/icons'
 import { ProjectEditProvider, useProjectEdit } from '../contexts/ProjectEditContext'
 import { useAuthStore } from '../stores/authStore'
@@ -373,6 +374,16 @@ function ProjectUnifiedPageInner() {
               취소
             </Button>
             <Button
+              icon={<EyeOutlined />}
+              onClick={() => {
+                // SurveyBuilder의 미리보기 트리거
+                const event = new CustomEvent('projectSurveyPreview')
+                window.dispatchEvent(event)
+              }}
+            >
+              미리보기
+            </Button>
+            <Button
               icon={<SaveOutlined />}
               loading={saving}
               onClick={() => {
@@ -381,7 +392,7 @@ function ProjectUnifiedPageInner() {
                 window.dispatchEvent(event)
               }}
             >
-              임시저장 (초안)
+              임시저장
             </Button>
             <Button
               type="primary"

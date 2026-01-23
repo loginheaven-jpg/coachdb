@@ -160,23 +160,16 @@ export default function SuperAdminDashboard() {
           renderItem={(item) => (
             <List.Item
               actions={[
-                item.disabled ? (
-                  <Tag>준비중</Tag>
-                ) : (
-                  <Button
-                    type="link"
-                    icon={<RightOutlined />}
-                    onClick={() => navigate(item.path)}
-                  >
-                    이동
-                  </Button>
-                )
+                <Button
+                  type="link"
+                  icon={<RightOutlined />}
+                  onClick={() => navigate(item.path)}
+                >
+                  이동
+                </Button>
               ]}
-              style={{
-                cursor: item.disabled ? 'not-allowed' : 'pointer',
-                opacity: item.disabled ? 0.5 : 1
-              }}
-              onClick={() => !item.disabled && navigate(item.path)}
+              style={{ cursor: 'pointer' }}
+              onClick={() => navigate(item.path)}
             >
               <List.Item.Meta
                 avatar={

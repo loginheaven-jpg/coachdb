@@ -547,6 +547,22 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
     }
   }
 
+  // 전역 이벤트 리스너 (ProjectUnifiedPage에서 트리거)
+  useEffect(() => {
+    if (!embedded) return
+
+    const handlePreviewEvent = () => setShowPreview(true)
+    const handleSaveEvent = () => handleSave()
+
+    window.addEventListener('projectSurveyPreview', handlePreviewEvent)
+    window.addEventListener('projectSurveySave', handleSaveEvent)
+
+    return () => {
+      window.removeEventListener('projectSurveyPreview', handlePreviewEvent)
+      window.removeEventListener('projectSurveySave', handleSaveEvent)
+    }
+  }, [embedded, handleSave])
+
   // 닫기 전 확인 핸들러
   const handleClose = () => {
     if (hasChanges) {
@@ -949,26 +965,6 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
           })}
         </Collapse>
       </Space>
-
-      {/* 탭 모드일 때 저장 버튼 표시 */}
-      {embedded && (
-        <div style={{ marginTop: 24, textAlign: 'right' }}>
-          <Space>
-            <Button icon={<EyeOutlined />} onClick={() => setShowPreview(true)}>
-              미리보기
-            </Button>
-            <Button
-              type="primary"
-              icon={<SaveOutlined />}
-              loading={loading}
-              onClick={handleSave}
-              disabled={!isValid}
-            >
-              저장
-            </Button>
-          </Space>
-        </div>
-      )}
     </>
   )
 
