@@ -243,15 +243,15 @@ async def create_test_project_with_applications(
     current_user: User = Depends(require_role(["SUPER_ADMIN"]))
 ):
     """
-    Create a test project with 10 submitted applications for review testing
+    Create a test project with 1 submitted application for verification and review testing
 
     **Required roles**: SUPER_ADMIN only
 
     Creates:
     - Test project in 'reviewing' status
-    - 10 test users (test_user_1@test.com ~ test_user_10@test.com)
-    - 10 submitted applications with random auto_score (60-95)
-    - No qualitative evaluations (for testing)
+    - 1 test user (test_user_1@test.com) with 1 competency item
+    - Application with verification_status='pending' (검토미완료)
+    - viproject@naver.com as the reviewer
     """
     import traceback
     from datetime import datetime, timedelta
@@ -275,8 +275,8 @@ async def create_test_project_with_applications(
         project_end = project_start + timedelta(days=90)
 
         new_project = Project(
-            project_name=f"[테스트] 심사용 과제 - 응모자 10명",
-            description="심사 및 선발 기능 테스트를 위해 자동 생성된 과제입니다. 10명의 응모자가 제출 완료 상태입니다.",
+            project_name=f"[테스트] 검토/심사 테스트 - 응모자 1명",
+            description="검토 및 심사개시 기능 테스트용 과제입니다. 1명의 응모자가 검토미완료 상태로 제출되어 있습니다.",
             recruitment_start_date=recruitment_start,
             recruitment_end_date=recruitment_end,
             project_start_date=project_start,
@@ -314,7 +314,7 @@ async def create_test_project_with_applications(
             )
             selected_items.extend(result.scalars().all())
 
-        available_items = selected_items[:4] if len(selected_items) >= 4 else selected_items
+        available_items = selected_items[:1] if len(selected_items) >= 1 else selected_items
 
         project_items = []
         grade_criteria_map = {}  # item_code -> grade_config
@@ -409,8 +409,8 @@ async def create_test_project_with_applications(
             await db.commit()
             print(f"[CREATE-TEST-APPS] Added {len(project_items)} survey items with GRADE scoring")
 
-        # Step 3: Create 10 test users and applications with GRADE-based scoring
-        print("[CREATE-TEST-APPS] Step 3: Creating test users and applications...")
+        # Step 3: Create 1 test user and application with verification pending status
+        print("[CREATE-TEST-APPS] Step 3: Creating test user and application...")
         from app.services.scoring_service import calculate_application_auto_score
 
         coach_roles = [CoachRole.LEADER, CoachRole.PARTICIPANT, CoachRole.SUPERVISOR]
@@ -425,7 +425,7 @@ async def create_test_project_with_applications(
 
         application_ids = []
 
-        for i in range(1, 11):
+        for i in range(1, 2):  # 1명의 사용자만 생성
             # Get or create test user with certification number
             email = f"test_user_{i}@test.com"
             result = await db.execute(select(User).where(User.email == email))
@@ -529,40 +529,21 @@ async def create_test_project_with_applications(
         await db.commit()
         print("[CREATE-TEST-APPS] All applications scored")
 
-        # Step 4: Assign reviewers (required users + random users)
-        print("[CREATE-TEST-APPS] Step 4: Assigning reviewers...")
-        required_emails = ["viproject@naver.com", "loginheaven@gmail.com"]
+        # Step 4: Assign reviewer (viproject@naver.com only)
+        print("[CREATE-TEST-APPS] Step 4: Assigning reviewer...")
+        reviewer_email = "viproject@naver.com"
 
-        # Get required reviewers
-        for email in required_emails:
-            result = await db.execute(select(User).where(User.email == email))
-            reviewer = result.scalar_one_or_none()
-            if reviewer:
-                staff = ProjectStaff(
-                    project_id=new_project.project_id,
-                    staff_user_id=reviewer.user_id
-                )
-                db.add(staff)
-                print(f"[CREATE-TEST-APPS] Added required reviewer: {email}")
-
-        # Get 3 random active users as additional reviewers
-        result = await db.execute(
-            select(User)
-            .where(User.status == UserStatus.ACTIVE)
-            .where(User.email.notin_(required_emails))
-            .where(User.email.notlike('test_user_%'))
-            .limit(50)
-        )
-        all_users = result.scalars().all()
-        random_reviewers = random.sample(all_users, min(3, len(all_users)))
-
-        for reviewer in random_reviewers:
+        result = await db.execute(select(User).where(User.email == reviewer_email))
+        reviewer = result.scalar_one_or_none()
+        if reviewer:
             staff = ProjectStaff(
                 project_id=new_project.project_id,
                 staff_user_id=reviewer.user_id
             )
             db.add(staff)
-            print(f"[CREATE-TEST-APPS] Added random reviewer: {reviewer.email}")
+            print(f"[CREATE-TEST-APPS] Added reviewer: {reviewer_email}")
+        else:
+            print(f"[CREATE-TEST-APPS] WARNING: Reviewer {reviewer_email} not found")
 
         await db.commit()
         print("[CREATE-TEST-APPS] Reviewers assigned")
@@ -596,7 +577,7 @@ async def create_test_project_with_applications(
             updated_at=new_project.updated_at
         )
 
-        print(f"[CREATE-TEST-APPS] === SUCCESS: Created project {new_project.project_id} with 10 applications ===")
+        print(f"[CREATE-TEST-APPS] === SUCCESS: Created project {new_project.project_id} with 1 application (verification pending) ===")
 
         # Log project creation for tracking
         logger.info(f"[PROJECT_CREATE] name='{new_project.project_name}', id={new_project.project_id}, creator={current_user.email}, status={new_project.status}, endpoint='/projects/create-test-with-applications'")
