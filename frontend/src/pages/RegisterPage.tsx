@@ -1,23 +1,12 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Form, Input, Button, Card, message, Typography, Select, InputNumber, Checkbox, Alert, Modal } from 'antd'
+import { Form, Input, Button, Card, message, Typography, Select, InputNumber, Checkbox, Modal } from 'antd'
 import { UserOutlined, LockOutlined, MailOutlined, PhoneOutlined, HomeOutlined } from '@ant-design/icons'
 import authService from '../services/authService'
 import { useAuthStore } from '../stores/authStore'
 
 const { Title, Text } = Typography
 const { Option } = Select
-
-// 역할 옵션
-// - COACH: 기본 역할 (모든 사용자)
-// - VERIFIER: 증빙검토 역할 (전역 권한, 관리자 승인 필요)
-// - REVIEWER: 가입 시 불필요 (과제별로 과제관리자가 지정)
-// - PROJECT_MANAGER: 가입 시 불필요 (누구나 과제 생성 가능, 본인 과제만 관리)
-// - SUPER_ADMIN: 내부 지정 (가입 옵션 아님)
-const ROLE_OPTIONS = [
-  { value: 'COACH', label: '응모자', requiresApproval: false },
-  { value: 'VERIFIER', label: '검토자', requiresApproval: true }
-]
 
 // 코칭 분야 옵션
 const COACHING_FIELDS = [
@@ -31,15 +20,9 @@ const COACHING_FIELDS = [
 
 export default function RegisterPage() {
   const [loading, setLoading] = useState(false)
-  const [selectedRoles, setSelectedRoles] = useState<string[]>(['COACH'])
   const [form] = Form.useForm()
   const navigate = useNavigate()
   const { login } = useAuthStore()
-
-  // 승인 필요한 역할이 선택되었는지 확인
-  const hasApprovalRequiredRoles = selectedRoles.some(
-    role => ROLE_OPTIONS.find(r => r.value === role)?.requiresApproval
-  )
 
   const onFinish = async (values: any) => {
     setLoading(true)
@@ -48,24 +31,13 @@ export default function RegisterPage() {
         ...values,
         birth_year: values.birth_year || undefined,
         in_person_coaching_area: values.in_person_coaching_area || undefined,
-        roles: values.roles || ['COACH']
+        roles: ['COACH']  // 모든 사용자는 COACH로만 가입
       }
 
       const response = await authService.register(registerData)
       login(response.user, response.access_token, response.refresh_token)
 
-      // 대기 중인 역할이 있으면 알림
-      if (response.pending_roles && response.pending_roles.length > 0) {
-        const pendingRoleLabels = response.pending_roles
-          .map(role => ROLE_OPTIONS.find(r => r.value === role)?.label || role)
-          .join(', ')
-        message.success(
-          `회원가입이 완료되었습니다! ${pendingRoleLabels} 역할은 관리자 승인 후 활성화됩니다.`,
-          5
-        )
-      } else {
-        message.success('회원가입이 완료되었습니다!')
-      }
+      message.success('회원가입이 완료되었습니다!')
 
       // 역량 정보 입력 유도 팝업
       Modal.confirm({
@@ -81,15 +53,6 @@ export default function RegisterPage() {
     } finally {
       setLoading(false)
     }
-  }
-
-  const handleRoleChange = (values: string[]) => {
-    // 코치 역할은 항상 포함되도록 함
-    if (!values.includes('COACH')) {
-      values = ['COACH', ...values]
-    }
-    setSelectedRoles(values)
-    form.setFieldValue('roles', values)
   }
 
   return (
@@ -112,7 +75,7 @@ export default function RegisterPage() {
           onFinish={onFinish}
           layout="vertical"
           size="large"
-          initialValues={{ roles: ['COACH'], gender: '남성' }}
+          initialValues={{ gender: '남성' }}
           scrollToFirstError={{ behavior: 'smooth', block: 'center' }}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4">
@@ -152,34 +115,6 @@ export default function RegisterPage() {
               ]}
             >
               <Input prefix={<UserOutlined />} placeholder="홍길동" />
-            </Form.Item>
-
-            <Form.Item
-              label="역할 (복수 선택 가능)"
-              name="roles"
-              rules={[{ required: true, message: '역할을 최소 1개 이상 선택해주세요!' }]}
-              extra={hasApprovalRequiredRoles && (
-                <Alert
-                  message="응모자 외 역할(검토자, 심사자, 과제관리자, 어드민)은 관리자 승인 후 활성화됩니다."
-                  type="info"
-                  showIcon
-                  className="mt-2"
-                />
-              )}
-            >
-              <Select
-                mode="multiple"
-                placeholder="역할 선택 (복수 가능)"
-                value={selectedRoles}
-                onChange={handleRoleChange}
-              >
-                {ROLE_OPTIONS.map(role => (
-                  <Option key={role.value} value={role.value}>
-                    {role.label}
-                    {role.requiresApproval && ' *'}
-                  </Option>
-                ))}
-              </Select>
             </Form.Item>
 
             <Form.Item
