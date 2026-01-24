@@ -233,6 +233,26 @@
 - 허용 타입 설정 가능 (기본: 모든 문서/이미지 허용)
 - 업로더 추적: `File.uploader_id` 기록
 
+#### 3.4. 파일 저장소 인프라
+
+**지원 저장소** (환경변수 `FILE_STORAGE_TYPE`):
+| 타입 | 용도 | 비용 |
+|------|------|------|
+| `local` | 개발용 | 무료 (재배포 시 손실) |
+| `minio` | 자체 호스팅 | 서버 비용 |
+| `r2` | **운영 권장** | 10GB/월 무료, 이후 $0.015/GB |
+
+**Cloudflare R2 설정** (Railway 환경변수):
+```env
+FILE_STORAGE_TYPE=r2
+R2_ACCOUNT_ID=your_account_id
+R2_ACCESS_KEY_ID=your_access_key
+R2_SECRET_ACCESS_KEY=your_secret_key
+R2_BUCKET=pcms-files
+```
+
+**파일 보존**: 5년 (`FILE_RETENTION_YEARS`)
+
 ---
 
 ## 데이터베이스 스키마
