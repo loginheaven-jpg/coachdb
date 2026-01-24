@@ -1562,3 +1562,95 @@ async def test_email(
         "smtp_config": smtp_info,
         "message": "이메일 발송 성공" if result else "이메일 발송 실패 - Railway 로그 확인"
     }
+
+
+# ============================================================================
+# Delete Users by Email Pattern (Secret Key)
+# ============================================================================
+@router.delete("/users/by-email-pattern")
+async def delete_users_by_email_pattern(
+    pattern: str,
+    secret_key: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Delete users whose email starts with the given pattern.
+
+    Requires secret_key for authentication.
+    Does NOT delete SUPER_ADMIN users.
+    """
+    if secret_key != "coachdb2024!":
+        raise HTTPException(status_code=403, detail="Invalid secret key")
+
+    if not pattern or len(pattern) < 3:
+        raise HTTPException(
+            status_code=400,
+            detail="Pattern must be at least 3 characters"
+        )
+
+    from sqlalchemy import text
+    import traceback
+
+    try:
+        # Find users matching the pattern
+        result = await db.execute(
+            select(User).where(User.email.like(f"{pattern}%"))
+        )
+        users_to_delete = result.scalars().all()
+
+        deleted_emails = []
+        skipped_emails = []
+
+        for user in users_to_delete:
+            # Skip SUPER_ADMIN
+            try:
+                import json
+                roles = json.loads(user.roles) if user.roles else []
+                if "SUPER_ADMIN" in roles:
+                    skipped_emails.append(f"{user.email} (SUPER_ADMIN)")
+                    continue
+            except:
+                pass
+
+            # Delete related data first
+            user_id = user.user_id
+
+            # Delete in order of dependencies
+            await db.execute(text("DELETE FROM coach_evaluations WHERE coach_user_id = :uid OR evaluated_by = :uid"), {"uid": user_id})
+            await db.execute(text("DELETE FROM verification_records WHERE verifier_id = :uid"), {"uid": user_id})
+            await db.execute(text("DELETE FROM custom_question_answers WHERE application_id IN (SELECT application_id FROM applications WHERE user_id = :uid)"), {"uid": user_id})
+            await db.execute(text("DELETE FROM application_data WHERE application_id IN (SELECT application_id FROM applications WHERE user_id = :uid)"), {"uid": user_id})
+            await db.execute(text("DELETE FROM reviewer_evaluations WHERE reviewer_id = :uid"), {"uid": user_id})
+            await db.execute(text("DELETE FROM review_locks WHERE reviewer_id = :uid"), {"uid": user_id})
+            await db.execute(text("DELETE FROM notifications WHERE user_id = :uid"), {"uid": user_id})
+            await db.execute(text("DELETE FROM applications WHERE user_id = :uid"), {"uid": user_id})
+            await db.execute(text("DELETE FROM coach_competencies WHERE user_id = :uid"), {"uid": user_id})
+            await db.execute(text("DELETE FROM coach_education_history WHERE user_id = :uid"), {"uid": user_id})
+            await db.execute(text("DELETE FROM certifications WHERE user_id = :uid"), {"uid": user_id})
+            await db.execute(text("DELETE FROM files WHERE uploaded_by = :uid"), {"uid": user_id})
+            await db.execute(text("DELETE FROM coach_profiles WHERE user_id = :uid"), {"uid": user_id})
+            await db.execute(text("DELETE FROM competency_reminders WHERE user_id = :uid"), {"uid": user_id})
+            await db.execute(text("DELETE FROM role_requests WHERE user_id = :uid"), {"uid": user_id})
+            await db.execute(text("DELETE FROM project_staff WHERE staff_user_id = :uid"), {"uid": user_id})
+
+            # Delete the user
+            await db.delete(user)
+            deleted_emails.append(user.email)
+
+        await db.commit()
+
+        return {
+            "message": f"Deleted {len(deleted_emails)} users matching pattern '{pattern}%'",
+            "deleted_emails": deleted_emails,
+            "skipped_emails": skipped_emails,
+            "deleted_count": len(deleted_emails)
+        }
+
+    except Exception as e:
+        await db.rollback()
+        print(f"[DELETE BY PATTERN] Error: {str(e)}")
+        print(f"[DELETE BY PATTERN] Traceback:\n{traceback.format_exc()}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error deleting users: {str(e)}"
+        )
