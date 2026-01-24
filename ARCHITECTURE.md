@@ -742,6 +742,7 @@ POST   /api/projects/{id}/reject    # 과제 반려 (SUPER_ADMIN, pending → dr
 POST   /api/projects/{id}/start-recruitment  # 모집 시작 (approved → ready)
 GET    /api/projects/{id}/preview-start-review  # 심사개시 미리보기 (서류탈락 대상 조회)
 POST   /api/projects/{id}/start-review  # 심사개시 (보완 차단, 미완료 건 서류탈락)
+POST   /api/projects/{id}/copy     # 과제 복사 (제목 외 모든 설정 복사)
 GET    /api/projects/{id}/items     # 프로젝트 수집 항목 목록
 ```
 
@@ -1954,6 +1955,30 @@ git commit -m "docs: update ARCHITECTURE.md - add new notification type"
 ---
 
 ## 변경 이력
+
+### 2026-01-24
+- **과제 복사 기능 추가**
+  - 기존 과제를 기반으로 새 과제를 빠르게 생성할 수 있는 기능
+  - 복사 대상:
+    - Project 기본 정보 (project_type, description, max_participants 등)
+    - ProjectItem (설문항목 설정)
+    - ScoringCriteria (배점 기준)
+    - CustomQuestion (커스텀 질문)
+    - ProjectStaff (심사위원, 선택 옵션)
+  - 복사하지 않는 항목:
+    - project_name (새 이름 필수 입력)
+    - status (항상 DRAFT로 생성)
+    - Application, ApplicationData (지원서)
+    - ReviewerEvaluation, CoachEvaluation (평가)
+    - actual_start_date, actual_end_date (실제 시작/종료일)
+    - review_started_at (심사개시 시점)
+  - API: `POST /api/projects/{id}/copy`
+    - Request: `{ new_project_name: string, copy_staff?: boolean, copy_dates?: boolean }`
+    - Response: `{ project_id, project_name, status, message }`
+  - 권한: 원본 과제 생성자 또는 SUPER_ADMIN
+  - UI: `ProjectDetailPage.tsx`에 "과제복사" 버튼 추가
+    - 모달에서 새 과제명 입력 및 심사위원 복사 여부 선택
+    - 복사 완료 후 새 과제 편집 페이지로 자동 이동
 
 ### 2026-01-23
 - **서비스 공식 명칭 변경**

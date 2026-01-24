@@ -32,7 +32,8 @@ import {
   DownOutlined,
   UsergroupAddOutlined,
   TrophyOutlined,
-  StopOutlined
+  StopOutlined,
+  CopyOutlined
 } from '@ant-design/icons'
 import { useAuthStore } from '../stores/authStore'
 import ProjectStaffModal from '../components/ProjectStaffModal'
@@ -69,6 +70,9 @@ export default function ProjectDetailPage() {
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [staffModalVisible, setStaffModalVisible] = useState(false)
   const [freezeLoading, setFreezeLoading] = useState(false)
+  const [copyModalVisible, setCopyModalVisible] = useState(false)
+  const [copyLoading, setCopyLoading] = useState(false)
+  const [copyForm] = Form.useForm()
   const [questionForm] = Form.useForm()
 
   // SUPER_ADMIN 권한 체크
@@ -293,6 +297,27 @@ export default function ProjectDetailPage() {
     }
   }
 
+  const handleCopyProject = async (values: { new_project_name: string; copy_staff: boolean }) => {
+    if (!projectId) return
+    setCopyLoading(true)
+    try {
+      const result = await projectService.copyProject(parseInt(projectId), {
+        new_project_name: values.new_project_name,
+        copy_staff: values.copy_staff
+      })
+      message.success(result.message)
+      setCopyModalVisible(false)
+      copyForm.resetFields()
+      // 새로 생성된 과제의 편집 페이지로 이동
+      navigate(`/admin/projects/${result.project_id}/edit`)
+    } catch (error: any) {
+      console.error('과제 복사 실패:', error)
+      message.error(error.response?.data?.detail || '과제 복사에 실패했습니다.')
+    } finally {
+      setCopyLoading(false)
+    }
+  }
+
   const questionColumns = [
     {
       title: '순서',
@@ -389,6 +414,18 @@ export default function ProjectDetailPage() {
               onClick={() => navigate(`/admin/projects/${projectId}/edit`)}
             >
               과제 수정
+            </Button>
+            <Button
+              icon={<CopyOutlined />}
+              onClick={() => {
+                copyForm.setFieldsValue({
+                  new_project_name: `${project?.project_name || ''} (복사본)`,
+                  copy_staff: true
+                })
+                setCopyModalVisible(true)
+              }}
+            >
+              과제복사
             </Button>
             <Button
               danger
@@ -721,6 +758,56 @@ export default function ProjectDetailPage() {
           projectName={project?.project_name || ''}
           onClose={() => setStaffModalVisible(false)}
         />
+
+        {/* 과제 복사 모달 */}
+        <Modal
+          title="과제 복사"
+          open={copyModalVisible}
+          onCancel={() => {
+            setCopyModalVisible(false)
+            copyForm.resetFields()
+          }}
+          onOk={() => copyForm.submit()}
+          okText="복사"
+          cancelText="취소"
+          confirmLoading={copyLoading}
+        >
+          <Form
+            form={copyForm}
+            layout="vertical"
+            onFinish={handleCopyProject}
+            initialValues={{
+              copy_staff: true
+            }}
+          >
+            <Form.Item
+              name="new_project_name"
+              label="새 과제명"
+              rules={[
+                { required: true, message: '새 과제명을 입력해주세요.' },
+                { max: 200, message: '과제명은 200자 이내로 입력해주세요.' }
+              ]}
+            >
+              <Input placeholder="복사할 과제의 새 이름을 입력하세요" />
+            </Form.Item>
+            <Form.Item
+              name="copy_staff"
+              valuePropName="checked"
+            >
+              <Switch checkedChildren="심사위원 복사" unCheckedChildren="심사위원 제외" />
+            </Form.Item>
+            <div className="text-gray-500 text-sm">
+              <p className="mb-1">복사되는 내용:</p>
+              <ul className="list-disc list-inside ml-2">
+                <li>과제 기본 정보 (설명, 모집인원 등)</li>
+                <li>설문항목 및 배점기준</li>
+                <li>커스텀 질문</li>
+                <li>심사위원 (선택 시)</li>
+              </ul>
+              <p className="mt-2 text-orange-500">※ 새 과제는 초안(DRAFT) 상태로 생성됩니다.</p>
+            </div>
+          </Form>
+        </Modal>
       </div>
     </div>
   )

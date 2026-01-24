@@ -376,3 +376,21 @@ class UserProjectHistoryResponse(BaseModel):
     avg_score: Optional[float] = None
     avg_evaluation_score: Optional[float] = None
     history: List[UserProjectHistoryItem]
+
+
+# ============================================================================
+# Project Copy Schemas
+# ============================================================================
+class ProjectCopyRequest(BaseModel):
+    """Request schema for copying a project"""
+    new_project_name: str = Field(..., min_length=1, max_length=200)
+    copy_staff: bool = True  # 심사위원 복사 여부
+    copy_dates: bool = False  # 날짜 복사 여부 (기본값: 복사 안함)
+
+
+class ProjectCopyResponse(BaseModel):
+    """Response schema for project copy"""
+    project_id: int
+    project_name: str
+    status: str
+    message: str

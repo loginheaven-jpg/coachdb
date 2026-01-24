@@ -33,6 +33,8 @@ from app.schemas.project import (
     ProjectStaffCreate,
     ProjectStaffResponse,
     ProjectStaffListResponse,
+    ProjectCopyRequest,
+    ProjectCopyResponse,
 )
 from app.schemas.competency import (
     ProjectItemCreate,
@@ -3464,3 +3466,190 @@ async def start_review(
         "disqualified_count": disqualified_count,
         "review_started_at": project.review_started_at.isoformat() if project.review_started_at else None
     }
+
+
+# ============================================================================
+# Project Copy
+# ============================================================================
+@router.post("/{project_id}/copy", response_model=ProjectCopyResponse, status_code=status.HTTP_201_CREATED)
+async def copy_project(
+    project_id: int,
+    copy_data: ProjectCopyRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    과제 복사 - 제목 외 모든 설정 복사
+
+    **복사 대상**:
+    - Project 기본 정보 (project_type, description, 날짜(선택), max_participants 등)
+    - ProjectItem (설문항목 설정)
+    - ScoringCriteria (배점 기준)
+    - CustomQuestion (커스텀 질문)
+    - ProjectStaff (심사위원, 선택)
+
+    **복사하지 않는 항목**:
+    - project_name (새 이름 필수)
+    - status (항상 DRAFT)
+    - Application, ApplicationData (지원서)
+    - ReviewerEvaluation, CoachEvaluation (평가)
+    - actual_start_date, actual_end_date (실제 시작/종료일)
+    - review_started_at (심사개시 시점)
+
+    **권한**: 원본 과제 생성자 또는 SUPER_ADMIN
+    """
+    from decimal import Decimal
+
+    logger.info(f"[COPY_PROJECT] Start copying project_id={project_id} by user_id={current_user.user_id}")
+
+    # 1. 원본 과제 조회
+    source_result = await db.execute(
+        select(Project).where(Project.project_id == project_id)
+    )
+    source_project = source_result.scalar_one_or_none()
+
+    if not source_project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="원본 과제를 찾을 수 없습니다."
+        )
+
+    # 2. 권한 체크 (원본 과제 생성자 또는 SUPER_ADMIN)
+    user_roles = get_user_roles(current_user)
+    is_super_admin = "SUPER_ADMIN" in user_roles
+    is_owner = source_project.created_by == current_user.user_id
+
+    if not is_super_admin and not is_owner:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="과제를 복사할 권한이 없습니다. 본인이 생성한 과제만 복사할 수 있습니다."
+        )
+
+    # 3. 새 과제 생성 (DRAFT)
+    new_project = Project(
+        project_name=copy_data.new_project_name,
+        project_type=source_project.project_type,
+        description=source_project.description,
+        support_program_name=source_project.support_program_name,
+        max_participants=source_project.max_participants,
+        # 날짜 복사 (옵션)
+        recruitment_start_date=source_project.recruitment_start_date if copy_data.copy_dates else None,
+        recruitment_end_date=source_project.recruitment_end_date if copy_data.copy_dates else None,
+        project_start_date=source_project.project_start_date if copy_data.copy_dates else None,
+        project_end_date=source_project.project_end_date if copy_data.copy_dates else None,
+        # 항상 초기화
+        actual_start_date=None,
+        actual_end_date=None,
+        review_started_at=None,
+        status=ProjectStatus.DRAFT,
+        created_by=current_user.user_id,
+        project_manager_id=current_user.user_id,
+    )
+    db.add(new_project)
+    await db.flush()  # new_project.project_id 확보
+
+    logger.info(f"[COPY_PROJECT] Created new project_id={new_project.project_id}")
+
+    # 4. ProjectItem 복사 (item_id 매핑 보존)
+    items_result = await db.execute(
+        select(ProjectItem).where(ProjectItem.project_id == project_id)
+    )
+    source_items = items_result.scalars().all()
+
+    # old_project_item_id -> new_project_item_id 매핑 (ScoringCriteria 복사용)
+    item_id_mapping = {}
+
+    for source_item in source_items:
+        new_item = ProjectItem(
+            project_id=new_project.project_id,
+            item_id=source_item.item_id,
+            is_required=source_item.is_required,
+            proof_required_level=source_item.proof_required_level,
+            max_score=source_item.max_score,
+            display_order=source_item.display_order,
+        )
+        db.add(new_item)
+        await db.flush()  # new_item.project_item_id 확보
+        item_id_mapping[source_item.project_item_id] = new_item.project_item_id
+
+    logger.info(f"[COPY_PROJECT] Copied {len(source_items)} ProjectItems")
+
+    # 5. ScoringCriteria 복사 (project_item_id 매핑 사용)
+    criteria_count = 0
+    for old_item_id, new_item_id in item_id_mapping.items():
+        criteria_result = await db.execute(
+            select(ScoringCriteria).where(ScoringCriteria.project_item_id == old_item_id)
+        )
+        source_criteria = criteria_result.scalars().all()
+
+        for sc in source_criteria:
+            new_criteria = ScoringCriteria(
+                project_item_id=new_item_id,
+                matching_type=sc.matching_type,
+                expected_value=sc.expected_value,
+                expected_value_min=sc.expected_value_min,
+                expected_value_max=sc.expected_value_max,
+                score=sc.score,
+            )
+            db.add(new_criteria)
+            criteria_count += 1
+
+    logger.info(f"[COPY_PROJECT] Copied {criteria_count} ScoringCriteria")
+
+    # 6. CustomQuestion 복사
+    questions_result = await db.execute(
+        select(CustomQuestion).where(CustomQuestion.project_id == project_id)
+    )
+    source_questions = questions_result.scalars().all()
+
+    for sq in source_questions:
+        new_question = CustomQuestion(
+            project_id=new_project.project_id,
+            question_text=sq.question_text,
+            question_type=sq.question_type,
+            is_required=sq.is_required,
+            display_order=sq.display_order,
+            options=sq.options,
+            allows_text=sq.allows_text,
+            allows_file=sq.allows_file,
+            file_required=sq.file_required,
+            is_evaluation_item=sq.is_evaluation_item,
+            max_score=sq.max_score,
+            proof_required_level=sq.proof_required_level,
+            scoring_rules=sq.scoring_rules,
+        )
+        db.add(new_question)
+
+    logger.info(f"[COPY_PROJECT] Copied {len(source_questions)} CustomQuestions")
+
+    # 7. ProjectStaff 복사 (옵션)
+    staff_count = 0
+    if copy_data.copy_staff:
+        staff_result = await db.execute(
+            select(ProjectStaff).where(ProjectStaff.project_id == project_id)
+        )
+        source_staff = staff_result.scalars().all()
+
+        for ss in source_staff:
+            new_staff = ProjectStaff(
+                project_id=new_project.project_id,
+                staff_user_id=ss.staff_user_id,
+            )
+            db.add(new_staff)
+            staff_count += 1
+
+        logger.info(f"[COPY_PROJECT] Copied {staff_count} ProjectStaff members")
+
+    await db.commit()
+
+    logger.info(
+        f"[COPY_PROJECT] Completed: source_id={project_id} -> new_id={new_project.project_id}, "
+        f"items={len(source_items)}, criteria={criteria_count}, questions={len(source_questions)}, staff={staff_count}"
+    )
+
+    return ProjectCopyResponse(
+        project_id=new_project.project_id,
+        project_name=new_project.project_name,
+        status=new_project.status.value,
+        message=f"과제가 복사되었습니다. (설문항목 {len(source_items)}개, 배점기준 {criteria_count}개, 커스텀질문 {len(source_questions)}개, 심사위원 {staff_count}명)"
+    )

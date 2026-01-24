@@ -475,6 +475,22 @@ export interface ProjectStaffListResponse {
 }
 
 // ============================================================================
+// Project Copy Types
+// ============================================================================
+export interface ProjectCopyRequest {
+  new_project_name: string
+  copy_staff?: boolean  // 심사위원 복사 여부 (기본값: true)
+  copy_dates?: boolean  // 날짜 복사 여부 (기본값: false)
+}
+
+export interface ProjectCopyResponse {
+  project_id: number
+  project_name: string
+  status: string
+  message: string
+}
+
+// ============================================================================
 // API Service
 // ============================================================================
 const projectService = {
@@ -847,6 +863,24 @@ const projectService = {
    */
   async bulkDeleteProjects(projectIds: number[]): Promise<{ deleted_count: number }> {
     const response = await api.delete('/projects/bulk-delete', { data: projectIds })
+    return response.data
+  },
+
+  // ============================================================================
+  // Project Copy (과제 복사)
+  // ============================================================================
+
+  /**
+   * Copy a project with all its settings
+   * 제목을 제외한 모든 설정 (설문항목, 배점기준, 커스텀질문, 심사위원)을 복사
+   * 새 과제는 DRAFT 상태로 생성됨
+   */
+  async copyProject(projectId: number, options: ProjectCopyRequest): Promise<ProjectCopyResponse> {
+    const response = await api.post(`/projects/${projectId}/copy`, {
+      new_project_name: options.new_project_name,
+      copy_staff: options.copy_staff ?? true,
+      copy_dates: options.copy_dates ?? false
+    })
     return response.data
   }
 }
