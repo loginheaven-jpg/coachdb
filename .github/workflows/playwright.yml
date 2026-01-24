@@ -1,9 +1,19 @@
 name: Playwright Tests
 on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
+  # 수동 실행만 허용 (자동 실행 비활성화)
+  workflow_dispatch:
+    inputs:
+      test_url:
+        description: '테스트 대상 URL'
+        required: false
+        default: 'https://copms.up.railway.app'
+        type: string
+      test_file:
+        description: '특정 테스트 파일 (비우면 전체 실행)'
+        required: false
+        default: ''
+        type: string
+
 jobs:
   test:
     timeout-minutes: 60
@@ -18,7 +28,9 @@ jobs:
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps
     - name: Run Playwright tests
-      run: npx playwright test
+      env:
+        TEST_URL: ${{ github.event.inputs.test_url }}
+      run: npx playwright test ${{ github.event.inputs.test_file }}
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
       with:
