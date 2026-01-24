@@ -35,8 +35,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   hasRole: (role) => {
     const { user } = get()
-    if (!user) return false
-    const userRoles = JSON.parse(user.roles) as string[]
+    if (!user || !user.roles) return false
+
+    let userRoles: string[] = []
+    try {
+      const parsed = JSON.parse(user.roles)
+      userRoles = Array.isArray(parsed) ? parsed : []
+    } catch {
+      console.error('[authStore] Failed to parse user roles:', user.roles)
+      return false
+    }
+
     if (Array.isArray(role)) {
       return role.some(r => userRoles.includes(r))
     }

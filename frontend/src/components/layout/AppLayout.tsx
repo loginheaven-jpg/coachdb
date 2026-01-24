@@ -44,6 +44,18 @@ const getNotificationIcon = (type: string) => {
 
 const { Header, Content } = Layout
 
+// 안전한 roles 파싱 헬퍼 함수
+const parseUserRoles = (roles: string | null | undefined): string[] => {
+  if (!roles) return []
+  try {
+    const parsed = JSON.parse(roles)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    console.error('[AppLayout] Failed to parse user roles:', roles)
+    return []
+  }
+}
+
 interface AppLayoutProps {
   children: React.ReactNode
 }
@@ -59,7 +71,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [loadingNotifications, setLoadingNotifications] = useState(false)
   const [popoverVisible, setPopoverVisible] = useState(false)
 
-  const userRoles = user ? (JSON.parse(user.roles) as string[]) : []
+  const userRoles = parseUserRoles(user?.roles)
 
   // 알림 개수 로드 (주기적 갱신)
   useEffect(() => {
