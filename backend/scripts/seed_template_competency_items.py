@@ -109,14 +109,14 @@ async def seed_template_items():
                     "item_code": "EDU_COACHING_FINAL",
                     "category": CompetencyCategory.EDUCATION,
                     "template": ItemTemplate.DEGREE,
-                    "template_config": json.dumps({"degree_options": ["박사", "석사", "학사", "없음"]}),
+                    "template_config": json.dumps({"degree_options": ["박사", "박사수료", "석사", "학사"]}),
                     "is_repeatable": False,
                     "fields": [
                         {
                             "field_name": "degree_level",
                             "field_label": "학위",
                             "field_type": "select",
-                            "field_options": json.dumps(["박사", "석사", "학사", "없음"]),
+                            "field_options": json.dumps(["박사", "박사수료", "석사", "학사"]),
                             "is_required": True,
                             "display_order": 1
                         },
@@ -144,14 +144,14 @@ async def seed_template_items():
                     "item_code": "EDU_OTHER_FINAL",
                     "category": CompetencyCategory.EDUCATION,
                     "template": ItemTemplate.DEGREE,
-                    "template_config": json.dumps({"degree_options": ["박사", "석사", "학사", "없음"]}),
+                    "template_config": json.dumps({"degree_options": ["박사", "박사수료", "석사", "학사"]}),
                     "is_repeatable": False,
                     "fields": [
                         {
                             "field_name": "degree_level",
                             "field_label": "학위",
                             "field_type": "select",
-                            "field_options": json.dumps(["박사", "석사", "학사", "없음"]),
+                            "field_options": json.dumps(["박사", "박사수료", "석사", "학사"]),
                             "is_required": True,
                             "display_order": 1
                         },

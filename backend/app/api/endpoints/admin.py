@@ -1933,3 +1933,72 @@ async def create_sample_project(
             status_code=500,
             detail=f"Error creating sample project: {str(e)}"
         )
+
+
+# ============================================================================
+# Update Degree Options (학력 선택지 업데이트)
+# ============================================================================
+@router.post("/update-degree-options")
+async def update_degree_options(
+    secret_key: str = Body(..., embed=True),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    학력 항목의 선택지를 '박사, 박사수료, 석사, 학사'로 업데이트
+
+    Secret key required for authentication.
+    """
+    from app.models.competency import CompetencyItem, CompetencyItemField
+    import json
+
+    if secret_key != "update_degree_2026":
+        raise HTTPException(status_code=403, detail="Invalid secret key")
+
+    try:
+        new_options = ["박사", "박사수료", "석사", "학사"]
+        new_options_json = json.dumps(new_options, ensure_ascii=False)
+        new_template_config = json.dumps({"degree_options": new_options}, ensure_ascii=False)
+
+        updated_items = []
+        updated_fields = []
+
+        # 학력 항목 업데이트 (EDU_COACHING_FINAL, EDU_OTHER_FINAL)
+        result = await db.execute(
+            select(CompetencyItem).where(
+                CompetencyItem.item_code.in_(["EDU_COACHING_FINAL", "EDU_OTHER_FINAL"])
+            )
+        )
+        items = result.scalars().all()
+
+        for item in items:
+            # template_config 업데이트
+            item.template_config = new_template_config
+            updated_items.append(item.item_code)
+
+            # 해당 항목의 degree_level 필드 업데이트
+            fields_result = await db.execute(
+                select(CompetencyItemField).where(
+                    CompetencyItemField.item_id == item.item_id,
+                    CompetencyItemField.field_name == "degree_level"
+                )
+            )
+            field = fields_result.scalar_one_or_none()
+            if field:
+                field.field_options = new_options_json
+                updated_fields.append(f"{item.item_code}.degree_level")
+
+        await db.commit()
+
+        return {
+            "message": "학력 선택지가 업데이트되었습니다.",
+            "new_options": new_options,
+            "updated_items": updated_items,
+            "updated_fields": updated_fields
+        }
+
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error updating degree options: {str(e)}"
+        )

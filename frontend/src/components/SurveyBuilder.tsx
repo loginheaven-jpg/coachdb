@@ -271,7 +271,7 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
           value_source: c.value_source || ValueSourceType.SUBMITTED,
           source_field: c.source_field || null,
           extract_pattern: c.extract_pattern || null,
-          aggregation_mode: c.aggregation_mode || AggregationMode.FIRST
+          aggregation_mode: c.aggregation_mode || AggregationMode.ANY_MATCH
         })) || []
         newSelections.set(item.item_id, {
           item,
@@ -375,6 +375,19 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
       } else {
         grouped['코칭경력'].push(selection)  // 매핑되지 않은 카테고리는 코칭경력으로
       }
+    })
+
+    // 코칭경력 그룹 내 정렬: '누적 코칭 시간'(EXP_COACHING_HOURS)이 먼저 나오도록
+    grouped['코칭경력'].sort((a, b) => {
+      const codeA = a.item.item_code || ''
+      const codeB = b.item.item_code || ''
+      // EXP_COACHING_HOURS를 최우선으로
+      if (codeA === 'EXP_COACHING_HOURS') return -1
+      if (codeB === 'EXP_COACHING_HOURS') return 1
+      // 커스텀 항목은 뒤로
+      if (a.item.is_custom && !b.item.is_custom) return 1
+      if (!a.item.is_custom && b.item.is_custom) return -1
+      return 0
     })
 
     return grouped
@@ -859,8 +872,8 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                                         // 증빙 감점 로드 (저장된 값은 음수이므로 절대값으로 변환)
                                         enable_proof_penalty: config.proofPenalty !== undefined && config.proofPenalty !== null,
                                         proof_penalty_amount: config.proofPenalty ? Math.abs(config.proofPenalty) : undefined,
-                                        // 집계 방식 로드 (복수입력 항목은 BEST_MATCH 기본)
-                                        aggregation_mode: existingCriteria.aggregation_mode || (selection.item.is_repeatable ? AggregationMode.BEST_MATCH : AggregationMode.FIRST)
+                                        // 집계 방식 로드 (복수입력 항목은 BEST_MATCH 기본, 그 외 ANY_MATCH)
+                                        aggregation_mode: existingCriteria.aggregation_mode || (selection.item.is_repeatable ? AggregationMode.BEST_MATCH : AggregationMode.ANY_MATCH)
                                       })
                                     } catch {
                                       gradeConfigForm.resetFields()
@@ -875,18 +888,16 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                                         source_field: template.source_field || '',
                                         extract_pattern: template.extract_pattern || '',
                                         grades: template.grades,
-                                        // 복수입력 항목은 BEST_MATCH 기본
-                                        aggregation_mode: selection.item.is_repeatable ? AggregationMode.BEST_MATCH : AggregationMode.FIRST
+                                        // 복수입력 항목은 BEST_MATCH 기본, 그 외 ANY_MATCH
+                                        aggregation_mode: selection.item.is_repeatable ? AggregationMode.BEST_MATCH : AggregationMode.ANY_MATCH
                                       })
                                       message.info(`'${selection.item.item_name}' 항목의 추천 설정이 자동으로 적용되었습니다. 필요시 수정하세요.`)
                                     } else {
-                                      // 템플릿이 없을 때도 복수입력이면 BEST_MATCH 설정
+                                      // 템플릿이 없을 때: 복수입력은 BEST_MATCH, 그 외 ANY_MATCH 기본
                                       gradeConfigForm.resetFields()
-                                      if (selection.item.is_repeatable) {
-                                        gradeConfigForm.setFieldsValue({
-                                          aggregation_mode: AggregationMode.BEST_MATCH
-                                        })
-                                      }
+                                      gradeConfigForm.setFieldsValue({
+                                        aggregation_mode: selection.item.is_repeatable ? AggregationMode.BEST_MATCH : AggregationMode.ANY_MATCH
+                                      })
                                     }
                                   }
                                 }}
@@ -1195,9 +1206,9 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
               maxScore = getMaxGradeScore(values.grades || [])
             }
 
-            // 복수입력 항목은 기본 BEST_MATCH
+            // 복수입력 항목은 기본 BEST_MATCH, 그 외 ANY_MATCH
             const currentItem = selections.get(gradeConfigItemId)?.item
-            const defaultAggMode = currentItem?.is_repeatable ? AggregationMode.BEST_MATCH : AggregationMode.FIRST
+            const defaultAggMode = currentItem?.is_repeatable ? AggregationMode.BEST_MATCH : AggregationMode.ANY_MATCH
 
             const newCriteria: ScoringCriteriaCreate = {
               matching_type: MatchingType.GRADE,
@@ -1236,7 +1247,7 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
               grade_type: 'string',
               value_source: ValueSourceType.SUBMITTED,
               grades: [],
-              aggregation_mode: AggregationMode.FIRST
+              aggregation_mode: AggregationMode.ANY_MATCH
             }}
           >
             <Form.Item
@@ -1888,9 +1899,9 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
             maxScore = getMaxGradeScore(values.grades || [])
           }
 
-          // 복수입력 항목은 기본 BEST_MATCH
+          // 복수입력 항목은 기본 BEST_MATCH, 그 외 ANY_MATCH
           const currentItem = selections.get(gradeConfigItemId)?.item
-          const defaultAggMode = currentItem?.is_repeatable ? AggregationMode.BEST_MATCH : AggregationMode.FIRST
+          const defaultAggMode = currentItem?.is_repeatable ? AggregationMode.BEST_MATCH : AggregationMode.ANY_MATCH
 
           const newCriteria: ScoringCriteriaCreate = {
             matching_type: MatchingType.GRADE,
@@ -1929,7 +1940,7 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
             grade_type: 'string',
             value_source: ValueSourceType.SUBMITTED,
             grades: [],
-            aggregation_mode: AggregationMode.FIRST
+            aggregation_mode: AggregationMode.ANY_MATCH
           }}
         >
           <Form.Item
