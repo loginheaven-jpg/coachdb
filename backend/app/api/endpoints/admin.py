@@ -1733,19 +1733,19 @@ async def create_sample_project(
         if not all_items:
             raise HTTPException(status_code=404, detail="No active competency items found")
 
-        # 6. Calculate score distribution (100 points total)
+        # 6. Calculate score distribution (100 points total, integers only)
         item_count = len(all_items)
-        base_score = Decimal("100") / item_count
-        remainder = Decimal("100") - (base_score.quantize(Decimal("0.01")) * item_count)
+        base_score = 100 // item_count  # 정수 나눗셈
+        remainder = 100 - (base_score * item_count)  # 남은 점수
 
         # 7. Add project items with scoring criteria
         project_items_created = []
         for i, comp_item in enumerate(all_items):
-            # Distribute score - add remainder to last item
-            if i == item_count - 1:
-                score = base_score.quantize(Decimal("0.01")) + remainder
+            # Distribute score - add remainder to first N items (1 point each)
+            if i < remainder:
+                score = Decimal(base_score + 1)
             else:
-                score = base_score.quantize(Decimal("0.01"))
+                score = Decimal(base_score)
 
             # Create project item (all required, proof required)
             project_item = ProjectItem(
@@ -1761,7 +1761,7 @@ async def create_sample_project(
             project_items_created.append({
                 "item_code": comp_item.item_code,
                 "item_name": comp_item.item_name,
-                "max_score": float(score),
+                "max_score": int(score),
                 "template": comp_item.template.value if comp_item.template else None
             })
 
@@ -1769,17 +1769,14 @@ async def create_sample_project(
             template = comp_item.template.value if comp_item.template else None
 
             if comp_item.item_code == 'CERT_COACH' or template == 'text_file':
-                # 자격증 등급
+                # 자격증 등급 (KSC, KPC, KAC 3단계)
                 grade_config = json.dumps({
                     "type": "string",
                     "matchMode": "contains",
                     "grades": [
-                        {"value": "MCC", "score": float(score)},
-                        {"value": "KSC", "score": float(score * Decimal("0.9"))},
-                        {"value": "PCC", "score": float(score * Decimal("0.8"))},
-                        {"value": "KPC", "score": float(score * Decimal("0.6"))},
-                        {"value": "ACC", "score": float(score * Decimal("0.4"))},
-                        {"value": "KAC", "score": float(score * Decimal("0.3"))}
+                        {"value": "KSC", "score": int(score)},
+                        {"value": "KPC", "score": int(score * Decimal("0.6"))},
+                        {"value": "KAC", "score": int(score * Decimal("0.3"))}
                     ]
                 })
                 criteria = ScoringCriteria(
@@ -1797,10 +1794,10 @@ async def create_sample_project(
                 grade_config = json.dumps({
                     "type": "string",
                     "grades": [
-                        {"value": "박사", "score": float(score)},
-                        {"value": "석사", "score": float(score * Decimal("0.7"))},
-                        {"value": "학사", "score": float(score * Decimal("0.4"))},
-                        {"value": "전문학사", "score": float(score * Decimal("0.2"))}
+                        {"value": "박사", "score": int(score)},
+                        {"value": "석사", "score": int(score * Decimal("0.7"))},
+                        {"value": "학사", "score": int(score * Decimal("0.4"))},
+                        {"value": "전문학사", "score": int(score * Decimal("0.2"))}
                     ]
                 })
                 criteria = ScoringCriteria(
@@ -1818,12 +1815,12 @@ async def create_sample_project(
                 grade_config = json.dumps({
                     "type": "numeric",
                     "grades": [
-                        {"min": 1500, "score": float(score)},
-                        {"min": 1000, "max": 1499, "score": float(score * Decimal("0.8"))},
-                        {"min": 500, "max": 999, "score": float(score * Decimal("0.6"))},
-                        {"min": 200, "max": 499, "score": float(score * Decimal("0.4"))},
-                        {"min": 50, "max": 199, "score": float(score * Decimal("0.2"))},
-                        {"max": 49, "score": float(score * Decimal("0.1"))}
+                        {"min": 1500, "score": int(score)},
+                        {"min": 1000, "max": 1499, "score": int(score * Decimal("0.8"))},
+                        {"min": 500, "max": 999, "score": int(score * Decimal("0.6"))},
+                        {"min": 200, "max": 499, "score": int(score * Decimal("0.4"))},
+                        {"min": 50, "max": 199, "score": int(score * Decimal("0.2"))},
+                        {"max": 49, "score": int(score * Decimal("0.1"))}
                     ]
                 })
                 criteria = ScoringCriteria(
@@ -1841,10 +1838,10 @@ async def create_sample_project(
                 grade_config = json.dumps({
                     "type": "numeric",
                     "grades": [
-                        {"min": 10, "score": float(score)},
-                        {"min": 5, "max": 9, "score": float(score * Decimal("0.7"))},
-                        {"min": 3, "max": 4, "score": float(score * Decimal("0.4"))},
-                        {"min": 1, "max": 2, "score": float(score * Decimal("0.2"))}
+                        {"min": 10, "score": int(score)},
+                        {"min": 5, "max": 9, "score": int(score * Decimal("0.7"))},
+                        {"min": 3, "max": 4, "score": int(score * Decimal("0.4"))},
+                        {"min": 1, "max": 2, "score": int(score * Decimal("0.2"))}
                     ]
                 })
                 criteria = ScoringCriteria(
@@ -1862,10 +1859,10 @@ async def create_sample_project(
                 grade_config = json.dumps({
                     "type": "numeric",
                     "grades": [
-                        {"min": 100, "score": float(score)},
-                        {"min": 50, "max": 99, "score": float(score * Decimal("0.7"))},
-                        {"min": 20, "max": 49, "score": float(score * Decimal("0.4"))},
-                        {"min": 1, "max": 19, "score": float(score * Decimal("0.2"))}
+                        {"min": 100, "score": int(score)},
+                        {"min": 50, "max": 99, "score": int(score * Decimal("0.7"))},
+                        {"min": 20, "max": 49, "score": int(score * Decimal("0.4"))},
+                        {"min": 1, "max": 19, "score": int(score * Decimal("0.2"))}
                     ]
                 })
                 criteria = ScoringCriteria(
@@ -1882,7 +1879,7 @@ async def create_sample_project(
                 grade_config = json.dumps({
                     "type": "boolean",
                     "grades": [
-                        {"value": "입력됨", "score": float(score)},
+                        {"value": "입력됨", "score": int(score)},
                         {"value": "", "score": 0}
                     ]
                 })
