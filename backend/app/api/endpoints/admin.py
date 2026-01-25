@@ -1654,3 +1654,287 @@ async def delete_users_by_email_pattern(
             status_code=500,
             detail=f"Error deleting users: {str(e)}"
         )
+
+
+# ============================================================================
+# Create Sample Project (Secret Key)
+# ============================================================================
+@router.post("/create-sample-project")
+async def create_sample_project(
+    secret_key: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Create a sample project with all competency items set to required with proof required.
+    Includes complete scoring criteria with grades.
+
+    Creator: SUPER_ADMIN
+    Reviewers: SUPER_ADMIN, viproject@naver.com
+    """
+    if secret_key != "coachdb2024!":
+        raise HTTPException(status_code=403, detail="Invalid secret key")
+
+    import json
+    import traceback
+    from datetime import datetime, timedelta
+    from decimal import Decimal
+    from app.models.project import Project, ProjectStatus
+    from app.models.competency import (
+        CompetencyItem, ProjectItem, ScoringCriteria,
+        ProofRequiredLevel, MatchingType, ValueSourceType
+    )
+    from app.models.project import ProjectStaff
+
+    try:
+        # 1. Find SUPER_ADMIN user
+        result = await db.execute(
+            select(User).where(User.roles.like('%SUPER_ADMIN%'))
+        )
+        super_admin = result.scalars().first()
+        if not super_admin:
+            raise HTTPException(status_code=404, detail="SUPER_ADMIN user not found")
+
+        # 2. Find viproject@naver.com user
+        result = await db.execute(
+            select(User).where(User.email == "viproject@naver.com")
+        )
+        viproject_user = result.scalar_one_or_none()
+        if not viproject_user:
+            raise HTTPException(status_code=404, detail="viproject@naver.com user not found")
+
+        # 3. Set dates
+        today = datetime.now().date()
+        recruitment_end = today + timedelta(days=30)
+        project_start = recruitment_end + timedelta(days=7)
+        project_end = project_start + timedelta(days=180)
+
+        # 4. Create project
+        new_project = Project(
+            project_name="견본과제",
+            description="모든 항목을 필수로 설정한 견본과제입니다. 복사하여 과제에 맞게 수정하여 사용하십시요.",
+            recruitment_start_date=today,
+            recruitment_end_date=recruitment_end,
+            project_start_date=project_start,
+            project_end_date=project_end,
+            max_participants=50,
+            status=ProjectStatus.DRAFT,  # 초안 상태로 생성
+            project_manager_id=super_admin.user_id,
+            created_by=super_admin.user_id
+        )
+        db.add(new_project)
+        await db.flush()
+
+        # 5. Get all active competency items
+        result = await db.execute(
+            select(CompetencyItem).where(CompetencyItem.is_active == True).order_by(CompetencyItem.item_id)
+        )
+        all_items = result.scalars().all()
+
+        if not all_items:
+            raise HTTPException(status_code=404, detail="No active competency items found")
+
+        # 6. Calculate score distribution (100 points total)
+        item_count = len(all_items)
+        base_score = Decimal("100") / item_count
+        remainder = Decimal("100") - (base_score.quantize(Decimal("0.01")) * item_count)
+
+        # 7. Add project items with scoring criteria
+        project_items_created = []
+        for i, comp_item in enumerate(all_items):
+            # Distribute score - add remainder to last item
+            if i == item_count - 1:
+                score = base_score.quantize(Decimal("0.01")) + remainder
+            else:
+                score = base_score.quantize(Decimal("0.01"))
+
+            # Create project item (all required, proof required)
+            project_item = ProjectItem(
+                project_id=new_project.project_id,
+                item_id=comp_item.item_id,
+                is_required=True,
+                proof_required_level=ProofRequiredLevel.REQUIRED,
+                max_score=score,
+                display_order=i + 1
+            )
+            db.add(project_item)
+            await db.flush()
+            project_items_created.append({
+                "item_code": comp_item.item_code,
+                "item_name": comp_item.item_name,
+                "max_score": float(score),
+                "template": comp_item.template.value if comp_item.template else None
+            })
+
+            # Create scoring criteria based on item type
+            template = comp_item.template.value if comp_item.template else None
+
+            if comp_item.item_code == 'CERT_COACH' or template == 'text_file':
+                # 자격증 등급
+                grade_config = json.dumps({
+                    "type": "string",
+                    "matchMode": "contains",
+                    "grades": [
+                        {"value": "MCC", "score": float(score)},
+                        {"value": "KSC", "score": float(score * Decimal("0.9"))},
+                        {"value": "PCC", "score": float(score * Decimal("0.8"))},
+                        {"value": "KPC", "score": float(score * Decimal("0.6"))},
+                        {"value": "ACC", "score": float(score * Decimal("0.4"))},
+                        {"value": "KAC", "score": float(score * Decimal("0.3"))}
+                    ]
+                })
+                criteria = ScoringCriteria(
+                    project_item_id=project_item.project_item_id,
+                    matching_type=MatchingType.GRADE,
+                    expected_value=grade_config,
+                    score=Decimal("0"),
+                    value_source=ValueSourceType.JSON_FIELD,
+                    source_field="cert_name"
+                )
+                db.add(criteria)
+
+            elif template == 'degree' or comp_item.item_code in ['EDU_COACHING', 'EDU_GENERAL']:
+                # 학위 등급
+                grade_config = json.dumps({
+                    "type": "string",
+                    "grades": [
+                        {"value": "박사", "score": float(score)},
+                        {"value": "석사", "score": float(score * Decimal("0.7"))},
+                        {"value": "학사", "score": float(score * Decimal("0.4"))},
+                        {"value": "전문학사", "score": float(score * Decimal("0.2"))}
+                    ]
+                })
+                criteria = ScoringCriteria(
+                    project_item_id=project_item.project_item_id,
+                    matching_type=MatchingType.GRADE,
+                    expected_value=grade_config,
+                    score=Decimal("0"),
+                    value_source=ValueSourceType.JSON_FIELD,
+                    source_field="degree_level"
+                )
+                db.add(criteria)
+
+            elif template in ['coaching_time', 'coaching_experience'] or comp_item.item_code in ['EXP_COACHING_HOURS', 'EXP_COACHING_TIME']:
+                # 시간 기반 숫자 등급
+                grade_config = json.dumps({
+                    "type": "numeric",
+                    "grades": [
+                        {"min": 1500, "score": float(score)},
+                        {"min": 1000, "max": 1499, "score": float(score * Decimal("0.8"))},
+                        {"min": 500, "max": 999, "score": float(score * Decimal("0.6"))},
+                        {"min": 200, "max": 499, "score": float(score * Decimal("0.4"))},
+                        {"min": 50, "max": 199, "score": float(score * Decimal("0.2"))},
+                        {"max": 49, "score": float(score * Decimal("0.1"))}
+                    ]
+                })
+                criteria = ScoringCriteria(
+                    project_item_id=project_item.project_item_id,
+                    matching_type=MatchingType.GRADE,
+                    expected_value=grade_config,
+                    score=Decimal("0"),
+                    value_source=ValueSourceType.JSON_FIELD,
+                    source_field="hours"
+                )
+                db.add(criteria)
+
+            elif template == 'coaching_history':
+                # 경력 건수 기반
+                grade_config = json.dumps({
+                    "type": "numeric",
+                    "grades": [
+                        {"min": 10, "score": float(score)},
+                        {"min": 5, "max": 9, "score": float(score * Decimal("0.7"))},
+                        {"min": 3, "max": 4, "score": float(score * Decimal("0.4"))},
+                        {"min": 1, "max": 2, "score": float(score * Decimal("0.2"))}
+                    ]
+                })
+                criteria = ScoringCriteria(
+                    project_item_id=project_item.project_item_id,
+                    matching_type=MatchingType.GRADE,
+                    expected_value=grade_config,
+                    score=Decimal("0"),
+                    value_source=ValueSourceType.SUBMITTED,
+                    aggregation_mode="count"
+                )
+                db.add(criteria)
+
+            elif template == 'number':
+                # 숫자 범위
+                grade_config = json.dumps({
+                    "type": "numeric",
+                    "grades": [
+                        {"min": 100, "score": float(score)},
+                        {"min": 50, "max": 99, "score": float(score * Decimal("0.7"))},
+                        {"min": 20, "max": 49, "score": float(score * Decimal("0.4"))},
+                        {"min": 1, "max": 19, "score": float(score * Decimal("0.2"))}
+                    ]
+                })
+                criteria = ScoringCriteria(
+                    project_item_id=project_item.project_item_id,
+                    matching_type=MatchingType.GRADE,
+                    expected_value=grade_config,
+                    score=Decimal("0"),
+                    value_source=ValueSourceType.SUBMITTED
+                )
+                db.add(criteria)
+
+            else:
+                # 기본: 입력 여부에 따른 점수 (있으면 만점)
+                grade_config = json.dumps({
+                    "type": "boolean",
+                    "grades": [
+                        {"value": "입력됨", "score": float(score)},
+                        {"value": "", "score": 0}
+                    ]
+                })
+                criteria = ScoringCriteria(
+                    project_item_id=project_item.project_item_id,
+                    matching_type=MatchingType.EXACT,
+                    expected_value="*",  # 아무 값이나 있으면
+                    score=score
+                )
+                db.add(criteria)
+
+        # 8. Add reviewers (project_staff)
+        # SUPER_ADMIN as reviewer
+        staff1 = ProjectStaff(
+            project_id=new_project.project_id,
+            staff_user_id=super_admin.user_id,
+            role="REVIEWER"
+        )
+        db.add(staff1)
+
+        # viproject@naver.com as reviewer
+        staff2 = ProjectStaff(
+            project_id=new_project.project_id,
+            staff_user_id=viproject_user.user_id,
+            role="REVIEWER"
+        )
+        db.add(staff2)
+
+        await db.commit()
+        await db.refresh(new_project)
+
+        return {
+            "message": "견본과제가 생성되었습니다.",
+            "project_id": new_project.project_id,
+            "project_name": new_project.project_name,
+            "status": new_project.status.value,
+            "total_items": len(project_items_created),
+            "total_score": 100,
+            "items": project_items_created,
+            "reviewers": [
+                {"email": super_admin.email, "name": super_admin.name},
+                {"email": viproject_user.email, "name": viproject_user.name}
+            ]
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        print(f"[CREATE SAMPLE PROJECT] Error: {str(e)}")
+        print(f"[CREATE SAMPLE PROJECT] Traceback:\n{traceback.format_exc()}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error creating sample project: {str(e)}"
+        )
