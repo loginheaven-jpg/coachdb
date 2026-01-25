@@ -1898,16 +1898,14 @@ async def create_sample_project(
         # SUPER_ADMIN as reviewer
         staff1 = ProjectStaff(
             project_id=new_project.project_id,
-            staff_user_id=super_admin.user_id,
-            role="REVIEWER"
+            staff_user_id=super_admin.user_id
         )
         db.add(staff1)
 
         # viproject@naver.com as reviewer
         staff2 = ProjectStaff(
             project_id=new_project.project_id,
-            staff_user_id=viproject_user.user_id,
-            role="REVIEWER"
+            staff_user_id=viproject_user.user_id
         )
         db.add(staff2)
 
