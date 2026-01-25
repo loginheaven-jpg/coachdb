@@ -9,7 +9,9 @@ import {
   Spin,
   message,
   Tag,
-  Input
+  Input,
+  Form,
+  Switch
 } from 'antd'
 import {
   ArrowLeftOutlined,
@@ -23,7 +25,8 @@ import {
   SendOutlined,
   CheckOutlined,
   CloseOutlined,
-  EyeOutlined
+  EyeOutlined,
+  CopyOutlined
 } from '@ant-design/icons'
 import { ProjectEditProvider, useProjectEdit } from '../contexts/ProjectEditContext'
 import { useAuthStore } from '../stores/authStore'
@@ -101,6 +104,11 @@ function ProjectUnifiedPageInner() {
   const [rejectModalOpen, setRejectModalOpen] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
 
+  // 과제 복사 상태
+  const [copyModalVisible, setCopyModalVisible] = useState(false)
+  const [copyLoading, setCopyLoading] = useState(false)
+  const [copyForm] = Form.useForm()
+
   // 권한 확인
   const isSuperAdmin = hasRole('SUPER_ADMIN')
   const canApprove = isSuperAdmin && project?.status === 'pending'
@@ -150,6 +158,27 @@ function ProjectUnifiedPageInner() {
       message.error(error.response?.data?.detail || '반려 처리에 실패했습니다.')
     } finally {
       setRejecting(false)
+    }
+  }
+
+  // 과제 복사 처리
+  const handleCopyProject = async (values: { new_project_name: string; copy_staff: boolean }) => {
+    if (!project) return
+    setCopyLoading(true)
+    try {
+      const result = await projectService.copyProject(project.project_id, {
+        new_project_name: values.new_project_name,
+        copy_staff: values.copy_staff
+      })
+      message.success(result.message)
+      setCopyModalVisible(false)
+      copyForm.resetFields()
+      // 복사된 과제의 수정 페이지로 이동
+      navigate(`/projects/manage/${result.project_id}?tab=info`)
+    } catch (error: any) {
+      message.error(error.response?.data?.detail || '과제 복사에 실패했습니다.')
+    } finally {
+      setCopyLoading(false)
     }
   }
 
@@ -335,26 +364,44 @@ function ProjectUnifiedPageInner() {
                 </Tag>
               )}
             </div>
-            {/* SUPER_ADMIN 승인/반려 버튼 */}
-            {canApprove && (
-              <Space>
+            {/* 헤더 액션 버튼들 */}
+            <Space>
+              {/* 과제 복사 버튼 (생성 모드가 아닐 때만) */}
+              {!isCreateMode && project && (
                 <Button
-                  type="primary"
-                  icon={<CheckOutlined />}
-                  loading={approving}
-                  onClick={handleApprove}
+                  icon={<CopyOutlined />}
+                  onClick={() => {
+                    copyForm.setFieldsValue({
+                      new_project_name: `${project.project_name} (복사본)`,
+                      copy_staff: true
+                    })
+                    setCopyModalVisible(true)
+                  }}
                 >
-                  승인
+                  과제복사
                 </Button>
-                <Button
-                  danger
-                  icon={<CloseOutlined />}
-                  onClick={handleRejectClick}
-                >
-                  반려
-                </Button>
-              </Space>
-            )}
+              )}
+              {/* SUPER_ADMIN 승인/반려 버튼 */}
+              {canApprove && (
+                <>
+                  <Button
+                    type="primary"
+                    icon={<CheckOutlined />}
+                    loading={approving}
+                    onClick={handleApprove}
+                  >
+                    승인
+                  </Button>
+                  <Button
+                    danger
+                    icon={<CloseOutlined />}
+                    onClick={handleRejectClick}
+                  >
+                    반려
+                  </Button>
+                </>
+              )}
+            </Space>
           </div>
         </div>
 
@@ -425,6 +472,47 @@ function ProjectUnifiedPageInner() {
             placeholder="반려 사유를 상세히 입력해주세요. (필수)"
           />
         </div>
+      </Modal>
+
+      {/* 과제 복사 모달 */}
+      <Modal
+        title="과제 복사"
+        open={copyModalVisible}
+        onCancel={() => {
+          setCopyModalVisible(false)
+          copyForm.resetFields()
+        }}
+        onOk={() => copyForm.submit()}
+        okText="복사"
+        cancelText="취소"
+        confirmLoading={copyLoading}
+      >
+        <Form
+          form={copyForm}
+          layout="vertical"
+          onFinish={handleCopyProject}
+          initialValues={{
+            copy_staff: true
+          }}
+        >
+          <Form.Item
+            name="new_project_name"
+            label="새 과제명"
+            rules={[{ required: true, message: '새 과제명을 입력해주세요.' }]}
+          >
+            <Input placeholder="복사할 과제의 새 이름" />
+          </Form.Item>
+          <Form.Item
+            name="copy_staff"
+            label="심사위원 복사"
+            valuePropName="checked"
+          >
+            <Switch checkedChildren="복사" unCheckedChildren="제외" />
+          </Form.Item>
+          <p className="text-gray-500 text-sm">
+            * 복사된 과제는 '초안' 상태로 생성됩니다.
+          </p>
+        </Form>
       </Modal>
     </div>
   )

@@ -111,18 +111,11 @@ export default function ProjectListPage() {
       dataIndex: 'project_name',
       key: 'project_name',
       width: '30%',
-      render: (text: string, record: ProjectListItem) => {
-        const existingApp = getMyApplication(record.project_id)
-
-        if (existingApp) {
-          return (
-            <a onClick={() => navigate(`/projects/${record.project_id}/apply?applicationId=${existingApp.application_id}&mode=view`)}>
-              {text}
-            </a>
-          )
-        }
-        return <span>{text}</span>
-      },
+      render: (text: string, record: ProjectListItem) => (
+        <a onClick={() => navigate(`/projects/${record.project_id}`)}>
+          {text}
+        </a>
+      ),
     },
     {
       title: '모집 기간',

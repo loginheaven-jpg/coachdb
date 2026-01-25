@@ -12,6 +12,7 @@ import CoachDashboard from './pages/CoachDashboard'
 import StaffDashboard from './pages/StaffDashboard'
 import AdminDashboard from './pages/AdminDashboard'
 import ProjectListPage from './pages/ProjectListPage'
+import ProjectDetailPage from './pages/ProjectDetailPage'
 import ProjectManagePage from './pages/ProjectManagePage'
 import ProjectUnifiedPage from './pages/ProjectUnifiedPage'
 import EvaluationDashboard from './pages/EvaluationDashboard'
@@ -178,6 +179,15 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={ALL_ROLES}>
               <ProjectListPage />
+            </ProtectedRoute>
+          }
+        />
+        {/* 과제 상세보기 (복사 버튼 포함) */}
+        <Route
+          path="/projects/:projectId"
+          element={
+            <ProtectedRoute allowedRoles={ALL_ROLES}>
+              <ProjectDetailPage />
             </ProtectedRoute>
           }
         />
