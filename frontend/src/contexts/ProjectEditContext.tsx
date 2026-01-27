@@ -136,7 +136,16 @@ export function ProjectEditProvider({ projectId, children }: ProjectEditProvider
       return true
     } catch (error: any) {
       console.error('저장 실패:', error)
-      message.error(error.response?.data?.detail || '저장에 실패했습니다.')
+      // Pydantic validation error는 배열로 반환될 수 있음
+      const detail = error.response?.data?.detail
+      let errorMessage = '저장에 실패했습니다.'
+      if (typeof detail === 'string') {
+        errorMessage = detail
+      } else if (Array.isArray(detail) && detail.length > 0) {
+        // 첫 번째 유효성 검사 오류 메시지 추출
+        errorMessage = detail[0]?.msg || JSON.stringify(detail[0])
+      }
+      message.error(errorMessage)
       return false
     } finally {
       setSaving(false)
@@ -155,7 +164,15 @@ export function ProjectEditProvider({ projectId, children }: ProjectEditProvider
       return true
     } catch (error: any) {
       console.error('승인 요청 실패:', error)
-      message.error(error.response?.data?.detail || '승인 요청에 실패했습니다.')
+      // Pydantic validation error는 배열로 반환될 수 있음
+      const detail = error.response?.data?.detail
+      let errorMessage = '승인 요청에 실패했습니다.'
+      if (typeof detail === 'string') {
+        errorMessage = detail
+      } else if (Array.isArray(detail) && detail.length > 0) {
+        errorMessage = detail[0]?.msg || JSON.stringify(detail[0])
+      }
+      message.error(errorMessage)
       return false
     } finally {
       setFinalizing(false)
