@@ -3547,15 +3547,22 @@ async def copy_project(
         )
 
     # 3. 새 과제 생성 (DRAFT)
+    # recruitment_start_date/end_date는 NOT NULL이므로 항상 값 필요
+    from datetime import date, timedelta
+    today = date.today()
+    default_recruitment_start = today
+    default_recruitment_end = today + timedelta(days=30)
+
     new_project = Project(
         project_name=copy_data.new_project_name,
         project_type=source_project.project_type,
         description=source_project.description,
         support_program_name=source_project.support_program_name,
         max_participants=source_project.max_participants,
-        # 날짜 복사 (옵션)
-        recruitment_start_date=source_project.recruitment_start_date if copy_data.copy_dates else None,
-        recruitment_end_date=source_project.recruitment_end_date if copy_data.copy_dates else None,
+        # 모집 기간: 복사 또는 기본값 (NOT NULL)
+        recruitment_start_date=source_project.recruitment_start_date if copy_data.copy_dates else default_recruitment_start,
+        recruitment_end_date=source_project.recruitment_end_date if copy_data.copy_dates else default_recruitment_end,
+        # 과제 기간: 복사 또는 None (NULLABLE)
         project_start_date=source_project.project_start_date if copy_data.copy_dates else None,
         project_end_date=source_project.project_end_date if copy_data.copy_dates else None,
         # 항상 초기화
