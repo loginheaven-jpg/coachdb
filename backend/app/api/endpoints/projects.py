@@ -2263,7 +2263,7 @@ async def finalize_project(
     **Required roles**: 모든 인증된 사용자 (본인 과제만)
 
     조건:
-    1. 과제 기간 입력 완료 (project_start_date, project_end_date)
+    1. 모집 기간 입력 완료 (과제 기간은 선택사항)
     2. 설문 점수 100점
 
     Note: SUPER_ADMIN은 바로 READY 상태로 전환됩니다.
@@ -2273,14 +2273,7 @@ async def finalize_project(
     project = await get_project_or_404(project_id, db)
     check_project_manager_permission(project, current_user)
 
-    # 1. 과제 기간 검증
-    if not project.project_start_date or not project.project_end_date:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="과제 기간을 입력해주세요. (시작일, 종료일 모두 필요)"
-        )
-
-    # 1-1. 모집 기간 검증
+    # 1. 모집 기간 검증 (과제기간은 필수 아님)
     if not project.recruitment_start_date or not project.recruitment_end_date:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
