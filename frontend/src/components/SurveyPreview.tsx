@@ -544,9 +544,10 @@ export default function SurveyPreview({
                       <div>
                         <Text type="secondary" style={{ fontSize: 12 }}>학위</Text>
                         <Select style={{ width: '100%', marginTop: 4 }} placeholder="학위 선택">
-                          <Select.Option value="bachelor">학사</Select.Option>
-                          <Select.Option value="master">석사</Select.Option>
-                          <Select.Option value="doctorate">박사</Select.Option>
+                          <Select.Option value="박사">박사</Select.Option>
+                          <Select.Option value="박사수료">박사수료</Select.Option>
+                          <Select.Option value="석사">석사</Select.Option>
+                          <Select.Option value="학사">학사</Select.Option>
                         </Select>
                       </div>
                       <div>

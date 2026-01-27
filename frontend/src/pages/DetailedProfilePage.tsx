@@ -17,10 +17,10 @@ const DEGREE_TYPES = [
 
 // Degree levels
 const DEGREE_LEVELS = [
-  { value: 'bachelor', label: '학사' },
-  { value: 'master', label: '석사' },
-  { value: 'doctorate', label: '박사' },
-  { value: 'none', label: '없음' }
+  { value: '박사', label: '박사' },
+  { value: '박사수료', label: '박사수료' },
+  { value: '석사', label: '석사' },
+  { value: '학사', label: '학사' }
 ]
 
 // Coaching fields

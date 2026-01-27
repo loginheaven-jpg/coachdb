@@ -21,7 +21,9 @@ const renderCompetencyValue = (value: string | null, itemCode: string) => {
     // 학위 정보 (DEGREE)
     if (itemCode.includes('DEGREE')) {
       const degreeTypes: Record<string, string> = {
-        'bachelor': '학사', 'master': '석사', 'doctor': '박사',
+        '박사': '박사', '박사수료': '박사수료', '석사': '석사', '학사': '학사',
+        // 레거시 호환
+        'bachelor': '학사', 'master': '석사', 'doctor': '박사', 'doctorate': '박사',
         'associate': '전문학사', 'high_school': '고졸'
       }
       return (

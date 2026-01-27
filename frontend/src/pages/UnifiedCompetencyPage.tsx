@@ -51,6 +51,11 @@ const { Panel } = Collapse
 
 // 학위 레벨 한글 매핑
 const DEGREE_LEVEL_LABELS: Record<string, string> = {
+  '박사': '박사',
+  '박사수료': '박사수료',
+  '석사': '석사',
+  '학사': '학사',
+  // 레거시 호환성
   'bachelor': '학사',
   'master': '석사',
   'doctorate': '박사',
@@ -1224,11 +1229,11 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
                     label="학위 유형"
                     rules={[{ required: true, message: '학위 유형을 선택해주세요!' }]}
                   >
-                    <Select placeholder="학위 유형 선택">
-                      <Option value="associate">전문학사</Option>
-                      <Option value="bachelor">학사</Option>
-                      <Option value="master">석사</Option>
-                      <Option value="doctorate">박사</Option>
+                    <Select placeholder="학위 선택">
+                      <Option value="박사">박사</Option>
+                      <Option value="박사수료">박사수료</Option>
+                      <Option value="석사">석사</Option>
+                      <Option value="학사">학사</Option>
                     </Select>
                   </Form.Item>
                   <Form.Item
@@ -1535,14 +1540,14 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
               <div className="grid grid-cols-2 gap-4">
                 <Form.Item
                   name="degree_type"
-                  label="학위 유형"
-                  rules={[{ required: true, message: '학위 유형을 선택해주세요!' }]}
+                  label="학위"
+                  rules={[{ required: true, message: '학위를 선택해주세요!' }]}
                 >
-                  <Select placeholder="학위 유형 선택">
-                    <Option value="associate">전문학사</Option>
-                    <Option value="bachelor">학사</Option>
-                    <Option value="master">석사</Option>
-                    <Option value="doctorate">박사</Option>
+                  <Select placeholder="학위 선택">
+                    <Option value="박사">박사</Option>
+                    <Option value="박사수료">박사수료</Option>
+                    <Option value="석사">석사</Option>
+                    <Option value="학사">학사</Option>
                   </Select>
                 </Form.Item>
                 <Form.Item

@@ -1256,11 +1256,11 @@ export default function ApplicationSubmitPage() {
         return (
           <div className="grid grid-cols-2 gap-4">
             <Form.Item noStyle name={[`item_${item.project_item_id}`, 'degree_type']}>
-              <Select placeholder="학위 유형">
-                <Select.Option value="associate">전문학사</Select.Option>
-                <Select.Option value="bachelor">학사</Select.Option>
-                <Select.Option value="master">석사</Select.Option>
-                <Select.Option value="doctorate">박사</Select.Option>
+              <Select placeholder="학위 선택">
+                <Select.Option value="박사">박사</Select.Option>
+                <Select.Option value="박사수료">박사수료</Select.Option>
+                <Select.Option value="석사">석사</Select.Option>
+                <Select.Option value="학사">학사</Select.Option>
               </Select>
             </Form.Item>
             <Form.Item noStyle name={[`item_${item.project_item_id}`, 'major']}>
