@@ -136,8 +136,8 @@ export interface ProjectBase {
   recruitment_end_date: string
   project_start_date: string | null
   project_end_date: string | null
-  max_participants: number
   project_manager_id: number | null
+  // max_participants는 백엔드 기본값 사용 (UI에서 숨김)
 }
 
 export interface ProjectCreate extends ProjectBase {
@@ -157,8 +157,8 @@ export interface ProjectUpdate {
   actual_end_date?: string | null
   overall_feedback?: string | null
   status?: ProjectStatus
-  max_participants?: number
   project_manager_id?: number | null
+  // max_participants는 백엔드 기본값 사용 (UI에서 숨김)
 }
 
 export interface Project extends ProjectBase {
