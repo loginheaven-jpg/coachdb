@@ -397,7 +397,7 @@ export default function VerificationPage() {
                   type="link"
                   size="small"
                   icon={<QuestionCircleOutlined />}
-                  onClick={() => window.open('/REVIEWER_GUIDE.md', '_blank')}
+                  onClick={() => window.open('/REVIEWER_GUIDE.html', '_blank')}
                   style={{ padding: 0 }}
                 >
                   검토자 가이드
