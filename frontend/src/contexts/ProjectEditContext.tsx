@@ -148,9 +148,9 @@ export function ProjectEditProvider({ projectId, children }: ProjectEditProvider
     if (!projectId) return false
     setFinalizing(true)
     try {
-      // pending 상태로 변경하여 승인 요청
-      await projectService.updateProject(projectId, { status: ProjectStatus.PENDING })
-      message.success('승인신청 완료! 관리자 승인을 기다려주세요.')
+      // finalize API 호출 - 서버에서 검증 후 PENDING(또는 SUPER_ADMIN이면 APPROVED)로 변경
+      await projectService.finalizeProject(projectId)
+      message.success('승인신청 완료!')
       await loadProject()
       return true
     } catch (error: any) {
