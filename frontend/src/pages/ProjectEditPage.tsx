@@ -135,7 +135,7 @@ export default function ProjectEditPage() {
     project_end_date: values.project_period ? values.project_period[1].format('YYYY-MM-DD') : null,
     actual_start_date: values.actual_period ? values.actual_period[0].format('YYYY-MM-DD') : null,
     actual_end_date: values.actual_period ? values.actual_period[1].format('YYYY-MM-DD') : null,
-    max_participants: values.max_participants,
+    // max_participants는 백엔드 기본값(999) 사용, UI에서 숨김
     project_manager_id: values.project_manager_id || null,
     overall_feedback: values.overall_feedback || null
   })

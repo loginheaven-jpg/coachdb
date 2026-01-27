@@ -74,7 +74,7 @@ export default function ProjectCreatePage() {
         recruitment_end_date: values.recruitment_period[1].format('YYYY-MM-DD'),
         project_start_date: values.project_period ? values.project_period[0].format('YYYY-MM-DD') : null,
         project_end_date: values.project_period ? values.project_period[1].format('YYYY-MM-DD') : null,
-        max_participants: values.max_participants,
+        // max_participants는 백엔드 기본값(999) 사용
         project_manager_id: values.project_manager_id || null,
         status: ProjectStatus.DRAFT  // 항상 초안으로 생성
       }

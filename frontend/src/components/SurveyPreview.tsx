@@ -670,10 +670,6 @@ export default function SurveyPreview({
                   {dayjs(project.project_start_date).format('YYYY.MM.DD')} ~ {dayjs(project.project_end_date).format('YYYY.MM.DD')}
                 </Descriptions.Item>
               )}
-              <Descriptions.Item label="모집 인원">
-                <TeamOutlined style={{ marginRight: 8 }} />
-                {project.max_participants}명
-              </Descriptions.Item>
             </Descriptions>
           </Card>
         )}

@@ -172,6 +172,7 @@ export interface Project extends ProjectBase {
   created_at: string
   updated_at: string | null
   review_started_at: string | null  // 심사개시 시점
+  max_participants: number  // 백엔드에서 기본값 999 사용 (UI 폼에서 숨김)
 }
 
 export interface ProjectDetail extends Project {
