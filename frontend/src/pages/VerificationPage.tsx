@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Card, Table, Tag, Button, Space, Modal, Typography, message, Progress, Input, Badge, Descriptions, Spin, Select, Timeline } from 'antd'
-import { CheckCircleOutlined, SearchOutlined, ReloadOutlined, EyeOutlined, UndoOutlined, ExclamationCircleOutlined, DownloadOutlined } from '@ant-design/icons'
+import { CheckCircleOutlined, SearchOutlined, ReloadOutlined, EyeOutlined, UndoOutlined, ExclamationCircleOutlined, DownloadOutlined, QuestionCircleOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import verificationService, { PendingVerificationItem, CompetencyVerificationStatus, ActivityRecord } from '../services/verificationService'
 import { useAuthStore } from '../stores/authStore'
@@ -391,7 +391,18 @@ export default function VerificationPage() {
           <div className="flex justify-between items-center mb-6">
             <div>
               <Title level={2} style={{ margin: 0 }}>증빙 확인</Title>
-              <Text type="secondary">응모자들이 제출한 증빙서류를 확인하고 컨펌합니다</Text>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Text type="secondary">응모자들이 제출한 증빙서류를 확인하고 컨펌합니다</Text>
+                <Button
+                  type="link"
+                  size="small"
+                  icon={<QuestionCircleOutlined />}
+                  onClick={() => window.open('/REVIEWER_GUIDE.md', '_blank')}
+                  style={{ padding: 0 }}
+                >
+                  검토자 가이드
+                </Button>
+              </div>
             </div>
             <Space>
               <Badge count={pendingItems.length} showZero>
@@ -663,7 +674,7 @@ export default function VerificationPage() {
           rows={4}
           maxLength={1000}
           showCount
-          style={{ marginBottom: 8 }}
+          style={{ marginBottom: 24 }}
         />
       </Modal>
 
