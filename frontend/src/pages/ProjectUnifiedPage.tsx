@@ -245,13 +245,11 @@ function ProjectUnifiedPageInner() {
   const handleFinalize = async () => {
     const errors: string[] = []
 
-    // 1. 과제정보 필수 필드 검증
+    // 1. 과제정보 필수 필드 검증 (모집기간만 필수)
     if (!project?.recruitment_start_date || !project?.recruitment_end_date) {
       errors.push('과제정보: 모집기간 미입력')
     }
-    if (!project?.project_start_date || !project?.project_end_date) {
-      errors.push('과제정보: 과제기간 미입력')
-    }
+    // 과제기간(예정)은 필수 아님
 
     // 2. 설문 100점 검증
     if (!scoreValidation?.is_valid) {
