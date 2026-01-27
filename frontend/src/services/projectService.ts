@@ -524,7 +524,12 @@ const projectService = {
    * Create a new project
    */
   async createProject(data: ProjectCreate): Promise<Project> {
-    const response = await api.post('/projects', data)
+    // Backend expects UPPERCASE status (e.g., "DRAFT"), frontend uses lowercase
+    const payload = {
+      ...data,
+      status: data.status?.toUpperCase()
+    }
+    const response = await api.post('/projects', payload)
     return normalizeProjectStatus(response.data)
   },
 
@@ -598,7 +603,12 @@ const projectService = {
    * Update project information
    */
   async updateProject(projectId: number, data: ProjectUpdate): Promise<Project> {
-    const response = await api.put(`/projects/${projectId}`, data)
+    // Backend expects UPPERCASE status (e.g., "DRAFT"), frontend uses lowercase
+    const payload = {
+      ...data,
+      status: data.status?.toUpperCase()
+    }
+    const response = await api.put(`/projects/${projectId}`, payload)
     return normalizeProjectStatus(response.data)
   },
 
