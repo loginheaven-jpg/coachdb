@@ -123,14 +123,6 @@ app.include_router(verifications.router, prefix="/api")
 app.include_router(profile.router, prefix="/api")
 app.include_router(scoring.router, prefix="/api")
 
-# Future routers (will be added as we create them)
-# from app.api.endpoints import projects, applications, reviews, selections, files
-# app.include_router(projects.router, prefix="/api", tags=["Projects"])
-# app.include_router(applications.router, prefix="/api", tags=["Applications"])
-# app.include_router(reviews.router, prefix="/api", tags=["Reviews"])
-# app.include_router(selections.router, prefix="/api", tags=["Selections"])
-# app.include_router(files.router, prefix="/api", tags=["Files"])
-
 
 if __name__ == "__main__":
     import uvicorn
