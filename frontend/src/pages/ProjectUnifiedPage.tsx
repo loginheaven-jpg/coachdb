@@ -11,7 +11,9 @@ import {
   Tag,
   Input,
   Form,
-  Switch
+  Switch,
+  Table,
+  Checkbox
 } from 'antd'
 import {
   ArrowLeftOutlined,
@@ -30,7 +32,7 @@ import {
 } from '@ant-design/icons'
 import { ProjectEditProvider, useProjectEdit } from '../contexts/ProjectEditContext'
 import { useAuthStore } from '../stores/authStore'
-import projectService from '../services/projectService'
+import projectService, { ProjectListItem } from '../services/projectService'
 import ProjectInfoTab from './project/ProjectInfoTab'
 import ProjectSurveyTab from './project/ProjectSurveyTab'
 import ProjectReviewPlanTab from './project/ProjectReviewPlanTab'
@@ -104,10 +106,17 @@ function ProjectUnifiedPageInner() {
   const [rejectModalOpen, setRejectModalOpen] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
 
-  // 과제 복사 상태
+  // 과제 복사 상태 (기존 과제에서 복사)
   const [copyModalVisible, setCopyModalVisible] = useState(false)
   const [copyLoading, setCopyLoading] = useState(false)
   const [copyForm] = Form.useForm()
+
+  // 생성 모드: 기존 과제에서 복제 상태
+  const [copyFromModalVisible, setCopyFromModalVisible] = useState(false)
+  const [projectList, setProjectList] = useState<ProjectListItem[]>([])
+  const [loadingProjects, setLoadingProjects] = useState(false)
+  const [selectedProject, setSelectedProject] = useState<ProjectListItem | null>(null)
+  const [copyFromForm] = Form.useForm()
 
   // 권한 확인
   const isSuperAdmin = hasRole('SUPER_ADMIN')
@@ -177,6 +186,28 @@ function ProjectUnifiedPageInner() {
       navigate(`/projects/manage/${result.project_id}?tab=info`)
     } catch (error: any) {
       message.error(error.response?.data?.detail || '과제 복사에 실패했습니다.')
+    } finally {
+      setCopyLoading(false)
+    }
+  }
+
+  // 생성 모드: 기존 과제에서 복제 핸들러
+  const handleCopyFromProject = async (values: { new_project_name: string; copy_staff: boolean }) => {
+    if (!selectedProject) return
+    setCopyLoading(true)
+    try {
+      const result = await projectService.copyProject(selectedProject.project_id, {
+        new_project_name: values.new_project_name,
+        copy_staff: values.copy_staff
+      })
+      message.success('과제가 복제되었습니다.')
+      setCopyFromModalVisible(false)
+      setSelectedProject(null)
+      copyFromForm.resetFields()
+      // 복제된 과제의 수정 페이지로 이동
+      navigate(`/projects/manage/${result.project_id}?tab=info`)
+    } catch (error: any) {
+      message.error(error.response?.data?.detail || '과제 복제에 실패했습니다.')
     } finally {
       setCopyLoading(false)
     }
@@ -366,7 +397,28 @@ function ProjectUnifiedPageInner() {
             </div>
             {/* 헤더 액션 버튼들 */}
             <Space>
-              {/* 과제 복사 버튼 (생성 모드가 아닐 때만) */}
+              {/* 생성 모드: 기존 과제에서 복제 버튼 */}
+              {isCreateMode && (
+                <Button
+                  icon={<CopyOutlined />}
+                  loading={loadingProjects}
+                  onClick={async () => {
+                    setLoadingProjects(true)
+                    try {
+                      const list = await projectService.listProjects()
+                      setProjectList(list)
+                      setCopyFromModalVisible(true)
+                    } catch (error) {
+                      message.error('과제 목록을 불러오는데 실패했습니다.')
+                    } finally {
+                      setLoadingProjects(false)
+                    }
+                  }}
+                >
+                  기존 과제에서 복제
+                </Button>
+              )}
+              {/* 과제 복사 버튼 (편집 모드에서만) */}
               {!isCreateMode && project && (
                 <Button
                   icon={<CopyOutlined />}
@@ -513,6 +565,105 @@ function ProjectUnifiedPageInner() {
             * 복사된 과제는 '초안' 상태로 생성됩니다.
           </p>
         </Form>
+      </Modal>
+
+      {/* 생성 모드: 기존 과제에서 복제 모달 */}
+      <Modal
+        title="복제할 과제 선택"
+        open={copyFromModalVisible}
+        width={800}
+        footer={null}
+        onCancel={() => {
+          setCopyFromModalVisible(false)
+          setSelectedProject(null)
+          copyFromForm.resetFields()
+        }}
+      >
+        {selectedProject ? (
+          // 2단계: 새 과제명 입력
+          <Form
+            form={copyFromForm}
+            layout="vertical"
+            onFinish={handleCopyFromProject}
+            initialValues={{
+              new_project_name: `${selectedProject.project_name} (복사본)`,
+              copy_staff: true
+            }}
+          >
+            <p className="mb-4">
+              선택된 과제: <strong>{selectedProject.project_name}</strong>
+            </p>
+            <Form.Item
+              name="new_project_name"
+              label="새 과제명"
+              rules={[{ required: true, message: '새 과제명을 입력해주세요.' }]}
+            >
+              <Input placeholder="복제할 과제의 새 이름" />
+            </Form.Item>
+            <Form.Item
+              name="copy_staff"
+              valuePropName="checked"
+            >
+              <Checkbox>심사위원 복사</Checkbox>
+            </Form.Item>
+            <p className="text-gray-500 text-sm mb-4">
+              * 설문항목, 배점기준, 커스텀질문이 복제됩니다.<br />
+              * 복제된 과제는 '초안' 상태로 생성됩니다.
+            </p>
+            <Space>
+              <Button onClick={() => {
+                setSelectedProject(null)
+                copyFromForm.resetFields()
+              }}>
+                뒤로
+              </Button>
+              <Button type="primary" htmlType="submit" loading={copyLoading}>
+                복제
+              </Button>
+            </Space>
+          </Form>
+        ) : (
+          // 1단계: 과제 선택 테이블
+          <Table
+            dataSource={projectList}
+            rowKey="project_id"
+            size="small"
+            pagination={{ pageSize: 8 }}
+            onRow={(record) => ({
+              onClick: () => {
+                setSelectedProject(record)
+                copyFromForm.setFieldsValue({
+                  new_project_name: `${record.project_name} (복사본)`,
+                  copy_staff: true
+                })
+              },
+              style: { cursor: 'pointer' }
+            })}
+            columns={[
+              {
+                title: '과제명',
+                dataIndex: 'project_name',
+                ellipsis: true
+              },
+              {
+                title: '상태',
+                dataIndex: 'status',
+                width: 100,
+                render: (status: string) => (
+                  <Tag color={STATUS_LABELS[status]?.color || 'default'}>
+                    {STATUS_LABELS[status]?.label || status}
+                  </Tag>
+                )
+              },
+              {
+                title: '생성일',
+                dataIndex: 'created_at',
+                width: 120,
+                render: (date: string) => date?.split('T')[0]
+              }
+            ]}
+          />
+        )}
       </Modal>
     </div>
   )
