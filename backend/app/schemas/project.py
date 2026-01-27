@@ -69,7 +69,7 @@ class ProjectBase(BaseModel):
     recruitment_end_date: date
     project_start_date: Optional[date] = None
     project_end_date: Optional[date] = None
-    max_participants: int = Field(..., gt=0)
+    max_participants: int = Field(default=999, gt=0)  # 최대 참여 인원 (기본값 999, UI에서 숨김)
     project_manager_id: Optional[int] = None
 
 

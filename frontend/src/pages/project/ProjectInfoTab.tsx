@@ -102,7 +102,6 @@ export default function ProjectInfoTab() {
           dayjs(project.actual_start_date),
           dayjs(project.actual_end_date)
         ] : null,
-        max_participants: project.max_participants,
         project_manager_id: project.project_manager_id
       })
     }
@@ -120,7 +119,6 @@ export default function ProjectInfoTab() {
     project_end_date: values.project_period ? values.project_period[1].format('YYYY-MM-DD') : null,
     actual_start_date: values.actual_period ? values.actual_period[0].format('YYYY-MM-DD') : null,
     actual_end_date: values.actual_period ? values.actual_period[1].format('YYYY-MM-DD') : null,
-    max_participants: values.max_participants,
     project_manager_id: values.project_manager_id || null
   })
 
@@ -140,7 +138,6 @@ export default function ProjectInfoTab() {
           recruitment_end_date: values.recruitment_period[1].format('YYYY-MM-DD'),
           project_start_date: values.project_period ? values.project_period[0].format('YYYY-MM-DD') : null,
           project_end_date: values.project_period ? values.project_period[1].format('YYYY-MM-DD') : null,
-          max_participants: values.max_participants,
           project_manager_id: values.project_manager_id || null,
           status: ProjectStatus.DRAFT
         }
@@ -419,23 +416,6 @@ export default function ProjectInfoTab() {
           />
         </Form.Item>
       )}
-
-      {/* 최대 참여 인원 */}
-      <Form.Item
-        name="max_participants"
-        label="최대 참여 인원"
-        rules={[
-          { required: true, message: '최대 참여 인원을 입력해주세요.' },
-          { type: 'number', min: 1, message: '1명 이상이어야 합니다.' }
-        ]}
-      >
-        <InputNumber
-          style={{ width: '100%' }}
-          min={1}
-          max={1000}
-          size="large"
-        />
-      </Form.Item>
 
       {/* 과제관리자 */}
       <Form.Item
