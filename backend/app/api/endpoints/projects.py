@@ -2333,6 +2333,27 @@ async def finalize_project(
     await db.commit()
     await db.refresh(project)
 
+    # 4. PENDING 상태인 경우, SUPER_ADMIN에게 알림 전송
+    if project.status == ProjectStatus.PENDING:
+        from app.models.notification import Notification, NotificationType
+        # SUPER_ADMIN 역할을 가진 모든 사용자 조회
+        super_admin_result = await db.execute(
+            select(User).where(User.roles.contains("SUPER_ADMIN"))
+        )
+        super_admins = super_admin_result.scalars().all()
+
+        for admin in super_admins:
+            notification = Notification(
+                user_id=admin.user_id,
+                type=NotificationType.PROJECT_PENDING_APPROVAL.value,
+                title="과제 승인 요청",
+                message=f"'{project.project_name}' 과제의 승인이 요청되었습니다.",
+                related_project_id=project.project_id,
+            )
+            db.add(notification)
+
+        await db.commit()
+
     # display_status 계산
     display_status = calculate_display_status(
         project.status,

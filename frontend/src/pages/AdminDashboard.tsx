@@ -49,6 +49,13 @@ const getNotificationIcon = (type: string) => {
       return <WarningOutlined style={{ color: '#ff4d4f' }} />
     case 'verification_completed':
       return <CheckCircleOutlined style={{ color: '#52c41a' }} />
+    // 과제 승인 관련
+    case 'project_pending_approval':
+      return <FileTextOutlined style={{ color: '#fa8c16' }} />
+    case 'project_approved':
+      return <CheckCircleOutlined style={{ color: '#52c41a' }} />
+    case 'project_rejected':
+      return <WarningOutlined style={{ color: '#ff4d4f' }} />
     default:
       return <BellOutlined style={{ color: '#8c8c8c' }} />
   }

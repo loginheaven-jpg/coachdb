@@ -491,6 +491,28 @@ export interface ProjectCopyResponse {
 }
 
 // ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Normalize project status to lowercase
+ * Backend returns UPPERCASE status (e.g., "PENDING"), frontend expects lowercase (e.g., "pending")
+ */
+function normalizeProjectStatus<T extends { status: string }>(project: T): T {
+  return {
+    ...project,
+    status: project.status?.toLowerCase() as ProjectStatus
+  }
+}
+
+/**
+ * Normalize array of projects
+ */
+function normalizeProjectList<T extends { status: string }>(projects: T[]): T[] {
+  return projects.map(normalizeProjectStatus)
+}
+
+// ============================================================================
 // API Service
 // ============================================================================
 const projectService = {
@@ -503,7 +525,7 @@ const projectService = {
    */
   async createProject(data: ProjectCreate): Promise<Project> {
     const response = await api.post('/projects', data)
-    return response.data
+    return normalizeProjectStatus(response.data)
   },
 
   /**
@@ -512,7 +534,7 @@ const projectService = {
    */
   async createTestProject(): Promise<Project> {
     const response = await api.post('/projects/create-test')
-    return response.data
+    return normalizeProjectStatus(response.data)
   },
 
   /**
@@ -521,7 +543,7 @@ const projectService = {
    */
   async createTestProjectWithApplications(): Promise<Project> {
     const response = await api.post('/projects/create-test-with-applications')
-    return response.data
+    return normalizeProjectStatus(response.data)
   },
 
   /**
@@ -559,7 +581,8 @@ const projectService = {
     limit?: number
   }): Promise<ProjectListItem[]> {
     const response = await api.get('/projects', { params })
-    return response.data
+    // Normalize status to lowercase (backend returns UPPERCASE)
+    return normalizeProjectList(response.data)
   },
 
   /**
@@ -567,7 +590,8 @@ const projectService = {
    */
   async getProject(projectId: number): Promise<ProjectDetail> {
     const response = await api.get(`/projects/${projectId}`)
-    return response.data
+    // Normalize status to lowercase (backend returns UPPERCASE)
+    return normalizeProjectStatus(response.data)
   },
 
   /**
@@ -575,7 +599,7 @@ const projectService = {
    */
   async updateProject(projectId: number, data: ProjectUpdate): Promise<Project> {
     const response = await api.put(`/projects/${projectId}`, data)
-    return response.data
+    return normalizeProjectStatus(response.data)
   },
 
   /**
@@ -704,7 +728,7 @@ const projectService = {
    */
   async finalizeProject(projectId: number): Promise<Project> {
     const response = await api.post(`/projects/${projectId}/finalize`)
-    return response.data
+    return normalizeProjectStatus(response.data)
   },
 
   // ============================================================================
@@ -717,7 +741,7 @@ const projectService = {
    */
   async approveProject(projectId: number): Promise<Project> {
     const response = await api.post(`/projects/${projectId}/approve`)
-    return response.data
+    return normalizeProjectStatus(response.data)
   },
 
   /**
@@ -726,7 +750,7 @@ const projectService = {
    */
   async rejectProject(projectId: number, reason: string): Promise<Project> {
     const response = await api.post(`/projects/${projectId}/reject`, { reason })
-    return response.data
+    return normalizeProjectStatus(response.data)
   },
 
   /**
@@ -735,7 +759,7 @@ const projectService = {
    */
   async resubmitProject(projectId: number): Promise<Project> {
     const response = await api.post(`/projects/${projectId}/resubmit`)
-    return response.data
+    return normalizeProjectStatus(response.data)
   },
 
   /**
@@ -744,7 +768,7 @@ const projectService = {
    */
   async startRecruitment(projectId: number): Promise<Project> {
     const response = await api.post(`/projects/${projectId}/start-recruitment`)
-    return response.data
+    return normalizeProjectStatus(response.data)
   },
 
   /**
@@ -855,7 +879,8 @@ const projectService = {
    */
   async getTestProjects(): Promise<ProjectListItem[]> {
     const response = await api.get('/projects/test-projects')
-    return response.data
+    // Normalize status to lowercase (backend returns UPPERCASE)
+    return normalizeProjectList(response.data)
   },
 
   /**
@@ -881,7 +906,12 @@ const projectService = {
       copy_staff: options.copy_staff ?? true,
       copy_dates: options.copy_dates ?? false
     })
-    return response.data
+    // Normalize status to lowercase
+    const data = response.data
+    return {
+      ...data,
+      status: data.status?.toLowerCase()
+    }
   }
 }
 

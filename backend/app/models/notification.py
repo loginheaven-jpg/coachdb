@@ -22,6 +22,7 @@ class NotificationType(str, enum.Enum):
     VERIFICATION_COMPLETED = "verification_completed"  # 증빙 검증 완료
     VERIFICATION_RESET = "verification_reset"  # 검증 리셋 (활동 기록용)
     # 과제 승인 관련
+    PROJECT_PENDING_APPROVAL = "project_pending_approval"  # 과제 승인 요청됨 (SUPER_ADMIN용)
     PROJECT_APPROVED = "project_approved"         # 과제 승인됨
     PROJECT_REJECTED = "project_rejected"         # 과제 반려됨
 
