@@ -123,15 +123,13 @@ export function ProjectEditProvider({ projectId, children }: ProjectEditProvider
   }, [projectId])
 
   // 프로젝트 저장 (임시저장)
-  const saveProject = useCallback(async (data: ProjectUpdate, asDraft = true): Promise<boolean> => {
+  // Note: status 변경은 별도 엔드포인트 사용 (/finalize 등)
+  const saveProject = useCallback(async (data: ProjectUpdate, _asDraft = true): Promise<boolean> => {
     if (!projectId) return false
     setSaving(true)
     try {
-      if (asDraft) {
-        data.status = ProjectStatus.DRAFT
-      }
       await projectService.updateProject(projectId, data)
-      message.success(asDraft ? '임시저장 되었습니다.' : '저장되었습니다.')
+      message.success('저장되었습니다.')
       await loadProject()
       return true
     } catch (error: any) {

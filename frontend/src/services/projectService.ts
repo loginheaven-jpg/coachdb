@@ -601,13 +601,12 @@ const projectService = {
 
   /**
    * Update project information
+   * Note: status 변경은 별도 엔드포인트 사용 (/finalize, /unpublish, /approve 등)
    */
   async updateProject(projectId: number, data: ProjectUpdate): Promise<Project> {
-    // Backend expects UPPERCASE status (e.g., "DRAFT"), frontend uses lowercase
-    const payload = {
-      ...data,
-      status: data.status?.toUpperCase()
-    }
+    // status는 별도 엔드포인트로 변경하므로 제외
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { status: _status, ...payload } = data
     const response = await api.put(`/projects/${projectId}`, payload)
     return normalizeProjectStatus(response.data)
   },
