@@ -1249,6 +1249,20 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
               grades: [],
               aggregation_mode: AggregationMode.ANY_MATCH
             }}
+            onValuesChange={(changedValues, allValues) => {
+              // 등급 유형에 따른 기본 집계방식 자동 설정
+              if ('grade_type' in changedValues || 'value_source' in changedValues) {
+                const gradeType = allValues.grade_type
+                const valueSource = allValues.value_source
+                if (gradeType === 'numeric') {
+                  // 숫자범위 → 합산
+                  gradeConfigForm.setFieldsValue({ aggregation_mode: AggregationMode.SUM })
+                } else if (gradeType === 'string' && valueSource === ValueSourceType.SUBMITTED) {
+                  // 문자열 + 지원자입력값 → 하나라도 매칭
+                  gradeConfigForm.setFieldsValue({ aggregation_mode: AggregationMode.ANY_MATCH })
+                }
+              }
+            }}
           >
             <Form.Item
               name="grade_type"
@@ -1941,6 +1955,20 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
             value_source: ValueSourceType.SUBMITTED,
             grades: [],
             aggregation_mode: AggregationMode.ANY_MATCH
+          }}
+          onValuesChange={(changedValues, allValues) => {
+            // 등급 유형에 따른 기본 집계방식 자동 설정
+            if ('grade_type' in changedValues || 'value_source' in changedValues) {
+              const gradeType = allValues.grade_type
+              const valueSource = allValues.value_source
+              if (gradeType === 'numeric') {
+                // 숫자범위 → 합산
+                gradeConfigForm.setFieldsValue({ aggregation_mode: AggregationMode.SUM })
+              } else if (gradeType === 'string' && valueSource === ValueSourceType.SUBMITTED) {
+                // 문자열 + 지원자입력값 → 하나라도 매칭
+                gradeConfigForm.setFieldsValue({ aggregation_mode: AggregationMode.ANY_MATCH })
+              }
+            }
           }}
         >
           <Form.Item
