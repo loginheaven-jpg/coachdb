@@ -20,4 +20,4 @@ EXPOSE 3000
 
 # Serve built files with Railway PORT env var
 # Using shell form to enable environment variable expansion
-CMD ["sh", "-c", "npx serve -s dist -l tcp://0.0.0.0:${PORT:-3000}"]
+CMD ["sh", "-c", "npx serve -s dist -p ${PORT:-3000}"]
