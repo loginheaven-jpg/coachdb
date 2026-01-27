@@ -1367,7 +1367,7 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                 }
               >
                 <Select defaultValue={AggregationMode.BEST_MATCH}>
-                  <Select.Option value={AggregationMode.BEST_MATCH}>최고 점수 매칭 (권장)</Select.Option>
+                  <Select.Option value={AggregationMode.BEST_MATCH}>최고 점수 매칭</Select.Option>
                   <Select.Option value={AggregationMode.FIRST}>첫 번째만</Select.Option>
                   <Select.Option value={AggregationMode.SUM}>합산 (숫자 범위용)</Select.Option>
                   <Select.Option value={AggregationMode.MAX}>최대값</Select.Option>
@@ -1441,7 +1441,7 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                               <Text strong>숫자 범위별 점수</Text>
                               <br />
                               <Text type="secondary" style={{ fontSize: 12 }}>
-                                빈 칸은 제한 없음을 의미합니다. 예) 1000 이상 → 10점, 500~999 → 5점
+                                높은 숫자구간부터 점수를 배정하십시오.
                               </Text>
                             </div>
                             {fields.map(({ key, name, ...restField }) => (
@@ -2043,7 +2043,7 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
               }
             >
               <Select defaultValue={AggregationMode.BEST_MATCH}>
-                <Select.Option value={AggregationMode.BEST_MATCH}>최고 점수 매칭 (권장)</Select.Option>
+                <Select.Option value={AggregationMode.BEST_MATCH}>최고 점수 매칭</Select.Option>
                 <Select.Option value={AggregationMode.FIRST}>첫 번째만</Select.Option>
                 <Select.Option value={AggregationMode.SUM}>합산 (숫자 범위용)</Select.Option>
                 <Select.Option value={AggregationMode.MAX}>최대값</Select.Option>
