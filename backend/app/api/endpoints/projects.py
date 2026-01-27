@@ -3615,9 +3615,11 @@ async def copy_project(
                 project_item_id=new_item_id,
                 matching_type=sc.matching_type,
                 expected_value=sc.expected_value,
-                expected_value_min=sc.expected_value_min,
-                expected_value_max=sc.expected_value_max,
                 score=sc.score,
+                value_source=sc.value_source,
+                source_field=sc.source_field,
+                extract_pattern=sc.extract_pattern,
+                aggregation_mode=sc.aggregation_mode,
             )
             db.add(new_criteria)
             criteria_count += 1
