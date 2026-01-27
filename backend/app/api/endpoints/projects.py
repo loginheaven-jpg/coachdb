@@ -714,7 +714,7 @@ async def create_project(
 
 @router.get("", response_model=List[ProjectListResponse])
 async def list_projects(
-    status: Optional[ProjectStatus] = Query(None, description="Filter by project status"),
+    status: Optional[str] = Query(None, description="Filter by project status (case-insensitive)"),
     manager_id: Optional[int] = Query(None, description="Filter by project manager ID"),
     mode: Optional[str] = Query(None, description="Mode: 'participate' (recruiting only) or 'manage' (own projects)"),
     skip: int = Query(0, ge=0),
@@ -811,7 +811,15 @@ async def list_projects(
 
         # Apply additional filters
         if status:
-            query = query.where(Project.status == status)
+            # 대소문자 구분 없이 status 처리
+            try:
+                status_enum = ProjectStatus[status.upper()]
+                query = query.where(Project.status == status_enum)
+            except KeyError:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid status: {status}. Valid values: {[s.name for s in ProjectStatus]}"
+                )
         if manager_id:
             query = query.where(Project.project_manager_id == manager_id)
 

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
 from typing import Optional, List
 from datetime import date, datetime, timezone, timedelta
 from decimal import Decimal
@@ -147,6 +147,13 @@ class ProjectResponse(ProjectBase):
     class Config:
         from_attributes = True
 
+    @field_serializer('status')
+    def serialize_status_lowercase(self, value):
+        """API 응답 시 status를 소문자로 변환 (프론트엔드 일관성)"""
+        if value is None:
+            return None
+        return str(value.value).lower() if hasattr(value, 'value') else str(value).lower()
+
 
 class ProjectDetailResponse(ProjectResponse):
     """Detailed project response with relationships"""
@@ -181,6 +188,13 @@ class ProjectListResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+    @field_serializer('status')
+    def serialize_status_lowercase(self, value):
+        """API 응답 시 status를 소문자로 변환 (프론트엔드 일관성)"""
+        if value is None:
+            return None
+        return str(value.value).lower() if hasattr(value, 'value') else str(value).lower()
 
 
 # ============================================================================

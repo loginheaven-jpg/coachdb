@@ -367,6 +367,69 @@ git push origin main
 - 파일 ID를 역량/지원서 데이터에 저장
 - 필수 증빙 미첨부 시 제출 불가 (can_submit=false)
 
+## Enum 관리 정책
+
+### 네이밍 규칙
+- **Python Enum 클래스**: PascalCase (예: `ProjectStatus`, `VerificationStatus`)
+- **Enum 멤버 이름**: SCREAMING_SNAKE_CASE (예: `DRAFT`, `IN_PROGRESS`)
+- **Enum 값(value)**: 소문자 snake_case (예: `"draft"`, `"in_progress"`)
+
+### 표준 정의 방식
+```python
+class ProjectStatus(str, enum.Enum):
+    DRAFT = "draft"           # ✅ 권장: 멤버는 대문자, 값은 소문자
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+```
+
+### API 규칙
+- **API 응답**: 항상 소문자 값 반환 (Pydantic field_serializer 사용)
+- **API 요청**: 대소문자 구분 없이 수용 (백엔드에서 정규화)
+- **프론트엔드**: 모든 Enum 값은 소문자로 처리
+
+### 새 Enum 추가 시 체크리스트
+1. [ ] Python Enum 클래스 정의 (`models/` 폴더)
+2. [ ] Pydantic schema에 field_serializer 추가 (소문자 변환)
+3. [ ] 프론트엔드 TypeScript enum 정의 (소문자 값)
+4. [ ] DB 마이그레이션 필요 시 소문자 값으로 생성
+5. [ ] 기존 유사 Enum과 중복 여부 확인
+
+### 주의사항
+- 기존 `ProjectStatus`는 역사적 이유로 대문자 값 사용 (DB: `DRAFT`)
+- API 응답 시 `field_serializer`로 소문자 변환하여 프론트엔드 일관성 유지
+- 새로운 Enum은 반드시 소문자 값으로 정의
+
+## 코드 리뷰 체크리스트
+
+### PR 제출 전 필수 확인사항
+
+#### 1. Enum 일관성
+- [ ] 새 Enum 추가 시 네이밍 규칙 준수 (값은 소문자)
+- [ ] 기존 Enum과 중복 정의 없음
+- [ ] 프론트엔드-백엔드 Enum 값 일치
+- [ ] API 응답에서 소문자로 반환되는지 확인
+
+#### 2. 타입 안정성
+- [ ] TypeScript 타입 정의 완료
+- [ ] Pydantic schema 정의 완료
+- [ ] 하드코딩된 문자열 대신 Enum 상수 사용
+
+#### 3. 데이터베이스
+- [ ] 마이그레이션 파일 생성 및 테스트
+- [ ] downgrade 함수 구현 (가능한 경우)
+- [ ] 기존 데이터 호환성 확인
+
+#### 4. 코드 품질
+- [ ] 미사용 import 제거
+- [ ] 미사용 변수/함수 제거
+- [ ] 콘솔 로그 정리 (디버깅용 제거)
+- [ ] 주석 최신화
+
+#### 5. 빌드 및 테스트
+- [ ] `npm run build` 성공 (프론트엔드)
+- [ ] Python import 에러 없음 (백엔드)
+- [ ] 주요 기능 수동 테스트 완료
+
 ## 참고 문서
 
 - `coach_db_service_final_v3.md` - 전체 시스템 설계서
