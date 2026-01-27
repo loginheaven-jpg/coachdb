@@ -444,7 +444,7 @@ R2_BUCKET=pcms-files
 
 **PostgreSQL enum 값과 Python enum 멤버 이름은 반드시 일치해야 함**
 
-**현재 정책 (2026-01-22 기준)**:
+**현재 정책 (2026-01-27 기준)**:
 | Enum 타입 | 대소문자 | 예시 |
 |-----------|---------|------|
 | `projectstatus` | **UPPERCASE** | `DRAFT`, `PENDING`, `APPROVED`, `READY`, `RECRUITING`, `REVIEWING`, `IN_PROGRESS`, `EVALUATING`, `CLOSED` |
@@ -523,6 +523,25 @@ R2_BUCKET=pcms-files
    - ② Python 모델에 enum 멤버 추가 (이름 = 값으로 일치)
    - ③ start.sh에도 동일한 값 추가 (배포 시 자동 적용)
    - ④ 대소문자 정책 준수 (projectstatus는 UPPERCASE)
+
+6. **API 응답 정규화 (2026-01-27 추가)**
+   - **DB 저장**: UPPERCASE (`DRAFT`, `PENDING`, ...)
+   - **API 응답**: 항상 lowercase (`draft`, `pending`, ...)
+   - **API 요청**: 대소문자 무관 (`draft` = `DRAFT` = `Draft`)
+   - **구현 방식**: Pydantic `field_serializer` 데코레이터
+   ```python
+   # backend/app/schemas/project.py
+   from pydantic import field_serializer
+
+   class ProjectResponse(ProjectBase):
+       @field_serializer('status')
+       def serialize_status_lowercase(self, value):
+           """API 응답 시 status를 소문자로 변환"""
+           if value is None:
+               return None
+           return str(value.value).lower() if hasattr(value, 'value') else str(value).lower()
+   ```
+   - **프론트엔드**: 모든 status 비교는 소문자로 수행 (`status === 'draft'`)
 
 ### 주요 인덱스
 
@@ -1955,6 +1974,36 @@ git commit -m "docs: update ARCHITECTURE.md - add new notification type"
 ---
 
 ## 변경 이력
+
+### 2026-01-27
+- **ProjectStatus API 응답 소문자 정규화**
+  - 문제: 백엔드 DB는 대문자(DRAFT), 프론트엔드는 소문자(draft) 사용으로 불일치
+  - 해결: Pydantic `field_serializer` 데코레이터로 API 응답 시 자동 소문자 변환
+  - 수정 파일:
+    - `backend/app/schemas/project.py`: `ProjectResponse`, `ProjectListResponse`에 field_serializer 추가
+    - `backend/app/api/endpoints/projects.py`: status 필터 대소문자 무관 처리
+  - 결과: DB는 대문자 유지, API 응답은 항상 소문자 반환
+
+- **Enum 관리 정책 수립**
+  - `CLAUDE.md`에 Enum 네이밍 규칙 및 API 규칙 추가
+  - 새 Enum 추가 시 체크리스트 정의
+  - 코드 리뷰 체크리스트 추가
+
+- **미사용 프론트엔드 페이지 정리 (150KB 절감)**
+  - 삭제된 파일 (10개, 4,778줄):
+    - `CompetencyManagementPage.tsx` → UnifiedCompetencyPage로 대체
+    - `CompetencyManagementPageNew.tsx` → 미배포 버전
+    - `DetailedProfilePage.tsx` → /coach/competencies 리다이렉트
+    - `ProjectApplicationsPage.tsx` → ProjectUnifiedPage 통합
+    - `ProjectBrowsePage.tsx` → ProjectListPage로 대체
+    - `ProjectCreatePage.tsx` → ProjectUnifiedPage 통합
+    - `ProjectEditPage.tsx` → ProjectUnifiedPage 통합
+    - `ProjectManagementDashboard.tsx` → ProjectManagePage로 대체
+    - `ProjectReviewPage.tsx` → ProjectUnifiedPage 통합
+    - `SuperAdminDashboard.tsx` → AdminDashboard로 대체
+
+- **백엔드 코드 정리**
+  - `backend/app/main.py`: 오래된 "Future routers" 주석 제거
 
 ### 2026-01-24
 - **과제 복사 기능 추가**
