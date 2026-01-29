@@ -21,9 +21,12 @@ from app.schemas.admin import (
     UserListResponse,
     UserRoleUpdate,
     UserDetailResponse,
+    UserFullProfileResponse,
+    UserCompetencyItem,
     RoleRequestResponse,
     RoleRequestReject
 )
+from app.models.competency import CoachCompetency, CompetencyItem
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -259,6 +262,72 @@ async def get_user(
         birth_year=user.birth_year,
         gender=user.gender,
         address=user.address
+    )
+
+
+@router.get("/users/{user_id}/full-profile", response_model=UserFullProfileResponse)
+async def get_user_full_profile(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(["SUPER_ADMIN", "PROJECT_MANAGER"]))
+):
+    """
+    Get user's full profile including basic info and competencies.
+    Accessible by SUPER_ADMIN and PROJECT_MANAGER.
+    """
+    # Get user
+    result = await db.execute(
+        select(User).where(User.user_id == user_id)
+    )
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User with id {user_id} not found"
+        )
+
+    user_roles = get_user_roles(user)
+
+    # Get user's competencies with item info
+    competencies_result = await db.execute(
+        select(CoachCompetency, CompetencyItem)
+        .join(CompetencyItem, CoachCompetency.item_id == CompetencyItem.item_id)
+        .where(CoachCompetency.user_id == user_id)
+        .order_by(CompetencyItem.category, CompetencyItem.display_order)
+    )
+    competency_rows = competencies_result.all()
+
+    competencies = []
+    verified_count = 0
+    for comp, item in competency_rows:
+        competencies.append(UserCompetencyItem(
+            competency_id=comp.competency_id,
+            item_id=comp.item_id,
+            item_name=item.item_name,
+            item_code=item.item_code or "",
+            category=item.category.value if item.category else "OTHER",
+            value=comp.value,
+            verification_status=comp.verification_status.value if comp.verification_status else "pending",
+            verified_at=comp.verified_at
+        ))
+        if comp.verification_status and comp.verification_status.value == "verified":
+            verified_count += 1
+
+    return UserFullProfileResponse(
+        user_id=user.user_id,
+        email=user.email,
+        name=user.name,
+        phone=user.phone,
+        roles=user_roles,
+        status=user.status.value,
+        created_at=user.created_at,
+        birth_year=user.birth_year,
+        gender=user.gender,
+        address=user.address,
+        competencies=competencies,
+        competency_count=len(competencies),
+        verified_count=verified_count
     )
 
 

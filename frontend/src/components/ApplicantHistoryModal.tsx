@@ -16,7 +16,8 @@ import {
   Descriptions,
   Divider,
   Tooltip,
-  Button
+  Button,
+  Tabs
 } from 'antd'
 import {
   UserOutlined,
@@ -26,12 +27,15 @@ import {
   ClockCircleOutlined,
   StarOutlined,
   QuestionCircleOutlined,
-  FileTextOutlined
+  FileTextOutlined,
+  ProfileOutlined,
+  SafetyCertificateOutlined
 } from '@ant-design/icons'
 import projectService, {
   UserProjectHistory,
   UserProjectHistoryItem
 } from '../services/projectService'
+import adminService, { UserFullProfile } from '../services/adminService'
 import dayjs from 'dayjs'
 
 const { Text, Title } = Typography
@@ -104,10 +108,13 @@ export default function ApplicantHistoryModal({
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<UserProjectHistory | null>(null)
+  const [userProfile, setUserProfile] = useState<UserFullProfile | null>(null)
+  const [activeTab, setActiveTab] = useState('history')
 
   useEffect(() => {
     if (open && userId) {
       loadData()
+      setActiveTab('history')
     }
   }, [open, userId])
 
@@ -116,8 +123,13 @@ export default function ApplicantHistoryModal({
 
     try {
       setLoading(true)
-      const history = await projectService.getUserProjectHistory(userId)
+      // 병렬로 이력과 프로필 정보 로드
+      const [history, profile] = await Promise.all([
+        projectService.getUserProjectHistory(userId),
+        adminService.getUserFullProfile(userId).catch(() => null) // 프로필 로드 실패해도 계속 진행
+      ])
       setData(history)
+      setUserProfile(profile)
     } catch (error: any) {
       console.error('Failed to load user history:', error)
       message.error('이력을 불러오는데 실패했습니다.')
@@ -258,18 +270,28 @@ export default function ApplicantHistoryModal({
     )
   }
 
+  // 역량 카테고리 라벨
+  const categoryLabels: Record<string, string> = {
+    BASIC: '기본정보',
+    CERTIFICATION: '자격증',
+    EDUCATION: '교육',
+    EXPERIENCE: '경력',
+    COACHING: '코칭경력',
+    OTHER: '기타'
+  }
+
   return (
     <Modal
       title={
         <Space>
           <UserOutlined />
-          <span>{userName || data?.user_name || '응모자'} 이력</span>
+          <span>{userName || data?.user_name || '응모자'} 정보</span>
         </Space>
       }
       open={open}
       onCancel={onClose}
       footer={null}
-      width={900}
+      width={950}
       destroyOnClose
     >
       {loading ? (
@@ -277,67 +299,167 @@ export default function ApplicantHistoryModal({
           <Spin size="large" />
         </div>
       ) : !data ? (
-        <Empty description="이력 정보가 없습니다" />
+        <Empty description="정보가 없습니다" />
       ) : (
-        <div className="space-y-6">
-          {/* 사용자 기본 정보 */}
-          <Card size="small">
-            <Row gutter={16}>
-              <Col span={6}>
-                <Statistic
-                  title="총 응모 횟수"
-                  value={data.total_projects}
-                  suffix="회"
-                  prefix={<TrophyOutlined />}
-                />
-              </Col>
-              <Col span={6}>
-                <Statistic
-                  title="선발 횟수"
-                  value={data.selected_count}
-                  suffix="회"
-                  valueStyle={{ color: '#52c41a' }}
-                  prefix={<CheckCircleOutlined />}
-                />
-              </Col>
-              <Col span={6}>
-                <Statistic
-                  title="평균 최종점수"
-                  value={data.avg_score?.toFixed(1) || '-'}
-                  prefix={<StarOutlined />}
-                />
-              </Col>
-              <Col span={6}>
-                <Statistic
-                  title="평균 참여평가"
-                  value={data.avg_evaluation_score?.toFixed(1) || '-'}
-                  suffix={data.avg_evaluation_score ? '점' : ''}
-                  prefix={<StarOutlined />}
-                />
-              </Col>
-            </Row>
-          </Card>
+        <Tabs
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          items={[
+            {
+              key: 'history',
+              label: (
+                <span>
+                  <TrophyOutlined />
+                  과제 이력
+                </span>
+              ),
+              children: (
+                <div className="space-y-6">
+                  {/* 통계 */}
+                  <Card size="small">
+                    <Row gutter={16}>
+                      <Col span={6}>
+                        <Statistic
+                          title="총 응모 횟수"
+                          value={data.total_projects}
+                          suffix="회"
+                          prefix={<TrophyOutlined />}
+                        />
+                      </Col>
+                      <Col span={6}>
+                        <Statistic
+                          title="선발 횟수"
+                          value={data.selected_count}
+                          suffix="회"
+                          valueStyle={{ color: '#52c41a' }}
+                          prefix={<CheckCircleOutlined />}
+                        />
+                      </Col>
+                      <Col span={6}>
+                        <Statistic
+                          title="평균 최종점수"
+                          value={data.avg_score?.toFixed(1) || '-'}
+                          prefix={<StarOutlined />}
+                        />
+                      </Col>
+                      <Col span={6}>
+                        <Statistic
+                          title="평균 참여평가"
+                          value={data.avg_evaluation_score?.toFixed(1) || '-'}
+                          suffix={data.avg_evaluation_score ? '점' : ''}
+                          prefix={<StarOutlined />}
+                        />
+                      </Col>
+                    </Row>
+                  </Card>
 
-          <Divider orientation="left">과제 참여 이력</Divider>
-
-          {/* 과제 이력 테이블 */}
-          {data.history.length > 0 ? (
-            <Table
-              columns={columns}
-              dataSource={data.history}
-              rowKey="project_id"
-              size="small"
-              pagination={false}
-              expandable={{
-                expandedRowRender,
-                rowExpandable: (record) => !!record.evaluation
-              }}
-              scroll={{ x: 850, y: 400 }}
-            />
-          ) : (
-            <Empty description="과제 참여 이력이 없습니다" />
-          )}
-        </div>
+                  {/* 과제 이력 테이블 */}
+                  {data.history.length > 0 ? (
+                    <Table
+                      columns={columns}
+                      dataSource={data.history}
+                      rowKey="project_id"
+                      size="small"
+                      pagination={false}
+                      expandable={{
+                        expandedRowRender,
+                        rowExpandable: (record) => !!record.evaluation
+                      }}
+                      scroll={{ x: 850, y: 350 }}
+                    />
+                  ) : (
+                    <Empty description="과제 참여 이력이 없습니다" />
+                  )}
+                </div>
+              )
+            },
+            {
+              key: 'profile',
+              label: (
+                <span>
+                  <ProfileOutlined />
+                  기본정보
+                </span>
+              ),
+              children: userProfile ? (
+                <Descriptions bordered column={2} size="small">
+                  <Descriptions.Item label="이름">{userProfile.name}</Descriptions.Item>
+                  <Descriptions.Item label="이메일">{userProfile.email}</Descriptions.Item>
+                  <Descriptions.Item label="전화번호">{userProfile.phone || '-'}</Descriptions.Item>
+                  <Descriptions.Item label="생년">{userProfile.birth_year || '-'}</Descriptions.Item>
+                  <Descriptions.Item label="성별">
+                    {userProfile.gender === 'male' ? '남성' : userProfile.gender === 'female' ? '여성' : '-'}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="주소" span={2}>{userProfile.address || '-'}</Descriptions.Item>
+                  <Descriptions.Item label="가입일">
+                    {userProfile.created_at ? dayjs(userProfile.created_at).format('YYYY-MM-DD') : '-'}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="역량 현황">
+                    {userProfile.verified_count}/{userProfile.competency_count} 검증완료
+                  </Descriptions.Item>
+                </Descriptions>
+              ) : (
+                <Empty description="기본정보를 불러올 수 없습니다" />
+              )
+            },
+            {
+              key: 'competencies',
+              label: (
+                <span>
+                  <SafetyCertificateOutlined />
+                  역량정보 {userProfile && `(${userProfile.competency_count})`}
+                </span>
+              ),
+              children: userProfile?.competencies && userProfile.competencies.length > 0 ? (
+                <Table
+                  dataSource={userProfile.competencies}
+                  rowKey="competency_id"
+                  size="small"
+                  pagination={false}
+                  scroll={{ y: 400 }}
+                  columns={[
+                    {
+                      title: '항목명',
+                      dataIndex: 'item_name',
+                      key: 'item_name',
+                      width: 200
+                    },
+                    {
+                      title: '카테고리',
+                      dataIndex: 'category',
+                      key: 'category',
+                      width: 100,
+                      render: (cat: string) => categoryLabels[cat] || cat
+                    },
+                    {
+                      title: '값',
+                      dataIndex: 'value',
+                      key: 'value',
+                      ellipsis: true
+                    },
+                    {
+                      title: '상태',
+                      dataIndex: 'verification_status',
+                      key: 'verification_status',
+                      width: 100,
+                      render: (status: string) => {
+                        const statusMap: Record<string, { color: string; text: string }> = {
+                          verified: { color: 'success', text: '검증완료' },
+                          pending: { color: 'default', text: '대기중' },
+                          rejected: { color: 'error', text: '반려' }
+                        }
+                        const config = statusMap[status] || { color: 'default', text: status }
+                        return <Tag color={config.color}>{config.text}</Tag>
+                      }
+                    }
+                  ]}
+                />
+              ) : (
+                <Empty description="등록된 역량이 없습니다" />
+              )
+            }
+          ]}
+        />
       )}
     </Modal>
   )

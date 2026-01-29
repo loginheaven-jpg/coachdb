@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Typography, Card, Table, Tag, Button, Space, Input, Select, Modal, Checkbox, message, InputNumber, Divider, Badge } from 'antd'
-import { SearchOutlined, SaveOutlined, SettingOutlined, CheckOutlined, CloseOutlined, UserAddOutlined, DeleteOutlined, KeyOutlined, AppstoreOutlined } from '@ant-design/icons'
+import { Typography, Card, Table, Tag, Button, Space, Input, Select, Modal, Checkbox, message, InputNumber, Divider, Badge, Descriptions, Spin, Empty, Popconfirm } from 'antd'
+import { SearchOutlined, SaveOutlined, SettingOutlined, CheckOutlined, CloseOutlined, UserAddOutlined, DeleteOutlined, KeyOutlined, AppstoreOutlined, EyeOutlined } from '@ant-design/icons'
 import UserCleanupModal from '../components/UserCleanupModal'
 import adminService, {
   UserListItem,
+  UserFullProfile,
   RoleRequest,
   USER_ROLES,
   ROLE_LABELS,
@@ -47,6 +48,11 @@ export default function UserManagementPage() {
   const [resetPasswordUser, setResetPasswordUser] = useState<UserListItem | null>(null)
   const [newPassword, setNewPassword] = useState('')
   const [resetPasswordLoading, setResetPasswordLoading] = useState(false)
+
+  // User detail modal
+  const [userDetailModalVisible, setUserDetailModalVisible] = useState(false)
+  const [userDetailLoading, setUserDetailLoading] = useState(false)
+  const [selectedUserProfile, setSelectedUserProfile] = useState<UserFullProfile | null>(null)
 
   useEffect(() => {
     loadUsers()
@@ -226,6 +232,32 @@ export default function UserManagementPage() {
     }
   }
 
+  const handleViewUserDetail = async (user: UserListItem) => {
+    setUserDetailModalVisible(true)
+    setUserDetailLoading(true)
+    try {
+      const profile = await adminService.getUserFullProfile(user.user_id)
+      setSelectedUserProfile(profile)
+    } catch (error: any) {
+      console.error('사용자 정보 로드 실패:', error)
+      message.error('사용자 정보를 불러오는데 실패했습니다.')
+      setUserDetailModalVisible(false)
+    } finally {
+      setUserDetailLoading(false)
+    }
+  }
+
+  const handleDeleteUser = async (user: UserListItem) => {
+    try {
+      await adminService.deleteUser(user.user_id)
+      message.success(`${user.name}님이 삭제되었습니다.`)
+      loadUsers()
+    } catch (error: any) {
+      console.error('사용자 삭제 실패:', error)
+      message.error(error.response?.data?.detail || '사용자 삭제에 실패했습니다.')
+    }
+  }
+
   const columns = [
     {
       title: 'ID',
@@ -236,7 +268,12 @@ export default function UserManagementPage() {
     {
       title: '이름',
       dataIndex: 'name',
-      key: 'name'
+      key: 'name',
+      render: (name: string, record: UserListItem) => (
+        <a onClick={() => handleViewUserDetail(record)} className="text-blue-600 hover:underline">
+          {name}
+        </a>
+      )
     },
     {
       title: '이메일',
@@ -272,7 +309,7 @@ export default function UserManagementPage() {
     {
       title: '액션',
       key: 'action',
-      width: 180,
+      width: 220,
       render: (_: any, record: UserListItem) => (
         <Space size="small">
           <Button
@@ -283,14 +320,31 @@ export default function UserManagementPage() {
             역할 편집
           </Button>
           {!record.roles.includes('SUPER_ADMIN') && (
-            <Button
-              type="link"
-              size="small"
-              icon={<KeyOutlined />}
-              onClick={() => handleOpenPasswordReset(record)}
-            >
-              비밀번호
-            </Button>
+            <>
+              <Button
+                type="link"
+                size="small"
+                icon={<KeyOutlined />}
+                onClick={() => handleOpenPasswordReset(record)}
+              >
+                비밀번호
+              </Button>
+              <Popconfirm
+                title="사용자 삭제"
+                description={`${record.name}님을 삭제하시겠습니까? 관련 데이터가 모두 삭제됩니다.`}
+                onConfirm={() => handleDeleteUser(record)}
+                okText="삭제"
+                cancelText="취소"
+                okButtonProps={{ danger: true }}
+              >
+                <Button
+                  type="link"
+                  size="small"
+                  danger
+                  icon={<DeleteOutlined />}
+                />
+              </Popconfirm>
+            </>
           )}
         </Space>
       )
@@ -586,6 +640,117 @@ export default function UserManagementPage() {
               minLength={8}
             />
           </div>
+        </Modal>
+
+        {/* User Detail Modal */}
+        <Modal
+          title={`사용자 상세정보 - ${selectedUserProfile?.name || ''}`}
+          open={userDetailModalVisible}
+          onCancel={() => {
+            setUserDetailModalVisible(false)
+            setSelectedUserProfile(null)
+          }}
+          footer={null}
+          width={800}
+          destroyOnClose
+        >
+          {userDetailLoading ? (
+            <div className="flex justify-center py-12">
+              <Spin size="large" />
+            </div>
+          ) : !selectedUserProfile ? (
+            <Empty description="사용자 정보가 없습니다" />
+          ) : (
+            <div className="space-y-6">
+              {/* 기본 정보 */}
+              <Card title="기본 정보" size="small">
+                <Descriptions column={2} size="small">
+                  <Descriptions.Item label="이름">{selectedUserProfile.name}</Descriptions.Item>
+                  <Descriptions.Item label="이메일">{selectedUserProfile.email}</Descriptions.Item>
+                  <Descriptions.Item label="전화번호">{selectedUserProfile.phone || '-'}</Descriptions.Item>
+                  <Descriptions.Item label="생년">{selectedUserProfile.birth_year || '-'}</Descriptions.Item>
+                  <Descriptions.Item label="성별">{selectedUserProfile.gender === 'male' ? '남성' : selectedUserProfile.gender === 'female' ? '여성' : '-'}</Descriptions.Item>
+                  <Descriptions.Item label="주소">{selectedUserProfile.address || '-'}</Descriptions.Item>
+                  <Descriptions.Item label="역할">
+                    <Space wrap>
+                      {selectedUserProfile.roles.map(role => (
+                        <Tag key={role} color={ROLE_COLORS[role] || 'default'}>
+                          {ROLE_LABELS[role] || role}
+                        </Tag>
+                      ))}
+                    </Space>
+                  </Descriptions.Item>
+                  <Descriptions.Item label="가입일">
+                    {selectedUserProfile.created_at ? new Date(selectedUserProfile.created_at).toLocaleDateString('ko-KR') : '-'}
+                  </Descriptions.Item>
+                </Descriptions>
+              </Card>
+
+              {/* 역량 정보 */}
+              <Card
+                title={`역량 정보 (${selectedUserProfile.verified_count}/${selectedUserProfile.competency_count} 검증완료)`}
+                size="small"
+              >
+                {selectedUserProfile.competencies.length === 0 ? (
+                  <Empty description="등록된 역량이 없습니다" />
+                ) : (
+                  <Table
+                    dataSource={selectedUserProfile.competencies}
+                    rowKey="competency_id"
+                    size="small"
+                    pagination={false}
+                    scroll={{ y: 300 }}
+                    columns={[
+                      {
+                        title: '항목명',
+                        dataIndex: 'item_name',
+                        key: 'item_name',
+                        width: 200
+                      },
+                      {
+                        title: '카테고리',
+                        dataIndex: 'category',
+                        key: 'category',
+                        width: 100,
+                        render: (cat: string) => {
+                          const catLabels: Record<string, string> = {
+                            BASIC: '기본정보',
+                            CERTIFICATION: '자격증',
+                            EDUCATION: '교육',
+                            EXPERIENCE: '경력',
+                            COACHING: '코칭경력',
+                            OTHER: '기타'
+                          }
+                          return catLabels[cat] || cat
+                        }
+                      },
+                      {
+                        title: '값',
+                        dataIndex: 'value',
+                        key: 'value',
+                        ellipsis: true
+                      },
+                      {
+                        title: '상태',
+                        dataIndex: 'verification_status',
+                        key: 'verification_status',
+                        width: 100,
+                        render: (status: string) => {
+                          const statusMap: Record<string, { color: string; text: string }> = {
+                            verified: { color: 'success', text: '검증완료' },
+                            pending: { color: 'default', text: '대기중' },
+                            rejected: { color: 'error', text: '반려' }
+                          }
+                          const config = statusMap[status] || { color: 'default', text: status }
+                          return <Tag color={config.color}>{config.text}</Tag>
+                        }
+                      }
+                    ]}
+                  />
+                )}
+              </Card>
+            </div>
+          )}
         </Modal>
     </div>
   )

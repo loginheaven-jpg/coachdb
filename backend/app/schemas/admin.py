@@ -61,6 +61,41 @@ class UserDetailResponse(BaseModel):
         from_attributes = True
 
 
+class UserCompetencyItem(BaseModel):
+    """사용자 역량 항목"""
+    competency_id: int
+    item_id: int
+    item_name: str
+    item_code: str
+    category: str
+    value: Optional[str] = None
+    verification_status: str  # pending, verified, rejected
+    verified_at: Optional[datetime] = None
+
+
+class UserFullProfileResponse(BaseModel):
+    """사용자 전체 프로필 (기본정보 + 역량정보)"""
+    # 기본 정보
+    user_id: int
+    email: str
+    name: str
+    phone: Optional[str] = None
+    roles: List[str]
+    status: str
+    created_at: Optional[datetime] = None
+    birth_year: Optional[int] = None
+    gender: Optional[str] = None
+    address: Optional[str] = None
+
+    # 역량 정보
+    competencies: List[UserCompetencyItem] = []
+    competency_count: int = 0
+    verified_count: int = 0
+
+    class Config:
+        from_attributes = True
+
+
 # ============================================================================
 # Role Request Schemas
 # ============================================================================

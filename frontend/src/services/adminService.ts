@@ -33,6 +33,23 @@ export interface UserDetail {
   address: string | null
 }
 
+export interface UserCompetencyItem {
+  competency_id: number
+  item_id: number
+  item_name: string
+  item_code: string
+  category: string
+  value: string | null
+  verification_status: string
+  verified_at: string | null
+}
+
+export interface UserFullProfile extends UserDetail {
+  competencies: UserCompetencyItem[]
+  competency_count: number
+  verified_count: number
+}
+
 export interface UserRoleUpdate {
   roles: string[]
 }
@@ -136,6 +153,16 @@ const adminService = {
 
   async getUser(userId: number): Promise<UserDetail> {
     const response = await api.get<UserDetail>(`/admin/users/${userId}`)
+    return response.data
+  },
+
+  async getUserFullProfile(userId: number): Promise<UserFullProfile> {
+    const response = await api.get<UserFullProfile>(`/admin/users/${userId}/full-profile`)
+    return response.data
+  },
+
+  async deleteUser(userId: number): Promise<{ deleted_count: number; message: string }> {
+    const response = await api.delete('/admin/users/bulk-delete', { data: [userId] })
     return response.data
   },
 
