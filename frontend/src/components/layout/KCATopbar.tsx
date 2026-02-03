@@ -1,6 +1,7 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Badge, Popover, Dropdown, Avatar, List, Typography, Empty, Spin } from 'antd'
-import { UserOutlined, LogoutOutlined, BellOutlined, HomeOutlined } from '@ant-design/icons'
+import { Button, Badge, Popover, Dropdown, Avatar, List, Typography, Empty, Spin, Drawer } from 'antd'
+import { UserOutlined, LogoutOutlined, BellOutlined, HomeOutlined, MenuOutlined } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
 import type { Notification } from '../../services/notificationService'
 import dayjs from 'dayjs'
@@ -46,6 +47,7 @@ export default function KCATopbar({
   getNotificationIcon,
 }: KCATopbarProps) {
   const navigate = useNavigate()
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const userMenuItems: MenuProps['items'] = [
     {
@@ -120,15 +122,17 @@ export default function KCATopbar({
     <header className="kca-topbar">
       {/* Logo */}
       <a className="kca-topbar-logo" onClick={() => navigate('/dashboard')}>
-        <div className="logo-pcms">PCMS</div>
+        <div className="logo-pcms">
+          P<span className="logo-c-dot">C</span>MS
+        </div>
         <div className="logo-names">
           <div className="logo-name-kr">(사) 한국코치협회 과제&코치풀관리시스템</div>
           <div className="logo-name-en">Project & Coach pool Management System</div>
         </div>
       </a>
 
-      {/* Navigation */}
-      <nav className="kca-topbar-nav">
+      {/* Desktop Navigation */}
+      <nav className="kca-topbar-nav kca-topbar-nav-desktop">
         {links
           .filter((link) => link.visible)
           .map((link) => (
@@ -144,6 +148,14 @@ export default function KCATopbar({
 
       {/* Right Section */}
       <div className="kca-topbar-right">
+        {/* Mobile Menu Button */}
+        <Button
+          type="text"
+          icon={<MenuOutlined style={{ fontSize: 20 }} />}
+          className="kca-mobile-menu-btn"
+          onClick={() => setMobileMenuOpen(true)}
+        />
+
         {/* Notification Bell */}
         {userName && onPopoverVisibleChange && (
           <Popover
@@ -168,11 +180,37 @@ export default function KCATopbar({
           <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
             <button className="kca-topbar-login">
               <UserOutlined />
-              {userName}
+              <span className="kca-username">{userName}</span>
             </button>
           </Dropdown>
         )}
       </div>
+
+      {/* Mobile Menu Drawer */}
+      <Drawer
+        title="메뉴"
+        placement="right"
+        onClose={() => setMobileMenuOpen(false)}
+        open={mobileMenuOpen}
+        width={280}
+      >
+        <div className="kca-mobile-nav">
+          {links
+            .filter((link) => link.visible)
+            .map((link) => (
+              <a
+                key={link.key}
+                className={selectedKey === link.key ? 'active' : ''}
+                onClick={() => {
+                  navigate(link.path)
+                  setMobileMenuOpen(false)
+                }}
+              >
+                {link.label}
+              </a>
+            ))}
+        </div>
+      </Drawer>
     </header>
   )
 }

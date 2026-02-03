@@ -27,11 +27,29 @@
 }
 
 .logo-pcms {
-  font-size: 28px;
+  font-size: 36px;
   font-weight: 900;
   color: var(--kca-black);
   letter-spacing: -1px;
   line-height: 1;
+}
+
+/* C with orange dot above */
+.logo-c-dot {
+  position: relative;
+  display: inline-block;
+}
+
+.logo-c-dot::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6px;
+  height: 6px;
+  background: var(--kca-primary);
+  border-radius: 50%;
 }
 
 .logo-names {
@@ -43,7 +61,7 @@
 }
 
 .logo-name-kr {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--kca-dark);
   letter-spacing: -0.3px;
@@ -51,7 +69,7 @@
 }
 
 .logo-name-en {
-  font-size: 10px;
+  font-size: 8px;
   font-weight: 400;
   color: var(--kca-text-muted);
   letter-spacing: 0;
@@ -67,7 +85,7 @@
 
 .kca-topbar-nav a {
   text-decoration: none;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 500;
   color: var(--kca-dark);
   padding: 0 20px;
@@ -77,6 +95,7 @@
   position: relative;
   transition: var(--kca-transition);
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .kca-topbar-nav a:hover {
@@ -129,4 +148,127 @@
 
 .kca-topbar-login:hover {
   background: var(--kca-bg-page);
+}
+
+/* ══════ Mobile Menu Button ══════ */
+.kca-mobile-menu-btn {
+  display: none;
+}
+
+/* ══════ Mobile Navigation Drawer ══════ */
+.kca-mobile-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.kca-mobile-nav a {
+  text-decoration: none;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--kca-dark);
+  padding: 16px 20px;
+  border-left: 4px solid transparent;
+  transition: var(--kca-transition);
+  cursor: pointer;
+}
+
+.kca-mobile-nav a:hover {
+  background: var(--kca-bg-light);
+}
+
+.kca-mobile-nav a.active {
+  background: var(--kca-primary-bg);
+  border-left-color: var(--kca-primary);
+  color: var(--kca-primary);
+  font-weight: 700;
+}
+
+/* ══════ Responsive Design ══════ */
+
+/* Tablet: Reduce menu spacing */
+@media (max-width: 1200px) {
+  .kca-topbar-nav a {
+    padding: 0 16px;
+    font-size: 16px;
+  }
+
+  .kca-topbar-logo {
+    margin-right: 40px;
+  }
+
+  .logo-pcms {
+    font-size: 32px;
+  }
+
+  .logo-names {
+    padding-left: 12px;
+  }
+
+  .logo-name-kr {
+    font-size: 10px;
+  }
+
+  .logo-name-en {
+    font-size: 7px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .kca-topbar-nav a {
+    padding: 0 12px;
+    font-size: 15px;
+  }
+
+  .kca-topbar-logo {
+    margin-right: 30px;
+  }
+}
+
+/* Mobile: Show hamburger menu, hide desktop nav */
+@media (max-width: 900px) {
+  .kca-topbar {
+    padding: 0 20px;
+  }
+
+  .kca-topbar-logo {
+    margin-right: auto;
+  }
+
+  .logo-pcms {
+    font-size: 28px;
+  }
+
+  .logo-names {
+    display: none; /* Hide text on mobile */
+  }
+
+  .kca-topbar-nav-desktop {
+    display: none; /* Hide desktop navigation */
+  }
+
+  .kca-mobile-menu-btn {
+    display: flex; /* Show hamburger menu */
+    align-items: center;
+    justify-content: center;
+  }
+
+  .kca-username {
+    display: none; /* Hide username text on mobile */
+  }
+}
+
+@media (max-width: 480px) {
+  .kca-topbar {
+    padding: 0 16px;
+  }
+
+  .logo-pcms {
+    font-size: 24px;
+  }
+
+  .logo-c-dot::after {
+    width: 5px;
+    height: 5px;
+  }
 }
