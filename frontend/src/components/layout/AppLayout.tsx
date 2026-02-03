@@ -1,16 +1,15 @@
 import { useState, useEffect } from 'react'
-import { Layout, Menu, Dropdown, Button, Avatar, Badge, Popover, List, Typography, Empty, Spin } from 'antd'
+import { Layout } from 'antd'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
 import {
-  UserOutlined, LogoutOutlined, SettingOutlined, LoginOutlined, FolderOutlined,
-  FileTextOutlined, AuditOutlined, TrophyOutlined, ToolOutlined, BellOutlined,
-  SendOutlined, EditOutlined, WarningOutlined, ClockCircleOutlined, CheckCircleOutlined
+  SendOutlined, WarningOutlined, CheckCircleOutlined, TrophyOutlined, BellOutlined
 } from '@ant-design/icons'
 import authService from '../../services/authService'
 import notificationService, { Notification } from '../../services/notificationService'
 import { message } from 'antd'
-import type { MenuProps } from 'antd'
+import KCATopbar from './KCATopbar'
+import KCASubnav, { SubnavItem } from './KCASubnav'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import 'dayjs/locale/ko'
@@ -18,7 +17,7 @@ import 'dayjs/locale/ko'
 dayjs.extend(relativeTime)
 dayjs.locale('ko')
 
-const { Text } = Typography
+const { Content } = Layout
 
 // 알림 타입별 아이콘
 const getNotificationIcon = (type: string) => {
@@ -42,8 +41,6 @@ const getNotificationIcon = (type: string) => {
   }
 }
 
-const { Header, Content } = Layout
-
 // 안전한 roles 파싱 헬퍼 함수
 const parseUserRoles = (roles: string | null | undefined): string[] => {
   if (!roles) return []
@@ -58,9 +55,15 @@ const parseUserRoles = (roles: string | null | undefined): string[] => {
 
 interface AppLayoutProps {
   children: React.ReactNode
+  showSubnav?: boolean
+  subnavItems?: SubnavItem[]
 }
 
-export default function AppLayout({ children }: AppLayoutProps) {
+export default function AppLayout({
+  children,
+  showSubnav = false,
+  subnavItems = []
+}: AppLayoutProps) {
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
   const location = useLocation()
@@ -165,60 +168,66 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const isVerifier = hasRole('VERIFIER')
   const isReviewer = hasRole('REVIEWER')
 
-  // 역할별 메뉴 아이템 생성
-  const menuItems: MenuProps['items'] = []
+  // 역할별 topbar links 생성
+  const topbarLinks = []
 
   // 1. 과제참여 (모든 로그인 사용자)
   if (userRoles.length > 0) {
-    menuItems.push({
+    topbarLinks.push({
       key: 'projects',
       label: '과제참여',
-      onClick: () => navigate('/projects')
+      path: '/projects',
+      visible: true
     })
   }
 
   // 2. 과제관리 (PROJECT_MANAGER 또는 SUPER_ADMIN)
   if (isProjectManager || isSuperAdmin) {
-    menuItems.push({
+    topbarLinks.push({
       key: 'projects-manage',
       label: '과제관리',
-      onClick: () => navigate('/projects/manage')
+      path: '/projects/manage',
+      visible: true
     })
   }
 
   // 3. 증빙검토 (VERIFIER 또는 SUPER_ADMIN)
   if (isVerifier || isSuperAdmin) {
-    menuItems.push({
+    topbarLinks.push({
       key: 'verifications',
       label: '증빙검토',
-      onClick: () => navigate('/admin/verifications')
+      path: '/admin/verifications',
+      visible: true
     })
   }
 
   // 4. 과제심사 (REVIEWER 또는 SUPER_ADMIN)
   if (isReviewer || isSuperAdmin) {
-    menuItems.push({
+    topbarLinks.push({
       key: 'evaluations',
       label: '과제심사',
-      onClick: () => navigate('/evaluations')
+      path: '/evaluations',
+      visible: true
     })
   }
 
   // 5. 시스템관리 (SUPER_ADMIN only)
   if (isSuperAdmin) {
-    menuItems.push({
+    topbarLinks.push({
       key: 'admin',
       label: '시스템관리',
-      onClick: () => navigate('/admin/users')
+      path: '/admin/users',
+      visible: true
     })
   }
 
-  // 6. 나의 정보 (모든 로그인 사용자 - 우측)
+  // 6. 나의 정보 (모든 로그인 사용자)
   if (userRoles.length > 0) {
-    menuItems.push({
+    topbarLinks.push({
       key: 'my-info',
       label: '나의 정보',
-      onClick: () => navigate('/profile/edit')
+      path: '/profile/edit',
+      visible: true
     })
   }
 
@@ -234,142 +243,39 @@ export default function AppLayout({ children }: AppLayoutProps) {
     return ''
   }
 
-  // 사용자 드롭다운 메뉴 (로그아웃만)
-  const userMenuItems: MenuProps['items'] = [
-    {
-      key: 'logout',
-      icon: <LogoutOutlined />,
-      label: '로그아웃',
-      onClick: handleLogout
-    }
-  ]
-
   return (
-    <Layout className="min-h-screen">
-      <Header className="flex items-center justify-between px-8 bg-white shadow-sm">
-        <div className="flex items-center gap-8">
-          <div
-            className="cursor-pointer flex flex-col"
-            onClick={() => {
-              if (!user) {
-                navigate('/')
-              } else {
-                // 통합 대시보드로 이동
-                navigate('/dashboard')
-              }
-            }}
-          >
-            <span className="text-xl font-bold text-blue-600 leading-tight">PCMS</span>
-            <span className="text-[10px] text-gray-400 leading-tight">Project & Coach pool Management System</span>
-          </div>
+    <Layout style={{ minHeight: '100vh' }}>
+      {user && (
+        <KCATopbar
+          links={topbarLinks}
+          selectedKey={getSelectedKey()}
+          userName={user.name}
+          onLogout={handleLogout}
+          notifications={notifications}
+          unreadCount={unreadCount}
+          loadingNotifications={loadingNotifications}
+          popoverVisible={popoverVisible}
+          onPopoverVisibleChange={handlePopoverVisibleChange}
+          onNotificationClick={handleNotificationClick}
+          onMarkAllAsRead={handleMarkAllAsRead}
+          getNotificationIcon={getNotificationIcon}
+        />
+      )}
 
-          {user && menuItems.length > 0 && (
-            <Menu
-              mode="horizontal"
-              selectedKeys={[getSelectedKey()]}
-              items={menuItems}
-              style={{ border: 'none', flexShrink: 0 }}
-            />
-          )}
-        </div>
+      {showSubnav && (
+        <KCASubnav
+          items={subnavItems}
+          onHomeClick={() => navigate('/dashboard')}
+        />
+      )}
 
-        {user ? (
-          <div className="flex items-center gap-4">
-            {/* 알림 아이콘 */}
-            <Popover
-              content={
-                <div style={{ width: 350 }}>
-                  <div className="flex justify-between items-center mb-2 pb-2 border-b">
-                    <Text strong>알림</Text>
-                    {unreadCount > 0 && (
-                      <Button type="link" size="small" onClick={handleMarkAllAsRead}>
-                        모두 읽음
-                      </Button>
-                    )}
-                  </div>
-                  {loadingNotifications ? (
-                    <div className="text-center py-4">
-                      <Spin size="small" />
-                    </div>
-                  ) : notifications.length === 0 ? (
-                    <Empty
-                      image={Empty.PRESENTED_IMAGE_SIMPLE}
-                      description="새 알림이 없습니다"
-                      style={{ margin: '16px 0' }}
-                    />
-                  ) : (
-                    <List
-                      size="small"
-                      dataSource={notifications}
-                      style={{ maxHeight: 300, overflowY: 'auto' }}
-                      renderItem={(notification) => (
-                        <List.Item
-                          className={`cursor-pointer hover:bg-gray-50 ${!notification.is_read ? 'bg-blue-50' : ''}`}
-                          style={{ padding: '8px 4px' }}
-                          onClick={() => handleNotificationClick(notification)}
-                        >
-                          <List.Item.Meta
-                            avatar={getNotificationIcon(notification.type)}
-                            title={<Text strong={!notification.is_read}>{notification.title}</Text>}
-                            description={
-                              <Text type="secondary" style={{ fontSize: 12 }}>
-                                {dayjs(notification.created_at).fromNow()}
-                              </Text>
-                            }
-                          />
-                        </List.Item>
-                      )}
-                    />
-                  )}
-                  <div className="pt-2 mt-2 border-t text-center">
-                    <Button
-                      type="link"
-                      size="small"
-                      onClick={() => {
-                        setPopoverVisible(false)
-                        navigate('/dashboard')
-                      }}
-                    >
-                      전체 보기
-                    </Button>
-                  </div>
-                </div>
-              }
-              title={null}
-              trigger="click"
-              open={popoverVisible}
-              onOpenChange={handlePopoverVisibleChange}
-              placement="bottomRight"
-            >
-              <Badge count={unreadCount} size="small" offset={[-2, 2]}>
-                <Button
-                  type="text"
-                  icon={<BellOutlined style={{ fontSize: 18 }} />}
-                  className="flex items-center justify-center"
-                />
-              </Badge>
-            </Popover>
-
-            {/* 사용자 드롭다운 */}
-            <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-              <Button type="text" className="flex items-center gap-2">
-                <Avatar icon={<UserOutlined />} size="small" />
-                <span>{user.name}</span>
-              </Button>
-            </Dropdown>
-          </div>
-        ) : (
-          <Button
-            type="text"
-            icon={<LoginOutlined />}
-            onClick={() => navigate('/login')}
-          >
-            로그인
-          </Button>
-        )}
-      </Header>
-
-      <Content className="bg-gray-100">
+      <Content
+        style={{
+          marginTop: showSubnav ? '130px' : (user ? '80px' : '0'),
+          background: 'var(--kca-bg-page)',
+          minHeight: 'calc(100vh - 80px)',
+        }}
+      >
         {children}
       </Content>
     </Layout>

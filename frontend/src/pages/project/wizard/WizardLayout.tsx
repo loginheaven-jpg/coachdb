@@ -1,5 +1,6 @@
 import { ReactNode } from 'react'
-import { Steps, Button, Space } from 'antd'
+import { Button } from 'antd'
+import { CheckOutlined } from '@ant-design/icons'
 import './WizardLayout.css'
 
 interface WizardLayoutProps {
@@ -34,53 +35,77 @@ export default function WizardLayout({
   const isLastStep = currentStep === 6
 
   return (
-    <div className="wizard-layout">
-      {/* Header with Progress */}
-      <div className="wizard-header">
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
-          <div className="wizard-title">
-            <Space>
-              {!isFirstStep && (
-                <Button onClick={onPrevious}>
-                  이전
-                </Button>
-              )}
-              <h1>과제 생성 위저드 ({currentStep}/6단계)</h1>
-              <div style={{ flex: 1 }} />
-              {!isLastStep ? (
-                <Button type="primary" onClick={onNext} disabled={!canProceed}>
-                  다음
-                </Button>
-              ) : (
-                <Button type="primary" onClick={onComplete}>
-                  완료
-                </Button>
-              )}
-            </Space>
-          </div>
-          <Steps
-            current={currentStep - 1}
-            items={steps}
-            style={{ maxWidth: 800, margin: '0 auto' }}
-          />
-        </Space>
-      </div>
+    <div className="kca-wizard-layout">
+      {/* Left Sidebar - 240px */}
+      <aside className="kca-step-sidebar">
+        <div className="kca-step-header">
+          <h2>과제 생성 위저드</h2>
+          <div className="kca-step-progress">단계 {currentStep}/6</div>
+        </div>
+        <nav className="kca-step-list">
+          {steps.map((step, index) => {
+            const stepNumber = index + 1
+            const isActive = currentStep === stepNumber
+            const isCompleted = currentStep > stepNumber
+            const isPending = currentStep < stepNumber
 
-      {/* Split View Content */}
-      <div className="wizard-content">
-        <div className="wizard-left-panel">
-          <div className="wizard-panel-inner">
+            return (
+              <div
+                key={stepNumber}
+                className={`kca-step-item ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''} ${isPending ? 'pending' : ''}`}
+              >
+                <div className="kca-step-num">
+                  {isCompleted ? <CheckOutlined /> : stepNumber}
+                </div>
+                <div className="kca-step-info">
+                  <div className="kca-step-title">{step.title}</div>
+                  <div className="kca-step-desc">{step.description}</div>
+                </div>
+              </div>
+            )
+          })}
+        </nav>
+      </aside>
+
+      {/* Content Area - Split View */}
+      <div className="kca-content-area">
+        {/* Form Panel (Left) */}
+        <div className="kca-form-panel">
+          <div className="kca-form-panel-inner">
             {leftContent}
           </div>
         </div>
-        <div className="wizard-right-panel">
-          <div className="wizard-panel-inner">
-            <div className="wizard-preview-header">
-              <h3>👁️ 실시간 미리보기</h3>
-              <p className="text-muted">좌측에서 입력한 내용이 실제 화면에 어떻게 보이는지 확인하세요</p>
-            </div>
+
+        {/* Preview Panel (Right) */}
+        <div className="kca-preview-panel">
+          <div className="kca-preview-header">
+            <h3>👁️ 실시간 미리보기</h3>
+            <p>좌측에서 입력한 내용이 실제 화면에 어떻게 보이는지 확인하세요</p>
+          </div>
+          <div className="kca-preview-content">
             {rightContent}
           </div>
+        </div>
+      </div>
+
+      {/* Bottom Action Bar */}
+      <div className="kca-action-bar">
+        <div className="kca-action-bar-inner">
+          {!isFirstStep && (
+            <Button size="large" onClick={onPrevious}>
+              이전
+            </Button>
+          )}
+          <div style={{ flex: 1 }} />
+          {!isLastStep ? (
+            <Button type="primary" size="large" onClick={onNext} disabled={!canProceed}>
+              다음
+            </Button>
+          ) : (
+            <Button type="primary" size="large" onClick={onComplete}>
+              완료
+            </Button>
+          )}
         </div>
       </div>
     </div>

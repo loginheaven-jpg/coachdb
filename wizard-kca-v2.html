@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PCMS — 과제 생성 위저드</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --black: #222222;
+    --dark: #333333;
+    --text: #444444;
+    --text-secondary: #666666;
+    --text-muted: #999999;
+    --text-light: #bbbbbb;
+
+    --orange: #E8752A;
+    --orange-hover: #D5651D;
+    --orange-bg: #FFF7F2;
+
+    --bg: #FFFFFF;
+    --bg-page: #F7F7F7;
+    --bg-light: #FAFAFA;
+
+    --border: #E0E0E0;
+    --border-light: #EEEEEE;
+    --border-dark: #CCCCCC;
+
+    --success: #4CAF50;
+
+    --radius: 0px;
+    --radius-sm: 3px;
+
+    --transition: 0.2s ease;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Noto Sans KR', '맑은 고딕', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* ══════════════════════════════════════
+     TOP BAR — KCA 사이트 동일 스타일
+     ══════════════════════════════════════ */
+  .topbar {
+    height: 80px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 40px;
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+  }
+
+  .topbar-logo {
+    display: flex; align-items: center; gap: 14px;
+    margin-right: 60px;
+    text-decoration: none;
+  }
+
+  .logo-pcms {
+    font-size: 28px;
+    font-weight: 900;
+    color: var(--black);
+    letter-spacing: -1px;
+    line-height: 1;
+  }
+
+  .logo-names {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    border-left: 1px solid var(--border);
+    padding-left: 14px;
+  }
+
+  .logo-name-kr {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--dark);
+    letter-spacing: -0.3px;
+    line-height: 1.3;
+  }
+
+  .logo-name-en {
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--text-muted);
+    letter-spacing: 0;
+    line-height: 1.3;
+  }
+
+  .topbar-nav {
+    display: flex; gap: 0; flex: 1;
+  }
+
+  .topbar-nav a {
+    text-decoration: none;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--dark);
+    padding: 0 20px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    position: relative;
+    transition: var(--transition);
+  }
+  .topbar-nav a:hover { color: var(--black); }
+  .topbar-nav a.active {
+    color: var(--black);
+    font-weight: 700;
+  }
+  .topbar-nav a.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 20px; right: 20px;
+    height: 3px;
+    background: var(--orange);
+  }
+
+  .topbar-right {
+    display: flex; align-items: center; gap: 16px; margin-left: auto;
+  }
+
+  .topbar-login {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 20px;
+    border: 1px solid var(--border-dark);
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--dark);
+    text-decoration: none;
+    transition: var(--transition);
+    cursor: pointer;
+    background: none;
+  }
+  .topbar-login:hover { background: var(--bg-page); }
+
+  /* ══════════════════════════════════════
+     SUB NAV BAR — 브레드크럼 (KCA 스타일)
+     ══════════════════════════════════════ */
+  .subnav {
+    margin-top: 80px;
+    background: var(--bg-page);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    height: 50px;
+    padding: 0 40px;
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 99;
+    margin-top: 80px;
+  }
+
+  .subnav-home {
+    display: flex; align-items: center;
+    padding: 0 20px 0 0;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 16px;
+    border-right: 1px solid var(--border);
+    height: 100%;
+  }
+
+  .subnav-items {
+    display: flex;
+    height: 100%;
+    flex: 1;
+  }
+
+  .subnav-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 30px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    height: 100%;
+    border-right: 1px solid var(--border);
+    cursor: pointer;
+    transition: var(--transition);
+    position: relative;
+    gap: 6px;
+    min-width: 160px;
+  }
+  .subnav-item:hover { color: var(--dark); background: #F0F0F0; }
+  .subnav-item.active {
+    background: var(--orange);
+    color: #fff;
+    font-weight: 600;
+  }
+  .subnav-item .arrow {
+    font-size: 10px;
+    opacity: 0.6;
+  }
+
+  /* ══════════════════════════════════════
+     MAIN LAYOUT
+     ══════════════════════════════════════ */
+  .main {
+    margin-top: 130px;
+    display: flex;
+    min-height: calc(100vh - 130px);
+  }
+
+  /* ══════════════════════════════════════
+     LEFT: STEP NAVIGATION (세로)
+     ══════════════════════════════════════ */
+  .step-sidebar {
+    width: 240px;
+    background: var(--bg);
+    border-right: 1px solid var(--border);
+    padding: 30px 0;
+    position: fixed;
+    top: 130px;
+    bottom: 0;
+    left: 0;
+    z-index: 50;
+  }
+
+  .step-sidebar-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    padding: 0 24px;
+    margin-bottom: 16px;
+  }
+
+  .step-list { list-style: none; }
+
+  .step-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 24px;
+    cursor: pointer;
+    transition: var(--transition);
+    border-left: 3px solid transparent;
+    position: relative;
+  }
+  .step-item:hover { background: var(--bg-page); }
+  .step-item.active {
+    background: var(--orange-bg);
+    border-left-color: var(--orange);
+  }
+  .step-item.completed {
+    border-left-color: var(--success);
+  }
+
+  .step-num {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    transition: var(--transition);
+  }
+  .step-item.active .step-num {
+    border-color: var(--orange);
+    background: var(--orange);
+    color: #fff;
+  }
+  .step-item.completed .step-num {
+    border-color: var(--success);
+    background: var(--success);
+    color: #fff;
+    font-size: 11px;
+  }
+
+  .step-info { flex: 1; }
+  .step-label {
+    font-size: 14px; font-weight: 500;
+    color: var(--text-secondary);
+    transition: var(--transition);
+  }
+  .step-item.active .step-label { color: var(--orange); font-weight: 700; }
+  .step-item.completed .step-label { color: var(--dark); font-weight: 500; }
+
+  .step-desc {
+    font-size: 11px; color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  .step-sidebar-footer {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    padding: 20px 24px;
+    border-top: 1px solid var(--border-light);
+  }
+
+  .progress-label {
+    font-size: 11px; color: var(--text-muted);
+    display: flex; justify-content: space-between;
+    margin-bottom: 8px;
+  }
+
+  .progress-bar {
+    height: 4px;
+    background: var(--border-light);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--orange);
+    border-radius: 2px;
+    transition: width 0.4s ease;
+  }
+
+  /* ══════════════════════════════════════
+     CONTENT AREA
+     ══════════════════════════════════════ */
+  .content-area {
+    margin-left: 240px;
+    flex: 1;
+    display: flex;
+    min-height: calc(100vh - 130px);
+    background: var(--bg-page);
+  }
+
+  /* ══════════════════════════════════════
+     FORM PANEL
+     ══════════════════════════════════════ */
+  .form-panel {
+    flex: 1;
+    padding: 40px 50px 110px;
+    max-width: 640px;
+    overflow-y: auto;
+    background: var(--bg);
+    border-right: 1px solid var(--border-light);
+  }
+
+  .form-header { margin-bottom: 30px; }
+
+  .form-header .step-tag {
+    display: inline-block;
+    font-size: 12px; font-weight: 700;
+    color: var(--orange);
+    margin-bottom: 10px;
+    letter-spacing: 0.5px;
+  }
+
+  .form-header h1 {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--black);
+    margin-bottom: 6px;
+    letter-spacing: -0.5px;
+  }
+
+  .form-header .header-line {
+    width: 40px; height: 3px;
+    background: var(--orange);
+    margin: 12px 0;
+  }
+
+  .form-header p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  .form-notice {
+    display: flex; align-items: flex-start; gap: 8px;
+    padding: 12px 16px;
+    background: #FFFBE6;
+    border: 1px solid #F0E6B8;
+    margin-bottom: 28px;
+    font-size: 13px; color: #8A7730;
+    line-height: 1.5;
+  }
+  .form-notice svg { flex-shrink: 0; margin-top: 2px; }
+
+  /* ─── Fields ─── */
+  .form-group {
+    margin-bottom: 24px;
+  }
+
+  .form-label {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 14px; font-weight: 600;
+    color: var(--dark);
+    margin-bottom: 8px;
+  }
+  .form-label .req { color: var(--orange); }
+  .form-label .opt {
+    font-size: 11px; font-weight: 400;
+    color: var(--text-muted);
+    margin-left: 4px;
+  }
+
+  .form-input {
+    width: 100%;
+    padding: 10px 14px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 14px;
+    font-family: 'Noto Sans KR', sans-serif;
+    transition: var(--transition);
+    outline: none;
+  }
+  .form-input::placeholder { color: var(--text-light); }
+  .form-input:hover { border-color: var(--border-dark); }
+  .form-input:focus {
+    border-color: var(--orange);
+    box-shadow: none;
+  }
+
+  textarea.form-input {
+    min-height: 100px;
+    resize: vertical;
+    line-height: 1.6;
+  }
+
+  /* ─── Radio Group ─── */
+  .radio-group { display: flex; gap: 8px; }
+
+  .radio-card {
+    flex: 1;
+    padding: 12px 14px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex; align-items: center; gap: 8px;
+    text-align: center;
+  }
+  .radio-card:hover { border-color: var(--border-dark); }
+  .radio-card.selected {
+    border-color: var(--orange);
+    background: var(--orange-bg);
+  }
+  .radio-card input[type="radio"] { display: none; }
+
+  .radio-dot {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    flex-shrink: 0;
+    transition: var(--transition);
+    position: relative;
+  }
+  .radio-card.selected .radio-dot {
+    border-color: var(--orange);
+  }
+  .radio-card.selected .radio-dot::after {
+    content: '';
+    width: 8px; height: 8px;
+    background: var(--orange);
+    border-radius: 50%;
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .radio-icon { font-size: 16px; }
+
+  .radio-label {
+    font-size: 13px; font-weight: 500;
+    color: var(--text-secondary);
+    transition: var(--transition);
+  }
+  .radio-card.selected .radio-label { color: var(--orange); font-weight: 600; }
+
+  /* ─── Number ─── */
+  .number-wrap {
+    display: flex; align-items: center; gap: 0;
+  }
+  .num-btn {
+    width: 36px; height: 36px;
+    background: var(--bg-page);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 18px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: var(--transition);
+  }
+  .num-btn:first-child { border-right: none; }
+  .num-btn:last-of-type { border-left: none; }
+  .num-btn:hover { background: var(--border-light); }
+
+  .num-display {
+    width: 60px; height: 36px;
+    border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 700;
+    color: var(--dark);
+    background: var(--bg);
+  }
+
+  .num-unit { margin-left: 8px; font-size: 14px; color: var(--text-secondary); }
+
+  /* ─── Date ─── */
+  .date-row { display: flex; align-items: center; gap: 10px; }
+  .date-row .form-input { flex: 1; }
+  .date-sep { color: var(--text-muted); font-size: 14px; }
+
+  /* ─── Checkboxes ─── */
+  .check-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .check-item {
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .check-item:hover { border-color: var(--border-dark); }
+  .check-item.on {
+    border-color: var(--orange);
+    background: var(--orange-bg);
+  }
+
+  .check-box {
+    width: 16px; height: 16px;
+    border: 2px solid var(--border);
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: var(--transition);
+    font-size: 10px; color: #fff;
+  }
+  .check-item.on .check-box {
+    background: var(--orange);
+    border-color: var(--orange);
+  }
+  .check-item.on .check-box::after { content: '✓'; }
+
+  .check-text {
+    font-size: 13px; font-weight: 500; color: var(--text-secondary);
+    transition: var(--transition);
+  }
+  .check-item.on .check-text { color: var(--dark); }
+
+  /* ─── Score ─── */
+  .score-row {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-light);
+  }
+
+  .score-name {
+    width: 130px; flex-shrink: 0;
+    font-size: 13px; font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  .score-slider { flex: 1; }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%; height: 4px;
+    background: var(--border-light);
+    border-radius: 2px;
+    outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    background: var(--orange);
+    border-radius: 50%;
+    cursor: pointer;
+  }
+
+  .score-val {
+    min-width: 32px;
+    text-align: right;
+    font-size: 15px; font-weight: 700;
+    color: var(--dark);
+  }
+
+  .score-total-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px;
+    background: var(--orange-bg);
+    border: 1px solid #F0D8C0;
+    margin-top: 16px;
+  }
+  .score-total-label { font-size: 14px; font-weight: 700; color: var(--dark); }
+  .score-total-num { font-size: 22px; font-weight: 800; color: var(--orange); }
+
+  /* ─── Reviewers ─── */
+  .reviewer-row {
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    margin-bottom: 8px;
+    display: flex; align-items: center; gap: 12px;
+    transition: var(--transition);
+  }
+  .reviewer-row:hover { border-color: var(--border-dark); }
+
+  .reviewer-avatar {
+    width: 38px; height: 38px;
+    background: var(--bg-page);
+    border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700; color: var(--text);
+    border-radius: 50%;
+  }
+
+  .reviewer-info { flex: 1; }
+  .reviewer-name { font-size: 14px; font-weight: 600; color: var(--dark); }
+  .reviewer-role { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+
+  .reviewer-btns { display: flex; gap: 4px; }
+  .rev-btn {
+    width: 28px; height: 28px;
+    background: var(--bg-page);
+    border: 1px solid var(--border-light);
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: var(--transition);
+    font-size: 12px;
+  }
+  .rev-btn:hover { color: var(--text); background: var(--border-light); }
+
+  .add-btn {
+    width: 100%;
+    padding: 12px;
+    border: 1px dashed var(--border);
+    background: none;
+    color: var(--text-muted);
+    font-size: 13px; font-weight: 500;
+    font-family: 'Noto Sans KR', sans-serif;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .add-btn:hover { border-color: var(--orange); color: var(--orange); }
+
+  /* ─── Review Grid ─── */
+  .review-section { margin-bottom: 24px; }
+  .review-title {
+    font-size: 15px; font-weight: 700; color: var(--dark);
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--black);
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .review-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid var(--border);
+  }
+  .review-table th,
+  .review-table td {
+    padding: 10px 14px;
+    font-size: 13px;
+    text-align: left;
+    border: 1px solid var(--border-light);
+  }
+  .review-table th {
+    background: var(--bg-page);
+    font-weight: 600;
+    color: var(--text-secondary);
+    width: 110px;
+  }
+  .review-table td {
+    color: var(--text);
+  }
+
+  /* ══════════════════════════════════════
+     PREVIEW PANEL
+     ══════════════════════════════════════ */
+  .preview-panel {
+    width: 380px;
+    background: var(--bg-page);
+    padding: 30px 24px;
+    position: sticky;
+    top: 130px;
+    height: calc(100vh - 130px);
+    overflow-y: auto;
+  }
+
+  .preview-header {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .preview-dot {
+    width: 8px; height: 8px;
+    background: var(--success);
+    border-radius: 50%;
+    animation: blink 2s infinite;
+  }
+  @keyframes blink {
+    0%,100% { opacity:1; }
+    50% { opacity:0.3; }
+  }
+
+  .preview-label { font-size: 13px; font-weight: 700; color: var(--dark); }
+  .preview-sub { font-size: 11px; color: var(--text-muted); margin-left: auto; }
+
+  .preview-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 24px;
+  }
+
+  .preview-card-head {
+    font-size: 14px; font-weight: 700;
+    color: var(--dark);
+    padding-bottom: 10px;
+    margin-bottom: 14px;
+    border-bottom: 2px solid var(--black);
+  }
+
+  .pv-row {
+    display: flex; align-items: flex-start;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-light);
+  }
+  .pv-row:last-child { border-bottom: none; }
+
+  .pv-key {
+    width: 72px; flex-shrink: 0;
+    font-size: 12px; font-weight: 600;
+    color: var(--text-muted);
+  }
+
+  .pv-val {
+    font-size: 13px;
+    color: var(--text-light);
+    font-style: italic;
+    flex: 1;
+    line-height: 1.5;
+  }
+  .pv-val.has {
+    color: var(--text);
+    font-style: normal;
+    font-weight: 500;
+  }
+
+  .pv-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    font-style: normal;
+    border: 1px solid;
+  }
+  .pv-badge.biz { color: var(--dark); border-color: var(--border-dark); background: var(--bg-page); }
+  .pv-badge.pub { color: var(--success); border-color: #C8E6C9; background: #F1F8E9; }
+  .pv-badge.etc { color: var(--orange); border-color: #F0D8C0; background: var(--orange-bg); }
+
+  /* ══════════════════════════════════════
+     BOTTOM ACTION BAR
+     ══════════════════════════════════════ */
+  .action-bar {
+    position: fixed;
+    bottom: 0;
+    left: 240px;
+    right: 0;
+    height: 64px;
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 50px;
+    z-index: 90;
+  }
+
+  .action-left { display: flex; align-items: center; gap: 14px; }
+
+  .btn {
+    padding: 9px 22px;
+    font-size: 13px; font-weight: 600;
+    font-family: 'Noto Sans KR', sans-serif;
+    cursor: pointer;
+    transition: var(--transition);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: none; outline: none;
+  }
+
+  .btn-outline {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-outline:hover { background: var(--bg-page); border-color: var(--border-dark); }
+
+  .btn-orange {
+    background: var(--orange);
+    color: #fff;
+    border: 1px solid var(--orange);
+  }
+  .btn-orange:hover { background: var(--orange-hover); }
+
+  .btn-text-only {
+    background: none;
+    color: var(--text-muted);
+    padding: 9px 14px;
+    border: none;
+  }
+  .btn-text-only:hover { color: var(--text); }
+
+  .save-note {
+    font-size: 12px; color: var(--text-muted);
+    display: flex; align-items: center; gap: 5px;
+  }
+  .save-note .green-dot {
+    width: 6px; height: 6px;
+    background: var(--success);
+    border-radius: 50%;
+  }
+
+  /* ─── Step toggle ─── */
+  .step-content { display: none; }
+  .step-content.active { display: block; }
+
+  /* ─── Scrollbar ─── */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- ═══ Top Bar (KCA 스타일) ═══ -->
+<header class="topbar">
+  <a class="topbar-logo" href="#">
+    <div class="logo-pcms">PCMS</div>
+    <div class="logo-names">
+      <div class="logo-name-kr">(사) 한국코치협회 과제&코치풀관리시스템</div>
+      <div class="logo-name-en">Project & Coach pool Management System</div>
+    </div>
+  </a>
+  <nav class="topbar-nav">
+    <a href="#" class="active">과제참여</a>
+    <a href="#">과제관리</a>
+    <a href="#">증빙검토</a>
+    <a href="#">과제심사</a>
+    <a href="#">시스템관리</a>
+    <a href="#">나의 정보</a>
+  </nav>
+  <div class="topbar-right">
+    <button class="topbar-login">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+      최철영
+    </button>
+  </div>
+</header>
+
+<!-- ═══ Sub Nav (KCA 스타일 브레드크럼) ═══ -->
+<div class="subnav">
+  <a class="subnav-home" href="#">🏠</a>
+  <div class="subnav-items">
+    <div class="subnav-item" onclick="goStep(1)">과제참여 <span class="arrow">▾</span></div>
+    <div class="subnav-item" onclick="goStep(2)">과제 생성 <span class="arrow">▾</span></div>
+    <div class="subnav-item active" id="subnavActive">기본 정보 <span class="arrow">▾</span></div>
+  </div>
+</div>
+
+<!-- ═══ Main ═══ -->
+<div class="main">
+
+  <!-- Step Sidebar -->
+  <aside class="step-sidebar">
+    <div class="step-sidebar-title">과제 생성 단계</div>
+    <ul class="step-list">
+      <li class="step-item completed" data-step="1" onclick="goStep(1)">
+        <div class="step-num">✓</div>
+        <div class="step-info">
+          <div class="step-label">참고 과제</div>
+          <div class="step-desc">기존 과제 템플릿 선택</div>
+        </div>
+      </li>
+      <li class="step-item active" data-step="2" onclick="goStep(2)">
+        <div class="step-num">2</div>
+        <div class="step-info">
+          <div class="step-label">기본 정보</div>
+          <div class="step-desc">과제명, 유형, 기간</div>
+        </div>
+      </li>
+      <li class="step-item" data-step="3" onclick="goStep(3)">
+        <div class="step-num">3</div>
+        <div class="step-info">
+          <div class="step-label">수집 항목</div>
+          <div class="step-desc">평가 항목 구성</div>
+        </div>
+      </li>
+      <li class="step-item" data-step="4" onclick="goStep(4)">
+        <div class="step-num">4</div>
+        <div class="step-info">
+          <div class="step-label">배점 설정</div>
+          <div class="step-desc">항목별 점수 배분</div>
+        </div>
+      </li>
+      <li class="step-item" data-step="5" onclick="goStep(5)">
+        <div class="step-num">5</div>
+        <div class="step-info">
+          <div class="step-label">심사위원</div>
+          <div class="step-desc">담당자 배정</div>
+        </div>
+      </li>
+      <li class="step-item" data-step="6" onclick="goStep(6)">
+        <div class="step-num">6</div>
+        <div class="step-info">
+          <div class="step-label">최종 검토</div>
+          <div class="step-desc">확인 및 완료</div>
+        </div>
+      </li>
+    </ul>
+    <div class="step-sidebar-footer">
+      <div class="progress-label"><span>진행률</span><span id="pct">33%</span></div>
+      <div class="progress-bar"><div class="progress-fill" id="pbar" style="width:33%"></div></div>
+    </div>
+  </aside>
+
+  <!-- Content -->
+  <div class="content-area">
+
+    <div class="form-panel">
+
+      <!-- Step 1 -->
+      <div class="step-content" data-step="1">
+        <div class="form-header">
+          <div class="step-tag">STEP 1 / 6</div>
+          <h1>참고 과제 선택</h1>
+          <div class="header-line"></div>
+          <p>기존 과제를 참고하여 빠르게 설정을 복사할 수 있다. 건너뛰어도 된다.</p>
+        </div>
+        <div class="form-group">
+          <div class="radio-card" style="margin-bottom:8px; padding:14px 16px;" onclick="pickRef(this)">
+            <div class="radio-dot"></div>
+            <div style="flex:1;"><div style="font-weight:600;color:var(--dark);">2024 진로 코칭 사업</div><div style="font-size:12px;color:var(--text-muted);margin-top:3px;">비즈니스코칭 · 15명 · 2024.03 ~ 2024.12</div></div>
+          </div>
+          <div class="radio-card" style="margin-bottom:8px; padding:14px 16px;" onclick="pickRef(this)">
+            <div class="radio-dot"></div>
+            <div style="flex:1;"><div style="font-weight:600;color:var(--dark);">2024 그룹홈 청소년 코칭</div><div style="font-size:12px;color:var(--text-muted);margin-top:3px;">공익코칭 · 20명 · 2024.06 ~ 2024.11</div></div>
+          </div>
+          <div class="radio-card" style="padding:14px 16px;" onclick="pickRef(this)">
+            <div class="radio-dot"></div>
+            <div style="flex:1;"><div style="font-weight:600;color:var(--dark);">LH SCP 코칭 프로그램</div><div style="font-size:12px;color:var(--text-muted);margin-top:3px;">비즈니스코칭 · 50명 · 2025.01 ~ 2025.12</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="step-content active" data-step="2">
+        <div class="form-header">
+          <div class="step-tag">STEP 2 / 6</div>
+          <h1>과제 기본 정보</h1>
+          <div class="header-line"></div>
+          <p>과제의 이름, 유형, 모집 조건 등 핵심 정보를 입력한다.</p>
+        </div>
+        <div class="form-notice">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          나중에 수정할 수 있으니 편하게 입력하면 된다.
+        </div>
+        <div class="form-group">
+          <label class="form-label"><span class="req">*</span> 과제명</label>
+          <input type="text" class="form-input" id="pjName" placeholder="예: 2025 진로 취업 코칭 사업" oninput="sync()">
+        </div>
+        <div class="form-group">
+          <label class="form-label"><span class="req">*</span> 과제 유형</label>
+          <div class="radio-group" id="pjType">
+            <div class="radio-card" onclick="pickType(this,'비즈니스코칭')"><div class="radio-dot"></div><span class="radio-icon">💼</span><span class="radio-label">비즈니스코칭</span></div>
+            <div class="radio-card" onclick="pickType(this,'공익코칭')"><div class="radio-dot"></div><span class="radio-icon">🌱</span><span class="radio-label">공익코칭</span></div>
+            <div class="radio-card selected" onclick="pickType(this,'기타')"><div class="radio-dot"></div><span class="radio-icon">📋</span><span class="radio-label">기타</span></div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">지원 사업명 <span class="opt">선택</span></label>
+          <input type="text" class="form-input" id="pjSupport" placeholder="예: 서울시 코칭 지원 사업" oninput="sync()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">과제 설명 <span class="opt">선택</span></label>
+          <textarea class="form-input" id="pjDesc" placeholder="과제에 대한 간단한 설명" oninput="sync()"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label"><span class="req">*</span> 모집 인원</label>
+          <div class="number-wrap">
+            <button class="num-btn" onclick="adj(-1)">−</button>
+            <div class="num-display" id="numDisp">10</div>
+            <button class="num-btn" onclick="adj(1)">+</button>
+            <span class="num-unit">명</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label"><span class="req">*</span> 모집 기간</label>
+          <div class="date-row">
+            <input type="date" class="form-input" id="d1" onchange="sync()">
+            <span class="date-sep">~</span>
+            <input type="date" class="form-input" id="d2" onchange="sync()">
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="step-content" data-step="3">
+        <div class="form-header">
+          <div class="step-tag">STEP 3 / 6</div>
+          <h1>수집 항목 선택</h1>
+          <div class="header-line"></div>
+          <p>코치로부터 수집할 평가 항목을 선택한다.</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label">기본 정보</label>
+          <div class="check-grid">
+            <div class="check-item on" onclick="tog(this)"><div class="check-box"></div><span class="check-text">이름</span></div>
+            <div class="check-item on" onclick="tog(this)"><div class="check-box"></div><span class="check-text">성별</span></div>
+            <div class="check-item on" onclick="tog(this)"><div class="check-box"></div><span class="check-text">거주지</span></div>
+            <div class="check-item on" onclick="tog(this)"><div class="check-box"></div><span class="check-text">생년월일</span></div>
+            <div class="check-item" onclick="tog(this)"><div class="check-box"></div><span class="check-text">코치인증번호</span></div>
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:20px;">
+          <label class="form-label">자격 및 경력</label>
+          <div class="check-grid">
+            <div class="check-item on" onclick="tog(this)"><div class="check-box"></div><span class="check-text">KCA 자격</span></div>
+            <div class="check-item on" onclick="tog(this)"><div class="check-box"></div><span class="check-text">코칭 경력시간</span></div>
+            <div class="check-item on" onclick="tog(this)"><div class="check-box"></div><span class="check-text">관련 학위</span></div>
+            <div class="check-item" onclick="tog(this)"><div class="check-box"></div><span class="check-text">진로/취업 자격증</span></div>
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:20px;">
+          <label class="form-label">전문 경험</label>
+          <div class="check-grid">
+            <div class="check-item" onclick="tog(this)"><div class="check-box"></div><span class="check-text">청소년 코칭시간</span></div>
+            <div class="check-item" onclick="tog(this)"><div class="check-box"></div><span class="check-text">그룹홈 경험</span></div>
+            <div class="check-item" onclick="tog(this)"><div class="check-box"></div><span class="check-text">지적장애 코칭</span></div>
+            <div class="check-item" onclick="tog(this)"><div class="check-box"></div><span class="check-text">공익 코칭 참여</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 4 -->
+      <div class="step-content" data-step="4">
+        <div class="form-header">
+          <div class="step-tag">STEP 4 / 6</div>
+          <h1>배점 설정</h1>
+          <div class="header-line"></div>
+          <p>선택한 평가 항목의 배점을 조정한다.</p>
+        </div>
+        <div class="score-row"><div class="score-name">KCA 자격</div><div class="score-slider"><input type="range" min="0" max="20" value="10" oninput="scr(this)"></div><div class="score-val">10</div></div>
+        <div class="score-row"><div class="score-name">코칭 경력시간</div><div class="score-slider"><input type="range" min="0" max="20" value="10" oninput="scr(this)"></div><div class="score-val">10</div></div>
+        <div class="score-row"><div class="score-name">관련 학위</div><div class="score-slider"><input type="range" min="0" max="20" value="10" oninput="scr(this)"></div><div class="score-val">10</div></div>
+        <div class="score-row"><div class="score-name">진로/취업 자격증</div><div class="score-slider"><input type="range" min="0" max="20" value="10" oninput="scr(this)"></div><div class="score-val">10</div></div>
+        <div class="score-row"><div class="score-name">청소년 코칭시간</div><div class="score-slider"><input type="range" min="0" max="30" value="20" oninput="scr(this)"></div><div class="score-val">20</div></div>
+        <div class="score-row"><div class="score-name">그룹홈 경험</div><div class="score-slider"><input type="range" min="0" max="20" value="15" oninput="scr(this)"></div><div class="score-val">15</div></div>
+        <div class="score-row"><div class="score-name">지적장애 코칭</div><div class="score-slider"><input type="range" min="0" max="20" value="15" oninput="scr(this)"></div><div class="score-val">15</div></div>
+        <div class="score-row"><div class="score-name">공익 코칭 참여</div><div class="score-slider"><input type="range" min="0" max="20" value="10" oninput="scr(this)"></div><div class="score-val">10</div></div>
+        <div class="score-total-bar">
+          <div class="score-total-label">총 배점</div>
+          <div class="score-total-num" id="totScore">100</div>
+        </div>
+      </div>
+
+      <!-- Step 5 -->
+      <div class="step-content" data-step="5">
+        <div class="form-header">
+          <div class="step-tag">STEP 5 / 6</div>
+          <h1>심사위원 배정</h1>
+          <div class="header-line"></div>
+          <p>증빙 검토 및 과제 심사 담당자를 지정한다.</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label">배정된 심사위원</label>
+          <div class="reviewer-row">
+            <div class="reviewer-avatar">김</div>
+            <div class="reviewer-info"><div class="reviewer-name">김미영</div><div class="reviewer-role">증빙검토 담당 · KSC</div></div>
+            <div class="reviewer-btns"><button class="rev-btn">✎</button><button class="rev-btn">✕</button></div>
+          </div>
+          <div class="reviewer-row">
+            <div class="reviewer-avatar">박</div>
+            <div class="reviewer-info"><div class="reviewer-name">박수진</div><div class="reviewer-role">과제심사 담당 · KPC</div></div>
+            <div class="reviewer-btns"><button class="rev-btn">✎</button><button class="rev-btn">✕</button></div>
+          </div>
+          <button class="add-btn">+ 심사위원 추가</button>
+        </div>
+      </div>
+
+      <!-- Step 6 -->
+      <div class="step-content" data-step="6">
+        <div class="form-header">
+          <div class="step-tag" style="color:var(--success);">STEP 6 / 6</div>
+          <h1>최종 검토</h1>
+          <div class="header-line"></div>
+          <p>모든 설정을 확인하고 과제를 생성한다.</p>
+        </div>
+        <div class="review-section">
+          <div class="review-title">기본 정보</div>
+          <table class="review-table">
+            <tr><th>과제명</th><td id="rvName">—</td></tr>
+            <tr><th>과제 유형</th><td id="rvType">기타</td></tr>
+            <tr><th>모집 인원</th><td id="rvCount">10명</td></tr>
+            <tr><th>모집 기간</th><td id="rvPeriod">—</td></tr>
+          </table>
+        </div>
+        <div class="review-section">
+          <div class="review-title">평가 항목 및 배점</div>
+          <table class="review-table">
+            <tr><th>수집 항목</th><td>8개 항목</td></tr>
+            <tr><th>총 배점</th><td>100점</td></tr>
+          </table>
+        </div>
+        <div class="review-section">
+          <div class="review-title">심사위원</div>
+          <table class="review-table">
+            <tr><th>배정 인원</th><td>2명 (김미영, 박수진)</td></tr>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Preview -->
+    <div class="preview-panel">
+      <div class="preview-header">
+        <div class="preview-dot"></div>
+        <div class="preview-label">실시간 미리보기</div>
+        <div class="preview-sub">입력 내용 반영</div>
+      </div>
+      <div class="preview-card">
+        <div class="preview-card-head">과제 기본 정보</div>
+        <div class="pv-row"><div class="pv-key">과제명</div><div class="pv-val" id="pvName">입력 대기 중...</div></div>
+        <div class="pv-row"><div class="pv-key">과제 유형</div><div class="pv-val has" id="pvType"><span class="pv-badge etc">기타</span></div></div>
+        <div class="pv-row"><div class="pv-key">지원 사업</div><div class="pv-val" id="pvSupport">미입력</div></div>
+        <div class="pv-row"><div class="pv-key">모집 인원</div><div class="pv-val has" id="pvCount">10명</div></div>
+        <div class="pv-row"><div class="pv-key">모집 기간</div><div class="pv-val" id="pvPeriod">선택 대기 중...</div></div>
+        <div class="pv-row"><div class="pv-key">과제 설명</div><div class="pv-val" id="pvDesc">미입력</div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Action Bar -->
+<div class="action-bar">
+  <div class="action-left">
+    <button class="btn btn-outline" onclick="prev()">← 이전</button>
+    <div class="save-note"><div class="green-dot"></div>자동 저장됨</div>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <button class="btn btn-text-only">임시 저장</button>
+    <button class="btn btn-orange" onclick="next()"><span id="nxtTxt">다음 단계</span> →</button>
+  </div>
+</div>
+
+<script>
+let cur=2, tot=6, typ='기타', cnt=10;
+const stepNames=['','참고 과제','기본 정보','수집 항목','배점 설정','심사위원','최종 검토'];
+
+function goStep(s){
+  document.querySelectorAll('.step-item').forEach(el=>{
+    const n=+el.dataset.step;
+    el.classList.remove('active');
+    el.querySelector('.step-num').textContent = n < s ? '✓' : n;
+    if(n<s) el.classList.add('completed'); else el.classList.remove('completed');
+    if(n===s){ el.classList.add('active'); el.classList.remove('completed'); el.querySelector('.step-num').textContent=n; }
+  });
+  document.querySelectorAll('.step-content').forEach(c=>c.classList.remove('active'));
+  const t=document.querySelector(`.step-content[data-step="${s}"]`);
+  if(t) t.classList.add('active');
+  cur=s;
+  const p=Math.round((s/tot)*100);
+  document.getElementById('pct').textContent=p+'%';
+  document.getElementById('pbar').style.width=p+'%';
+  document.getElementById('nxtTxt').textContent = s===6 ? '과제 생성' : '다음 단계';
+  document.getElementById('subnavActive').childNodes[0].textContent = stepNames[s]+' ';
+  if(s===6) updReview();
+}
+
+function next(){ cur<tot ? goStep(cur+1) : alert('과제가 생성되었습니다!'); }
+function prev(){ cur>1 && goStep(cur-1); }
+
+function pickType(el,v){
+  el.parentElement.querySelectorAll('.radio-card').forEach(c=>c.classList.remove('selected'));
+  el.classList.add('selected'); typ=v; sync();
+}
+function pickRef(el){
+  el.parentElement.querySelectorAll('.radio-card').forEach(c=>c.classList.remove('selected'));
+  el.classList.add('selected');
+}
+function tog(el){ el.classList.toggle('on'); }
+function adj(d){ cnt=Math.max(1,cnt+d); document.getElementById('numDisp').textContent=cnt; sync(); }
+
+function scr(sl){
+  sl.closest('.score-row').querySelector('.score-val').textContent=sl.value;
+  let t=0; document.querySelectorAll('.score-val').forEach(v=>t+=+v.textContent);
+  document.getElementById('totScore').textContent=t;
+}
+
+function sync(){
+  const nm=document.getElementById('pjName').value;
+  const sp=document.getElementById('pjSupport').value;
+  const ds=document.getElementById('pjDesc').value;
+  const s=document.getElementById('d1').value;
+  const e=document.getElementById('d2').value;
+
+  const pn=document.getElementById('pvName');
+  pn.textContent=nm||'입력 대기 중...'; pn.className='pv-val'+(nm?' has':'');
+
+  const ps=document.getElementById('pvSupport');
+  ps.textContent=sp||'미입력'; ps.className='pv-val'+(sp?' has':'');
+
+  const pd=document.getElementById('pvDesc');
+  pd.textContent=ds||'미입력'; pd.className='pv-val'+(ds?' has':'');
+
+  document.getElementById('pvCount').textContent=cnt+'명';
+
+  const tm={비즈니스코칭:'biz',공익코칭:'pub',기타:'etc'};
+  document.getElementById('pvType').innerHTML=`<span class="pv-badge ${tm[typ]||'etc'}">${typ}</span>`;
+
+  const pp=document.getElementById('pvPeriod');
+  if(s&&e){ pp.textContent=s+' ~ '+e; pp.className='pv-val has'; }
+  else { pp.textContent='선택 대기 중...'; pp.className='pv-val'; }
+}
+
+function updReview(){
+  document.getElementById('rvName').textContent=document.getElementById('pjName').value||'—';
+  document.getElementById('rvType').textContent=typ;
+  document.getElementById('rvCount').textContent=cnt+'명';
+  const s=document.getElementById('d1').value, e=document.getElementById('d2').value;
+  document.getElementById('rvPeriod').textContent=(s&&e)?s+' ~ '+e:'—';
+}
+</script>
+
+</body>
+</html>

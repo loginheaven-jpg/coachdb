@@ -1,0 +1,74 @@
+/* ══════════════════════════════════════════════════════════════════
+   KCA Breadcrumb Subnav - Matching wizard-kca-v2.html
+   ══════════════════════════════════════════════════════════════════ */
+
+.kca-subnav {
+  margin-top: 80px;
+  background: var(--kca-bg-page);
+  border-bottom: 1px solid var(--kca-border);
+  display: flex;
+  align-items: center;
+  height: 50px;
+  padding: 0 40px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 99;
+}
+
+.kca-subnav-home {
+  display: flex;
+  align-items: center;
+  padding: 0 20px 0 0;
+  color: var(--kca-text-muted);
+  text-decoration: none;
+  font-size: 16px;
+  border-right: 1px solid var(--kca-border);
+  height: 100%;
+  cursor: pointer;
+  transition: var(--kca-transition);
+}
+
+.kca-subnav-home:hover {
+  color: var(--kca-text);
+}
+
+.kca-subnav-items {
+  display: flex;
+  height: 100%;
+  flex: 1;
+}
+
+.kca-subnav-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 30px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--kca-text-secondary);
+  height: 100%;
+  border-right: 1px solid var(--kca-border);
+  cursor: pointer;
+  transition: var(--kca-transition);
+  position: relative;
+  gap: 6px;
+  min-width: 160px;
+}
+
+.kca-subnav-item:hover {
+  color: var(--kca-dark);
+  background: #F0F0F0;
+}
+
+.kca-subnav-item.active {
+  background: var(--kca-primary);
+  color: #fff;
+  font-weight: 600;
+}
+
+.kca-subnav-item .arrow {
+  font-size: 10px;
+  opacity: 0.6;
+}
