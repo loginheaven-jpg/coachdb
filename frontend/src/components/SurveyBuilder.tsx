@@ -190,6 +190,7 @@ interface SurveyBuilderProps {
   onClose?: () => void
   onSave: () => void
   embedded?: boolean  // true면 모달 없이 직접 렌더링
+  projectStatus?: string  // 프로젝트 상태 (draft, pending, approved, etc.)
 }
 
 interface ItemSelection {
@@ -205,7 +206,7 @@ interface GroupedItems {
   [category: string]: ItemSelection[]
 }
 
-export default function SurveyBuilder({ projectId, visible = true, onClose, onSave, embedded = false }: SurveyBuilderProps) {
+export default function SurveyBuilder({ projectId, visible = true, onClose, onSave, embedded = false, projectStatus }: SurveyBuilderProps) {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [allItems, setAllItems] = useState<CompetencyItem[]>([])
@@ -487,9 +488,30 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
 
   const handleSave = async () => {
     const totalScore = calculateTotalScore()
+
+    // 100점 검증: draft 상태는 경고만, pending 이상은 차단
     if (totalScore !== 100) {
-      message.error(`총 배점이 100점이 아닙니다. 현재: ${totalScore}점`)
-      return
+      const isDraft = !projectStatus || projectStatus === 'draft'
+
+      if (isDraft) {
+        // Draft 상태: 경고만 표시하고 저장 허용
+        Modal.warning({
+          title: '배점 확인',
+          content: (
+            <div>
+              <p>현재 총 배점: <strong>{totalScore}점</strong></p>
+              <p>과제 승인 요청을 하려면 총 배점이 100점이어야 합니다.</p>
+              <p>임시저장은 가능하지만, 나중에 100점으로 조정해주세요.</p>
+            </div>
+          ),
+          okText: '확인'
+        })
+        // 계속 진행 (저장 허용)
+      } else {
+        // Pending 이상: 저장 차단
+        message.error(`총 배점이 100점이 아닙니다. 현재: ${totalScore}점`)
+        return
+      }
     }
 
     setLoading(true)
@@ -1281,7 +1303,7 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
               name="value_source"
               label={
                 <Space>
-                  점수 계산 기준
+                  값을 가져올 위치
                   <Tooltip title="점수를 매길 때 어떤 값을 기준으로 할지 선택합니다">
                     <QuestionCircleOutlined style={{ color: '#999' }} />
                   </Tooltip>
@@ -1366,13 +1388,76 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                   </Space>
                 }
               >
-                <Select defaultValue={AggregationMode.BEST_MATCH}>
-                  <Select.Option value={AggregationMode.BEST_MATCH}>최고 점수 매칭</Select.Option>
-                  <Select.Option value={AggregationMode.FIRST}>첫 번째만</Select.Option>
-                  <Select.Option value={AggregationMode.SUM}>합산 (숫자 범위용)</Select.Option>
-                  <Select.Option value={AggregationMode.MAX}>최대값</Select.Option>
-                  <Select.Option value={AggregationMode.COUNT}>입력 개수</Select.Option>
-                  <Select.Option value={AggregationMode.ANY_MATCH}>하나라도 매칭 (문자열용)</Select.Option>
+                <Select
+                  defaultValue={AggregationMode.BEST_MATCH}
+                  optionLabelProp="label"
+                >
+                  <Select.Option
+                    value={AggregationMode.BEST_MATCH}
+                    label="최고 점수 선택"
+                  >
+                    <div>
+                      <div><strong>최고 점수 선택</strong></div>
+                      <div style={{ fontSize: '12px', color: '#999' }}>
+                        예: KSC(10점), KPC(5점) 입력 시 → 10점
+                      </div>
+                    </div>
+                  </Select.Option>
+                  <Select.Option
+                    value={AggregationMode.FIRST}
+                    label="첫 번째만"
+                  >
+                    <div>
+                      <div><strong>첫 번째만</strong></div>
+                      <div style={{ fontSize: '12px', color: '#999' }}>
+                        첫 번째 입력값만 점수 계산
+                      </div>
+                    </div>
+                  </Select.Option>
+                  <Select.Option
+                    value={AggregationMode.SUM}
+                    label="합산 (숫자용)"
+                  >
+                    <div>
+                      <div><strong>합산 (숫자용)</strong></div>
+                      <div style={{ fontSize: '12px', color: '#999' }}>
+                        예: 500시간(5점) + 300시간(3점) → 8점
+                      </div>
+                    </div>
+                  </Select.Option>
+                  <Select.Option
+                    value={AggregationMode.MAX}
+                    label="최대값"
+                  >
+                    <div>
+                      <div><strong>최대값</strong></div>
+                      <div style={{ fontSize: '12px', color: '#999' }}>
+                        입력값 중 가장 큰 숫자로 계산
+                      </div>
+                    </div>
+                  </Select.Option>
+                  <Select.Option
+                    value={AggregationMode.COUNT}
+                    label="입력 개수"
+                  >
+                    <div>
+                      <div><strong>입력 개수</strong></div>
+                      <div style={{ fontSize: '12px', color: '#999' }}>
+                        입력한 항목의 개수로 점수 계산
+                      </div>
+                    </div>
+                  </Select.Option>
+                  <Select.Option
+                    value={AggregationMode.ANY_MATCH}
+                    label="하나라도 매칭 (문자열용)"
+                  >
+                    <div>
+                      <div><strong>하나라도 매칭 (문자열용)</strong></div>
+                      <div style={{ fontSize: '12px', color: '#999' }}>
+                        여러 입력값 중 하나라도 조건 충족 시 점수 부여
+                      </div>
+                    </div>
+                  </Select.Option>
                 </Select>
               </Form.Item>
             )}
@@ -2035,7 +2120,7 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
               name="aggregation_mode"
               label={
                 <Space>
-                  복수입력 집계 방식
+                  복수입력 점수계산법
                   <Tooltip title="복수입력 항목의 여러 값을 어떻게 집계할지 선택합니다">
                     <QuestionCircleOutlined style={{ color: '#999' }} />
                   </Tooltip>

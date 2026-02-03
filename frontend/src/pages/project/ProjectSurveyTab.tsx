@@ -6,6 +6,7 @@ export default function ProjectSurveyTab() {
   const {
     projectId,
     isCreateMode,
+    project,
     scoreValidation,
     loadScoreValidation
   } = useProjectEdit()
@@ -28,8 +29,12 @@ export default function ProjectSurveyTab() {
       {scoreValidation && !scoreValidation.is_valid && (
         <Alert
           type="warning"
-          message={`설문 점수: ${scoreValidation.total_score}/100점`}
-          description="생성완료를 하려면 설문항목 배점의 합이 100점이어야 합니다."
+          message={`설문 배점: ${scoreValidation.total_score}/100점`}
+          description={
+            project?.status === 'draft'
+              ? "임시저장은 가능하지만, 과제 승인 요청을 하려면 배점의 합이 100점이어야 합니다."
+              : "배점의 합이 100점이어야 합니다."
+          }
           showIcon
           className="mb-4"
         />
@@ -39,6 +44,7 @@ export default function ProjectSurveyTab() {
       <SurveyBuilder
         projectId={projectId}
         embedded={true}
+        projectStatus={project?.status}
         onSave={() => {
           loadScoreValidation()
         }}
