@@ -27,7 +27,7 @@
 }
 
 .logo-pcms {
-  font-size: 72px;  /* PCMS 글자를 더 크게 */
+  font-size: 48px;  /* PCMS 2배 크기 */
   font-weight: 900;
   color: var(--kca-black);
   letter-spacing: -1.8px;
@@ -61,7 +61,7 @@
 }
 
 .logo-name-kr {
-  font-size: 8px;  /* 더 작게 */
+  font-size: 10px;  /* 30% 축소 */
   font-weight: 600;
   color: var(--kca-dark);
   letter-spacing: -0.3px;
@@ -69,7 +69,7 @@
 }
 
 .logo-name-en {
-  font-size: 6px;  /* 더 작게 */
+  font-size: 8px;  /* 30% 축소 */
   font-weight: 400;
   color: var(--kca-text-muted);
   letter-spacing: 0;
@@ -198,12 +198,12 @@
   }
 
   .logo-pcms {
-    font-size: 64px;  /* 비례 유지 */
+    font-size: 44px;
   }
 
   .logo-c-dot::after {
-    top: -11px;
-    width: 6px;  /* 점은 작게 유지 */
+    top: -8px;
+    width: 6px;
     height: 6px;
   }
 
@@ -212,11 +212,11 @@
   }
 
   .logo-name-kr {
-    font-size: 7px;
+    font-size: 10px;
   }
 
   .logo-name-en {
-    font-size: 5px;
+    font-size: 8px;
   }
 }
 
@@ -242,13 +242,13 @@
   }
 
   .logo-pcms {
-    font-size: 56px;  /* 비례 유지 */
+    font-size: 40px;
   }
 
   .logo-c-dot::after {
-    top: -10px;
-    width: 6px;  /* 점은 작게 유지 */
-    height: 6px;
+    top: -7px;
+    width: 5px;
+    height: 5px;
   }
 
   .logo-names {
@@ -276,12 +276,12 @@
   }
 
   .logo-pcms {
-    font-size: 48px;  /* 비례 유지 */
+    font-size: 36px;
   }
 
   .logo-c-dot::after {
-    top: -8px;
-    width: 5px;  /* 점은 작게 유지 */
+    top: -6px;
+    width: 5px;
     height: 5px;
   }
 }
