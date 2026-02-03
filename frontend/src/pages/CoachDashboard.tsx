@@ -215,7 +215,7 @@ export default function CoachDashboard() {
                     dot: getNotificationIcon(notification.type),
                     children: (
                       <div
-                        className={`cursor-pointer hover:bg-gray-50 p-2 rounded ${!notification.is_read ? 'bg-blue-50' : ''}`}
+                        className={`cursor-pointer hover:bg-gray-50 p-2 rounded ${!notification.is_read ? 'bg-kca-primary-bg' : ''}`}
                         onClick={async () => {
                           // 알림 읽음 처리
                           if (!notification.is_read) {

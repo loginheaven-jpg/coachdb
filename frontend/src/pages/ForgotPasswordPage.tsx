@@ -31,8 +31,8 @@ export default function ForgotPasswordPage() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md shadow-2xl">
+      <div className="min-h-screen bg-kca-bg-page flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
           <Result
             status="success"
             title="이메일 발송 완료"
@@ -59,8 +59,8 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-2xl">
+    <div className="min-h-screen bg-kca-bg-page flex items-center justify-center p-4">
+      <Card className="w-full max-w-md">
         <div className="text-center mb-8">
           <Title level={2} className="!mb-2">비밀번호 찾기</Title>
           <Text className="text-gray-600">
@@ -103,7 +103,7 @@ export default function ForgotPasswordPage() {
         </Form>
 
         <div className="text-center">
-          <Link to="/login" className="text-purple-600 hover:text-purple-800">
+          <Link to="/login" className="text-kca-primary hover:text-kca-primary-hover">
             <ArrowLeftOutlined className="mr-1" />
             로그인 페이지로 돌아가기
           </Link>

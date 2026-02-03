@@ -211,7 +211,7 @@ export default function AdminDashboard() {
                     dot: getNotificationIcon(notification.type),
                     children: (
                       <div
-                        className={`cursor-pointer hover:bg-gray-50 p-2 rounded ${!notification.is_read ? 'bg-blue-50' : ''}`}
+                        className={`cursor-pointer hover:bg-gray-50 p-2 rounded ${!notification.is_read ? 'bg-kca-primary-bg' : ''}`}
                         onClick={async () => {
                           if (!notification.is_read) {
                             await notificationService.markAsRead(notification.notification_id)

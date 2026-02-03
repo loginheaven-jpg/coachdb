@@ -48,8 +48,8 @@ export default function ResetPasswordPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md shadow-2xl">
+      <div className="min-h-screen bg-kca-bg-page flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
           <Result
             status="error"
             title="링크가 유효하지 않습니다"
@@ -70,8 +70,8 @@ export default function ResetPasswordPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md shadow-2xl">
+      <div className="min-h-screen bg-kca-bg-page flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
           <Result
             status="success"
             title="비밀번호 변경 완료"
@@ -88,8 +88,8 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-2xl">
+    <div className="min-h-screen bg-kca-bg-page flex items-center justify-center p-4">
+      <Card className="w-full max-w-md">
         <div className="text-center mb-8">
           <Title level={2} className="!mb-2">새 비밀번호 설정</Title>
           <Text className="text-gray-600">
@@ -151,7 +151,7 @@ export default function ResetPasswordPage() {
         </Form>
 
         <div className="text-center">
-          <Link to="/login" className="text-purple-600 hover:text-purple-800">
+          <Link to="/login" className="text-kca-primary hover:text-kca-primary-hover">
             <ArrowLeftOutlined className="mr-1" />
             로그인 페이지로 돌아가기
           </Link>

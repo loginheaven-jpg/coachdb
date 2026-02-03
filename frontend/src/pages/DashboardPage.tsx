@@ -182,7 +182,7 @@ export default function DashboardPage() {
               title="내 지원서"
               value={stats.myApplications}
               suffix="건"
-              prefix={<FileTextOutlined className="text-blue-500" />}
+              prefix={<FileTextOutlined className="text-kca-primary" />}
             />
             <Button
               type="link"
@@ -296,7 +296,7 @@ export default function DashboardPage() {
                     dot: getNotificationIcon(notification.type),
                     children: (
                       <div
-                        className={`cursor-pointer hover:bg-gray-50 p-2 rounded ${!notification.is_read ? 'bg-blue-50' : ''}`}
+                        className={`cursor-pointer hover:bg-gray-50 p-2 rounded ${!notification.is_read ? 'bg-kca-primary-bg' : ''}`}
                         onClick={async () => {
                           // 알림 읽음 처리
                           if (!notification.is_read) {

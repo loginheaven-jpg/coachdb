@@ -59,7 +59,7 @@ export default function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-100 py-8">
       <Card className="w-full max-w-2xl">
         <div className="text-center mb-4">
-          <Title level={2} className="text-blue-600 mb-1">PCMS</Title>
+          <Title level={2} className="text-kca-primary mb-1">PCMS</Title>
           <p className="text-gray-500 text-sm">Project & Coach pool Management System</p>
         </div>
         <Title level={4} className="text-center mb-2">
@@ -212,7 +212,7 @@ export default function RegisterPage() {
 
           <div className="text-center">
             <span className="text-gray-600">이미 계정이 있으신가요? </span>
-            <Link to="/login" className="text-blue-600 hover:text-blue-800">
+            <Link to="/login" className="text-kca-primary hover:text-kca-primary-hover">
               로그인
             </Link>
           </div>

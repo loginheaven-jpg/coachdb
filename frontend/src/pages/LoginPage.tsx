@@ -74,7 +74,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <Card className="w-full max-w-md">
         <div className="text-center mb-6">
-          <Title level={2} className="text-blue-600 mb-1">PCMS</Title>
+          <Title level={2} className="text-kca-primary mb-1">PCMS</Title>
           <p className="text-gray-500 text-sm">Project & Coach pool Management System</p>
         </div>
         <Title level={4} className="text-center mb-6">
@@ -135,7 +135,7 @@ export default function LoginPage() {
 
           <div className="text-center">
             <span className="text-gray-600">계정이 없으신가요? </span>
-            <Link to="/register" className="text-blue-600 hover:text-blue-800">
+            <Link to="/register" className="text-kca-primary hover:text-kca-primary-hover">
               회원가입
             </Link>
           </div>
