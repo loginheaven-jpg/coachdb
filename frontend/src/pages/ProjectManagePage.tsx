@@ -21,7 +21,8 @@ import {
   FolderOpenOutlined,
   UserOutlined,
   DeleteOutlined,
-  TeamOutlined
+  TeamOutlined,
+  ThunderboltOutlined
 } from '@ant-design/icons'
 import projectService, { ProjectListItem, ProjectStatus } from '../services/projectService'
 import { useAuthStore } from '../stores/authStore'
@@ -268,14 +269,24 @@ export default function ProjectManagePage() {
           </Button>
           {canCreateProject && (
             <Space direction="vertical" align="end">
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={() => navigate('/projects/create')}
-                size="large"
-              >
-                새 과제 생성
-              </Button>
+              <Space>
+                <Button
+                  type="default"
+                  icon={<ThunderboltOutlined />}
+                  onClick={() => navigate('/projects/wizard')}
+                  size="large"
+                >
+                  위저드로 생성
+                </Button>
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={() => navigate('/projects/create')}
+                  size="large"
+                >
+                  직접 생성
+                </Button>
+              </Space>
               {isSuperAdmin && (
                 <>
                   <Button

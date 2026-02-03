@@ -150,16 +150,19 @@ export function useWizardState() {
 
     canProceed: () => {
       // Step별 진행 가능 여부 검증
+      const totalScore = Object.values(state.scoreAllocation).reduce((sum, score) => sum + score, 0)
+
       switch (state.currentStep) {
         case 1:
           return true // 참고 과제는 선택 사항
         case 2:
           return !!(state.projectName && state.recruitmentStartDate && state.recruitmentEndDate && state.maxParticipants > 0)
         case 3:
-          return state.selectedItemIds.length > 0
+          // 항목 선택 + 배점 설정 (총 100점)
+          return state.selectedItemIds.length > 0 && totalScore === 100
         case 4:
-          const totalScore = Object.values(state.scoreAllocation).reduce((sum, score) => sum + score, 0)
-          return totalScore === 100
+          // Step 4는 이제 상세 설정 단계이므로 항상 진행 가능
+          return true
         case 5:
           return state.selectedReviewerIds.length >= 2
         case 6:

@@ -91,21 +91,23 @@ export default function WizardLayout({
       {/* Bottom Action Bar */}
       <div className="kca-action-bar">
         <div className="kca-action-bar-inner">
-          {!isFirstStep && (
-            <Button size="large" onClick={onPrevious}>
-              이전
-            </Button>
-          )}
           <div style={{ flex: 1 }} />
-          {!isLastStep ? (
-            <Button type="primary" size="large" onClick={onNext} disabled={!canProceed}>
-              다음
-            </Button>
-          ) : (
-            <Button type="primary" size="large" onClick={onComplete}>
-              완료
-            </Button>
-          )}
+          <div style={{ display: 'flex', gap: '12px' }}>
+            {!isFirstStep && (
+              <Button size="large" onClick={onPrevious}>
+                이전
+              </Button>
+            )}
+            {!isLastStep ? (
+              <Button type="primary" size="large" onClick={onNext} disabled={!canProceed}>
+                다음
+              </Button>
+            ) : (
+              <Button type="primary" size="large" onClick={onComplete}>
+                완료
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>

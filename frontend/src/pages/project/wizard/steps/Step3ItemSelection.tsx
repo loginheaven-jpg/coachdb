@@ -1,4 +1,4 @@
-import { Checkbox, Space, Divider, Card, message } from 'antd'
+import { Checkbox, Space, Divider, Card, message, InputNumber, Alert } from 'antd'
 import { useState, useEffect } from 'react'
 import { WizardState, WizardActions } from '../../../../hooks/useWizardState'
 import projectService, { type CompetencyItem } from '../../../../services/projectService'
@@ -11,6 +11,10 @@ interface Step3Props {
 export default function Step3ItemSelection({ state, actions }: Step3Props) {
   const [items, setItems] = useState<CompetencyItem[]>([])
   const [loading, setLoading] = useState(false)
+
+  // Calculate total score
+  const totalScore = Object.values(state.scoreAllocation).reduce((sum, score) => sum + score, 0)
+  const isValidScore = totalScore === 100
 
   useEffect(() => {
     loadCompetencyItems()
@@ -55,29 +59,54 @@ export default function Step3ItemSelection({ state, actions }: Step3Props) {
       </h2>
 
       <div className="wizard-question-hint">
-        💡 필요한 항목만 체크하세요. 나중에 추가/제거할 수 있습니다
+        💡 필요한 항목을 체크하고 배점을 입력하세요 (총 100점)
       </div>
 
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
         {Object.entries(groupedItems).map(([category, categoryItems]) => (
           <Card key={category} title={categoryLabels[category] || category} size="small">
-            <Space direction="vertical" style={{ width: '100%' }}>
-              {categoryItems.map(item => (
-                <Checkbox
-                  key={item.item_id}
-                  checked={state.selectedItemIds.includes(item.item_id)}
-                  onChange={() => actions.toggleItem(item.item_id)}
-                >
-                  <Space direction="vertical" size={0}>
-                    <span>{item.item_name}</span>
-                    {item.description && (
-                      <span style={{ fontSize: '12px', color: '#8c8c8c' }}>
-                        {item.description}
-                      </span>
+            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+              {categoryItems.map(item => {
+                const isSelected = state.selectedItemIds.includes(item.item_id)
+                const currentScore = state.scoreAllocation[item.item_id] || 0
+
+                return (
+                  <div key={item.item_id} style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%' }}>
+                    <Checkbox
+                      checked={isSelected}
+                      onChange={() => {
+                        actions.toggleItem(item.item_id)
+                        // 선택 해제 시 배점도 0으로 초기화
+                        if (isSelected) {
+                          actions.updateScore(item.item_id, 0)
+                        }
+                      }}
+                      style={{ flex: 1 }}
+                    >
+                      <Space direction="vertical" size={0}>
+                        <span>{item.item_name}</span>
+                        {item.description && (
+                          <span style={{ fontSize: '12px', color: '#8c8c8c' }}>
+                            {item.description}
+                          </span>
+                        )}
+                      </Space>
+                    </Checkbox>
+
+                    {isSelected && (
+                      <InputNumber
+                        min={0}
+                        max={100}
+                        value={currentScore}
+                        onChange={(value) => actions.updateScore(item.item_id, value || 0)}
+                        addonAfter="점"
+                        style={{ width: '120px' }}
+                        placeholder="배점"
+                      />
                     )}
-                  </Space>
-                </Checkbox>
-              ))}
+                  </div>
+                )
+              })}
             </Space>
           </Card>
         ))}
@@ -85,9 +114,19 @@ export default function Step3ItemSelection({ state, actions }: Step3Props) {
 
       <Divider />
 
-      <div style={{ textAlign: 'center', color: '#8c8c8c' }}>
-        선택된 항목: {state.selectedItemIds.length}개
-      </div>
+      <Alert
+        type={isValidScore ? 'success' : 'warning'}
+        message={
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>선택된 항목: {state.selectedItemIds.length}개</span>
+            <span style={{ fontWeight: 'bold', fontSize: '16px' }}>
+              총점: {totalScore}/100점
+              {isValidScore ? ' ✓' : ' (100점이 되어야 합니다)'}
+            </span>
+          </div>
+        }
+        showIcon
+      />
     </div>
   )
 }
