@@ -337,8 +337,8 @@ function ProjectUnifiedPageInner() {
       label = (
         <span>
           {tab.label}
-          <span className={`ml-2 ${scoreColor}`}>
-            ({scoreValidation.total_score}/100점)
+          <span className={`ml-1 ${scoreColor}`}>
+            ({Math.round(scoreValidation.total_score)}/100점)
           </span>
         </span>
       ) as any
@@ -350,7 +350,7 @@ function ProjectUnifiedPageInner() {
       label = (
         <span>
           {tab.label}
-          <span className={`ml-2 ${staffColor}`}>
+          <span className={`ml-1 ${staffColor}`}>
             ({staffList.length}명)
           </span>
         </span>
@@ -463,6 +463,7 @@ function ProjectUnifiedPageInner() {
             items={tabItems}
             className="p-4"
             tabBarStyle={{ marginBottom: 16 }}
+            tabBarGutter={12}
           />
 
           {/* 하단 버튼 영역 */}
