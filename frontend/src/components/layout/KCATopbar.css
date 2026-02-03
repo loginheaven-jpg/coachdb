@@ -27,7 +27,7 @@
 }
 
 .logo-pcms {
-  font-size: 30px !important;
+  font-size: 29px !important;
   font-weight: 900 !important;
   color: var(--kca-black);
   letter-spacing: -1px;
@@ -38,6 +38,8 @@
 .logo-c-dot {
   position: relative;
   display: inline-block;
+  font-size: 29px !important;  /* P,M,S와 동일 크기 */
+  font-weight: 900 !important;
 }
 
 .logo-c-dot::after {
@@ -201,6 +203,10 @@
     font-size: 26px !important;
   }
 
+  .logo-c-dot {
+    font-size: 26px !important;
+  }
+
   .logo-c-dot::after {
     top: -4px;
     width: 4px;
@@ -245,6 +251,10 @@
     font-size: 24px !important;
   }
 
+  .logo-c-dot {
+    font-size: 24px !important;
+  }
+
   .logo-c-dot::after {
     top: -4px;
     width: 4px;
@@ -276,6 +286,10 @@
   }
 
   .logo-pcms {
+    font-size: 20px !important;
+  }
+
+  .logo-c-dot {
     font-size: 20px !important;
   }
 
