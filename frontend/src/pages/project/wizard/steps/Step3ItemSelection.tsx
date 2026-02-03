@@ -12,9 +12,9 @@ export default function Step3ItemSelection({ state, actions }: Step3Props) {
   const [items, setItems] = useState<CompetencyItem[]>([])
   const [loading, setLoading] = useState(false)
 
-  // Calculate total score - 선택된 항목만 합계
+  // Calculate total score - 선택된 항목만 합계 (Number()로 타입 보장)
   const totalScore = state.selectedItemIds.reduce((sum, itemId) => {
-    return sum + (state.scoreAllocation[itemId] || 0)
+    return sum + Number(state.scoreAllocation[itemId] || 0)
   }, 0)
   const isValidScore = totalScore === 100
 

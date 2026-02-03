@@ -1,9 +1,14 @@
 import { Card, Empty, Descriptions, Tag, List, Alert } from 'antd'
+import { useState, useEffect } from 'react'
 import { WizardState } from '../../hooks/useWizardState'
+import projectService, { type CompetencyItem } from '../../services/projectService'
 
 interface WizardPreviewProps {
   state: WizardState
 }
+
+// 항목명 캐시 (API 중복 호출 방지)
+let itemCache: CompetencyItem[] = []
 
 export default function WizardPreview({ state }: WizardPreviewProps) {
   const renderPreview = () => {
@@ -99,12 +104,32 @@ function Step2Preview({ state }: { state: WizardState }) {
 
 // Step 3: 항목 선택 미리보기
 function Step3Preview({ state }: { state: WizardState }) {
-  // 총점 계산
-  const totalScore = Object.entries(state.scoreAllocation)
-    .filter(([itemId]) => state.selectedItemIds.includes(Number(itemId)))
-    .reduce((sum, [, score]) => sum + score, 0)
+  const [items, setItems] = useState<CompetencyItem[]>(itemCache)
+
+  useEffect(() => {
+    // 캐시가 비어있으면 API 호출
+    if (itemCache.length === 0) {
+      projectService.getCompetencyItems().then(data => {
+        itemCache = data
+        setItems(data)
+      }).catch(err => {
+        console.error('Failed to load items:', err)
+      })
+    }
+  }, [])
+
+  // 총점 계산 (Number()로 타입 보장)
+  const totalScore = state.selectedItemIds.reduce((sum, itemId) => {
+    return sum + Number(state.scoreAllocation[itemId] || 0)
+  }, 0)
 
   const isValidScore = totalScore === 100
+
+  // 항목명 조회 헬퍼
+  const getItemName = (itemId: number) => {
+    const item = items.find(i => i.item_id === itemId)
+    return item?.item_name || `항목 ${itemId}`
+  }
 
   if (state.selectedItemIds.length === 0) {
     return (
@@ -120,20 +145,20 @@ function Step3Preview({ state }: { state: WizardState }) {
       {/* 총점 상단 고정 */}
       <Alert
         type={isValidScore ? 'success' : 'warning'}
-        message={`총점: ${totalScore}/100점`}
+        message={`총점: ${Math.round(totalScore)}/100점`}
         style={{ marginBottom: 12 }}
       />
       <List
         dataSource={state.selectedItemIds}
         size="small"
         renderItem={itemId => {
-          const score = state.scoreAllocation[itemId] || 0
+          const score = Number(state.scoreAllocation[itemId] || 0)
           return (
             <List.Item
               style={{ display: 'flex', justifyContent: 'space-between' }}
             >
-              <span>항목 {itemId}</span>
-              <Tag color={score > 0 ? 'orange' : 'default'}>{score}점</Tag>
+              <span>{getItemName(itemId)}</span>
+              <Tag color={score > 0 ? 'orange' : 'default'}>{Math.round(score)}점</Tag>
             </List.Item>
           )
         }}
@@ -144,30 +169,53 @@ function Step3Preview({ state }: { state: WizardState }) {
 
 // Step 4: 배점 미리보기
 function Step4Preview({ state }: { state: WizardState }) {
+  const [items, setItems] = useState<CompetencyItem[]>(itemCache)
+
+  useEffect(() => {
+    if (itemCache.length === 0) {
+      projectService.getCompetencyItems().then(data => {
+        itemCache = data
+        setItems(data)
+      }).catch(err => {
+        console.error('Failed to load items:', err)
+      })
+    }
+  }, [])
+
+  // 총점 계산 (Number()로 타입 보장)
   const totalScore = state.selectedItemIds.reduce(
-    (sum, itemId) => sum + (state.scoreAllocation[itemId] || 0),
+    (sum, itemId) => sum + Number(state.scoreAllocation[itemId] || 0),
     0
   )
 
   const isValid = totalScore === 100
 
+  // 항목명 조회 헬퍼
+  const getItemName = (itemId: number) => {
+    const item = items.find(i => i.item_id === itemId)
+    return item?.item_name || `항목 ${itemId}`
+  }
+
   return (
     <Card title="배점 설정">
       <List
         dataSource={state.selectedItemIds}
-        renderItem={itemId => (
-          <List.Item
-            extra={<Tag color={state.scoreAllocation[itemId] ? 'green' : 'default'}>
-              {state.scoreAllocation[itemId] || 0}점
-            </Tag>}
-          >
-            항목 {itemId}
-          </List.Item>
-        )}
+        renderItem={itemId => {
+          const score = Number(state.scoreAllocation[itemId] || 0)
+          return (
+            <List.Item
+              extra={<Tag color={score > 0 ? 'green' : 'default'}>
+                {Math.round(score)}점
+              </Tag>}
+            >
+              {getItemName(itemId)}
+            </List.Item>
+          )
+        }}
       />
       <Alert
         type={isValid ? 'success' : 'warning'}
-        message={`총 배점: ${totalScore}/100점`}
+        message={`총 배점: ${Math.round(totalScore)}/100점`}
         showIcon
         style={{ marginTop: 16 }}
       />

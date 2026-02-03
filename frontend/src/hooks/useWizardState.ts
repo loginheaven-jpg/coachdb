@@ -96,7 +96,7 @@ export function useWizardState() {
         ...prev,
         scoreAllocation: {
           ...prev.scoreAllocation,
-          [itemId]: score
+          [itemId]: Number(score) || 0  // 항상 숫자로 저장
         }
       }))
     },
@@ -108,7 +108,7 @@ export function useWizardState() {
 
         // 고정 배점이 있는 항목 제외
         const fixedItems = selectedItems.filter(id => prev.scoreAllocation[id] !== undefined)
-        const fixedTotal = fixedItems.reduce((sum, id) => sum + (prev.scoreAllocation[id] || 0), 0)
+        const fixedTotal = fixedItems.reduce((sum, id) => sum + Number(prev.scoreAllocation[id] || 0), 0)
 
         // 나머지 항목에 균등 분배
         const remainingItems = selectedItems.filter(id => !fixedItems.includes(id))
@@ -149,8 +149,8 @@ export function useWizardState() {
     },
 
     canProceed: () => {
-      // Step별 진행 가능 여부 검증
-      const totalScore = Object.values(state.scoreAllocation).reduce((sum, score) => sum + score, 0)
+      // Step별 진행 가능 여부 검증 (Number()로 타입 보장)
+      const totalScore = Object.values(state.scoreAllocation).reduce((sum, score) => sum + Number(score), 0)
 
       switch (state.currentStep) {
         case 1:
