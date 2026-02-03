@@ -27,14 +27,14 @@
 }
 
 .logo-pcms {
-  font-size: 48px !important;  /* PCMS 2배 크기 */
+  font-size: 34px !important;  /* 30% 축소 */
   font-weight: 900 !important;
   color: var(--kca-black);
-  letter-spacing: -1.8px;
+  letter-spacing: -1px;
   line-height: 1;
 }
 
-/* C with orange dot above */
+/* C with orange dot above - KCA 스타일 참조 */
 .logo-c-dot {
   position: relative;
   display: inline-block;
@@ -43,11 +43,11 @@
 .logo-c-dot::after {
   content: '';
   position: absolute;
-  top: -12px;  /* 글자 크기에 맞춰 조정 */
+  top: -3px;  /* KCA처럼 글자 바로 위에 */
   left: 50%;
   transform: translateX(-50%);
-  width: 7px;  /* 점은 원래대로 */
-  height: 7px;
+  width: 5px;  /* KCA 비율에 맞춤 */
+  height: 5px;
   background: var(--kca-primary);
   border-radius: 50%;
 }
@@ -69,7 +69,7 @@
 }
 
 .logo-name-en {
-  font-size: 8px !important;  /* 30% 축소 */
+  font-size: 11px !important;  /* 영문 폰트 키움 */
   font-weight: 400;
   color: var(--kca-text-muted);
   letter-spacing: 0;
@@ -198,13 +198,13 @@
   }
 
   .logo-pcms {
-    font-size: 44px !important;
+    font-size: 30px !important;
   }
 
   .logo-c-dot::after {
-    top: -8px;
-    width: 6px;
-    height: 6px;
+    top: -2px;
+    width: 4px;
+    height: 4px;
   }
 
   .logo-names {
@@ -216,7 +216,7 @@
   }
 
   .logo-name-en {
-    font-size: 8px !important;
+    font-size: 10px !important;
   }
 }
 
@@ -242,13 +242,13 @@
   }
 
   .logo-pcms {
-    font-size: 40px !important;
+    font-size: 28px !important;
   }
 
   .logo-c-dot::after {
-    top: -7px;
-    width: 5px;
-    height: 5px;
+    top: -2px;
+    width: 4px;
+    height: 4px;
   }
 
   .logo-names {
@@ -276,12 +276,12 @@
   }
 
   .logo-pcms {
-    font-size: 36px !important;
+    font-size: 24px !important;
   }
 
   .logo-c-dot::after {
-    top: -6px;
-    width: 5px;
-    height: 5px;
+    top: -2px;
+    width: 3px;
+    height: 3px;
   }
 }
