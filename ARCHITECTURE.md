@@ -424,18 +424,28 @@ R2_BUCKET=pcms-files
 -- UNIQUE: (application_data_id, verifier_id) - 한 Verifier가 같은 지원서 항목을 중복 컨펌 방지
 ```
 
-#### 11. system_configs (시스템 설정)
+#### 11. system_config (시스템 설정)
 ```sql
-- config_id: BIGINT PRIMARY KEY
-- key: VARCHAR(100) UNIQUE NOT NULL
-- value: TEXT NOT NULL
-- description: TEXT
+- key: VARCHAR(100) PRIMARY KEY  # 설정 키 (PK)
+- value: VARCHAR(500) NOT NULL
+- description: VARCHAR(500)
 - updated_by: BIGINT FK → users.user_id
-- updated_at: TIMESTAMP
-- created_at: TIMESTAMP DEFAULT NOW()
+- updated_at: TIMESTAMP DEFAULT NOW(), onupdate NOW()
 
 -- 주요 설정:
--- REQUIRED_VERIFIER_COUNT: 증빙 승인에 필요한 Verifier 수 (기본값: 2)
+-- required_verifier_count: 증빙 승인에 필요한 Verifier 수 (기본값: 2)
+```
+
+#### 12. 추가 테이블 (문서화 간략)
+다음 테이블들은 구현되어 있으나 상세 문서는 코드 참조:
+- **custom_question**, **custom_question_answer**: 프로젝트별 커스텀 질문
+- **certification**, **coach_education_history**: 자격증 및 학력 이력
+- **coach_evaluation**: 프로젝트 종료 후 코치 평가
+- **reviewer_evaluation**: 심사자의 정성 평가
+- **role_request**: 역할 승인 요청 워크플로우
+- **review_lock**: 동시 심사 방지
+- **competency_reminder**: 역량 업데이트 알림 (Phase 2)
+- **data_retention_policy**: 파일 보관 정책
 ```
 
 ### PostgreSQL Enum Types
@@ -1528,16 +1538,15 @@ async def freeze_applications(project_id: int, db: AsyncSession):
 - `RegisterPage.tsx`: 회원가입
 - `ForgotPasswordPage.tsx`, `ResetPasswordPage.tsx`: 비밀번호 찾기/재설정
 - `ProfileEditPage.tsx`: 프로필 수정
-- `DetailedProfilePage.tsx`: 상세 프로필 조회
 
 #### 코치 - 역량 관리
-- `UnifiedCompetencyPage.tsx`: 통합 역량 관리 (현재 사용)
+- `UnifiedCompetencyPage.tsx`: 통합 역량 관리
   - 역량 등록, 조회, 수정, 삭제
   - 검증 상태별 필터
   - 증빙 파일 업로드/다운로드
 
 #### 코치 - 프로젝트 및 응모
-- `ProjectBrowsePage.tsx`: 프로젝트 검색/목록
+- `ProjectListPage.tsx`: 프로젝트 목록/검색
 - `ProjectDetailPage.tsx`: 프로젝트 상세
 - `ApplicationSubmitPage.tsx`: 응모 작성/수정
   - 기존 역량 재사용 (클릭 1회)
@@ -1555,18 +1564,24 @@ async def freeze_applications(project_id: int, db: AsyncSession):
   - 확인완료/보완 요청
   - ReviewLock 지원 (30분 잠금)
 
+#### 심사자
+- `EvaluationDashboard.tsx`: 심사 대시보드 (심사자 배정 과제)
+
 #### 프로젝트 관리자
-- `ProjectCreatePage.tsx`: 프로젝트 생성
-- `ProjectEditPage.tsx`: 프로젝트 수정
-- `ProjectManagePage.tsx`: 프로젝트 관리
-- `ProjectApplicationsPage.tsx`: 지원자 목록
-- `ProjectReviewPage.tsx`: 심사/평가
+- `ProjectManagePage.tsx`: 프로젝트 관리 (소유 과제 목록)
+- `ProjectUnifiedPage.tsx`: 통합 과제 관리 (탭 기반 아키텍처)
+  - Info 탭: 과제 기본 정보 생성/수정
+  - Applications 탭: 지원자 목록
+  - Selection 탭: 심사/선발
+  - ReviewPlan 탭: 평가 계획
+  - Survey 탭: 설문/평가
+  - Closure 탭: 과제 마감
 
 #### 관리자
-- `AdminDashboard.tsx`: 관리자 대시보드
-- `SuperAdminDashboard.tsx`: 슈퍼관리자 대시보드
+- `AdminDashboard.tsx`: 관리자 대시보드 (역할별 분기)
 - `AdminCompetencyItemsPage.tsx`: 역량 항목 관리
 - `UserManagementPage.tsx`: 사용자 관리
+- `SystemSettingsPage.tsx`: 시스템 설정
 
 #### 공통
 - `DashboardPage.tsx`: 메인 대시보드 (역할별 분기)
@@ -1586,15 +1601,6 @@ interface AuthState {
   logout: () => void
   hasRole: (roles: string[]) => boolean
   refreshToken: () => Promise<void>
-}
-```
-
-**useApplicationStore** (`stores/applicationStore.ts`):
-```typescript
-interface ApplicationState {
-  draftData: Record<number, any>  // applicationId → 임시저장 데이터
-  saveDraft: (applicationId: number, data: any) => void
-  clearDraft: (applicationId: number) => void
 }
 ```
 

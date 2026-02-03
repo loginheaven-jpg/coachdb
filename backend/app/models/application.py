@@ -99,15 +99,6 @@ class Application(Base):
         return f"<Application(application_id={self.application_id}, project_id={self.project_id}, user_id={self.user_id}, status={self.status})>"
 
 
-class VerificationStatus(str, enum.Enum):
-    """서류 검증 상태"""
-    PENDING = "pending"                       # 검토 대기
-    APPROVED = "approved"                     # 승인
-    REJECTED = "rejected"                     # 반려
-    SUPPLEMENT_REQUESTED = "supplement_requested"  # 보충 요청
-    SUPPLEMENTED = "supplemented"             # 보충 제출됨
-
-
 class ApplicationData(Base):
     """Snapshot of application data (allows historical tracking)"""
 

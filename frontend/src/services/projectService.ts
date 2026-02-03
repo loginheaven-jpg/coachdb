@@ -1,27 +1,17 @@
 import api from './api'
+import { ProjectStatus } from '../types'
 
 // ============================================================================
 // Enums
 // ============================================================================
-export enum ProjectStatus {
-  DRAFT = 'draft',              // 초안 (임시저장, 비공개)
-  PENDING = 'pending',          // 승인대기 (SUPER_ADMIN 승인 필요)
-  REJECTED = 'rejected',        // 반려됨 (수정 후 재상신 가능)
-  APPROVED = 'approved',        // 승인완료 (SUPER_ADMIN 승인됨, 모집개시 전)
-  READY = 'ready',              // 모집개시 (과제관리자가 모집 시작)
-  RECRUITING = 'recruiting',    // 접수중 (legacy)
-  REVIEWING = 'reviewing',      // 심사중
-  IN_PROGRESS = 'in_progress',  // 과제진행중
-  EVALUATING = 'evaluating',    // 과제평가중
-  COMPLETED = 'completed',      // (레거시)
-  CLOSED = 'closed'             // 종료
-}
-
 export enum ProjectType {
   PUBLIC_COACHING = 'public_coaching',      // 공익코칭
   BUSINESS_COACHING = 'business_coaching',  // 비즈니스코칭
   OTHER = 'other'                           // 기타
 }
+
+// Re-export ProjectStatus from types for backward compatibility
+export { ProjectStatus }
 
 // 과제 구분 한글 라벨
 export const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {

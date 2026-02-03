@@ -1,7 +1,7 @@
 from app.models.user import User, UserRole
 from app.models.project import Project, ProjectStaff
-from app.models.competency import CompetencyItem, ProjectItem, ScoringCriteria, CoachCompetency
-from app.models.application import Application, ApplicationData, CoachRole, VerificationStatus
+from app.models.competency import CompetencyItem, ProjectItem, ScoringCriteria, CoachCompetency, VerificationStatus
+from app.models.application import Application, ApplicationData, CoachRole
 from app.models.notification import Notification, NotificationType
 from app.models.system_config import SystemConfig, ConfigKeys
 from app.models.verification import VerificationRecord
