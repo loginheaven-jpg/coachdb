@@ -27,7 +27,7 @@
 }
 
 .logo-pcms {
-  font-size: 29px !important;
+  font-size: 28px !important;
   font-weight: 900 !important;
   color: var(--kca-black);
   letter-spacing: -1px;
@@ -38,7 +38,7 @@
 .logo-c-dot {
   position: relative;
   display: inline-block;
-  font-size: 29px !important;  /* P,M,S와 동일 크기 */
+  font-size: 28px !important;  /* P,M,S와 동일 크기 */
   font-weight: 900 !important;
 }
 
