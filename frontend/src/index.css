@@ -223,3 +223,39 @@ p, span, div {
 .application-tabs .ant-tabs-nav::before {
   border-bottom: none !important;
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   Pagination - KCA Style (숫자 항상 보이기)
+   ══════════════════════════════════════════════════════════════════ */
+.ant-pagination-item {
+  border-color: var(--kca-border) !important;
+}
+
+.ant-pagination-item a {
+  color: var(--kca-text) !important;
+  font-weight: 500;
+}
+
+.ant-pagination-item:hover a {
+  color: var(--kca-primary) !important;
+}
+
+.ant-pagination-item-active {
+  background: var(--kca-primary) !important;
+  border-color: var(--kca-primary) !important;
+}
+
+.ant-pagination-item-active a {
+  color: #fff !important;
+  font-weight: 600;
+}
+
+.ant-pagination-prev .ant-pagination-item-link,
+.ant-pagination-next .ant-pagination-item-link {
+  color: var(--kca-text) !important;
+}
+
+.ant-pagination-prev:hover .ant-pagination-item-link,
+.ant-pagination-next:hover .ant-pagination-item-link {
+  color: var(--kca-primary) !important;
+}

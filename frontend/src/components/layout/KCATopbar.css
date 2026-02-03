@@ -27,7 +27,7 @@
 }
 
 .logo-pcms {
-  font-size: 36px;
+  font-size: 48px;
   font-weight: 900;
   color: var(--kca-black);
   letter-spacing: -1px;
@@ -43,11 +43,11 @@
 .logo-c-dot::after {
   content: '';
   position: absolute;
-  top: -2px;
+  top: 0px;
   left: 50%;
   transform: translateX(-50%);
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   background: var(--kca-primary);
   border-radius: 50%;
 }
@@ -198,7 +198,7 @@
   }
 
   .logo-pcms {
-    font-size: 32px;
+    font-size: 42px;
   }
 
   .logo-names {
@@ -236,7 +236,7 @@
   }
 
   .logo-pcms {
-    font-size: 28px;
+    font-size: 38px;
   }
 
   .logo-names {
@@ -264,11 +264,11 @@
   }
 
   .logo-pcms {
-    font-size: 24px;
+    font-size: 32px;
   }
 
   .logo-c-dot::after {
-    width: 5px;
-    height: 5px;
+    width: 6px;
+    height: 6px;
   }
 }
