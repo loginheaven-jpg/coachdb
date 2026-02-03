@@ -938,7 +938,7 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
                     <div>
                       <Text type="secondary">{item.item_name}</Text>
                       {item.input_type === 'file' && (
-                        <FileOutlined className="ml-2 text-blue-500" />
+                        <FileOutlined className="ml-2 text-kca-primary" />
                       )}
                     </div>
                     <Button

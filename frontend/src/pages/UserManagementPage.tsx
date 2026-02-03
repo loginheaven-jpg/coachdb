@@ -270,7 +270,7 @@ export default function UserManagementPage() {
       dataIndex: 'name',
       key: 'name',
       render: (name: string, record: UserListItem) => (
-        <a onClick={() => handleViewUserDetail(record)} className="text-blue-600 hover:underline">
+        <a onClick={() => handleViewUserDetail(record)} className="text-kca-primary hover:underline">
           {name}
         </a>
       )

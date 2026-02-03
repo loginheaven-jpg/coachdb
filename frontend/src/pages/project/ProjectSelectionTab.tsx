@@ -209,7 +209,7 @@ export default function ProjectSelectionTab() {
       width: 70,
       align: 'center',
       render: (rank: number | null) => rank ? (
-        <span className={rank <= 3 ? 'font-bold text-blue-600' : ''}>
+        <span className={rank <= 3 ? 'font-bold text-kca-primary' : ''}>
           {rank}
         </span>
       ) : '-'
@@ -274,7 +274,7 @@ export default function ProjectSelectionTab() {
       width: 100,
       align: 'center',
       render: (score: number | null) => score !== null ? (
-        <Text strong className="text-blue-600">{score.toFixed(1)}</Text>
+        <Text strong className="text-kca-primary">{score.toFixed(1)}</Text>
       ) : <Text type="secondary">-</Text>
     },
     {

@@ -602,7 +602,7 @@ export default function ProjectDetailPage() {
                   <Text type="secondary">아직 지원자가 없습니다.</Text>
                 </div>
               ) : (
-                <div className="bg-blue-50 p-4 rounded">
+                <div className="bg-kca-primary-bg p-4">
                   <Text>
                     지원자 목록에서 각 응모자의 상세 정보 확인, 서류 검토, 심사 등을 진행할 수 있습니다.
                   </Text>
