@@ -266,13 +266,19 @@ R2_BUCKET=pcms-files
 - hashed_password: VARCHAR(255) NOT NULL
 - name: VARCHAR(100) NOT NULL
 - phone: VARCHAR(20)
-- roles: JSON (배열: ["COACH", "VERIFIER"] 등)
-- status: VARCHAR(20) DEFAULT 'active'  # active / deleted
-- address: VARCHAR(200) NOT NULL
-- in_person_coaching_area: VARCHAR(200)
+- birth_year: INTEGER  # 4자리 연도 (예: 1985)
+- gender: VARCHAR(10)
+- address: VARCHAR(500) NOT NULL  # 시/군/구
+- organization: VARCHAR(200)  # 소속 (선택)
+- in_person_coaching_area: VARCHAR(500)  # 대면코칭가능지역
+- roles: VARCHAR(200) NOT NULL  # JSON 문자열 배열 (예: ["COACH", "VERIFIER"])
+- status: userstatus ENUM DEFAULT 'active'  # active / deleted
 - coach_certification_number: VARCHAR(50)  # 최상위 자격 (KSC, KAC 등)
-- coaching_fields: JSON  # 코칭 전문 분야 배열
-- created_at, updated_at: TIMESTAMP
+- coaching_fields: VARCHAR(500)  # JSON 문자열 배열 (코칭 전문 분야)
+- introduction: TEXT  # 자기소개
+- created_at: TIMESTAMP DEFAULT NOW()
+- updated_at: TIMESTAMP DEFAULT NOW(), onupdate NOW()
+- deleted_at: TIMESTAMP  # 논리 삭제 시각
 ```
 
 #### 2. coach_profiles (코치 상세 프로필)
@@ -299,6 +305,21 @@ R2_BUCKET=pcms-files
 - is_active: BOOLEAN DEFAULT TRUE
 - description: TEXT  # 설문 입력 안내 문구
 - created_by: BIGINT FK → users.user_id
+- input_type: inputtype ENUM  # Deprecated: use template (legacy 호환용)
+- template_config: TEXT  # JSON: template 설정
+```
+
+#### 3-1. competency_item_fields (템플릿 기반 필드 정의)
+```sql
+- field_id: INTEGER PRIMARY KEY
+- item_id: INTEGER FK → competency_items.item_id (ondelete CASCADE)
+- field_name: VARCHAR(100) NOT NULL  # 예: "degree_level", "major", "proof"
+- field_label: VARCHAR(200) NOT NULL  # 예: "학위", "전공명", "증빙업로드"
+- field_type: VARCHAR(50) NOT NULL  # "text", "select", "multiselect", "number", "file"
+- field_options: TEXT  # JSON 배열 (select/multiselect 옵션)
+- is_required: BOOLEAN DEFAULT TRUE
+- display_order: INTEGER DEFAULT 0
+- placeholder: VARCHAR(200)  # 입력 힌트
 ```
 
 #### 4. coach_competencies (코치 역량 - 전자지갑)
@@ -337,6 +358,38 @@ R2_BUCKET=pcms-files
 - project_achievements, project_special_notes: TEXT
 - review_started_at: TIMESTAMP  # 심사개시 시점 (이 시점 이후 보완 제출 차단)
 - created_at, updated_at: TIMESTAMP
+```
+
+#### 5-1. project_staff (프로젝트 담당 실무자 배정)
+```sql
+- project_id: INTEGER FK → projects.project_id (ondelete CASCADE) PRIMARY KEY
+- staff_user_id: BIGINT FK → users.user_id (ondelete CASCADE) PRIMARY KEY
+- assigned_at: TIMESTAMP DEFAULT NOW()
+-- 복합 PK: (project_id, staff_user_id)
+```
+
+#### 5-2. project_items (프로젝트별 역량 항목 설정)
+```sql
+- project_item_id: INTEGER PRIMARY KEY
+- project_id: INTEGER FK → projects.project_id (ondelete CASCADE)
+- item_id: INTEGER FK → competency_items.item_id
+- is_required: BOOLEAN DEFAULT FALSE  # 필수 입력 여부
+- proof_required_level: proofrequiredlevel ENUM DEFAULT 'not_required'  # 증빙 필수 레벨
+- max_score: NUMERIC(5,2)  # 이 항목의 최대 배점
+- display_order: INTEGER DEFAULT 0
+```
+
+#### 5-3. scoring_criteria (프로젝트 항목별 점수 기준)
+```sql
+- criteria_id: INTEGER PRIMARY KEY
+- project_item_id: INTEGER FK → project_items.project_item_id (ondelete CASCADE)
+- matching_type: matchingtype ENUM  # exact, contains, range, grade
+- expected_value: TEXT  # 매칭할 값 (예: "KSC", "1500") 또는 JSON (grade 타입)
+- score: NUMERIC(5,2)  # 매칭 시 부여 점수 (grade 타입은 expected_value 내부에 정의)
+- value_source: valuesourcetype ENUM DEFAULT 'submitted'  # submitted, user_field, json_field
+- source_field: VARCHAR(100)  # value_source가 user_field/json_field일 때 필드명
+- extract_pattern: VARCHAR(100)  # 정규식 패턴 (예: "^(.{3})" - 앞 3글자 추출)
+- aggregation_mode: aggregationmode ENUM DEFAULT 'first'  # 복수입력 집계 방식
 ```
 
 #### 6. applications (지원서)
@@ -399,13 +452,15 @@ R2_BUCKET=pcms-files
 #### 9. files (증빙 파일)
 ```sql
 - file_id: BIGINT PRIMARY KEY
-- filename: VARCHAR(255) NOT NULL
-- file_path: VARCHAR(500) NOT NULL
-- file_size: BIGINT
-- mime_type: VARCHAR(100)
-- uploader_id: BIGINT FK → users.user_id
-- uploaded_at: TIMESTAMP
-- is_archived: BOOLEAN DEFAULT FALSE
+- original_filename: VARCHAR(500) NOT NULL  # 사용자가 업로드한 원본 파일명
+- stored_filename: VARCHAR(500) NOT NULL UNIQUE  # 서버에 저장된 파일명 (UUID 기반)
+- file_path: VARCHAR(1000) NOT NULL  # 실제 파일 경로
+- file_size: INTEGER NOT NULL  # 바이트 단위
+- mime_type: VARCHAR(100) NOT NULL
+- uploaded_by: BIGINT FK → users.user_id
+- upload_purpose: uploadpurpose ENUM DEFAULT 'other'  # proof / profile / other
+- uploaded_at: TIMESTAMP DEFAULT NOW()
+- scheduled_deletion_date: DATE  # 5년 보관 정책에 따른 삭제 예정일
 ```
 
 #### 10. verification_records (증빙검토 기록)
@@ -552,6 +607,53 @@ R2_BUCKET=pcms-files
            return str(value.value).lower() if hasattr(value, 'value') else str(value).lower()
    ```
    - **프론트엔드**: 모든 status 비교는 소문자로 수행 (`status === 'draft'`)
+
+### 전체 Enum 타입 참조
+
+#### 사용자 관련 (User)
+- **UserRole**: `SUPER_ADMIN`, `PROJECT_MANAGER`, `VERIFIER`, `REVIEWER`, `COACH`, ~~`ADMIN`~~ (deprecated), ~~`STAFF`~~ (deprecated)
+- **UserStatus**: `active`, `deleted`
+
+#### 역량 항목 관련 (Competency)
+- **CompetencyCategory** (UPPERCASE): `BASIC`, `CERTIFICATION`, `EDUCATION`, `EXPERIENCE`, `OTHER`, ~~`DETAIL`~~, ~~`ADDON`~~, ~~`COACHING`~~ (deprecated)
+- **ItemTemplate** (lowercase): `text`, `number`, `select`, `multiselect`, `file`, `text_file`, `degree`, `coaching_history`, `coaching_time`, `coaching_experience`
+- **InputType** (lowercase, deprecated): `text`, `select`, `number`, `file`
+- **VerificationStatus** (lowercase): `pending`, `approved`, `rejected`, `supplemented`
+
+#### 프로젝트 관련 (Project)
+- **ProjectStatus** (UPPERCASE): `DRAFT`, `PENDING`, `REJECTED`, `APPROVED`, `READY`, `RECRUITING`, `REVIEWING`, `IN_PROGRESS`, `EVALUATING`, `CLOSED`
+- **ProjectType** (lowercase): `public_coaching`, `business_coaching`, `other`
+
+#### 평가 기준 관련 (Scoring)
+- **MatchingType** (lowercase): `exact`, `contains`, `range`, `grade`
+- **ValueSourceType** (lowercase): `submitted`, `user_field`, `json_field`
+- **AggregationMode** (lowercase): `first`, `sum`, `max`, `count`, `any_match`, `best_match`
+- **ProofRequiredLevel** (lowercase): `not_required`, `optional`, `required`
+
+#### 지원서 관련 (Application)
+- **ApplicationStatus** (lowercase): `draft`, `submitted`, `reviewing`, `completed`
+- **SelectionResult** (lowercase): `pending`, `selected`, `rejected`
+- **ScoreVisibility** (lowercase): `admin_only`, `public`
+- **CoachRole** (lowercase): `leader`, `participant`, `supervisor`
+- **DocumentStatus** (lowercase): `pending`, `in_review`, `supplement_requested`, `approved`, `disqualified`
+
+#### 심사 평가 관련 (Reviewer Evaluation)
+- **Recommendation** (lowercase): `strongly_recommend`, `recommend`, `neutral`, `not_recommend`
+
+#### 파일 관련 (File)
+- **UploadPurpose** (lowercase): `proof`, `profile`, `other`
+
+#### 자격증 관련 (Certification)
+- **CertificationType** (lowercase): `coach`, `counseling`, `other`
+
+#### 역할 승인 관련 (Role Request)
+- **RoleRequestStatus** (UPPERCASE): `PENDING`, `APPROVED`, `REJECTED`
+
+#### 데이터 정책 관련 (Data Retention)
+- **ActionOnExpiry** (lowercase): `archive`, `delete`, `anonymize`
+
+#### 알림 관련 (Notification)
+- **NotificationType** (lowercase): 상세 내용은 "알림 시스템 (Notification System)" 섹션 참조
 
 ### 주요 인덱스
 
@@ -726,6 +828,8 @@ const handleNotificationClick = async (notification: Notification) => {
 ---
 
 ## API 엔드포인트 구조
+
+> **문서화 정책**: 이 섹션은 주요 엔드포인트만 나열합니다. 전체 엔드포인트 목록(100개 이상)은 실제 구현 코드(`backend/app/api/endpoints/`)를 참조하세요.
 
 ### 주요 엔드포인트 개요
 
