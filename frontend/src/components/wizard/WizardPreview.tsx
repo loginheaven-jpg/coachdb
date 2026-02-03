@@ -74,6 +74,9 @@ function Step2Preview({ state }: { state: WizardState }) {
             <span style={{ color: '#d9d9d9' }}>선택 대기 중...</span>
           )}
         </Descriptions.Item>
+        <Descriptions.Item label="지원사업명">
+          {state.supportProgramName || <span style={{ color: '#d9d9d9' }}>미입력</span>}
+        </Descriptions.Item>
         <Descriptions.Item label="모집 인원">
           {state.maxParticipants}명
         </Descriptions.Item>
@@ -84,6 +87,11 @@ function Step2Preview({ state }: { state: WizardState }) {
             <span style={{ color: '#d9d9d9' }}>선택 대기 중...</span>
           )}
         </Descriptions.Item>
+        {state.description && (
+          <Descriptions.Item label="과제 설명">
+            <div style={{ whiteSpace: 'pre-wrap' }}>{state.description}</div>
+          </Descriptions.Item>
+        )}
       </Descriptions>
     </Card>
   )
@@ -91,6 +99,13 @@ function Step2Preview({ state }: { state: WizardState }) {
 
 // Step 3: 항목 선택 미리보기
 function Step3Preview({ state }: { state: WizardState }) {
+  // 총점 계산
+  const totalScore = Object.entries(state.scoreAllocation)
+    .filter(([itemId]) => state.selectedItemIds.includes(Number(itemId)))
+    .reduce((sum, [, score]) => sum + score, 0)
+
+  const isValidScore = totalScore === 100
+
   if (state.selectedItemIds.length === 0) {
     return (
       <Empty
@@ -102,13 +117,26 @@ function Step3Preview({ state }: { state: WizardState }) {
 
   return (
     <Card title={`선택된 항목 (${state.selectedItemIds.length}개)`}>
+      {/* 총점 상단 고정 */}
+      <Alert
+        type={isValidScore ? 'success' : 'warning'}
+        message={`총점: ${totalScore}/100점`}
+        style={{ marginBottom: 12 }}
+      />
       <List
         dataSource={state.selectedItemIds}
-        renderItem={itemId => (
-          <List.Item>
-            <Tag color="blue">항목 {itemId}</Tag>
-          </List.Item>
-        )}
+        size="small"
+        renderItem={itemId => {
+          const score = state.scoreAllocation[itemId] || 0
+          return (
+            <List.Item
+              style={{ display: 'flex', justifyContent: 'space-between' }}
+            >
+              <span>항목 {itemId}</span>
+              <Tag color={score > 0 ? 'orange' : 'default'}>{score}점</Tag>
+            </List.Item>
+          )
+        }}
       />
     </Card>
   )

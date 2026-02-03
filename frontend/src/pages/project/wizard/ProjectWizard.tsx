@@ -70,6 +70,11 @@ export default function ProjectWizard() {
     }
   }
 
+  const handleReset = () => {
+    actions.reset()
+    message.success('위저드가 초기화되었습니다')
+  }
+
   const renderStepContent = () => {
     switch (state.currentStep) {
       case 1:
@@ -97,6 +102,7 @@ export default function ProjectWizard() {
       onPrevious={actions.prevStep}
       onNext={actions.nextStep}
       onComplete={handleComplete}
+      onReset={handleReset}
       canProceed={actions.canProceed()}
     />
   )

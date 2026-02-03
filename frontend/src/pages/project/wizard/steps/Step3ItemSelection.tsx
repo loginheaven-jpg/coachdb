@@ -1,4 +1,4 @@
-import { Checkbox, Space, Divider, Card, message, InputNumber, Alert } from 'antd'
+import { Checkbox, Space, Card, message, InputNumber, Alert } from 'antd'
 import { useState, useEffect } from 'react'
 import { WizardState, WizardActions } from '../../../../hooks/useWizardState'
 import projectService, { type CompetencyItem } from '../../../../services/projectService'
@@ -12,8 +12,10 @@ export default function Step3ItemSelection({ state, actions }: Step3Props) {
   const [items, setItems] = useState<CompetencyItem[]>([])
   const [loading, setLoading] = useState(false)
 
-  // Calculate total score
-  const totalScore = Object.values(state.scoreAllocation).reduce((sum, score) => sum + score, 0)
+  // Calculate total score - 선택된 항목만 합계
+  const totalScore = state.selectedItemIds.reduce((sum, itemId) => {
+    return sum + (state.scoreAllocation[itemId] || 0)
+  }, 0)
   const isValidScore = totalScore === 100
 
   useEffect(() => {
@@ -61,6 +63,22 @@ export default function Step3ItemSelection({ state, actions }: Step3Props) {
       <div className="wizard-question-hint">
         💡 필요한 항목을 체크하고 배점을 입력하세요 (총 100점)
       </div>
+
+      {/* 상단 고정 총점 표시 */}
+      <Alert
+        type={isValidScore ? 'success' : 'warning'}
+        message={
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>선택된 항목: {state.selectedItemIds.length}개</span>
+            <span style={{ fontWeight: 'bold', fontSize: '16px' }}>
+              총점: {totalScore}/100점
+              {isValidScore ? ' ✓' : ''}
+            </span>
+          </div>
+        }
+        showIcon
+        style={{ marginBottom: 16, position: 'sticky', top: 0, zIndex: 10 }}
+      />
 
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
         {Object.entries(groupedItems).map(([category, categoryItems]) => (
@@ -112,21 +130,14 @@ export default function Step3ItemSelection({ state, actions }: Step3Props) {
         ))}
       </Space>
 
-      <Divider />
-
-      <Alert
-        type={isValidScore ? 'success' : 'warning'}
-        message={
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>선택된 항목: {state.selectedItemIds.length}개</span>
-            <span style={{ fontWeight: 'bold', fontSize: '16px' }}>
-              총점: {totalScore}/100점
-              {isValidScore ? ' ✓' : ' (100점이 되어야 합니다)'}
-            </span>
-          </div>
-        }
-        showIcon
-      />
+      {!isValidScore && (
+        <Alert
+          type="warning"
+          message={`총점이 ${totalScore}점입니다. 100점이 되어야 다음 단계로 진행할 수 있습니다.`}
+          showIcon
+          style={{ marginTop: 16 }}
+        />
+      )}
     </div>
   )
 }

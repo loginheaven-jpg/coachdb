@@ -1,6 +1,6 @@
 import { ReactNode } from 'react'
-import { Button } from 'antd'
-import { CheckOutlined } from '@ant-design/icons'
+import { Button, Space, Popconfirm, message } from 'antd'
+import { CheckOutlined, ReloadOutlined, SaveOutlined } from '@ant-design/icons'
 import './WizardLayout.css'
 
 interface WizardLayoutProps {
@@ -10,6 +10,8 @@ interface WizardLayoutProps {
   onPrevious: () => void
   onNext: () => void
   onComplete: () => void
+  onReset: () => void
+  onSaveDraft?: () => void
   canProceed: boolean
 }
 
@@ -29,10 +31,21 @@ export default function WizardLayout({
   onPrevious,
   onNext,
   onComplete,
+  onReset,
+  onSaveDraft,
   canProceed
 }: WizardLayoutProps) {
   const isFirstStep = currentStep === 1
   const isLastStep = currentStep === 6
+
+  const handleSaveDraft = () => {
+    if (onSaveDraft) {
+      onSaveDraft()
+    } else {
+      // 기본 임시저장 (localStorage)
+      message.info('임시저장 기능은 추후 구현 예정입니다')
+    }
+  }
 
   return (
     <div className="kca-wizard-layout">
@@ -91,23 +104,42 @@ export default function WizardLayout({
       {/* Bottom Action Bar */}
       <div className="kca-action-bar">
         <div className="kca-action-bar-inner">
-          <div style={{ flex: 1 }} />
-          <div style={{ display: 'flex', gap: '12px' }}>
+          {/* 왼쪽: 이전 | 다음 */}
+          <Space>
             {!isFirstStep && (
               <Button size="large" onClick={onPrevious}>
                 이전
               </Button>
             )}
-            {!isLastStep ? (
+            {!isLastStep && (
               <Button type="primary" size="large" onClick={onNext} disabled={!canProceed}>
                 다음
               </Button>
-            ) : (
+            )}
+          </Space>
+
+          {/* 오른쪽: 새로시작 | 임시저장 | 완료 */}
+          <Space>
+            <Popconfirm
+              title="새로 시작"
+              description="모든 입력 내용이 초기화됩니다. 계속하시겠습니까?"
+              onConfirm={onReset}
+              okText="예"
+              cancelText="아니오"
+            >
+              <Button icon={<ReloadOutlined />}>
+                새로시작
+              </Button>
+            </Popconfirm>
+            <Button icon={<SaveOutlined />} onClick={handleSaveDraft}>
+              임시저장
+            </Button>
+            {isLastStep && (
               <Button type="primary" size="large" onClick={onComplete}>
                 완료
               </Button>
             )}
-          </div>
+          </Space>
         </div>
       </div>
     </div>
