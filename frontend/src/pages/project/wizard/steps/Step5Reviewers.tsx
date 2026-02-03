@@ -1,7 +1,8 @@
-import { Input, List, Button, Tag, Space, Avatar, Alert } from 'antd'
+import { Input, List, Button, Tag, Space, Avatar, Alert, message } from 'antd'
 import { UserOutlined, SearchOutlined, CloseOutlined } from '@ant-design/icons'
 import { useState, useEffect } from 'react'
 import { WizardState, WizardActions } from '../../../../hooks/useWizardState'
+import adminService from '../../../../services/adminService'
 
 const { Search } = Input
 
@@ -34,19 +35,44 @@ export default function Step5Reviewers({ state, actions }: Step5Props) {
   const loadReviewers = async () => {
     setLoading(true)
     try {
-      // TODO: API - 심사위원 목록 불러오기
-      // GET /api/admin/users?role=VERIFIER,REVIEWER
-      setSearchResults([])
+      // Load all VERIFIER and REVIEWER users
+      const users = await adminService.getUsers({ role: 'VERIFIER,REVIEWER' })
+      // Convert to User format
+      const reviewers = users.map(u => ({
+        user_id: u.user_id,
+        name: u.name,
+        email: u.email,
+        roles: u.roles.join(', ')
+      }))
+      setSearchResults(reviewers)
     } catch (error) {
       console.error('Failed to load reviewers:', error)
+      message.error('심사위원 목록을 불러오는데 실패했습니다')
     } finally {
       setLoading(false)
     }
   }
 
   const loadSelectedUsers = async () => {
-    // TODO: API - 선택된 사용자 정보 불러오기
-    setSelectedUsers([])
+    if (state.selectedReviewerIds.length === 0) {
+      setSelectedUsers([])
+      return
+    }
+
+    try {
+      // Load details for selected reviewers
+      const users = await Promise.all(
+        state.selectedReviewerIds.map(id => adminService.getUser(id))
+      )
+      setSelectedUsers(users.map(u => ({
+        user_id: u.user_id,
+        name: u.name,
+        email: u.email,
+        roles: u.roles.join(', ')
+      })))
+    } catch (error) {
+      console.error('Failed to load selected users:', error)
+    }
   }
 
   const handleSearch = async (value: string) => {
@@ -57,11 +83,18 @@ export default function Step5Reviewers({ state, actions }: Step5Props) {
 
     setLoading(true)
     try {
-      // TODO: API - 사용자 검색
-      // GET /api/admin/users?role=VERIFIER,REVIEWER&search={value}
-      setSearchResults([])
+      // Search users with VERIFIER or REVIEWER role
+      const users = await adminService.getUsers({ role: 'VERIFIER,REVIEWER', search: value })
+      const reviewers = users.map(u => ({
+        user_id: u.user_id,
+        name: u.name,
+        email: u.email,
+        roles: u.roles.join(', ')
+      }))
+      setSearchResults(reviewers)
     } catch (error) {
       console.error('Failed to search users:', error)
+      message.error('사용자 검색에 실패했습니다')
     } finally {
       setLoading(false)
     }

@@ -3,6 +3,9 @@ import { message } from 'antd'
 import { useWizardState } from '../../../hooks/useWizardState'
 import WizardLayout from './WizardLayout'
 import WizardPreview from '../../../components/wizard/WizardPreview'
+import projectService, { ProofRequiredLevel, MatchingType } from '../../../services/projectService'
+import { useAuthStore } from '../../../stores/authStore'
+import type { ProjectStatus } from '../../../types'
 
 // Step components
 import Step1ReferenceProject from './steps/Step1ReferenceProject'
@@ -15,15 +18,55 @@ import Step6Review from './steps/Step6Review'
 export default function ProjectWizard() {
   const navigate = useNavigate()
   const { state, actions } = useWizardState()
+  const { user } = useAuthStore()
 
   const handleComplete = async () => {
     try {
-      // TODO: API 호출 - 프로젝트 생성
-      message.success('과제가 성공적으로 생성되었습니다')
-      navigate('/projects')
-    } catch (error) {
-      message.error('과제 생성에 실패했습니다')
-      console.error(error)
+      // Step 1: Create the project
+      const projectData = {
+        project_name: state.projectName,
+        project_type: state.projectType as any,
+        support_program_name: state.supportProgramName || null,
+        description: state.description || null,
+        recruitment_start_date: state.recruitmentStartDate,
+        recruitment_end_date: state.recruitmentEndDate,
+        project_start_date: state.projectStartDate || null,
+        project_end_date: state.projectEndDate || null,
+        project_manager_id: user?.user_id || null,
+        status: 'draft' as ProjectStatus
+      }
+
+      const createdProject = await projectService.createProject(projectData)
+      message.success('과제가 생성되었습니다')
+
+      // Step 2: Add selected items with scores
+      for (const itemId of state.selectedItemIds) {
+        const itemScore = state.scoreAllocation[itemId] || 0
+
+        await projectService.addProjectItem(createdProject.project_id, {
+          item_id: itemId,
+          is_required: true,
+          proof_required_level: ProofRequiredLevel.REQUIRED,
+          max_score: itemScore,
+          display_order: state.selectedItemIds.indexOf(itemId) + 1,
+          scoring_criteria: itemScore > 0 ? [{
+            matching_type: MatchingType.EXACT,
+            expected_value: '',
+            score: itemScore
+          }] : []
+        })
+      }
+
+      // Step 3: Add reviewers as staff
+      for (const reviewerId of state.selectedReviewerIds) {
+        await projectService.addProjectStaff(createdProject.project_id, reviewerId)
+      }
+
+      message.success('과제가 성공적으로 생성되었습니다!')
+      navigate(`/projects/manage/${createdProject.project_id}`)
+    } catch (error: any) {
+      console.error('Failed to create project:', error)
+      message.error(error.response?.data?.detail || '과제 생성에 실패했습니다')
     }
   }
 

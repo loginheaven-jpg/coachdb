@@ -1,6 +1,7 @@
-import { Radio, Select, Space, Alert } from 'antd'
+import { Radio, Select, Space, Alert, message } from 'antd'
 import { useState, useEffect } from 'react'
 import { WizardState, WizardActions } from '../../../../hooks/useWizardState'
+import projectService from '../../../../services/projectService'
 
 interface Step1Props {
   state: WizardState
@@ -13,10 +14,22 @@ export default function Step1ReferenceProject({ state, actions }: Step1Props) {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    // TODO: API - 최근 과제 목록 불러오기
-    // GET /api/projects?limit=10&sort=created_at:desc
-    setProjects([])
+    loadRecentProjects()
   }, [])
+
+  const loadRecentProjects = async () => {
+    setLoading(true)
+    try {
+      const allProjects = await projectService.listProjects({ limit: 20 })
+      // 최근 생성된 순으로 이미 정렬되어 옴
+      setProjects(allProjects)
+    } catch (error) {
+      console.error('Failed to load projects:', error)
+      message.error('과제 목록을 불러오는데 실패했습니다')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleReferenceChange = (value: boolean) => {
     setHasReference(value)
@@ -25,11 +38,47 @@ export default function Step1ReferenceProject({ state, actions }: Step1Props) {
     }
   }
 
-  const handleProjectSelect = (projectId: number) => {
+  const handleProjectSelect = async (projectId: number) => {
     actions.setReferenceProject(projectId)
-    // TODO: API - 선택한 과제 정보 불러오기
-    // GET /api/projects/{projectId}
-    // actions.updateProjectInfo({ ...projectData })
+
+    try {
+      // Load selected project details
+      const project = await projectService.getProject(projectId)
+      const projectItems = await projectService.getProjectItems(projectId)
+      const projectStaff = await projectService.getProjectStaff(projectId)
+
+      // Populate wizard state with reference project data
+      actions.updateProjectInfo({
+        projectName: `${project.project_name} (복사본)`,
+        projectType: project.project_type || 'business_coaching',
+        supportProgramName: project.support_program_name || '',
+        description: project.description || '',
+        projectStartDate: project.project_start_date || '',
+        projectEndDate: project.project_end_date || ''
+      })
+
+      // Set selected items and scores
+      const itemIds = projectItems.map(item => item.item_id)
+      const scoreAllocation: Record<number, number> = {}
+      projectItems.forEach(item => {
+        scoreAllocation[item.item_id] = item.max_score || 0
+      })
+
+      // Set reviewers
+      const reviewerIds = projectStaff.staff_list.map(staff => staff.staff_user_id)
+
+      // Update wizard state with items, scores, and reviewers
+      actions.updateProjectInfo({
+        selectedItemIds: itemIds,
+        scoreAllocation: scoreAllocation,
+        selectedReviewerIds: reviewerIds
+      })
+
+      message.success('참고 과제 정보를 불러왔습니다')
+    } catch (error) {
+      console.error('Failed to load reference project:', error)
+      message.error('과제 정보를 불러오는데 실패했습니다')
+    }
   }
 
   return (

@@ -1,18 +1,11 @@
-import { Checkbox, Space, Divider, Card } from 'antd'
+import { Checkbox, Space, Divider, Card, message } from 'antd'
 import { useState, useEffect } from 'react'
 import { WizardState, WizardActions } from '../../../../hooks/useWizardState'
+import projectService, { type CompetencyItem } from '../../../../services/projectService'
 
 interface Step3Props {
   state: WizardState
   actions: WizardActions
-}
-
-interface CompetencyItem {
-  item_id: number
-  item_name: string
-  item_code: string
-  category: string
-  description?: string
 }
 
 export default function Step3ItemSelection({ state, actions }: Step3Props) {
@@ -26,11 +19,13 @@ export default function Step3ItemSelection({ state, actions }: Step3Props) {
   const loadCompetencyItems = async () => {
     setLoading(true)
     try {
-      // TODO: API - 역량 항목 목록 불러오기
-      // GET /api/competencies/items
-      setItems([])
+      const allItems = await projectService.getCompetencyItems()
+      // Filter only active items
+      const activeItems = allItems.filter(item => item.is_active)
+      setItems(activeItems)
     } catch (error) {
       console.error('Failed to load competency items:', error)
+      message.error('역량 항목을 불러오는데 실패했습니다')
     } finally {
       setLoading(false)
     }
