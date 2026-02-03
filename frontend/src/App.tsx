@@ -15,6 +15,7 @@ import ProjectListPage from './pages/ProjectListPage'
 import ProjectDetailPage from './pages/ProjectDetailPage'
 import ProjectManagePage from './pages/ProjectManagePage'
 import ProjectUnifiedPage from './pages/ProjectUnifiedPage'
+import ProjectWizard from './pages/project/wizard/ProjectWizard'
 import EvaluationDashboard from './pages/EvaluationDashboard'
 import ProjectEvaluationCreatePage from './pages/ProjectEvaluationCreatePage'
 import ApplicationSubmitPage from './pages/ApplicationSubmitPage'
@@ -238,6 +239,15 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={ADMIN_ROLES}>
               <ProjectUnifiedPage />
+            </ProtectedRoute>
+          }
+        />
+        {/* 과제 생성 위저드 */}
+        <Route
+          path="/projects/wizard"
+          element={
+            <ProtectedRoute allowedRoles={ADMIN_ROLES}>
+              <ProjectWizard />
             </ProtectedRoute>
           }
         />
