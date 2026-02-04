@@ -45,8 +45,8 @@
 .logo-c-dot::after {
   content: '';
   position: absolute;
-  top: -5px;  /* C자 정중앙 위에 */
-  left: 53%;  /* C자 시각적 정중앙 (C는 왼쪽이 열려있어 약간 우측으로) */
+  top: -3px;  /* C자와 간격 절반으로 축소 */
+  left: 54%;  /* C자 시각적 정중앙 (C는 왼쪽이 열려있어 약간 우측으로) */
   transform: translateX(-50%);
   width: 5px;
   height: 5px;
@@ -208,8 +208,8 @@
   }
 
   .logo-c-dot::after {
-    top: -4px;
-    left: 53%;
+    top: -2px;
+    left: 54%;
     width: 4px;
     height: 4px;
   }
@@ -257,8 +257,8 @@
   }
 
   .logo-c-dot::after {
-    top: -4px;
-    left: 53%;
+    top: -2px;
+    left: 54%;
     width: 4px;
     height: 4px;
   }
@@ -296,8 +296,8 @@
   }
 
   .logo-c-dot::after {
-    top: -3px;
-    left: 53%;
+    top: -2px;
+    left: 54%;
     width: 3px;
     height: 3px;
   }
