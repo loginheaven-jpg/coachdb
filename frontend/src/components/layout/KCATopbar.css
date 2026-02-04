@@ -32,26 +32,40 @@
   color: var(--kca-black);
   letter-spacing: -1px;
   line-height: 1;
-}
-
-/* C with orange dot above - KCA 스타일 참조 */
-.logo-c-dot {
   position: relative;
-  display: inline-block;
-  font-size: 28px !important;  /* P,M,S와 동일 크기 */
-  font-weight: 900 !important;
 }
 
-.logo-c-dot::after {
+/* 움직이는 점 애니메이션 - P에서 S까지 이동 후 반복 */
+.logo-pcms::before {
   content: '';
   position: absolute;
-  top: -3px;  /* C자와 간격 절반으로 축소 */
-  left: 54%;  /* C자 시각적 정중앙 (C는 왼쪽이 열려있어 약간 우측으로) */
-  transform: translateX(-50%);
+  top: -3px;
+  left: 12%;
   width: 5px;
   height: 5px;
   background: var(--kca-primary);
   border-radius: 50%;
+  animation: dot-move 180s linear infinite;  /* 3분에 한 사이클 */
+}
+
+@keyframes dot-move {
+  0% { left: 12%; }      /* P 위 */
+  25% { left: 37%; }     /* C 위 */
+  50% { left: 62%; }     /* M 위 */
+  75% { left: 87%; }     /* S 위 */
+  100% { left: 12%; }    /* 다시 P로 */
+}
+
+/* C with orange dot above - 비활성화 (애니메이션으로 대체) */
+.logo-c-dot {
+  position: relative;
+  display: inline-block;
+  font-size: 28px !important;
+  font-weight: 900 !important;
+}
+
+.logo-c-dot::after {
+  display: none;  /* 애니메이션 점으로 대체 */
 }
 
 .logo-names {
@@ -207,9 +221,8 @@
     font-size: 26px !important;
   }
 
-  .logo-c-dot::after {
+  .logo-pcms::before {
     top: -2px;
-    left: 54%;
     width: 4px;
     height: 4px;
   }
@@ -256,9 +269,8 @@
     font-size: 24px !important;
   }
 
-  .logo-c-dot::after {
+  .logo-pcms::before {
     top: -2px;
-    left: 54%;
     width: 4px;
     height: 4px;
   }
@@ -295,9 +307,8 @@
     font-size: 20px !important;
   }
 
-  .logo-c-dot::after {
+  .logo-pcms::before {
     top: -2px;
-    left: 54%;
     width: 3px;
     height: 3px;
   }
