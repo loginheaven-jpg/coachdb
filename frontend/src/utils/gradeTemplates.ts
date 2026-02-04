@@ -90,6 +90,8 @@ export const TEMPLATE_COUNSELING_BY_NAME: GradeTemplate = {
   fixedGrades: false,
   allowAddGrades: true,
   proofRequired: ProofRequiredLevel.REQUIRED,
+  isRequired: false,  // 필수 입력 아님 (선택)
+  allowMultiple: true,  // 복수 자격증 입력 가능
   verificationNote: '자격증 적합성은 검토자가 증빙을 확인하여 판단합니다',
   keywords: ['상담', '심리', '치료', '심리치료']
 }
@@ -116,6 +118,8 @@ export const TEMPLATE_COUNSELING_BY_EXISTS: GradeTemplate = {
   fixedGrades: true,
   allowAddGrades: false,
   proofRequired: ProofRequiredLevel.REQUIRED,
+  isRequired: false,  // 필수 입력 아님 (선택)
+  allowMultiple: false,  // 단일 값만 (유무 판정)
   verificationNote: '의미있는 자격증 적합성 기준은 과제관리자가 설정하고 확인은 검토자가 진행합니다',
   keywords: ['상담', '심리', '치료', '심리치료']
 }
@@ -138,6 +142,8 @@ export const TEMPLATE_OTHER_BY_NAME: GradeTemplate = {
   fixedGrades: false,
   allowAddGrades: true,
   proofRequired: ProofRequiredLevel.REQUIRED,
+  isRequired: false,  // 필수 입력 아님 (선택)
+  allowMultiple: true,  // 복수 자격증 입력 가능
   verificationNote: '자격증 적합성은 검토자가 증빙을 확인하여 판단합니다',
   keywords: ['기타', '자격']
 }
@@ -161,6 +167,8 @@ export const TEMPLATE_OTHER_BY_EXISTS: GradeTemplate = {
   fixedGrades: true,
   allowAddGrades: false,
   proofRequired: ProofRequiredLevel.REQUIRED,
+  isRequired: false,  // 필수 입력 아님 (선택)
+  allowMultiple: false,  // 단일 값만 (유무 판정)
   verificationNote: '자격증 적합성은 검토자가 증빙을 확인하여 판단합니다',
   keywords: ['기타', '자격']
 }
@@ -184,6 +192,8 @@ export const TEMPLATE_COACHING_HOURS: GradeTemplate = {
   fixedGrades: false,
   allowAddGrades: true,
   proofRequired: ProofRequiredLevel.OPTIONAL,
+  isRequired: false,  // 필수 입력 아님 (선택)
+  allowMultiple: true,  // 복수 경력 입력 가능 (합산)
   keywords: ['경력', '시간', 'hour']
 }
 
@@ -206,7 +216,9 @@ export const TEMPLATE_DEGREE: GradeTemplate = {
   fixedGrades: false,
   allowAddGrades: true,
   proofRequired: ProofRequiredLevel.REQUIRED,
-  keywords: ['학위', 'degree', '박사', '석사', '학사']
+  isRequired: false,  // 필수 입력 아님 (선택)
+  allowMultiple: true,  // 복수 학위 입력 가능 (최고점수만 적용)
+  keywords: ['학위', '학력', 'degree', '박사', '석사', '학사']
 }
 
 /**
