@@ -35,25 +35,26 @@
   position: relative;
 }
 
-/* 움직이는 점 애니메이션 - P에서 S까지 이동 후 반복 */
+/* 움직이는 점 애니메이션 - C에서 시작 → S지나 사라짐 → P에서 나타남 → C로 */
 .logo-pcms::before {
   content: '';
   position: absolute;
   top: -3px;
-  left: 12%;
+  left: 37%;
   width: 5px;
   height: 5px;
   background: var(--kca-primary);
   border-radius: 50%;
-  animation: dot-move 180s linear infinite;  /* 3분에 한 사이클 */
+  animation: dot-move 180s linear infinite;
 }
 
 @keyframes dot-move {
-  0% { left: 12%; }      /* P 위 */
-  25% { left: 37%; }     /* C 위 */
-  50% { left: 62%; }     /* M 위 */
-  75% { left: 87%; }     /* S 위 */
-  100% { left: 12%; }    /* 다시 P로 */
+  0% { left: 37%; opacity: 1; }       /* C에서 시작 */
+  33% { left: 87%; opacity: 1; }      /* S 도착 */
+  38% { left: 95%; opacity: 0; }      /* S 지나서 사라짐 */
+  42% { left: 5%; opacity: 0; }       /* P 앞으로 이동 (보이지 않음) */
+  47% { left: 12%; opacity: 1; }      /* P에서 나타남 */
+  100% { left: 37%; opacity: 1; }     /* C로 돌아옴 */
 }
 
 /* C with orange dot above - 비활성화 (애니메이션으로 대체) */
