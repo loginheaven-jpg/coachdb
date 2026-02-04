@@ -98,7 +98,7 @@ export const TEMPLATE_COUNSELING_BY_NAME: GradeTemplate = {
   allowMultiple: true,  // 복수 자격증 입력 가능
   autoConfirmAcrossProjects: false,  // 과제마다 요구 자격 다름 - 과제별 재검토 필요
   verificationNote: '자격증 적합성은 검토자가 증빙을 확인하여 판단합니다',
-  keywords: ['상담', '심리', '치료', '심리치료', '기타']  // '기타자격'도 이 템플릿 사용
+  keywords: ['상담', '심리', '치료', '심리치료']  // 상담/심리 관련 자격만 매칭
 }
 
 /**
@@ -127,7 +127,7 @@ export const TEMPLATE_COUNSELING_BY_EXISTS: GradeTemplate = {
   allowMultiple: false,  // 단일 값만 (유무 판정)
   autoConfirmAcrossProjects: false,  // 과제마다 요구 자격 다름 - 과제별 재검토 필요
   verificationNote: '의미있는 자격증 적합성 기준은 과제관리자가 설정하고 확인은 검토자가 진행합니다',
-  keywords: ['상담', '심리', '치료', '심리치료', '기타']  // '기타자격'도 이 템플릿 사용
+  keywords: ['상담', '심리', '치료', '심리치료']  // 상담/심리 관련 자격만 매칭
 }
 
 /**
@@ -235,15 +235,17 @@ export const TEMPLATE_DEGREE: GradeTemplate = {
 
 /**
  * 모든 템플릿 목록
+ * 순서 중요: findTemplateByItemName에서 첫 번째 매칭 반환
+ * - DEGREE를 앞에 배치하여 '학력' 키워드가 먼저 매칭되도록 함
  */
 export const ALL_TEMPLATES: GradeTemplate[] = [
-  TEMPLATE_KCA_CERTIFICATION,
-  TEMPLATE_COUNSELING_BY_NAME,
+  TEMPLATE_DEGREE,                 // 1순위: 학력 (학위, 학력)
+  TEMPLATE_KCA_CERTIFICATION,      // 2순위: KCA (kca)
+  TEMPLATE_COACHING_HOURS,         // 3순위: 코칭시간 (시간, 경력)
+  TEMPLATE_COUNSELING_BY_NAME,     // 4순위: 상담자격 (상담, 심리)
   TEMPLATE_COUNSELING_BY_EXISTS,
   TEMPLATE_OTHER_BY_NAME,
-  TEMPLATE_OTHER_BY_EXISTS,
-  TEMPLATE_COACHING_HOURS,
-  TEMPLATE_DEGREE
+  TEMPLATE_OTHER_BY_EXISTS
 ]
 
 /**
