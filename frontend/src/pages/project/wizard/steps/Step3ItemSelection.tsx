@@ -50,9 +50,12 @@ export default function Step3ItemSelection({ state, actions }: Step3Props) {
     BASIC: '기본 프로필 정보',
     CERTIFICATION: '자격증',
     EDUCATION: '학력',
-    EXPERIENCE: '역량 이력',
+    EXPERIENCE: '코칭 경력',
     OTHER: '기타'
   }
+
+  // 사용자 지정 카테고리 순서
+  const categoryOrder = ['CERTIFICATION', 'EDUCATION', 'EXPERIENCE', 'OTHER', 'BASIC']
 
   return (
     <div className="wizard-question">
@@ -81,7 +84,11 @@ export default function Step3ItemSelection({ state, actions }: Step3Props) {
       />
 
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
-        {Object.entries(groupedItems).map(([category, categoryItems]) => (
+        {categoryOrder.map(category => {
+          const categoryItems = groupedItems[category]
+          if (!categoryItems || categoryItems.length === 0) return null
+
+          return (
           <Card key={category} title={categoryLabels[category] || category} size="small">
             <Space direction="vertical" size="middle" style={{ width: '100%' }}>
               {categoryItems.map(item => {
@@ -128,7 +135,8 @@ export default function Step3ItemSelection({ state, actions }: Step3Props) {
               })}
             </Space>
           </Card>
-        ))}
+          )
+        })}
       </Space>
 
       {!isValidScore && (

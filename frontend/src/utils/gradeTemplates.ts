@@ -19,6 +19,7 @@ export interface GradeTemplate {
   gradeType: GradeType
   matchingType: MatchingType
   valueSource: ValueSource
+  sourceField?: string        // USER_FIELD, JSON_FIELD인 경우 필드명
   aggregationMode: AggregationMode
   defaultMappings: GradeMapping[]
 
@@ -46,6 +47,7 @@ export const TEMPLATE_KCA_CERTIFICATION: GradeTemplate = {
   gradeType: GradeType.STRING,
   matchingType: MatchingType.GRADE,
   valueSource: ValueSource.USER_FIELD,
+  sourceField: 'kca_certification_level',  // 사용자 기본정보 필드
   aggregationMode: AggregationMode.BEST_MATCH,
   defaultMappings: [
     { value: 'KSC', score: 40, label: 'KSC (수석코치)', fixed: true },

@@ -97,6 +97,7 @@ export default function GradeConfigModal({
       matchingType: template.matchingType,
       gradeType: template.gradeType,
       valueSource: template.valueSource,
+      sourceField: template.sourceField,  // 템플릿의 sourceField 복사
       aggregationMode: template.aggregationMode,
       gradeMappings: template.defaultMappings.map(m => ({ ...m })),
       fixedGrades: template.fixedGrades,
@@ -119,7 +120,7 @@ export default function GradeConfigModal({
   }
 
   const handleOk = () => {
-    const errors = validateScoringConfig(config)
+    const errors = validateScoringConfig(config, maxScore)
     if (errors.length > 0) {
       Modal.error({
         title: '설정 오류',

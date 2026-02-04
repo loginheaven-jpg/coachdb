@@ -114,7 +114,7 @@ export function suggestDefaultConfig(itemName: string): Partial<ScoringConfig> {
 /**
  * 설정 검증
  */
-export function validateScoringConfig(config: ScoringConfig): string[] {
+export function validateScoringConfig(config: ScoringConfig, maxScore?: number): string[] {
   const errors: string[] = []
 
   if (!config.matchingType) {
@@ -145,6 +145,14 @@ export function validateScoringConfig(config: ScoringConfig): string[] {
         if (mapping.score < 0) {
           errors.push('점수는 0점 이상이어야 합니다')
           break
+        }
+      }
+
+      // 최대 점수 초과 체크
+      if (maxScore !== undefined && maxScore > 0) {
+        const highestScore = Math.max(...config.gradeMappings.map(m => m.score))
+        if (highestScore > maxScore) {
+          errors.push(`등급별 점수가 최대 배점(${maxScore}점)을 초과할 수 없습니다. 가장 높은 점수: ${highestScore}점`)
         }
       }
     }
