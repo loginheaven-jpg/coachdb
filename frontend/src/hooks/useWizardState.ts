@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ScoringConfig } from '../types/scoring'
 
 export interface WizardState {
   currentStep: number
@@ -20,6 +21,7 @@ export interface WizardState {
 
   // Step 4: Scoring
   scoreAllocation: Record<number, number>
+  scoringConfigs: Record<number, ScoringConfig>  // 항목별 등급 설정
   autoDistribute: boolean
 
   // Step 5: Reviewers
@@ -33,6 +35,7 @@ export interface WizardActions {
   updateProjectInfo: (data: Partial<WizardState>) => void
   toggleItem: (itemId: number) => void
   updateScore: (itemId: number, score: number) => void
+  updateScoringConfig: (itemId: number, config: ScoringConfig) => void  // 등급 설정 업데이트
   autoDistributeScores: () => void
   addReviewer: (userId: number) => void
   removeReviewer: (userId: number) => void
@@ -56,6 +59,7 @@ const initialState: WizardState = {
   projectEndDate: '',
   selectedItemIds: [],
   scoreAllocation: {},
+  scoringConfigs: {},  // 항목별 등급 설정
   autoDistribute: true,
   selectedReviewerIds: []
 }
@@ -99,6 +103,16 @@ export function useWizardState() {
         scoreAllocation: {
           ...prev.scoreAllocation,
           [itemId]: Number(score) || 0  // 항상 숫자로 저장
+        }
+      }))
+    },
+
+    updateScoringConfig: (itemId: number, config: ScoringConfig) => {
+      setState(prev => ({
+        ...prev,
+        scoringConfigs: {
+          ...prev.scoringConfigs,
+          [itemId]: config
         }
       }))
     },

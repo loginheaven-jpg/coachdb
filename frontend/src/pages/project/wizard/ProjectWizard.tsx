@@ -4,9 +4,10 @@ import { message, Modal } from 'antd'
 import { useWizardState } from '../../../hooks/useWizardState'
 import WizardLayout from './WizardLayout'
 import WizardPreview from '../../../components/wizard/WizardPreview'
-import projectService, { ProofRequiredLevel, MatchingType } from '../../../services/projectService'
+import projectService, { ProofRequiredLevel, MatchingType, type ScoringCriteriaCreate } from '../../../services/projectService'
 import { useAuthStore } from '../../../stores/authStore'
 import type { ProjectStatus } from '../../../types'
+import { buildScoringCriteria } from '../../../utils/scoringHelpers'
 
 // Step components
 import Step1ReferenceProject from './steps/Step1ReferenceProject'
@@ -74,18 +75,35 @@ export default function ProjectWizard() {
       // Step 2: Add selected items with scores
       for (const itemId of state.selectedItemIds) {
         const itemScore = state.scoreAllocation[itemId] || 0
+        const scoringConfig = state.scoringConfigs[itemId]
+
+        // scoringConfig가 있으면 사용, 없으면 기본 EXACT
+        const scoringCriteria: ScoringCriteriaCreate[] = scoringConfig
+          ? buildScoringCriteria(scoringConfig) as any
+          : itemScore > 0 ? [{
+              matching_type: MatchingType.EXACT,
+              expected_value: '',
+              score: itemScore
+            }] : []
+
+        // proof_required_level: scoring Config의 proofRequired를 사용하되,
+        // 타입 호환성을 위해 조건부로 처리
+        let proofLevel = ProofRequiredLevel.REQUIRED
+        if (scoringConfig?.proofRequired) {
+          // 문자열 값이 일치하면 사용
+          const proofValue = scoringConfig.proofRequired as any
+          if (Object.values(ProofRequiredLevel).includes(proofValue)) {
+            proofLevel = proofValue
+          }
+        }
 
         await projectService.addProjectItem(createdProject.project_id, {
           item_id: itemId,
           is_required: true,
-          proof_required_level: ProofRequiredLevel.REQUIRED,
+          proof_required_level: proofLevel,
           max_score: itemScore,
           display_order: state.selectedItemIds.indexOf(itemId) + 1,
-          scoring_criteria: itemScore > 0 ? [{
-            matching_type: MatchingType.EXACT,
-            expected_value: '',
-            score: itemScore
-          }] : []
+          scoring_criteria: scoringCriteria
         })
       }
 
