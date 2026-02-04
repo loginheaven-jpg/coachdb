@@ -38,6 +38,8 @@ export interface WizardActions {
   removeReviewer: (userId: number) => void
   reset: () => void
   canProceed: () => boolean
+  saveDraft: () => void
+  loadDraft: () => boolean
 }
 
 const initialState: WizardState = {
@@ -169,6 +171,32 @@ export function useWizardState() {
           return true
         default:
           return false
+      }
+    },
+
+    saveDraft: () => {
+      const STORAGE_KEY = 'pcms_wizard_draft'
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+      } catch (error) {
+        console.error('Failed to save draft:', error)
+        throw error
+      }
+    },
+
+    loadDraft: () => {
+      const STORAGE_KEY = 'pcms_wizard_draft'
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY)
+        if (saved) {
+          const loadedState = JSON.parse(saved)
+          setState(loadedState)
+          return true
+        }
+        return false
+      } catch (error) {
+        console.error('Failed to load draft:', error)
+        return false
       }
     }
   }

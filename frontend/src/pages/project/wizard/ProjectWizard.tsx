@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
-import { message } from 'antd'
+import { useEffect } from 'react'
+import { message, Modal } from 'antd'
 import { useWizardState } from '../../../hooks/useWizardState'
 import WizardLayout from './WizardLayout'
 import WizardPreview from '../../../components/wizard/WizardPreview'
@@ -19,6 +20,37 @@ export default function ProjectWizard() {
   const navigate = useNavigate()
   const { state, actions } = useWizardState()
   const { user } = useAuthStore()
+
+  // 컴포넌트 마운트 시 임시저장 데이터 확인
+  useEffect(() => {
+    const hasDraft = localStorage.getItem('pcms_wizard_draft')
+    if (hasDraft) {
+      Modal.confirm({
+        title: '임시저장된 데이터 발견',
+        content: '이전에 임시저장된 과제 데이터가 있습니다. 불러오시겠습니까?',
+        okText: '불러오기',
+        cancelText: '새로 시작',
+        onOk: () => {
+          const loaded = actions.loadDraft()
+          if (loaded) {
+            message.success('임시저장 데이터를 불러왔습니다')
+          }
+        },
+        onCancel: () => {
+          localStorage.removeItem('pcms_wizard_draft')
+        }
+      })
+    }
+  }, [])
+
+  const handleSaveDraft = () => {
+    try {
+      actions.saveDraft()
+      message.success('임시저장되었습니다')
+    } catch (error) {
+      message.error('임시저장에 실패했습니다')
+    }
+  }
 
   const handleComplete = async () => {
     try {
@@ -63,6 +95,8 @@ export default function ProjectWizard() {
       }
 
       message.success('과제가 성공적으로 생성되었습니다!')
+      // 임시저장 데이터 삭제
+      localStorage.removeItem('pcms_wizard_draft')
       navigate(`/projects/manage/${createdProject.project_id}`)
     } catch (error: any) {
       console.error('Failed to create project:', error)
@@ -103,6 +137,7 @@ export default function ProjectWizard() {
       onNext={actions.nextStep}
       onComplete={handleComplete}
       onReset={handleReset}
+      onSaveDraft={handleSaveDraft}
       canProceed={actions.canProceed()}
     />
   )

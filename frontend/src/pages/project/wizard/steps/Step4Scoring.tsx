@@ -113,16 +113,59 @@ export default function Step4Scoring({ state, actions }: Step4Props) {
   return (
     <div className="wizard-question">
       <h2 className="wizard-question-title">
-        각 항목의 평가 기준을 설정하세요
+        각 항목의 평가기준과 등급별 점수를 설정하세요
       </h2>
+
+      {/* 전체 항목 목록 (상단 배치) */}
+      <div style={{ marginBottom: 20, padding: 16, background: '#fafafa', borderRadius: 8, border: '1px solid #e0e0e0' }}>
+        <div style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 12, color: '#333' }}>
+          전체 항목 ({totalItems}개)
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+          {state.selectedItemIds.map((itemId, index) => {
+            const item = items.find(i => i.item_id === itemId)
+            const config = itemConfigs[itemId]
+            const isActive = index === currentIndex
+            const score = state.scoreAllocation[itemId] || 0
+
+            return (
+              <div
+                key={itemId}
+                onClick={() => setCurrentIndex(index)}
+                style={{
+                  cursor: 'pointer',
+                  padding: '10px 16px',
+                  borderRadius: 8,
+                  border: isActive ? '2px solid #ff6b00' : '1px solid #d9d9d9',
+                  background: isActive ? '#fff5eb' : config?.configured ? '#f6ffed' : '#fff',
+                  boxShadow: isActive ? '0 2px 8px rgba(255,107,0,0.15)' : 'none',
+                  transition: 'all 0.2s',
+                  minWidth: 120,
+                  position: 'relative'
+                }}
+              >
+                <div style={{ fontWeight: isActive ? 'bold' : 'normal', fontSize: 14, color: isActive ? '#ff6b00' : '#333' }}>
+                  {item?.item_name || `항목 ${itemId}`}
+                </div>
+                <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
+                  <span>{score}점</span>
+                  {config?.configured && (
+                    <span style={{ marginLeft: 8, color: '#52c41a' }}>✓ 설정완료</span>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
 
       {/* 진행률 표시 */}
       <div style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-          <span>진행률: {configuredCount}/{totalItems} 항목 설정 완료</span>
+          <span style={{ fontWeight: 'bold' }}>진행률: {configuredCount}/{totalItems} 항목 설정 완료</span>
           <span>현재: {currentIndex + 1}/{totalItems}</span>
         </div>
-        <Progress percent={progressPercent} status={progressPercent === 100 ? 'success' : 'active'} />
+        <Progress percent={progressPercent} status={progressPercent === 100 ? 'success' : 'active'} strokeWidth={12} />
       </div>
 
       {/* 현재 항목 설정 카드 */}
@@ -278,30 +321,6 @@ export default function Step4Scoring({ state, actions }: Step4Props) {
           </Space>
         </Card>
       )}
-
-      {/* 전체 항목 목록 (미니) */}
-      <div style={{ marginTop: 20 }}>
-        <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>전체 항목:</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {state.selectedItemIds.map((itemId, index) => {
-            const item = items.find(i => i.item_id === itemId)
-            const config = itemConfigs[itemId]
-            const isActive = index === currentIndex
-
-            return (
-              <Tag
-                key={itemId}
-                color={isActive ? 'blue' : config?.configured ? 'green' : 'default'}
-                style={{ cursor: 'pointer' }}
-                onClick={() => setCurrentIndex(index)}
-              >
-                {item?.item_name || `항목 ${itemId}`}
-                {config?.configured && ' ✓'}
-              </Tag>
-            )
-          })}
-        </div>
-      </div>
     </div>
   )
 }

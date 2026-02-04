@@ -118,8 +118,11 @@ export default function WizardLayout({
             )}
           </Space>
 
-          {/* 오른쪽: 새로시작 | 임시저장 | 완료 */}
+          {/* 오른쪽: 임시저장 | 새로시작 | 완료 */}
           <Space>
+            <Button icon={<SaveOutlined />} onClick={handleSaveDraft}>
+              임시저장
+            </Button>
             <Popconfirm
               title="새로 시작"
               description="모든 입력 내용이 초기화됩니다. 계속하시겠습니까?"
@@ -131,9 +134,6 @@ export default function WizardLayout({
                 새로시작
               </Button>
             </Popconfirm>
-            <Button icon={<SaveOutlined />} onClick={handleSaveDraft}>
-              임시저장
-            </Button>
             {isLastStep && (
               <Button type="primary" size="large" onClick={onComplete}>
                 완료
