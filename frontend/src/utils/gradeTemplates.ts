@@ -69,7 +69,7 @@ export const TEMPLATE_KCA_CERTIFICATION: GradeTemplate = {
   allowMultiple: false,  // 단일 값만 입력 (기본정보에서 자동 조회)
   autoConfirmAcrossProjects: true,  // KSC/KAC/KPC는 절대 기준 - 전역 자동 컨펌
   verificationNote: '기본정보에 등록된 코치인증번호가 자동으로 조회됩니다',
-  keywords: ['kca', '코칭', '자격증', '인증']
+  keywords: ['kca']  // 'kca'만 매칭 (너무 일반적인 '코칭', '자격증' 제거)
 }
 
 /**
@@ -98,7 +98,7 @@ export const TEMPLATE_COUNSELING_BY_NAME: GradeTemplate = {
   allowMultiple: true,  // 복수 자격증 입력 가능
   autoConfirmAcrossProjects: false,  // 과제마다 요구 자격 다름 - 과제별 재검토 필요
   verificationNote: '자격증 적합성은 검토자가 증빙을 확인하여 판단합니다',
-  keywords: ['상담', '심리', '치료', '심리치료']
+  keywords: ['상담', '심리', '치료', '심리치료', '기타']  // '기타자격'도 이 템플릿 사용
 }
 
 /**
@@ -127,12 +127,13 @@ export const TEMPLATE_COUNSELING_BY_EXISTS: GradeTemplate = {
   allowMultiple: false,  // 단일 값만 (유무 판정)
   autoConfirmAcrossProjects: false,  // 과제마다 요구 자격 다름 - 과제별 재검토 필요
   verificationNote: '의미있는 자격증 적합성 기준은 과제관리자가 설정하고 확인은 검토자가 진행합니다',
-  keywords: ['상담', '심리', '치료', '심리치료']
+  keywords: ['상담', '심리', '치료', '심리치료', '기타']  // '기타자격'도 이 템플릿 사용
 }
 
 /**
  * 템플릿 3-A: 기타 자격증 (이름 기준)
  * - 템플릿 2-A와 동일 구조
+ * - 주의: "기타자격" 항목은 COUNSELING 템플릿 사용 (keywords에 '기타' 없음)
  */
 export const TEMPLATE_OTHER_BY_NAME: GradeTemplate = {
   id: 'other_by_name',
@@ -152,12 +153,13 @@ export const TEMPLATE_OTHER_BY_NAME: GradeTemplate = {
   allowMultiple: true,  // 복수 자격증 입력 가능
   autoConfirmAcrossProjects: false,  // 과제마다 요구 자격 다름 - 과제별 재검토 필요
   verificationNote: '자격증 적합성은 검토자가 증빙을 확인하여 판단합니다',
-  keywords: ['기타', '자격']
+  keywords: []  // 자동 매칭 안 함 ("기타자격"은 COUNSELING 템플릿 사용)
 }
 
 /**
  * 템플릿 3-B: 기타 자격증 (유무 기준)
  * - 템플릿 2-B와 동일 구조
+ * - 주의: "기타자격" 항목은 COUNSELING 템플릿 사용 (keywords에 '기타' 없음)
  */
 export const TEMPLATE_OTHER_BY_EXISTS: GradeTemplate = {
   id: 'other_by_exists',
@@ -178,7 +180,7 @@ export const TEMPLATE_OTHER_BY_EXISTS: GradeTemplate = {
   allowMultiple: false,  // 단일 값만 (유무 판정)
   autoConfirmAcrossProjects: false,  // 과제마다 요구 자격 다름 - 과제별 재검토 필요
   verificationNote: '자격증 적합성은 검토자가 증빙을 확인하여 판단합니다',
-  keywords: ['기타', '자격']
+  keywords: []  // 자동 매칭 안 함 ("기타자격"은 COUNSELING 템플릿 사용)
 }
 
 /**
