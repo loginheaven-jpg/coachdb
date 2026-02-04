@@ -42,6 +42,7 @@ import educationService from '../services/educationService'
 import fileService from '../services/fileService'
 import FilePreviewModal, { useFilePreview } from '../components/FilePreviewModal'
 import usePreventFileDrop from '../hooks/usePreventFileDrop'
+import { findTemplateByItemName } from '../utils/gradeTemplates'
 import dayjs from 'dayjs'
 
 const { Title, Text } = Typography
@@ -890,7 +891,7 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
                 <div key={item.item_id} className="mb-4">
                   {/* Repeatable 항목 헤더 */}
                   <div className="flex justify-between items-center mb-2">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <Text strong>{item.item_name}</Text>
                       <Tag color="blue">복수 입력 가능</Tag>
                       {maxEntries && (
@@ -899,6 +900,14 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
                       {!maxEntries && existingComps.length > 0 && (
                         <Text type="secondary">({existingComps.length}개)</Text>
                       )}
+                      {/* 과제별 재검토 배지 */}
+                      {(() => {
+                        const template = findTemplateByItemName(item.item_name)
+                        if (template && template.autoConfirmAcrossProjects === false) {
+                          return <Tag color="orange">과제별 재검토</Tag>
+                        }
+                        return null
+                      })()}
                     </div>
                     {canAddMore && (
                       <Button

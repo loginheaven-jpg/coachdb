@@ -31,6 +31,8 @@ import competencyService, { CoachCompetency } from '../services/competencyServic
 import { useAuthStore } from '../stores/authStore'
 import FilePreviewModal, { useFilePreview } from '../components/FilePreviewModal'
 import usePreventFileDrop from '../hooks/usePreventFileDrop'
+import { parseScoringCriteria } from '../utils/scoringHelpers'
+import { findTemplateByItemName } from '../utils/gradeTemplates'
 import dayjs from 'dayjs'
 
 // 코칭 분야 옵션
@@ -620,6 +622,24 @@ export default function ApplicationSubmitPage() {
 
             // 값 또는 파일 정보가 있는 경우 linkedCompetencyData에 저장
             if (existingComp.value || existingComp.file_info || existingComp.file_id) {
+              // autoConfirmAcrossProjects 정책 확인: 항목명으로 템플릿 찾기
+              let finalVerificationStatus = existingComp.verification_status
+              const itemName = item.competency_item?.item_name || ''
+              const template = findTemplateByItemName(itemName)
+
+              if (template) {
+                if (template.autoConfirmAcrossProjects === false) {
+                  // 과제별 재검토가 필요한 항목: 기존 컨펌 상태 무시하고 PENDING으로 초기화
+                  finalVerificationStatus = 'pending'
+                  console.log(`[Auto-Confirm Policy] Item "${itemName}" (${itemId}): autoConfirmAcrossProjects=false, resetting verification_status to 'pending' (was: ${existingComp.verification_status})`)
+                } else {
+                  console.log(`[Auto-Confirm Policy] Item "${itemName}" (${itemId}): autoConfirmAcrossProjects=true, keeping verification_status='${existingComp.verification_status}'`)
+                }
+              } else {
+                // 템플릿을 찾지 못한 경우: 기본값으로 자동 컨펌 허용 (안전한 쪽으로)
+                console.log(`[Auto-Confirm Policy] Item "${itemName}" (${itemId}): No template found, keeping verification_status='${existingComp.verification_status}'`)
+              }
+
               newLinkedCompetencyData[item.project_item_id] = {
                 data_id: 0,  // 신규 지원이므로 data_id 없음
                 application_id: 0,
@@ -638,9 +658,9 @@ export default function ApplicationSubmitPage() {
                 linked_competency_value: existingComp.value,
                 linked_competency_file_id: existingComp.file_id || null,
                 linked_competency_file_info: existingComp.file_info || null,
-                linked_competency_verification_status: existingComp.verification_status
+                linked_competency_verification_status: finalVerificationStatus
               }
-              console.log(`[Pre-fill] Item ${itemId} linked data loaded: value=${!!existingComp.value}, file_id=${existingComp.file_id}`)
+              console.log(`[Pre-fill] Item ${itemId} linked data loaded: value=${!!existingComp.value}, file_id=${existingComp.file_id}, verification=${finalVerificationStatus}`)
             }
           }
         })
@@ -1985,13 +2005,21 @@ export default function ApplicationSubmitPage() {
                           <div key={item.project_item_id} className="mb-4">
                             {/* 그룹 헤더 */}
                             <div className="flex justify-between items-center mb-2 pb-2 border-b">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-medium">
                                   {competencyItem.item_name}
                                   {item.is_required && <span style={{ color: '#ff4d4f', marginLeft: 4 }}>*</span>}
                                 </span>
                                 <Tag color="blue">복수 입력 가능</Tag>
                                 <Text type="secondary">({entries.length}개)</Text>
+                                {/* 과제별 재검토 배지 */}
+                                {(() => {
+                                  const template = findTemplateByItemName(competencyItem.item_name)
+                                  if (template && template.autoConfirmAcrossProjects === false) {
+                                    return <Tag color="orange">과제별 재검토</Tag>
+                                  }
+                                  return null
+                                })()}
                               </div>
                               {!isViewMode && canAddMore && (
                                 <Button
@@ -2009,6 +2037,24 @@ export default function ApplicationSubmitPage() {
                                 {competencyItem.description}
                               </Text>
                             )}
+
+                            {/* 과제별 재검토 안내 (반복 항목) */}
+                            {(() => {
+                              const template = findTemplateByItemName(competencyItem.item_name)
+                              if (template && template.autoConfirmAcrossProjects === false && entries.length > 0) {
+                                return (
+                                  <Alert
+                                    type="info"
+                                    message="과제별 재검토 항목"
+                                    description="이 항목은 과제 성격에 따라 요구사항이 다를 수 있어, 이전 과제에서 확인받았더라도 이번 과제에서 다시 검토됩니다."
+                                    showIcon
+                                    className="mb-3"
+                                    style={{ fontSize: '13px' }}
+                                  />
+                                )
+                              }
+                              return null
+                            })()}
 
                             {/* 각 항목 카드 */}
                             {entries.map((entry, entryIndex) => {
@@ -2151,11 +2197,26 @@ export default function ApplicationSubmitPage() {
                         <div key={item.project_item_id} className="mb-4">
                           {/* 그룹 헤더 (단일 항목용) */}
                           <div className="flex justify-between items-center mb-2 pb-2 border-b">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-medium">
                                 {competencyItem.item_name}
                                 {item.is_required && <span style={{ color: '#ff4d4f', marginLeft: 4 }}>*</span>}
                               </span>
+                              {/* 항목 속성 배지 */}
+                              {(() => {
+                                const template = findTemplateByItemName(competencyItem.item_name)
+                                if (!template) return null
+                                return (
+                                  <>
+                                    {template.allowMultiple && (
+                                      <Tag color="blue" style={{ margin: 0 }}>복수입력 가능</Tag>
+                                    )}
+                                    {template.autoConfirmAcrossProjects === false && (
+                                      <Tag color="orange" style={{ margin: 0 }}>과제별 재검토</Tag>
+                                    )}
+                                  </>
+                                )
+                              })()}
                             </div>
                           </div>
 
@@ -2164,6 +2225,25 @@ export default function ApplicationSubmitPage() {
                               {competencyItem.description}
                             </Text>
                           )}
+
+                          {/* 과제별 재검토 안내 */}
+                          {(() => {
+                            const template = findTemplateByItemName(competencyItem.item_name)
+                            const linkedData = linkedCompetencyData[item.project_item_id]
+                            if (template && template.autoConfirmAcrossProjects === false && linkedData) {
+                              return (
+                                <Alert
+                                  type="info"
+                                  message="과제별 재검토 항목"
+                                  description="이 항목은 과제 성격에 따라 요구사항이 다를 수 있어, 이전 과제에서 확인받았더라도 이번 과제에서 다시 검토됩니다."
+                                  showIcon
+                                  className="mb-3"
+                                  style={{ fontSize: '13px' }}
+                                />
+                              )
+                            }
+                            return null
+                          })()}
 
                           {/* Input field based on template */}
                           <Card size="small" className="mb-2">

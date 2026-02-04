@@ -226,3 +226,47 @@ export function getScoringConfigSummary(config: ScoringConfig): string {
 
   return parts.join(' · ')
 }
+
+/**
+ * ScoringCriteria[] 배열을 ScoringConfig로 역변환
+ * (API 응답 파싱용)
+ */
+export function parseScoringCriteria(
+  itemId: number,
+  criteria: ScoringCriteria[]
+): Partial<ScoringConfig> | null {
+  if (!criteria || criteria.length === 0) {
+    return null
+  }
+
+  const firstCriteria = criteria[0]
+
+  // matchingType 추출
+  const matchingType = firstCriteria.matching_type as MatchingType
+
+  if (matchingType === MatchingType.GRADE) {
+    // GRADE 타입: 여러 criteria를 gradeMappings로 변환
+    return {
+      itemId,
+      matchingType: MatchingType.GRADE,
+      valueSource: firstCriteria.value_source as ValueSource || ValueSource.SUBMITTED,
+      sourceField: firstCriteria.source_field,
+      aggregationMode: firstCriteria.aggregation_mode as AggregationMode,
+      gradeMappings: criteria.map(c => ({
+        value: c.expected_value || '',
+        score: c.score || 0
+      })),
+      configured: true
+    }
+  } else {
+    // EXACT, CONTAINS, RANGE: 단일 criteria
+    return {
+      itemId,
+      matchingType,
+      valueSource: firstCriteria.value_source as ValueSource || ValueSource.SUBMITTED,
+      sourceField: firstCriteria.source_field,
+      aggregationMode: firstCriteria.aggregation_mode as AggregationMode,
+      configured: true
+    }
+  }
+}
