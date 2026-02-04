@@ -113,7 +113,7 @@ export default function Step4Scoring({ state, actions }: Step4Props) {
   return (
     <div className="wizard-question">
       <h2 className="wizard-question-title">
-        각 항목의 평가기준과 등급별 점수를 설정하세요
+        각 항목의 평가기준과 등급별 점수를 설정합니다
       </h2>
 
       {/* 전체 항목 목록 (상단 배치) */}
@@ -126,7 +126,6 @@ export default function Step4Scoring({ state, actions }: Step4Props) {
             const item = items.find(i => i.item_id === itemId)
             const config = itemConfigs[itemId]
             const isActive = index === currentIndex
-            const score = state.scoreAllocation[itemId] || 0
 
             return (
               <div
@@ -147,12 +146,11 @@ export default function Step4Scoring({ state, actions }: Step4Props) {
                 <div style={{ fontWeight: isActive ? 'bold' : 'normal', fontSize: 14, color: isActive ? '#ff6b00' : '#333' }}>
                   {item?.item_name || `항목 ${itemId}`}
                 </div>
-                <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
-                  <span>{score}점</span>
-                  {config?.configured && (
-                    <span style={{ marginLeft: 8, color: '#52c41a' }}>✓ 설정완료</span>
-                  )}
-                </div>
+                {config?.configured && (
+                  <div style={{ fontSize: 12, color: '#52c41a', marginTop: 4 }}>
+                    ✓ 설정완료
+                  </div>
+                )}
               </div>
             )
           })}
@@ -174,7 +172,7 @@ export default function Step4Scoring({ state, actions }: Step4Props) {
           title={
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span>{currentItem.item_name}</span>
-              <Tag color="orange">{currentScore}점</Tag>
+              <Tag color="orange">{Math.round(currentScore)}점</Tag>
               {currentConfig?.configured && (
                 <CheckCircleOutlined style={{ color: '#52c41a' }} />
               )}
@@ -250,7 +248,7 @@ export default function Step4Scoring({ state, actions }: Step4Props) {
             {currentConfig?.matchingType === MatchingType.GRADE && (
               <div>
                 <label style={{ fontWeight: 'bold', display: 'block', marginBottom: 8 }}>
-                  등급별 점수 설정 (총 {currentScore}점)
+                  등급별 점수 설정 (총 {Math.round(currentScore)}점)
                 </label>
                 <Space direction="vertical" style={{ width: '100%' }}>
                   {(currentConfig.grades || []).map((grade, index) => (
@@ -261,6 +259,7 @@ export default function Step4Scoring({ state, actions }: Step4Props) {
                         value={grade.score}
                         onChange={(value) => handleUpdateGrade(index, 'score', value || 0)}
                         addonAfter="점"
+                        precision={0}
                       />
                       <span style={{ margin: '0 8px' }}>←</span>
                       <input

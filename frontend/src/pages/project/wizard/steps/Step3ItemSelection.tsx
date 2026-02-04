@@ -120,6 +120,7 @@ export default function Step3ItemSelection({ state, actions }: Step3Props) {
                         addonAfter="점"
                         style={{ width: '120px' }}
                         placeholder="배점"
+                        precision={0}
                       />
                     )}
                   </div>
