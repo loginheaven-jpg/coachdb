@@ -75,6 +75,7 @@ export interface ScoringConfig {
   // 항목 설정
   isRequired?: boolean  // 필수 입력 여부
   allowMultiple?: boolean  // 복수 항목 입력 가능 여부
+  autoConfirmAcrossProjects?: boolean  // 다른 과제에서도 자동 컨펌 가능 여부
 }
 
 // ScoringCriteria (API 전송용)

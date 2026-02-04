@@ -106,6 +106,7 @@ export default function GradeConfigModal({
       proofRequired: template.proofRequired,
       isRequired: template.isRequired,  // 필수 입력 여부
       allowMultiple: template.allowMultiple,  // 복수 입력 가능 여부
+      autoConfirmAcrossProjects: template.autoConfirmAcrossProjects,  // 자동 컨펌 정책
       verificationNote: template.verificationNote
     }))
   }
@@ -324,7 +325,7 @@ export default function GradeConfigModal({
             >
               {MATCHING_TYPES_BY_GRADE[config.gradeType].map(type => (
                 <Select.Option key={type} value={type}>
-                  {type} - {MATCHING_TYPE_DESCRIPTIONS[type]}
+                  {MATCHING_TYPE_DESCRIPTIONS[type]}
                 </Select.Option>
               ))}
             </Select>
@@ -344,7 +345,7 @@ export default function GradeConfigModal({
             >
               {AGGREGATION_MODES_BY_GRADE[config.gradeType].map(mode => (
                 <Select.Option key={mode} value={mode}>
-                  {mode} - {AGGREGATION_MODE_DESCRIPTIONS[mode]}
+                  {AGGREGATION_MODE_DESCRIPTIONS[mode]}
                 </Select.Option>
               ))}
             </Select>

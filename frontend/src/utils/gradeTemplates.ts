@@ -33,6 +33,9 @@ export interface GradeTemplate {
   isRequired?: boolean        // 필수 입력 여부
   allowMultiple?: boolean     // 복수 항목 입력 가능 여부
 
+  // 자동 컨펌 정책
+  autoConfirmAcrossProjects: boolean  // 다른 과제에서도 자동 컨펌 가능 (true: 절대 기준, false: 과제별 재검토)
+
   // 자동 적용 조건
   keywords: string[]          // 항목명에 포함되면 자동 제안
 }
@@ -64,6 +67,7 @@ export const TEMPLATE_KCA_CERTIFICATION: GradeTemplate = {
   proofRequired: ProofRequiredLevel.OPTIONAL,
   isRequired: false,  // 필수 입력 아님 (선택)
   allowMultiple: false,  // 단일 값만 입력 (기본정보에서 자동 조회)
+  autoConfirmAcrossProjects: true,  // KSC/KAC/KPC는 절대 기준 - 전역 자동 컨펌
   verificationNote: '기본정보에 등록된 코치인증번호가 자동으로 조회됩니다',
   keywords: ['kca', '코칭', '자격증', '인증']
 }
@@ -92,6 +96,7 @@ export const TEMPLATE_COUNSELING_BY_NAME: GradeTemplate = {
   proofRequired: ProofRequiredLevel.REQUIRED,
   isRequired: false,  // 필수 입력 아님 (선택)
   allowMultiple: true,  // 복수 자격증 입력 가능
+  autoConfirmAcrossProjects: false,  // 과제마다 요구 자격 다름 - 과제별 재검토 필요
   verificationNote: '자격증 적합성은 검토자가 증빙을 확인하여 판단합니다',
   keywords: ['상담', '심리', '치료', '심리치료']
 }
@@ -120,6 +125,7 @@ export const TEMPLATE_COUNSELING_BY_EXISTS: GradeTemplate = {
   proofRequired: ProofRequiredLevel.REQUIRED,
   isRequired: false,  // 필수 입력 아님 (선택)
   allowMultiple: false,  // 단일 값만 (유무 판정)
+  autoConfirmAcrossProjects: false,  // 과제마다 요구 자격 다름 - 과제별 재검토 필요
   verificationNote: '의미있는 자격증 적합성 기준은 과제관리자가 설정하고 확인은 검토자가 진행합니다',
   keywords: ['상담', '심리', '치료', '심리치료']
 }
@@ -144,6 +150,7 @@ export const TEMPLATE_OTHER_BY_NAME: GradeTemplate = {
   proofRequired: ProofRequiredLevel.REQUIRED,
   isRequired: false,  // 필수 입력 아님 (선택)
   allowMultiple: true,  // 복수 자격증 입력 가능
+  autoConfirmAcrossProjects: false,  // 과제마다 요구 자격 다름 - 과제별 재검토 필요
   verificationNote: '자격증 적합성은 검토자가 증빙을 확인하여 판단합니다',
   keywords: ['기타', '자격']
 }
@@ -169,6 +176,7 @@ export const TEMPLATE_OTHER_BY_EXISTS: GradeTemplate = {
   proofRequired: ProofRequiredLevel.REQUIRED,
   isRequired: false,  // 필수 입력 아님 (선택)
   allowMultiple: false,  // 단일 값만 (유무 판정)
+  autoConfirmAcrossProjects: false,  // 과제마다 요구 자격 다름 - 과제별 재검토 필요
   verificationNote: '자격증 적합성은 검토자가 증빙을 확인하여 판단합니다',
   keywords: ['기타', '자격']
 }
@@ -194,6 +202,7 @@ export const TEMPLATE_COACHING_HOURS: GradeTemplate = {
   proofRequired: ProofRequiredLevel.OPTIONAL,
   isRequired: false,  // 필수 입력 아님 (선택)
   allowMultiple: true,  // 복수 경력 입력 가능 (합산)
+  autoConfirmAcrossProjects: true,  // 시간은 객관적 수치 - 전역 자동 컨펌
   keywords: ['경력', '시간', 'hour']
 }
 
@@ -218,6 +227,7 @@ export const TEMPLATE_DEGREE: GradeTemplate = {
   proofRequired: ProofRequiredLevel.REQUIRED,
   isRequired: false,  // 필수 입력 아님 (선택)
   allowMultiple: true,  // 복수 학위 입력 가능 (최고점수만 적용)
+  autoConfirmAcrossProjects: true,  // 학위는 절대 기준 - 전역 자동 컨펌
   keywords: ['학위', '학력', 'degree', '박사', '석사', '학사']
 }
 
