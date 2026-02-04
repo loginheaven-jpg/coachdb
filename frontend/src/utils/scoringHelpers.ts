@@ -152,7 +152,7 @@ export function validateScoringConfig(config: ScoringConfig, maxScore?: number):
       if (maxScore !== undefined && maxScore > 0) {
         const highestScore = Math.max(...config.gradeMappings.map(m => m.score))
         if (highestScore > maxScore) {
-          errors.push(`등급별 점수가 최대 배점(${maxScore}점)을 초과할 수 없습니다. 가장 높은 점수: ${highestScore}점`)
+          errors.push(`등급별 점수가 최대 배점(${maxScore}점)을 초과할 수 없습니다. 가장 높은 점수: ${highestScore}점. 이전단계(항목선택)로 가셔서 배점을 조정하실 수 있습니다.`)
         }
       }
     }

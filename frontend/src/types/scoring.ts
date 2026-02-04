@@ -71,6 +71,10 @@ export interface ScoringConfig {
   allowAddGrades?: boolean  // 사용자가 등급 추가 가능 여부
   proofRequired?: ProofRequiredLevel  // 증빙 필수 수준
   verificationNote?: string  // 검증 안내 메시지
+
+  // 항목 설정
+  isRequired?: boolean  // 필수 입력 여부
+  allowMultiple?: boolean  // 복수 항목 입력 가능 여부
 }
 
 // ScoringCriteria (API 전송용)

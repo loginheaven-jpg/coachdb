@@ -29,6 +29,10 @@ export interface GradeTemplate {
   proofRequired: ProofRequiredLevel
   verificationNote?: string   // 검증 안내 메시지
 
+  // 항목 설정
+  isRequired?: boolean        // 필수 입력 여부
+  allowMultiple?: boolean     // 복수 항목 입력 가능 여부
+
   // 자동 적용 조건
   keywords: string[]          // 항목명에 포함되면 자동 제안
 }
@@ -58,6 +62,8 @@ export const TEMPLATE_KCA_CERTIFICATION: GradeTemplate = {
   fixedGrades: true,
   allowAddGrades: false,
   proofRequired: ProofRequiredLevel.OPTIONAL,
+  isRequired: false,  // 필수 입력 아님 (선택)
+  allowMultiple: false,  // 단일 값만 입력 (기본정보에서 자동 조회)
   verificationNote: '기본정보에 등록된 코치인증번호가 자동으로 조회됩니다',
   keywords: ['kca', '코칭', '자격증', '인증']
 }

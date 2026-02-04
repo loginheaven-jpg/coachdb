@@ -1,7 +1,8 @@
-import { Card, Empty, Descriptions, Tag, List, Alert } from 'antd'
+import { Card, Empty, Descriptions, Tag, List, Alert, Divider } from 'antd'
 import { useState, useEffect } from 'react'
 import { WizardState } from '../../hooks/useWizardState'
 import projectService, { type CompetencyItem } from '../../services/projectService'
+import { ProofRequiredLevel, ValueSource, AggregationMode } from '../../types/scoring'
 
 interface WizardPreviewProps {
   state: WizardState
@@ -196,23 +197,111 @@ function Step4Preview({ state }: { state: WizardState }) {
     return item?.item_name || `항목 ${itemId}`
   }
 
+  // 증빙 레벨 라벨
+  const getProofLabel = (level?: ProofRequiredLevel) => {
+    switch (level) {
+      case ProofRequiredLevel.REQUIRED: return '증빙 필수'
+      case ProofRequiredLevel.OPTIONAL: return '증빙 선택'
+      case ProofRequiredLevel.NOT_REQUIRED: return '증빙 불필요'
+      default: return '증빙 선택'
+    }
+  }
+
+  // 값 소스 라벨
+  const getValueSourceLabel = (source?: ValueSource) => {
+    switch (source) {
+      case ValueSource.USER_FIELD: return '기본정보에서 자동 조회'
+      case ValueSource.JSON_FIELD: return 'JSON 필드에서 추출'
+      case ValueSource.SUBMITTED: return '제출된 값'
+      default: return '제출된 값'
+    }
+  }
+
+  // 집계 방식 라벨
+  const getAggregationLabel = (mode?: AggregationMode) => {
+    switch (mode) {
+      case AggregationMode.BEST_MATCH: return '등급별 점수 중 가장 높은 점수 부여'
+      case AggregationMode.ANY_MATCH: return '하나라도 일치하면 점수 부여'
+      case AggregationMode.FIRST: return '첫 번째 값만 사용'
+      case AggregationMode.SUM: return '모든 값을 합산'
+      case AggregationMode.MAX: return '가장 큰 숫자 값 사용'
+      case AggregationMode.COUNT: return '개수만큼 점수 부여'
+      default: return ''
+    }
+  }
+
   return (
-    <Card title="배점 설정">
-      <List
-        dataSource={state.selectedItemIds}
-        renderItem={itemId => {
+    <Card title="항목별 설정 상태">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        {state.selectedItemIds.map(itemId => {
           const score = Number(state.scoreAllocation[itemId] || 0)
+          const config = state.scoringConfigs[itemId]
+          const itemName = getItemName(itemId)
+
           return (
-            <List.Item
-              extra={<Tag color={score > 0 ? 'green' : 'default'}>
-                {Math.round(score)}점
-              </Tag>}
-            >
-              {getItemName(itemId)}
-            </List.Item>
+            <div key={itemId} style={{
+              padding: 16,
+              border: '1px solid #e0e0e0',
+              borderRadius: 8,
+              background: config?.configured ? '#f6ffed' : '#fff'
+            }}>
+              {/* 항목명 */}
+              <div style={{ fontWeight: 'bold', fontSize: 15, marginBottom: 8, color: '#333' }}>
+                {itemName}
+              </div>
+
+              {/* 기본 설정 */}
+              <div style={{ fontSize: 13, color: '#666', marginBottom: 12, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                <span>{config?.isRequired ? '필수입력' : '선택입력'}</span>
+                <span>•</span>
+                <span>{getProofLabel(config?.proofRequired)}</span>
+                <span>•</span>
+                <span>{config?.allowMultiple ? '복수입력가능' : '단일입력'}</span>
+              </div>
+
+              {/* 등급별 점수 */}
+              {config?.configured && config.gradeMappings && config.gradeMappings.length > 0 ? (
+                <>
+                  <div style={{ marginBottom: 8 }}>
+                    {config.gradeMappings.map((mapping, idx) => (
+                      <div key={idx} style={{
+                        fontSize: 13,
+                        padding: '4px 0',
+                        display: 'flex',
+                        justifyContent: 'space-between'
+                      }}>
+                        <span>{mapping.label || mapping.value}</span>
+                        <span style={{ fontWeight: 600, color: '#ff6b00' }}>{Math.round(mapping.score)}점</span>
+                      </div>
+                    ))}
+                  </div>
+                  <Divider style={{ margin: '12px 0' }} />
+
+                  {/* 추가 정보 */}
+                  <div style={{ fontSize: 12, color: '#999' }}>
+                    {config.valueSource && config.valueSource !== ValueSource.SUBMITTED && (
+                      <div style={{ marginBottom: 4 }}>
+                        <strong>근거자료:</strong> {getValueSourceLabel(config.valueSource)}
+                        {config.sourceField && ` (${config.sourceField})`}
+                      </div>
+                    )}
+                    {config.aggregationMode && (
+                      <div>
+                        <strong>복수항목 계산:</strong> {getAggregationLabel(config.aggregationMode)}
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div style={{ fontSize: 13, color: '#999', fontStyle: 'italic' }}>
+                  아직 설정되지 않음 (총 {Math.round(score)}점)
+                </div>
+              )}
+            </div>
           )
-        }}
-      />
+        })}
+      </div>
+
       <Alert
         type={isValid ? 'success' : 'warning'}
         message={`총 배점: ${Math.round(totalScore)}/100점`}

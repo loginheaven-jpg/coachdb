@@ -13,6 +13,7 @@ import {
   AggregationMode,
   MatchingType,
   GradeMapping,
+  ProofRequiredLevel,
   MATCHING_TYPES_BY_GRADE,
   AGGREGATION_MODES_BY_GRADE,
   AGGREGATION_MODE_DESCRIPTIONS,
@@ -103,6 +104,8 @@ export default function GradeConfigModal({
       fixedGrades: template.fixedGrades,
       allowAddGrades: template.allowAddGrades,
       proofRequired: template.proofRequired,
+      isRequired: template.isRequired,  // 필수 입력 여부
+      allowMultiple: template.allowMultiple,  // 복수 입력 가능 여부
       verificationNote: template.verificationNote
     }))
   }
@@ -501,6 +504,74 @@ export default function GradeConfigModal({
             </Space>
           </div>
         )}
+
+        <Divider />
+
+        {/* 추가 설정 */}
+        <div>
+          <label style={{ fontWeight: 'bold', display: 'block', marginBottom: 12 }}>
+            항목 설정
+          </label>
+          <Space direction="vertical" style={{ width: '100%' }} size="middle">
+            {/* 필수 입력 여부 */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: '#fafafa', borderRadius: 8 }}>
+              <div>
+                <div style={{ fontWeight: 600 }}>필수 입력</div>
+                <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
+                  이 항목을 반드시 입력해야 합니까?
+                </div>
+              </div>
+              <Radio.Group
+                value={config.isRequired ?? false}
+                onChange={(e) => setConfig(prev => ({ ...prev, isRequired: e.target.value }))}
+                buttonStyle="solid"
+                size="small"
+              >
+                <Radio.Button value={true}>필수</Radio.Button>
+                <Radio.Button value={false}>선택</Radio.Button>
+              </Radio.Group>
+            </div>
+
+            {/* 증빙 첨부 여부 */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: '#fafafa', borderRadius: 8 }}>
+              <div>
+                <div style={{ fontWeight: 600 }}>증빙 첨부</div>
+                <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
+                  이 항목에 대한 증빙 자료가 필요합니까?
+                </div>
+              </div>
+              <Radio.Group
+                value={config.proofRequired || ProofRequiredLevel.OPTIONAL}
+                onChange={(e) => setConfig(prev => ({ ...prev, proofRequired: e.target.value }))}
+                buttonStyle="solid"
+                size="small"
+              >
+                <Radio.Button value={ProofRequiredLevel.REQUIRED}>필수</Radio.Button>
+                <Radio.Button value={ProofRequiredLevel.OPTIONAL}>선택</Radio.Button>
+                <Radio.Button value={ProofRequiredLevel.NOT_REQUIRED}>불필요</Radio.Button>
+              </Radio.Group>
+            </div>
+
+            {/* 복수 입력 가능 여부 */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: '#fafafa', borderRadius: 8 }}>
+              <div>
+                <div style={{ fontWeight: 600 }}>복수 항목 입력</div>
+                <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
+                  이 항목을 여러 개 입력할 수 있습니까? (예: 여러 자격증)
+                </div>
+              </div>
+              <Radio.Group
+                value={config.allowMultiple ?? false}
+                onChange={(e) => setConfig(prev => ({ ...prev, allowMultiple: e.target.value }))}
+                buttonStyle="solid"
+                size="small"
+              >
+                <Radio.Button value={true}>가능</Radio.Button>
+                <Radio.Button value={false}>불가</Radio.Button>
+              </Radio.Group>
+            </div>
+          </Space>
+        </div>
 
         {/* 총 배점 안내 */}
         <Alert
