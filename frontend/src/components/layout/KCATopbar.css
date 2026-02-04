@@ -49,11 +49,12 @@
 }
 
 @keyframes dot-move {
-  0% { left: 37%; opacity: 1; }       /* C에서 시작 */
-  33% { left: 87%; opacity: 1; }      /* S 도착 */
-  38% { left: 95%; opacity: 0; }      /* S 지나서 사라짐 */
-  42% { left: 5%; opacity: 0; }       /* P 앞으로 이동 (보이지 않음) */
-  47% { left: 12%; opacity: 1; }      /* P에서 나타남 */
+  0% { left: 37%; opacity: 1; }       /* C에서 대기 시작 */
+  3% { left: 37%; opacity: 1; }       /* C에서 5초 대기 후 출발 */
+  36% { left: 87%; opacity: 1; }      /* S 도착 */
+  41% { left: 95%; opacity: 0; }      /* S 지나서 사라짐 */
+  45% { left: 5%; opacity: 0; }       /* P 앞으로 이동 (보이지 않음) */
+  50% { left: 12%; opacity: 1; }      /* P에서 나타남 */
   100% { left: 37%; opacity: 1; }     /* C로 돌아옴 */
 }
 
