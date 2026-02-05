@@ -1323,8 +1323,13 @@ export default function AdminCompetencyItemsPage() {
   // 실제 저장 로직
   const saveUnifiedTemplate = async (values: any) => {
     try {
+      // 빈 문자열을 null로 변환 (백엔드 Literal 타입 검증 통과를 위해)
+      const cleanedValues = Object.fromEntries(
+        Object.entries(values).map(([key, value]) => [key, value === '' ? null : value])
+      )
+
       const templateData: UnifiedTemplateUpdate = {
-        ...values,
+        ...cleanedValues,
         fields_schema: unifiedTemplateService.stringifyFieldsSchema(unifiedFieldsSchema),
         default_mappings: unifiedTemplateService.stringifyMappings(unifiedGradeMappings),
         keywords: unifiedTemplateService.stringifyKeywords(unifiedKeywords)
