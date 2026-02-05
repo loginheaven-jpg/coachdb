@@ -108,7 +108,7 @@ async def health_check():
 
 
 # Import and include routers
-from app.api.endpoints import auth, competencies, files, education, applications, projects, certifications, notifications, admin, verifications, profile, scoring
+from app.api.endpoints import auth, competencies, files, education, applications, projects, certifications, notifications, admin, verifications, profile, scoring, scoring_templates
 
 app.include_router(auth.router, prefix="/api")
 app.include_router(competencies.router, prefix="/api")
@@ -122,6 +122,7 @@ app.include_router(admin.router, prefix="/api")
 app.include_router(verifications.router, prefix="/api")
 app.include_router(profile.router, prefix="/api")
 app.include_router(scoring.router, prefix="/api")
+app.include_router(scoring_templates.router, prefix="/api")
 
 
 if __name__ == "__main__":

@@ -16,6 +16,7 @@ from app.models.evaluation import CoachEvaluation
 from app.models.certification import Certification, CertificationType
 from app.models.role_request import RoleRequest, RoleRequestStatus
 from app.models.reviewer_evaluation import ReviewerEvaluation, Recommendation
+from app.models.scoring_template import ScoringTemplate
 
 __all__ = [
     "User",
@@ -50,4 +51,5 @@ __all__ = [
     "RoleRequestStatus",
     "ReviewerEvaluation",
     "Recommendation",
+    "ScoringTemplate",
 ]

@@ -67,6 +67,10 @@ class CompetencyItemResponse(BaseModel):
     is_custom: bool = False
     created_by: Optional[int] = None
 
+    # Scoring template (평가 방법 설정)
+    scoring_template_id: Optional[str] = None  # FK to scoring_templates
+    scoring_config_override: Optional[str] = None  # 커스터마이즈 시 사용 (JSON)
+
     # Fields
     fields: List[CompetencyItemFieldResponse] = []
 
@@ -204,6 +208,8 @@ class CompetencyItemCreate(BaseModel):
     is_active: bool = True
     description: Optional[str] = None  # 설문 입력 안내 문구
     is_custom: bool = False  # True for custom questions
+    scoring_template_id: Optional[str] = None  # FK to scoring_templates
+    scoring_config_override: Optional[str] = None  # 커스터마이즈 시 사용 (JSON)
     fields: List[CompetencyItemFieldCreate] = []
 
 
@@ -217,3 +223,5 @@ class CompetencyItemUpdate(BaseModel):
     max_entries: Optional[int] = None
     is_active: Optional[bool] = None
     description: Optional[str] = None  # 설문 입력 안내 문구
+    scoring_template_id: Optional[str] = None  # FK to scoring_templates
+    scoring_config_override: Optional[str] = None  # 커스터마이즈 시 사용 (JSON)

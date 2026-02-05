@@ -14,7 +14,10 @@ import {
   Input,
   Switch,
   InputNumber,
-  Popconfirm
+  Popconfirm,
+  Tabs,
+  Descriptions,
+  Alert
 } from 'antd'
 import {
   ArrowLeftOutlined,
@@ -32,6 +35,12 @@ import competencyService, {
   CompetencyItemField,
   CompetencyItemFieldCreate
 } from '../services/competencyService'
+import scoringTemplateService, {
+  ScoringTemplate,
+  ScoringTemplateCreate,
+  ScoringTemplateUpdate,
+  GradeMapping
+} from '../services/scoringTemplateService'
 
 const { Title, Text } = Typography
 
@@ -55,7 +64,49 @@ const TEMPLATE_OPTIONS = [
   { label: '파일', value: 'file' },
   { label: '텍스트+파일', value: 'text_file' },
   { label: '학위', value: 'degree' },
-  { label: '코칭이력', value: 'coaching_history' }
+  { label: '코칭이력', value: 'coaching_history' },
+  { label: '코칭시간', value: 'coaching_time' },
+  { label: '코칭경력', value: 'coaching_experience' }
+]
+
+// 등급 유형 옵션
+const GRADE_TYPE_OPTIONS = [
+  { label: '문자열', value: 'string' },
+  { label: '숫자', value: 'numeric' },
+  { label: '파일유무', value: 'file_exists' },
+  { label: '복수선택', value: 'multi_select' }
+]
+
+// 매칭 유형 옵션
+const MATCHING_TYPE_OPTIONS = [
+  { label: '정확히 일치', value: 'exact' },
+  { label: '포함', value: 'contains' },
+  { label: '범위', value: 'range' },
+  { label: '등급', value: 'grade' }
+]
+
+// 값 소스 옵션
+const VALUE_SOURCE_OPTIONS = [
+  { label: '제출값', value: 'SUBMITTED' },
+  { label: '사용자 필드', value: 'USER_FIELD' },
+  { label: 'JSON 필드', value: 'JSON_FIELD' }
+]
+
+// 집계 방식 옵션
+const AGGREGATION_MODE_OPTIONS = [
+  { label: '첫번째만', value: 'first' },
+  { label: '합계', value: 'sum' },
+  { label: '최대값', value: 'max' },
+  { label: '개수', value: 'count' },
+  { label: '하나라도 일치', value: 'any_match' },
+  { label: '최고점수', value: 'best_match' }
+]
+
+// 증빙 필수 옵션
+const PROOF_REQUIRED_OPTIONS = [
+  { label: '불필요', value: 'NOT_REQUIRED' },
+  { label: '선택', value: 'OPTIONAL' },
+  { label: '필수', value: 'REQUIRED' }
 ]
 
 const FIELD_TYPE_OPTIONS = [
@@ -68,12 +119,23 @@ const FIELD_TYPE_OPTIONS = [
 
 export default function AdminCompetencyItemsPage() {
   const navigate = useNavigate()
+  const [activeTab, setActiveTab] = useState('items')
   const [loading, setLoading] = useState(false)
   const [items, setItems] = useState<CompetencyItem[]>([])
   const [categoryFilter, setCategoryFilter] = useState<string | undefined>()
   const [showInactive, setShowInactive] = useState(false)
   const [seedLoading, setSeedLoading] = useState(false)
   const [clearLoading, setClearLoading] = useState(false)
+
+  // 평가 템플릿 관련 상태
+  const [templates, setTemplates] = useState<ScoringTemplate[]>([])
+  const [templatesLoading, setTemplatesLoading] = useState(false)
+  const [showInactiveTemplates, setShowInactiveTemplates] = useState(false)
+  const [isTemplateCreateModalOpen, setIsTemplateCreateModalOpen] = useState(false)
+  const [isTemplateEditModalOpen, setIsTemplateEditModalOpen] = useState(false)
+  const [editingTemplate, setEditingTemplate] = useState<ScoringTemplate | null>(null)
+  const [gradeMappings, setGradeMappings] = useState<GradeMapping[]>([])
+  const [keywords, setKeywords] = useState<string[]>([])
 
   // Modal states
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -85,10 +147,13 @@ export default function AdminCompetencyItemsPage() {
   const [createForm] = Form.useForm()
   const [editForm] = Form.useForm()
   const [fieldForm] = Form.useForm()
+  const [templateCreateForm] = Form.useForm()
+  const [templateEditForm] = Form.useForm()
 
   useEffect(() => {
     loadItems()
-  }, [showInactive])
+    loadTemplates()
+  }, [showInactive, showInactiveTemplates])
 
   // Update editingItem when items change (for field modal updates)
   useEffect(() => {
@@ -110,6 +175,19 @@ export default function AdminCompetencyItemsPage() {
       message.error('역량항목을 불러오는데 실패했습니다.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadTemplates = async () => {
+    setTemplatesLoading(true)
+    try {
+      const data = await scoringTemplateService.getAll(!showInactiveTemplates)
+      setTemplates(data)
+    } catch (error: any) {
+      console.error('평가 템플릿 로드 실패:', error)
+      message.error('평가 템플릿을 불러오는데 실패했습니다.')
+    } finally {
+      setTemplatesLoading(false)
     }
   }
 
@@ -244,7 +322,8 @@ export default function AdminCompetencyItemsPage() {
       template_config: item.template_config,
       is_repeatable: item.is_repeatable,
       max_entries: item.max_entries,
-      is_active: item.is_active
+      is_active: item.is_active,
+      scoring_template_id: item.scoring_template_id
     })
     setIsEditModalOpen(true)
   }
@@ -296,9 +375,277 @@ export default function AdminCompetencyItemsPage() {
     fieldForm.resetFields()
   }
 
+  // 평가 템플릿 CRUD
+  const handleCreateTemplate = async (values: any) => {
+    try {
+      const templateData: ScoringTemplateCreate = {
+        ...values,
+        default_mappings: scoringTemplateService.stringifyMappings(gradeMappings),
+        keywords: scoringTemplateService.stringifyKeywords(keywords)
+      }
+      await scoringTemplateService.create(templateData)
+      message.success('평가 템플릿이 생성되었습니다.')
+      setIsTemplateCreateModalOpen(false)
+      templateCreateForm.resetFields()
+      setGradeMappings([])
+      setKeywords([])
+      loadTemplates()
+    } catch (error: any) {
+      console.error('템플릿 생성 실패:', error)
+      message.error(error.response?.data?.detail || '생성에 실패했습니다.')
+    }
+  }
+
+  const handleEditTemplate = async (values: any) => {
+    if (!editingTemplate) return
+    try {
+      const templateData: ScoringTemplateUpdate = {
+        ...values,
+        default_mappings: scoringTemplateService.stringifyMappings(gradeMappings),
+        keywords: scoringTemplateService.stringifyKeywords(keywords)
+      }
+      await scoringTemplateService.update(editingTemplate.template_id, templateData)
+      message.success('평가 템플릿이 수정되었습니다.')
+      setIsTemplateEditModalOpen(false)
+      setEditingTemplate(null)
+      templateEditForm.resetFields()
+      setGradeMappings([])
+      setKeywords([])
+      loadTemplates()
+    } catch (error: any) {
+      console.error('템플릿 수정 실패:', error)
+      message.error(error.response?.data?.detail || '수정에 실패했습니다.')
+    }
+  }
+
+  const handleDeleteTemplate = async (templateId: string) => {
+    try {
+      await scoringTemplateService.delete(templateId)
+      message.success('평가 템플릿이 비활성화되었습니다.')
+      loadTemplates()
+    } catch (error: any) {
+      console.error('템플릿 삭제 실패:', error)
+      message.error(error.response?.data?.detail || '삭제에 실패했습니다.')
+    }
+  }
+
+  const openTemplateEditModal = (template: ScoringTemplate) => {
+    setEditingTemplate(template)
+    setGradeMappings(scoringTemplateService.parseMappings(template.default_mappings))
+    setKeywords(scoringTemplateService.parseKeywords(template.keywords))
+    templateEditForm.setFieldsValue({
+      template_name: template.template_name,
+      description: template.description,
+      grade_type: template.grade_type,
+      matching_type: template.matching_type,
+      value_source: template.value_source,
+      source_field: template.source_field,
+      aggregation_mode: template.aggregation_mode,
+      fixed_grades: template.fixed_grades,
+      allow_add_grades: template.allow_add_grades,
+      proof_required: template.proof_required,
+      verification_note: template.verification_note,
+      is_required_default: template.is_required_default,
+      allow_multiple: template.allow_multiple,
+      auto_confirm_across_projects: template.auto_confirm_across_projects,
+      is_active: template.is_active
+    })
+    setIsTemplateEditModalOpen(true)
+  }
+
+  const addGradeMapping = () => {
+    setGradeMappings([...gradeMappings, { value: '', score: 0, label: '', fixed: false }])
+  }
+
+  const updateGradeMapping = (index: number, field: keyof GradeMapping, value: any) => {
+    const updated = [...gradeMappings]
+    updated[index] = { ...updated[index], [field]: value }
+    setGradeMappings(updated)
+  }
+
+  const removeGradeMapping = (index: number) => {
+    setGradeMappings(gradeMappings.filter((_, i) => i !== index))
+  }
+
+  const addKeyword = (keyword: string) => {
+    if (keyword && !keywords.includes(keyword)) {
+      setKeywords([...keywords, keyword])
+    }
+  }
+
+  const removeKeyword = (keyword: string) => {
+    setKeywords(keywords.filter(k => k !== keyword))
+  }
+
+  // 템플릿 선택 시 미리보기 정보
+  const getTemplatePreview = (templateId: string | undefined) => {
+    if (!templateId) return null
+    return templates.find(t => t.template_id === templateId)
+  }
+
   const filteredItems = categoryFilter
     ? items.filter(item => item.category === categoryFilter)
     : items
+
+  // 템플릿 테이블 컬럼
+  const templateColumns = [
+    {
+      title: '템플릿 ID',
+      dataIndex: 'template_id',
+      key: 'template_id',
+      width: '12%'
+    },
+    {
+      title: '템플릿명',
+      dataIndex: 'template_name',
+      key: 'template_name',
+      width: '15%'
+    },
+    {
+      title: '등급유형',
+      dataIndex: 'grade_type',
+      key: 'grade_type',
+      width: '10%',
+      render: (v: string) => {
+        const opt = GRADE_TYPE_OPTIONS.find(o => o.value === v)
+        return <Tag>{opt?.label || v}</Tag>
+      }
+    },
+    {
+      title: '매칭방식',
+      dataIndex: 'matching_type',
+      key: 'matching_type',
+      width: '10%',
+      render: (v: string) => {
+        const opt = MATCHING_TYPE_OPTIONS.find(o => o.value === v)
+        return <Tag color="blue">{opt?.label || v}</Tag>
+      }
+    },
+    {
+      title: '등급 수',
+      key: 'mappings_count',
+      width: '8%',
+      render: (_: any, record: ScoringTemplate) => {
+        const mappings = scoringTemplateService.parseMappings(record.default_mappings)
+        return mappings.length
+      }
+    },
+    {
+      title: '증빙',
+      dataIndex: 'proof_required',
+      key: 'proof_required',
+      width: '8%',
+      render: (v: string) => {
+        const colors: Record<string, string> = {
+          'NOT_REQUIRED': 'default',
+          'OPTIONAL': 'blue',
+          'REQUIRED': 'red'
+        }
+        const labels: Record<string, string> = {
+          'NOT_REQUIRED': '불필요',
+          'OPTIONAL': '선택',
+          'REQUIRED': '필수'
+        }
+        return <Tag color={colors[v]}>{labels[v] || v}</Tag>
+      }
+    },
+    {
+      title: '상태',
+      dataIndex: 'is_active',
+      key: 'is_active',
+      width: '8%',
+      render: (active: boolean) => (
+        active ? <Tag color="green">활성</Tag> : <Tag color="red">비활성</Tag>
+      )
+    },
+    {
+      title: '작업',
+      key: 'actions',
+      width: '15%',
+      render: (_: any, record: ScoringTemplate) => (
+        <Space>
+          <Button
+            type="link"
+            icon={<EditOutlined />}
+            onClick={() => openTemplateEditModal(record)}
+          >
+            수정
+          </Button>
+          {record.is_active && (
+            <Popconfirm
+              title="이 템플릿을 비활성화하시겠습니까?"
+              onConfirm={() => handleDeleteTemplate(record.template_id)}
+              okText="예"
+              cancelText="아니오"
+            >
+              <Button type="link" danger icon={<DeleteOutlined />}>
+                삭제
+              </Button>
+            </Popconfirm>
+          )}
+        </Space>
+      )
+    }
+  ]
+
+  // 템플릿 상세 확장 행
+  const templateExpandedRowRender = (record: ScoringTemplate) => {
+    const mappings = scoringTemplateService.parseMappings(record.default_mappings)
+    const kwds = scoringTemplateService.parseKeywords(record.keywords)
+
+    return (
+      <div className="p-4 bg-gray-50">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Text strong>등급별 점수 매핑:</Text>
+            <div className="mt-2">
+              {mappings.length > 0 ? (
+                <Table
+                  size="small"
+                  pagination={false}
+                  dataSource={mappings.map((m, i) => ({ ...m, key: i }))}
+                  columns={[
+                    { title: '값', dataIndex: 'value', key: 'value' },
+                    { title: '점수', dataIndex: 'score', key: 'score' },
+                    { title: '레이블', dataIndex: 'label', key: 'label', render: (v: string) => v || '-' },
+                    { title: '고정', dataIndex: 'fixed', key: 'fixed', render: (v: boolean) => v ? '예' : '아니오' }
+                  ]}
+                />
+              ) : (
+                <Text type="secondary">등급 매핑 없음</Text>
+              )}
+            </div>
+          </div>
+          <div>
+            <Text strong>설정 정보:</Text>
+            <Descriptions size="small" column={1} className="mt-2">
+              <Descriptions.Item label="값 소스">
+                {VALUE_SOURCE_OPTIONS.find(o => o.value === record.value_source)?.label || record.value_source}
+              </Descriptions.Item>
+              {record.source_field && (
+                <Descriptions.Item label="소스 필드">{record.source_field}</Descriptions.Item>
+              )}
+              <Descriptions.Item label="집계방식">
+                {AGGREGATION_MODE_OPTIONS.find(o => o.value === record.aggregation_mode)?.label || record.aggregation_mode}
+              </Descriptions.Item>
+              <Descriptions.Item label="등급 고정">{record.fixed_grades ? '예' : '아니오'}</Descriptions.Item>
+              <Descriptions.Item label="등급 추가 허용">{record.allow_add_grades ? '예' : '아니오'}</Descriptions.Item>
+              <Descriptions.Item label="자동컨펌(프로젝트간)">{record.auto_confirm_across_projects ? '예' : '아니오'}</Descriptions.Item>
+            </Descriptions>
+            {record.verification_note && (
+              <Alert message={record.verification_note} type="info" className="mt-2" />
+            )}
+            {kwds.length > 0 && (
+              <div className="mt-2">
+                <Text strong>키워드: </Text>
+                {kwds.map(k => <Tag key={k}>{k}</Tag>)}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const columns = [
     {
@@ -321,17 +668,32 @@ export default function AdminCompetencyItemsPage() {
       render: (category: string) => getCategoryTag(category),
     },
     {
-      title: '템플릿',
+      title: '입력 템플릿',
       dataIndex: 'template',
       key: 'template',
-      width: '10%',
+      width: '8%',
       render: (template: string) => template || '-',
+    },
+    {
+      title: '평가 템플릿',
+      dataIndex: 'scoring_template_id',
+      key: 'scoring_template_id',
+      width: '10%',
+      render: (templateId: string) => {
+        if (!templateId) return <Text type="secondary">-</Text>
+        const template = templates.find(t => t.template_id === templateId)
+        return template ? (
+          <Tag color="orange">{template.template_name}</Tag>
+        ) : (
+          <Text type="secondary">{templateId}</Text>
+        )
+      },
     },
     {
       title: '다중입력',
       dataIndex: 'is_repeatable',
       key: 'is_repeatable',
-      width: '8%',
+      width: '6%',
       render: (repeatable: boolean, record: CompetencyItem) => (
         repeatable ? <Tag color="blue">Yes ({record.max_entries || '무제한'})</Tag> : <Tag>No</Tag>
       ),
@@ -429,101 +791,146 @@ export default function AdminCompetencyItemsPage() {
   return (
     <div className="p-8">
       <div className="flex justify-between items-center mb-4">
-          <Button
-            icon={<ArrowLeftOutlined />}
-            onClick={() => navigate('/dashboard')}
-          >
-            대시보드로 돌아가기
-          </Button>
-          <Space>
-            <Popconfirm
-              title="⚠️ 역량항목 전체 삭제"
-              description="모든 역량항목, 필드, 코치역량 데이터를 삭제합니다. 이 작업은 되돌릴 수 없습니다!"
-              onConfirm={handleClear}
-              okText="전체 삭제"
-              cancelText="취소"
-              okButtonProps={{ danger: true }}
-            >
+        <Button
+          icon={<ArrowLeftOutlined />}
+          onClick={() => navigate('/dashboard')}
+        >
+          대시보드로 돌아가기
+        </Button>
+        <Title level={3} style={{ margin: 0 }}>시스템관리 &gt; 역량항목 설정</Title>
+        <div style={{ width: 200 }} />
+      </div>
+
+      <Card>
+        <Tabs activeKey={activeTab} onChange={setActiveTab}>
+          {/* 역량항목 관리 탭 */}
+          <Tabs.TabPane tab="역량항목 관리" key="items">
+            <div className="flex justify-between items-center mb-4">
+              <Space>
+                <Popconfirm
+                  title="⚠️ 역량항목 전체 삭제"
+                  description="모든 역량항목, 필드, 코치역량 데이터를 삭제합니다. 이 작업은 되돌릴 수 없습니다!"
+                  onConfirm={handleClear}
+                  okText="전체 삭제"
+                  cancelText="취소"
+                  okButtonProps={{ danger: true }}
+                >
+                  <Button
+                    danger
+                    icon={<DeleteOutlined />}
+                    loading={clearLoading}
+                  >
+                    전체 삭제
+                  </Button>
+                </Popconfirm>
+                <Popconfirm
+                  title="역량항목 초기화"
+                  description="기본 역량항목(자격증, 학력, 코칭연수, 코칭경력)을 생성합니다. 이미 존재하는 항목은 스킵됩니다."
+                  onConfirm={handleSeed}
+                  okText="초기화"
+                  cancelText="취소"
+                >
+                  <Button
+                    icon={<SyncOutlined />}
+                    loading={seedLoading}
+                  >
+                    역량항목 초기화
+                  </Button>
+                </Popconfirm>
+              </Space>
               <Button
-                danger
-                icon={<DeleteOutlined />}
-                loading={clearLoading}
-                size="large"
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => setIsCreateModalOpen(true)}
               >
-                전체 삭제
+                새 역량항목 추가
               </Button>
-            </Popconfirm>
-            <Popconfirm
-              title="역량항목 초기화"
-              description="기본 역량항목(자격증, 학력, 코칭연수, 코칭경력)을 생성합니다. 이미 존재하는 항목은 스킵됩니다."
-              onConfirm={handleSeed}
-              okText="초기화"
-              cancelText="취소"
-            >
+            </div>
+            <div className="mb-4 flex justify-between">
+              <Space>
+                <Text>카테고리 필터:</Text>
+                <Select
+                  style={{ width: 150 }}
+                  placeholder="전체"
+                  allowClear
+                  value={categoryFilter}
+                  onChange={setCategoryFilter}
+                  options={CATEGORY_OPTIONS}
+                />
+              </Space>
+              <Space>
+                <Text>비활성 항목 포함:</Text>
+                <Switch checked={showInactive} onChange={setShowInactive} />
+              </Space>
+            </div>
+
+            <Table
+              columns={columns}
+              dataSource={filteredItems}
+              rowKey="item_id"
+              loading={loading}
+              expandable={{
+                expandedRowRender,
+                rowExpandable: (record) => (record.fields?.length || 0) > 0,
+              }}
+              pagination={{
+                pageSize: 20,
+                showSizeChanger: true,
+                showTotal: (total) => `총 ${total}개`
+              }}
+              locale={{
+                emptyText: '등록된 역량항목이 없습니다.'
+              }}
+            />
+          </Tabs.TabPane>
+
+          {/* 평가 템플릿 관리 탭 */}
+          <Tabs.TabPane tab="평가 템플릿 관리" key="templates">
+            <div className="flex justify-between items-center mb-4">
+              <Text className="text-gray-600">
+                역량항목 평가에 사용되는 등급/점수 템플릿을 관리합니다.
+              </Text>
               <Button
-                icon={<SyncOutlined />}
-                loading={seedLoading}
-                size="large"
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => {
+                  setGradeMappings([])
+                  setKeywords([])
+                  templateCreateForm.resetFields()
+                  setIsTemplateCreateModalOpen(true)
+                }}
               >
-                역량항목 초기화
+                새 평가 템플릿 추가
               </Button>
-            </Popconfirm>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => setIsCreateModalOpen(true)}
-              size="large"
-            >
-              새 역량항목 추가
-            </Button>
-          </Space>
-        </div>
+            </div>
 
-        <Card>
-          <div className="mb-6">
-            <Title level={2} className="mb-2">역량항목 관리</Title>
-            <Text className="text-gray-600">
-              코칭 역량 항목 마스터 데이터를 관리할 수 있습니다.
-            </Text>
-          </div>
+            <div className="mb-4">
+              <Space>
+                <Text>비활성 템플릿 포함:</Text>
+                <Switch checked={showInactiveTemplates} onChange={setShowInactiveTemplates} />
+              </Space>
+            </div>
 
-          <div className="mb-4 flex justify-between">
-            <Space>
-              <Text>카테고리 필터:</Text>
-              <Select
-                style={{ width: 150 }}
-                placeholder="전체"
-                allowClear
-                value={categoryFilter}
-                onChange={setCategoryFilter}
-                options={CATEGORY_OPTIONS}
-              />
-            </Space>
-            <Space>
-              <Text>비활성 항목 포함:</Text>
-              <Switch checked={showInactive} onChange={setShowInactive} />
-            </Space>
-          </div>
-
-          <Table
-            columns={columns}
-            dataSource={filteredItems}
-            rowKey="item_id"
-            loading={loading}
-            expandable={{
-              expandedRowRender,
-              rowExpandable: (record) => (record.fields?.length || 0) > 0,
-            }}
-            pagination={{
-              pageSize: 20,
-              showSizeChanger: true,
-              showTotal: (total) => `총 ${total}개`
-            }}
-            locale={{
-              emptyText: '등록된 역량항목이 없습니다.'
-            }}
-          />
-        </Card>
+            <Table
+              columns={templateColumns}
+              dataSource={templates}
+              rowKey="template_id"
+              loading={templatesLoading}
+              expandable={{
+                expandedRowRender: templateExpandedRowRender
+              }}
+              pagination={{
+                pageSize: 10,
+                showSizeChanger: true,
+                showTotal: (total) => `총 ${total}개`
+              }}
+              locale={{
+                emptyText: '등록된 평가 템플릿이 없습니다.'
+              }}
+            />
+          </Tabs.TabPane>
+        </Tabs>
+      </Card>
 
         {/* Create Modal */}
         <Modal
@@ -596,6 +1003,64 @@ export default function AdminCompetencyItemsPage() {
             >
               <InputNumber min={1} max={100} />
             </Form.Item>
+
+            {/* 평가방법 설정 섹션 */}
+            <div className="border-t pt-4 mt-4">
+              <Title level={5}>평가방법 설정</Title>
+              <Form.Item
+                name="scoring_template_id"
+                label="평가 템플릿"
+                tooltip="이 항목의 점수 계산에 사용할 템플릿을 선택합니다"
+              >
+                <Select
+                  placeholder="평가 템플릿 선택 (선택사항)"
+                  allowClear
+                  options={templates.map(t => ({
+                    label: t.template_name,
+                    value: t.template_id
+                  }))}
+                />
+              </Form.Item>
+
+              <Form.Item noStyle shouldUpdate={(prev, curr) => prev.scoring_template_id !== curr.scoring_template_id}>
+                {({ getFieldValue }) => {
+                  const selectedTemplateId = getFieldValue('scoring_template_id')
+                  const template = getTemplatePreview(selectedTemplateId)
+                  if (!template) return null
+
+                  const mappings = scoringTemplateService.parseMappings(template.default_mappings)
+
+                  return (
+                    <div className="bg-gray-50 p-4 rounded mb-4">
+                      <Text strong>선택된 템플릿 미리보기:</Text>
+                      <Descriptions size="small" column={2} className="mt-2">
+                        <Descriptions.Item label="등급유형">
+                          {GRADE_TYPE_OPTIONS.find(o => o.value === template.grade_type)?.label}
+                        </Descriptions.Item>
+                        <Descriptions.Item label="매칭방식">
+                          {MATCHING_TYPE_OPTIONS.find(o => o.value === template.matching_type)?.label}
+                        </Descriptions.Item>
+                        <Descriptions.Item label="집계방식">
+                          {AGGREGATION_MODE_OPTIONS.find(o => o.value === template.aggregation_mode)?.label}
+                        </Descriptions.Item>
+                        <Descriptions.Item label="증빙필수">
+                          {PROOF_REQUIRED_OPTIONS.find(o => o.value === template.proof_required)?.label}
+                        </Descriptions.Item>
+                      </Descriptions>
+                      <div className="mt-2">
+                        <Text type="secondary">등급 매핑 ({mappings.length}개):</Text>
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          {mappings.slice(0, 5).map((m, i) => (
+                            <Tag key={i}>{String(m.value)} → {m.score}점</Tag>
+                          ))}
+                          {mappings.length > 5 && <Tag>+{mappings.length - 5}개</Tag>}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                }}
+              </Form.Item>
+            </div>
 
             <Form.Item>
               <Space>
@@ -670,6 +1135,64 @@ export default function AdminCompetencyItemsPage() {
             >
               <InputNumber min={1} max={100} />
             </Form.Item>
+
+            {/* 평가방법 설정 섹션 */}
+            <div className="border-t pt-4 mt-4">
+              <Title level={5}>평가방법 설정</Title>
+              <Form.Item
+                name="scoring_template_id"
+                label="평가 템플릿"
+                tooltip="이 항목의 점수 계산에 사용할 템플릿을 선택합니다"
+              >
+                <Select
+                  placeholder="평가 템플릿 선택 (선택사항)"
+                  allowClear
+                  options={templates.map(t => ({
+                    label: t.template_name,
+                    value: t.template_id
+                  }))}
+                />
+              </Form.Item>
+
+              <Form.Item noStyle shouldUpdate={(prev, curr) => prev.scoring_template_id !== curr.scoring_template_id}>
+                {({ getFieldValue }) => {
+                  const selectedTemplateId = getFieldValue('scoring_template_id')
+                  const template = getTemplatePreview(selectedTemplateId)
+                  if (!template) return null
+
+                  const mappings = scoringTemplateService.parseMappings(template.default_mappings)
+
+                  return (
+                    <div className="bg-gray-50 p-4 rounded mb-4">
+                      <Text strong>선택된 템플릿 미리보기:</Text>
+                      <Descriptions size="small" column={2} className="mt-2">
+                        <Descriptions.Item label="등급유형">
+                          {GRADE_TYPE_OPTIONS.find(o => o.value === template.grade_type)?.label}
+                        </Descriptions.Item>
+                        <Descriptions.Item label="매칭방식">
+                          {MATCHING_TYPE_OPTIONS.find(o => o.value === template.matching_type)?.label}
+                        </Descriptions.Item>
+                        <Descriptions.Item label="집계방식">
+                          {AGGREGATION_MODE_OPTIONS.find(o => o.value === template.aggregation_mode)?.label}
+                        </Descriptions.Item>
+                        <Descriptions.Item label="증빙필수">
+                          {PROOF_REQUIRED_OPTIONS.find(o => o.value === template.proof_required)?.label}
+                        </Descriptions.Item>
+                      </Descriptions>
+                      <div className="mt-2">
+                        <Text type="secondary">등급 매핑 ({mappings.length}개):</Text>
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          {mappings.slice(0, 5).map((m, i) => (
+                            <Tag key={i}>{String(m.value)} → {m.score}점</Tag>
+                          ))}
+                          {mappings.length > 5 && <Tag>+{mappings.length - 5}개</Tag>}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                }}
+              </Form.Item>
+            </div>
 
             <Form.Item
               name="is_active"
@@ -852,6 +1375,416 @@ export default function AdminCompetencyItemsPage() {
               </Form.Item>
             </Form>
           </div>
+        </Modal>
+
+        {/* Template Create Modal */}
+        <Modal
+          title="새 평가 템플릿 추가"
+          open={isTemplateCreateModalOpen}
+          maskClosable={false}
+          onCancel={() => {
+            setIsTemplateCreateModalOpen(false)
+            templateCreateForm.resetFields()
+            setGradeMappings([])
+            setKeywords([])
+          }}
+          footer={null}
+          width={800}
+        >
+          <Form
+            form={templateCreateForm}
+            layout="vertical"
+            onFinish={handleCreateTemplate}
+            initialValues={{
+              grade_type: 'string',
+              matching_type: 'grade',
+              value_source: 'SUBMITTED',
+              aggregation_mode: 'best_match',
+              proof_required: 'OPTIONAL',
+              fixed_grades: false,
+              allow_add_grades: true,
+              is_required_default: false,
+              allow_multiple: false,
+              auto_confirm_across_projects: false
+            }}
+          >
+            <div className="grid grid-cols-2 gap-4">
+              <Form.Item
+                name="template_id"
+                label="템플릿 ID"
+                rules={[{ required: true, message: '템플릿 ID를 입력해주세요' }]}
+                tooltip="고유 식별자 (영문, 숫자, 언더스코어)"
+              >
+                <Input placeholder="예: kca_certification" />
+              </Form.Item>
+
+              <Form.Item
+                name="template_name"
+                label="템플릿명"
+                rules={[{ required: true, message: '템플릿명을 입력해주세요' }]}
+              >
+                <Input placeholder="예: 코칭관련자격증 (KCA)" />
+              </Form.Item>
+            </div>
+
+            <Form.Item
+              name="description"
+              label="설명"
+            >
+              <Input.TextArea rows={2} placeholder="템플릿에 대한 설명" />
+            </Form.Item>
+
+            <div className="grid grid-cols-3 gap-4">
+              <Form.Item
+                name="grade_type"
+                label="등급 유형"
+                rules={[{ required: true }]}
+              >
+                <Select options={GRADE_TYPE_OPTIONS} />
+              </Form.Item>
+
+              <Form.Item
+                name="matching_type"
+                label="매칭 방식"
+                rules={[{ required: true }]}
+              >
+                <Select options={MATCHING_TYPE_OPTIONS} />
+              </Form.Item>
+
+              <Form.Item
+                name="aggregation_mode"
+                label="집계 방식"
+              >
+                <Select options={AGGREGATION_MODE_OPTIONS} />
+              </Form.Item>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <Form.Item
+                name="value_source"
+                label="값 소스"
+              >
+                <Select options={VALUE_SOURCE_OPTIONS} />
+              </Form.Item>
+
+              <Form.Item
+                name="source_field"
+                label="소스 필드"
+                tooltip="USER_FIELD 또는 JSON_FIELD 선택 시"
+              >
+                <Input placeholder="예: kca_certification_level" />
+              </Form.Item>
+
+              <Form.Item
+                name="proof_required"
+                label="증빙 필수"
+              >
+                <Select options={PROOF_REQUIRED_OPTIONS} />
+              </Form.Item>
+            </div>
+
+            <div className="grid grid-cols-4 gap-4">
+              <Form.Item name="fixed_grades" label="등급 고정" valuePropName="checked">
+                <Switch />
+              </Form.Item>
+              <Form.Item name="allow_add_grades" label="등급 추가 허용" valuePropName="checked">
+                <Switch />
+              </Form.Item>
+              <Form.Item name="allow_multiple" label="복수입력" valuePropName="checked">
+                <Switch />
+              </Form.Item>
+              <Form.Item name="auto_confirm_across_projects" label="자동컨펌" valuePropName="checked" tooltip="프로젝트 간 자동 확인">
+                <Switch />
+              </Form.Item>
+            </div>
+
+            <Form.Item
+              name="verification_note"
+              label="검증 안내문"
+            >
+              <Input.TextArea rows={2} placeholder="검토자에게 표시될 안내 메시지" />
+            </Form.Item>
+
+            {/* 등급 매핑 */}
+            <div className="border-t pt-4 mt-4">
+              <div className="flex justify-between items-center mb-4">
+                <Title level={5}>등급별 점수 매핑 ({gradeMappings.length}개)</Title>
+                <Button type="dashed" icon={<PlusOutlined />} onClick={addGradeMapping}>
+                  등급 추가
+                </Button>
+              </div>
+
+              {gradeMappings.map((mapping, index) => (
+                <div key={index} className="flex gap-2 mb-2 items-center">
+                  <Input
+                    placeholder="값"
+                    value={String(mapping.value)}
+                    onChange={e => updateGradeMapping(index, 'value', e.target.value)}
+                    style={{ width: 120 }}
+                  />
+                  <span>→</span>
+                  <InputNumber
+                    placeholder="점수"
+                    value={mapping.score}
+                    onChange={v => updateGradeMapping(index, 'score', v || 0)}
+                    style={{ width: 80 }}
+                  />
+                  <span>점</span>
+                  <Input
+                    placeholder="레이블 (선택)"
+                    value={mapping.label}
+                    onChange={e => updateGradeMapping(index, 'label', e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                  <Switch
+                    checkedChildren="고정"
+                    unCheckedChildren="가변"
+                    checked={mapping.fixed}
+                    onChange={v => updateGradeMapping(index, 'fixed', v)}
+                  />
+                  <Button
+                    type="text"
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={() => removeGradeMapping(index)}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* 키워드 */}
+            <div className="border-t pt-4 mt-4">
+              <Title level={5}>키워드 (자동 매칭용)</Title>
+              <div className="mb-2">
+                {keywords.map(kw => (
+                  <Tag key={kw} closable onClose={() => removeKeyword(kw)}>
+                    {kw}
+                  </Tag>
+                ))}
+              </div>
+              <Input
+                placeholder="키워드 입력 후 Enter"
+                onPressEnter={(e) => {
+                  addKeyword(e.currentTarget.value)
+                  e.currentTarget.value = ''
+                }}
+                style={{ width: 200 }}
+              />
+            </div>
+
+            <Form.Item className="mt-6">
+              <Space>
+                <Button type="primary" htmlType="submit">생성</Button>
+                <Button onClick={() => {
+                  setIsTemplateCreateModalOpen(false)
+                  templateCreateForm.resetFields()
+                  setGradeMappings([])
+                  setKeywords([])
+                }}>취소</Button>
+              </Space>
+            </Form.Item>
+          </Form>
+        </Modal>
+
+        {/* Template Edit Modal */}
+        <Modal
+          title={`평가 템플릿 수정 - ${editingTemplate?.template_name}`}
+          open={isTemplateEditModalOpen}
+          maskClosable={false}
+          onCancel={() => {
+            setIsTemplateEditModalOpen(false)
+            setEditingTemplate(null)
+            templateEditForm.resetFields()
+            setGradeMappings([])
+            setKeywords([])
+          }}
+          footer={null}
+          width={800}
+        >
+          <Form
+            form={templateEditForm}
+            layout="vertical"
+            onFinish={handleEditTemplate}
+          >
+            <Alert
+              message={`템플릿 ID: ${editingTemplate?.template_id}`}
+              type="info"
+              className="mb-4"
+            />
+
+            <div className="grid grid-cols-2 gap-4">
+              <Form.Item
+                name="template_name"
+                label="템플릿명"
+                rules={[{ required: true, message: '템플릿명을 입력해주세요' }]}
+              >
+                <Input />
+              </Form.Item>
+
+              <Form.Item
+                name="proof_required"
+                label="증빙 필수"
+              >
+                <Select options={PROOF_REQUIRED_OPTIONS} />
+              </Form.Item>
+            </div>
+
+            <Form.Item
+              name="description"
+              label="설명"
+            >
+              <Input.TextArea rows={2} />
+            </Form.Item>
+
+            <div className="grid grid-cols-3 gap-4">
+              <Form.Item
+                name="grade_type"
+                label="등급 유형"
+              >
+                <Select options={GRADE_TYPE_OPTIONS} />
+              </Form.Item>
+
+              <Form.Item
+                name="matching_type"
+                label="매칭 방식"
+              >
+                <Select options={MATCHING_TYPE_OPTIONS} />
+              </Form.Item>
+
+              <Form.Item
+                name="aggregation_mode"
+                label="집계 방식"
+              >
+                <Select options={AGGREGATION_MODE_OPTIONS} />
+              </Form.Item>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <Form.Item
+                name="value_source"
+                label="값 소스"
+              >
+                <Select options={VALUE_SOURCE_OPTIONS} />
+              </Form.Item>
+
+              <Form.Item
+                name="source_field"
+                label="소스 필드"
+              >
+                <Input />
+              </Form.Item>
+
+              <Form.Item
+                name="is_active"
+                label="활성 상태"
+                valuePropName="checked"
+              >
+                <Switch />
+              </Form.Item>
+            </div>
+
+            <div className="grid grid-cols-4 gap-4">
+              <Form.Item name="fixed_grades" label="등급 고정" valuePropName="checked">
+                <Switch />
+              </Form.Item>
+              <Form.Item name="allow_add_grades" label="등급 추가 허용" valuePropName="checked">
+                <Switch />
+              </Form.Item>
+              <Form.Item name="allow_multiple" label="복수입력" valuePropName="checked">
+                <Switch />
+              </Form.Item>
+              <Form.Item name="auto_confirm_across_projects" label="자동컨펌" valuePropName="checked">
+                <Switch />
+              </Form.Item>
+            </div>
+
+            <Form.Item
+              name="verification_note"
+              label="검증 안내문"
+            >
+              <Input.TextArea rows={2} />
+            </Form.Item>
+
+            {/* 등급 매핑 */}
+            <div className="border-t pt-4 mt-4">
+              <div className="flex justify-between items-center mb-4">
+                <Title level={5}>등급별 점수 매핑 ({gradeMappings.length}개)</Title>
+                <Button type="dashed" icon={<PlusOutlined />} onClick={addGradeMapping}>
+                  등급 추가
+                </Button>
+              </div>
+
+              {gradeMappings.map((mapping, index) => (
+                <div key={index} className="flex gap-2 mb-2 items-center">
+                  <Input
+                    placeholder="값"
+                    value={String(mapping.value)}
+                    onChange={e => updateGradeMapping(index, 'value', e.target.value)}
+                    style={{ width: 120 }}
+                  />
+                  <span>→</span>
+                  <InputNumber
+                    placeholder="점수"
+                    value={mapping.score}
+                    onChange={v => updateGradeMapping(index, 'score', v || 0)}
+                    style={{ width: 80 }}
+                  />
+                  <span>점</span>
+                  <Input
+                    placeholder="레이블 (선택)"
+                    value={mapping.label}
+                    onChange={e => updateGradeMapping(index, 'label', e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                  <Switch
+                    checkedChildren="고정"
+                    unCheckedChildren="가변"
+                    checked={mapping.fixed}
+                    onChange={v => updateGradeMapping(index, 'fixed', v)}
+                  />
+                  <Button
+                    type="text"
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={() => removeGradeMapping(index)}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* 키워드 */}
+            <div className="border-t pt-4 mt-4">
+              <Title level={5}>키워드 (자동 매칭용)</Title>
+              <div className="mb-2">
+                {keywords.map(kw => (
+                  <Tag key={kw} closable onClose={() => removeKeyword(kw)}>
+                    {kw}
+                  </Tag>
+                ))}
+              </div>
+              <Input
+                placeholder="키워드 입력 후 Enter"
+                onPressEnter={(e) => {
+                  addKeyword(e.currentTarget.value)
+                  e.currentTarget.value = ''
+                }}
+                style={{ width: 200 }}
+              />
+            </div>
+
+            <Form.Item className="mt-6">
+              <Space>
+                <Button type="primary" htmlType="submit">저장</Button>
+                <Button onClick={() => {
+                  setIsTemplateEditModalOpen(false)
+                  setEditingTemplate(null)
+                  templateEditForm.resetFields()
+                  setGradeMappings([])
+                  setKeywords([])
+                }}>취소</Button>
+              </Space>
+            </Form.Item>
+          </Form>
         </Modal>
     </div>
   )

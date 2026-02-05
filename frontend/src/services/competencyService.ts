@@ -23,6 +23,9 @@ export interface CompetencyItem {
   is_repeatable: boolean
   max_entries: number | null
   fields: CompetencyItemField[]
+  // 평가 템플릿 연결
+  scoring_template_id: string | null
+  scoring_config_override: string | null
 }
 
 // Admin create/update types
@@ -39,7 +42,7 @@ export interface CompetencyItemFieldCreate {
 export interface CompetencyItemCreate {
   item_code: string
   item_name: string
-  category: 'BASIC' | 'DETAIL' | 'EDUCATION' | 'ADDON' | 'COACHING'
+  category: 'BASIC' | 'DETAIL' | 'EDUCATION' | 'ADDON' | 'COACHING' | 'CERTIFICATION' | 'EXPERIENCE' | 'OTHER'
   input_type?: string
   template?: string
   template_config?: string
@@ -47,6 +50,8 @@ export interface CompetencyItemCreate {
   max_entries?: number
   is_active?: boolean
   fields?: CompetencyItemFieldCreate[]
+  scoring_template_id?: string
+  scoring_config_override?: string
 }
 
 export interface CompetencyItemUpdate {
@@ -57,6 +62,8 @@ export interface CompetencyItemUpdate {
   is_repeatable?: boolean
   max_entries?: number
   is_active?: boolean
+  scoring_template_id?: string
+  scoring_config_override?: string
 }
 
 export interface FileBasicInfo {

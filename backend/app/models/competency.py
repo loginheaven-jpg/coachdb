@@ -97,6 +97,10 @@ class CompetencyItem(Base):
     max_entries = Column(Integer, nullable=True)  # Max entries if repeatable (null = unlimited)
     description = Column(Text, nullable=True)  # 설문 입력 안내 문구
 
+    # Scoring template - 평가 방법 설정
+    scoring_template_id = Column(String(100), ForeignKey("scoring_templates.template_id"), nullable=True)
+    scoring_config_override = Column(Text, nullable=True)  # 커스터마이즈 시 사용 (JSON)
+
     # Custom question support
     is_custom = Column(Boolean, nullable=False, default=False)  # True for custom questions
     created_by = Column(Integer, ForeignKey("users.user_id"), nullable=True)  # Creator for custom questions
@@ -105,6 +109,7 @@ class CompetencyItem(Base):
     project_items = relationship("ProjectItem", back_populates="competency_item")
     coach_competencies = relationship("CoachCompetency", back_populates="competency_item")
     fields = relationship("CompetencyItemField", back_populates="item", cascade="all, delete-orphan")
+    scoring_template = relationship("ScoringTemplate", back_populates="competency_items")
 
     def __repr__(self):
         return f"<CompetencyItem(item_id={self.item_id}, code={self.item_code}, name={self.item_name})>"
