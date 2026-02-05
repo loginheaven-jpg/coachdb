@@ -1220,17 +1220,17 @@ export default function AdminCompetencyItemsPage() {
     const errors: string[] = []
     const warnings: string[] = []
 
-    const { grade_type, matching_type, scoring_source_field, aggregation_mode } = values
+    const { data_source, grade_type, matching_type, scoring_source_field, aggregation_mode } = values
 
     // 평가 설정이 있는지 확인
     const hasScoring = grade_type && matching_type
 
     if (hasScoring) {
-      // 1. 소스 필드 검증
+      // 1. 소스 필드 검증 (폼 입력인 경우에만 필드 스키마 검증)
       if (!scoring_source_field) {
         warnings.push('평가 설정이 있지만 소스 필드가 지정되지 않았습니다.')
-      } else {
-        // 소스 필드가 필드 스키마에 존재하는지 확인
+      } else if (data_source === 'form_input') {
+        // 폼 입력인 경우에만 필드 스키마에서 소스 필드 검증
         const sourceField = unifiedFieldsSchema.find(f => f.name === scoring_source_field)
 
         if (!sourceField) {
@@ -1253,6 +1253,8 @@ export default function AdminCompetencyItemsPage() {
           }
         }
       }
+      // 회원정보 참조(user_profile) 또는 중앙DB 참조(coach_competency)인 경우
+      // 소스 필드는 시스템 필드이므로 별도 검증 불필요
 
       // 2. 집계 방식과 등급 유형 검증 (합계/최대값은 숫자 타입에서만 의미 있음)
       if (['sum', 'max'].includes(aggregation_mode) && grade_type !== 'numeric') {
