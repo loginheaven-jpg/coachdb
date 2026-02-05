@@ -2688,6 +2688,56 @@ export default function AdminCompetencyItemsPage() {
               />
             </div>
 
+            {/* 평가 설정 섹션 (통합 템플릿에서 가져옴) */}
+            {editingInputTemplate && (() => {
+              const unified = getUnifiedTemplateForInput(editingInputTemplate.template_id)
+              if (!unified || !unified.has_scoring) return null
+              const mappings = unifiedTemplateService.parseMappings(unified.default_mappings)
+              return (
+                <div className="mb-4">
+                  <Divider orientation="left" orientationMargin={0} className="!mt-0 !mb-3">
+                    <Text strong className="text-blue-600 text-sm">📊 평가 설정</Text>
+                  </Divider>
+                  <div className="p-3 bg-blue-50 rounded border border-blue-200">
+                    {/* 평가 설정 요약 */}
+                    <div className="grid grid-cols-3 gap-2 mb-3">
+                      <div>
+                        <span className="text-xs text-gray-500 block">등급 유형</span>
+                        <Tag color="purple">{unifiedTemplateService.getGradeTypeLabel(unified.grade_type || '')}</Tag>
+                      </div>
+                      <div>
+                        <span className="text-xs text-gray-500 block">매칭 방식</span>
+                        <Tag color="cyan">{unifiedTemplateService.getMatchingTypeLabel(unified.matching_type || '')}</Tag>
+                      </div>
+                      <div>
+                        <span className="text-xs text-gray-500 block">집계 방식</span>
+                        <Tag color="geekblue">{unifiedTemplateService.getAggregationModeLabel(unified.aggregation_mode || 'first')}</Tag>
+                      </div>
+                    </div>
+                    {/* 등급 매핑 */}
+                    {mappings.length > 0 && (
+                      <div>
+                        <span className="text-xs text-gray-500 block mb-1">등급 매핑</span>
+                        <div className="space-y-1">
+                          {mappings.map((m, idx) => (
+                            <div key={idx} className="flex items-center gap-2 text-sm">
+                              <Tag color="orange" className="!m-0">{m.score}점</Tag>
+                              <span className="text-gray-700">
+                                {m.label || (typeof m.value === 'number' ? `${m.value} 이상` : String(m.value))}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <div className="mt-2 text-xs text-blue-600">
+                      💡 평가 설정은 통합 템플릿에서 관리됩니다
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
+
             {/* 저장/취소 버튼 */}
             <div className="flex justify-end gap-2 pt-3 border-t">
               <Button
