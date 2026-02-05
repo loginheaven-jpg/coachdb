@@ -17,10 +17,11 @@
 7. [프로젝트 생명주기](#프로젝트-생명주기-project-lifecycle)
 8. [응모 및 검토 프로세스](#응모-및-검토-프로세스)
 9. [배포 및 인프라 (Railway)](#배포-및-인프라-railway)
-10. [주요 비즈니스 로직](#주요-비즈니스-로직)
-11. [프론트엔드 구조](#프론트엔드-구조)
-12. [트러블슈팅 가이드](#트러블슈팅-가이드)
-13. [개발 가이드라인](#개발-가이드라인)
+10. [3-tier 템플릿 아키텍처](#3-tier-템플릿-아키텍처-2026-02-05)
+11. [주요 비즈니스 로직](#주요-비즈니스-로직)
+12. [프론트엔드 구조](#프론트엔드-구조)
+13. [트러블슈팅 가이드](#트러블슈팅-가이드)
+14. [개발 가이드라인](#개발-가이드라인)
 
 ---
 
@@ -1532,6 +1533,113 @@ FRONTEND_URL=https://yourfrontend.com
 ```bash
 VITE_API_BASE_URL=https://yourbackend.com
 ```
+
+---
+
+## 3-tier 템플릿 아키텍처 (2026-02-05)
+
+### 개요
+
+역량항목의 입력과 평가를 표준화하기 위한 3계층 템플릿 시스템:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                      CompetencyItem (역량항목)                       │
+│  item_code: "CERT_KCA"                                             │
+│  item_name: "KCA 코칭관련 자격증"                                    │
+│                                                                     │
+│  input_template_id: "text_file"     ← 입력 폼 구조                  │
+│  scoring_template_id: "kca_certification"  ← 평가 방식              │
+└─────────────────────────────────────────────────────────────────────┘
+          │                                    │
+          ▼                                    ▼
+┌───────────────────────┐       ┌────────────────────────────────────┐
+│  InputTemplate        │       │  ScoringTemplate                   │
+│  (입력 폼 구조)        │       │  (평가 방식 정의)                   │
+│                       │       │                                    │
+│  - fields_schema      │       │  - grade_type: string              │
+│  - layout_type        │       │  - matching_type: grade            │
+│  - is_repeatable      │       │  - aggregation_mode: best_match    │
+│  - data_source        │       │  - default_mappings: [KSC→40, ...] │
+└───────────────────────┘       └────────────────────────────────────┘
+```
+
+### InputTemplate (입력 템플릿)
+
+폼 입력의 구조를 정의합니다.
+
+**주요 필드:**
+- `template_id`: 고유 식별자 (예: text_file, degree, coaching_time)
+- `fields_schema`: JSON 배열 - 필드 정의 (name, type, label, required, options)
+- `data_source`: 데이터 소스 타입
+  - `form_input` (기본): 사용자가 폼에서 직접 입력
+  - `user_profile`: User 테이블 필드 참조 (읽기 전용)
+  - `coach_competency`: 중앙 DB에서 가져옴
+- `is_repeatable`: 복수 입력 가능 여부 (자격증, 경력 등)
+
+**기본 제공 템플릿 (12개):**
+- 기본: text, number, select, multiselect, file, text_file
+- 특수: degree, coaching_history, coaching_time, coaching_experience
+- 자격증: kca_certification, other_certification
+
+### ScoringTemplate (평가 템플릿)
+
+점수 계산 방식을 정의합니다.
+
+**주요 필드:**
+- `template_id`: 고유 식별자 (예: kca_certification, degree, coaching_hours)
+- `grade_type`: 등급 유형
+  - `string`: 문자열 매칭 (KSC, KAC, KPC)
+  - `numeric`: 숫자 범위 (시간, 연수)
+  - `file_exists`: 파일 유무
+  - `multi_select`: 복수 선택
+- `matching_type`: 매칭 방식
+  - `exact`: 정확한 일치
+  - `contains`: 포함 여부
+  - `range`: 숫자 범위
+  - `grade`: 등급별 점수
+- `aggregation_mode`: 복수입력 집계 방식
+  - `first`: 첫 번째 값만
+  - `sum`: 합계
+  - `max`: 최대값
+  - `best_match`: 가장 높은 점수
+- `default_mappings`: JSON 배열 - 등급→점수 매핑
+
+**기본 제공 템플릿 (8개):**
+- degree: 학위별 점수 (박사 30, 석사 20, 학사 10)
+- kca_certification: KCA 자격등급 (KSC 40, KAC 30, KPC 20) - 고정
+- coaching_hours: 코칭 시간 범위 (1000+ → 30, 500+ → 20)
+- counseling_by_name: 상담자격 이름 매칭
+- counseling_by_exists: 상담자격 유무
+- coaching_training: 코칭연수 시간 합산
+
+### 역량항목-템플릿 매핑
+
+**API 엔드포인트**: `POST /api/admin/link-scoring-templates`
+
+| 역량항목 코드 | 입력 템플릿 | 평가 템플릿 |
+|-------------|-----------|-----------|
+| CERT_KCA | text_file | kca_certification |
+| CERT_COUNSELING | text_file | counseling_by_name |
+| EDU_COACHING_FINAL | degree | degree |
+| EDU_OTHER_FINAL | degree | degree |
+| EXP_COACHING_HOURS | number | coaching_hours |
+| EXP_COACHING_TRAINING | coaching_time | coaching_training |
+
+### 위저드 자동 설정 로드
+
+과제 생성 위저드 Step4에서:
+1. 선택된 역량항목의 `scoring_template_id` 확인
+2. 해당 템플릿의 `default_mappings` 자동 로드
+3. 과제관리자는 점수만 조정하면 됨
+
+**코드 위치**: `frontend/src/pages/project/wizard/steps/Step4Scoring.tsx`
+
+### 관리 UI
+
+- **입력 템플릿 관리**: `/admin/competency-items` (역량항목 관리 탭)
+- **평가 템플릿 관리**: `/admin/scoring-templates`
+- **역량항목 관리**: `/admin/competency-items` (평가 템플릿 선택 가능)
 
 ---
 
