@@ -1,9 +1,13 @@
 """
 입력 템플릿 (InputTemplate) Pydantic 스키마
 """
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Literal
 from pydantic import BaseModel, Field
 from datetime import datetime
+
+
+# 데이터 소스 타입
+DataSourceType = Literal["form_input", "user_profile", "coach_competency"]
 
 
 class FieldSchema(BaseModel):
@@ -18,12 +22,25 @@ class FieldSchema(BaseModel):
     validation: Optional[dict] = Field(default=None, description="검증 규칙")
 
 
+class UserProfileFieldInfo(BaseModel):
+    """User 테이블 참조 가능 필드 정보"""
+    field_name: str
+    label: str
+    description: str
+    type: str
+
+
 class InputTemplateBase(BaseModel):
     """입력 템플릿 기본 스키마"""
     template_name: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = None
 
-    # 필드 스키마 (JSON 문자열)
+    # 데이터 소스 설정
+    data_source: DataSourceType = Field(default="form_input", description="데이터 소스 (form_input, user_profile, coach_competency)")
+    source_field: Optional[str] = Field(default=None, description="참조할 필드명 (user_profile일 때)")
+    display_only: bool = Field(default=False, description="읽기 전용 표시 여부")
+
+    # 필드 스키마 (JSON 문자열) - data_source가 form_input일 때만 사용
     fields_schema: str = Field(default="[]", description="필드 정의 JSON")
 
     # 레이아웃
@@ -46,12 +63,16 @@ class InputTemplateCreate(InputTemplateBase):
     """입력 템플릿 생성 스키마"""
     template_id: str = Field(..., min_length=1, max_length=50, pattern=r"^[a-z0-9_]+$")
     is_active: bool = Field(default=True)
+    # data_source, source_field, display_only는 InputTemplateBase에서 상속
 
 
 class InputTemplateUpdate(BaseModel):
     """입력 템플릿 수정 스키마"""
     template_name: Optional[str] = Field(default=None, min_length=1, max_length=100)
     description: Optional[str] = None
+    data_source: Optional[DataSourceType] = None
+    source_field: Optional[str] = None
+    display_only: Optional[bool] = None
     fields_schema: Optional[str] = None
     layout_type: Optional[str] = None
     is_repeatable: Optional[bool] = None

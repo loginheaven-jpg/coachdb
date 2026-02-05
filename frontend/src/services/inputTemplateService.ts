@@ -3,6 +3,17 @@
  */
 import api from './api'
 
+// 데이터 소스 타입
+export type DataSourceType = 'form_input' | 'user_profile' | 'coach_competency'
+
+// User 프로필 필드 정보
+export interface UserProfileFieldInfo {
+  field_name: string
+  label: string
+  description: string
+  type: string
+}
+
 // 필드 스키마 타입
 export interface FieldSchema {
   name: string
@@ -21,9 +32,12 @@ export interface InputTemplate {
   template_name: string
   description?: string
 
-  // 필드 스키마 (JSON 문자열)
-  // 파일 첨부 여부는 fields_schema에 file 타입 필드 유무로 판단
-  // 파일 필수 여부는 해당 file 필드의 required 속성으로 결정
+  // 데이터 소스 설정
+  data_source: DataSourceType  // form_input (기본), user_profile (User 테이블 참조), coach_competency (중앙 DB)
+  source_field?: string        // data_source가 user_profile일 때 참조할 필드명
+  display_only: boolean        // 읽기 전용 표시 여부
+
+  // 필드 스키마 (JSON 문자열) - data_source가 form_input일 때만 사용
   fields_schema: string
 
   // 레이아웃
@@ -51,6 +65,9 @@ export interface InputTemplateCreate {
   template_id: string
   template_name: string
   description?: string
+  data_source?: DataSourceType
+  source_field?: string
+  display_only?: boolean
   fields_schema?: string
   layout_type?: string
   is_repeatable?: boolean
@@ -66,6 +83,9 @@ export interface InputTemplateCreate {
 export interface InputTemplateUpdate {
   template_name?: string
   description?: string
+  data_source?: DataSourceType
+  source_field?: string
+  display_only?: boolean
   fields_schema?: string
   layout_type?: string
   is_repeatable?: boolean
@@ -102,6 +122,14 @@ const inputTemplateService = {
    */
   async getById(templateId: string): Promise<InputTemplate> {
     const response = await api.get<InputTemplate>(`/input-templates/${templateId}`)
+    return response.data
+  },
+
+  /**
+   * User 프로필에서 참조 가능한 필드 목록 조회
+   */
+  async getUserProfileFields(): Promise<UserProfileFieldInfo[]> {
+    const response = await api.get<UserProfileFieldInfo[]>('/input-templates/user-profile-fields')
     return response.data
   },
 
@@ -210,6 +238,30 @@ const inputTemplateService = {
       'grid': '그리드'
     }
     return labels[type] || type
+  },
+
+  /**
+   * 데이터 소스 타입 레이블 가져오기
+   */
+  getDataSourceLabel(type: DataSourceType): string {
+    const labels: Record<DataSourceType, string> = {
+      'form_input': '폼 입력',
+      'user_profile': '회원정보 참조',
+      'coach_competency': '중앙 DB 참조'
+    }
+    return labels[type] || type
+  },
+
+  /**
+   * 데이터 소스 타입 설명 가져오기
+   */
+  getDataSourceDescription(type: DataSourceType): string {
+    const descriptions: Record<DataSourceType, string> = {
+      'form_input': '사용자가 폼에서 직접 입력',
+      'user_profile': 'User 테이블 필드값 참조 (읽기 전용)',
+      'coach_competency': '이미 입력된 중앙 DB에서 가져옴'
+    }
+    return descriptions[type] || ''
   }
 }
 

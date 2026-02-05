@@ -48,7 +48,9 @@ import inputTemplateService, {
   InputTemplate,
   InputTemplateCreate,
   InputTemplateUpdate,
-  FieldSchema
+  FieldSchema,
+  UserProfileFieldInfo,
+  DataSourceType
 } from '../services/inputTemplateService'
 
 const { Title, Text } = Typography
@@ -155,6 +157,8 @@ export default function AdminCompetencyItemsPage() {
   const [editingInputTemplate, setEditingInputTemplate] = useState<InputTemplate | null>(null)
   const [fieldsSchema, setFieldsSchema] = useState<FieldSchema[]>([])
   const [inputKeywords, setInputKeywords] = useState<string[]>([])
+  const [userProfileFields, setUserProfileFields] = useState<UserProfileFieldInfo[]>([])
+  const [selectedDataSource, setSelectedDataSource] = useState<DataSourceType>('form_input')
 
   // Modal states
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -175,7 +179,17 @@ export default function AdminCompetencyItemsPage() {
     loadItems()
     loadTemplates()
     loadInputTemplates()
+    loadUserProfileFields()
   }, [showInactive, showInactiveTemplates, showInactiveInputTemplates])
+
+  const loadUserProfileFields = async () => {
+    try {
+      const fields = await inputTemplateService.getUserProfileFields()
+      setUserProfileFields(fields)
+    } catch (error) {
+      console.error('User 프로필 필드 로드 실패:', error)
+    }
+  }
 
   // Update editingItem when items change (for field modal updates)
   useEffect(() => {
@@ -576,9 +590,13 @@ export default function AdminCompetencyItemsPage() {
     setEditingInputTemplate(template)
     setFieldsSchema(inputTemplateService.parseFieldsSchema(template.fields_schema))
     setInputKeywords(inputTemplateService.parseKeywords(template.keywords))
+    setSelectedDataSource(template.data_source || 'form_input')
     inputTemplateEditForm.setFieldsValue({
       template_name: template.template_name,
       description: template.description,
+      data_source: template.data_source || 'form_input',
+      source_field: template.source_field,
+      display_only: template.display_only || false,
       layout_type: template.layout_type,
       is_repeatable: template.is_repeatable,
       max_entries: template.max_entries,
@@ -2320,7 +2338,66 @@ export default function AdminCompetencyItemsPage() {
               </div>
             </div>
 
-            {/* 입력 설정 섹션 */}
+            {/* 데이터 소스 섹션 */}
+            <div className="mb-4">
+              <Divider orientation="left" orientationMargin={0} className="!mt-0 !mb-3">
+                <Text strong className="text-gray-600 text-sm">데이터 소스</Text>
+              </Divider>
+              <div className="grid grid-cols-12 gap-2 mb-1">
+                <div className="col-span-4">
+                  <span className="text-xs text-gray-500">소스 유형</span>
+                </div>
+                <div className="col-span-5">
+                  <span className="text-xs text-gray-500">참조 필드 (회원정보 참조 시)</span>
+                </div>
+                <div className="col-span-3">
+                  <span className="text-xs text-gray-500">읽기전용</span>
+                </div>
+              </div>
+              <div className="grid grid-cols-12 gap-2 items-center">
+                <div className="col-span-4">
+                  <Form.Item name="data_source" className="!mb-0">
+                    <Select
+                      size="small"
+                      onChange={(value: DataSourceType) => setSelectedDataSource(value)}
+                      options={[
+                        { label: '폼 입력', value: 'form_input' },
+                        { label: '회원정보 참조', value: 'user_profile' },
+                        { label: '중앙 DB 참조', value: 'coach_competency' }
+                      ]}
+                    />
+                  </Form.Item>
+                </div>
+                <div className="col-span-5">
+                  <Form.Item name="source_field" className="!mb-0">
+                    <Select
+                      size="small"
+                      allowClear
+                      placeholder="필드 선택"
+                      disabled={selectedDataSource !== 'user_profile'}
+                      options={userProfileFields.map(f => ({
+                        label: f.label,
+                        value: f.field_name
+                      }))}
+                    />
+                  </Form.Item>
+                </div>
+                <div className="col-span-3">
+                  <Form.Item name="display_only" valuePropName="checked" className="!mb-0">
+                    <Switch size="small" disabled={selectedDataSource === 'form_input'} />
+                  </Form.Item>
+                </div>
+              </div>
+              {selectedDataSource === 'user_profile' && (
+                <div className="mt-2 p-2 bg-blue-50 rounded text-xs text-blue-700">
+                  회원가입 시 입력한 정보를 참조합니다. 평가 시 해당 필드 값으로 점수를 계산합니다.
+                </div>
+              )}
+            </div>
+
+            {/* 입력 설정 섹션 - data_source가 form_input일 때만 표시 */}
+            {selectedDataSource === 'form_input' && (
+            <>
             <div className="mb-4">
               <Divider orientation="left" orientationMargin={0} className="!mt-0 !mb-3">
                 <Text strong className="text-gray-600 text-sm">입력 설정</Text>
@@ -2448,6 +2525,8 @@ export default function AdminCompetencyItemsPage() {
                 필드 추가
               </Button>
             </div>
+            </>
+            )}
 
             {/* 키워드 섹션 */}
             <div className="mb-4">

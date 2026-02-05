@@ -5,12 +5,56 @@
 - 필드 스키마 (JSON)
 - 레이아웃 유형
 - 검증 규칙
+- 데이터 소스 (폼 입력 vs 기존 데이터 참조)
 """
 from sqlalchemy import Column, String, Text, Boolean, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+import enum
 
 from app.core.database import Base
+
+
+class DataSourceType(str, enum.Enum):
+    """데이터 소스 유형"""
+    FORM_INPUT = "form_input"           # 사용자가 폼에서 직접 입력 (기본값)
+    USER_PROFILE = "user_profile"       # User 테이블 필드 참조 (읽기 전용)
+    COACH_COMPETENCY = "coach_competency"  # 중앙 DB에서 가져옴 (재사용)
+
+
+# User 테이블에서 참조 가능한 필드 목록
+USER_PROFILE_FIELDS = {
+    "coach_certification_number": {
+        "label": "KCA 인증번호",
+        "description": "코칭 자격 인증번호 (예: KSC-12345)",
+        "type": "string"
+    },
+    "organization": {
+        "label": "소속기관",
+        "description": "현재 소속 기관명",
+        "type": "string"
+    },
+    "introduction": {
+        "label": "자기소개",
+        "description": "코치 자기소개",
+        "type": "text"
+    },
+    "name": {
+        "label": "이름",
+        "description": "사용자 이름",
+        "type": "string"
+    },
+    "email": {
+        "label": "이메일",
+        "description": "사용자 이메일",
+        "type": "string"
+    },
+    "phone": {
+        "label": "연락처",
+        "description": "사용자 전화번호",
+        "type": "string"
+    }
+}
 
 
 class InputTemplate(Base):
@@ -22,7 +66,12 @@ class InputTemplate(Base):
     template_name = Column(String(100), nullable=False)
     description = Column(Text, nullable=True)
 
-    # 필드 스키마 (JSON)
+    # 데이터 소스 설정 (NEW)
+    data_source = Column(String(50), nullable=False, default="form_input")  # form_input, user_profile, coach_competency
+    source_field = Column(String(100), nullable=True)  # data_source가 user_profile일 때 User 테이블 필드명
+    display_only = Column(Boolean, nullable=False, default=False)  # True면 읽기 전용 표시
+
+    # 필드 스키마 (JSON) - data_source가 form_input일 때만 사용
     # 예: [{"name": "degree_name", "type": "select", "label": "학위", "options": ["학사", "석사", "박사"], "required": true}]
     fields_schema = Column(Text, nullable=False, default="[]")
 

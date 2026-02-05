@@ -1,7 +1,7 @@
 """
 입력 템플릿 (InputTemplate) API 엔드포인트
 """
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -9,15 +9,32 @@ from sqlalchemy import select
 from app.core.database import get_db
 from app.core.security import get_current_user, require_role
 from app.models.user import User
-from app.models.input_template import InputTemplate
+from app.models.input_template import InputTemplate, USER_PROFILE_FIELDS
 from app.schemas.input_template import (
     InputTemplateCreate,
     InputTemplateUpdate,
     InputTemplateResponse,
-    InputTemplateListResponse
+    InputTemplateListResponse,
+    UserProfileFieldInfo
 )
 
 router = APIRouter(prefix="/input-templates", tags=["input-templates"])
+
+
+@router.get("/user-profile-fields", response_model=List[UserProfileFieldInfo])
+async def get_user_profile_fields(
+    current_user: User = Depends(get_current_user)
+):
+    """User 테이블에서 참조 가능한 필드 목록 조회"""
+    return [
+        UserProfileFieldInfo(
+            field_name=field_name,
+            label=info["label"],
+            description=info["description"],
+            type=info["type"]
+        )
+        for field_name, info in USER_PROFILE_FIELDS.items()
+    ]
 
 
 @router.get("", response_model=InputTemplateListResponse)
