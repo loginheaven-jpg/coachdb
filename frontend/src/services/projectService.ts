@@ -236,12 +236,19 @@ export interface CompetencyItem {
   input_type: string  // Deprecated
   is_active: boolean
 
-  // Template system
+  // Template system (legacy)
   template: ItemTemplate | null
   template_config: string | null  // JSON string
   is_repeatable: boolean
   max_entries: number | null
   description: string | null  // 설문 입력 안내 문구
+
+  // Input template (입력 폼 구조)
+  input_template_id: string | null
+
+  // Scoring template (평가 방법 설정)
+  scoring_template_id: string | null
+  scoring_config_override: string | null  // 커스터마이즈 시 사용 (JSON)
 
   // Custom question support
   is_custom: boolean

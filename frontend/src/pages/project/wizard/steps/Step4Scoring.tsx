@@ -1,15 +1,18 @@
 /**
  * Step 4: 등급 설정
  * GradeConfigModal을 사용하여 각 항목의 등급별 점수를 설정
+ *
+ * 자동 로드: 역량항목에 설정된 scoring_template_id 기반으로 기본 설정 자동 적용
  */
 
 import { Card, Button, Space, Tag, message, Progress, Alert } from 'antd'
-import { LeftOutlined, RightOutlined, CheckCircleOutlined, SettingOutlined, EditOutlined } from '@ant-design/icons'
+import { LeftOutlined, RightOutlined, CheckCircleOutlined, SettingOutlined, EditOutlined, ThunderboltOutlined } from '@ant-design/icons'
 import { useEffect, useState } from 'react'
 import { WizardState, WizardActions } from '../../../../hooks/useWizardState'
 import projectService, { type CompetencyItem } from '../../../../services/projectService'
+import scoringTemplateService from '../../../../services/scoringTemplateService'
 import GradeConfigModal from '../../../../components/scoring/GradeConfigModal'
-import { ScoringConfig, MatchingType } from '../../../../types/scoring'
+import { ScoringConfig, MatchingType, GradeType, ValueSource, AggregationMode } from '../../../../types/scoring'
 import { getScoringConfigSummary } from '../../../../utils/scoringHelpers'
 
 interface Step4Props {
@@ -47,11 +50,61 @@ export default function Step4Scoring({ state, actions }: Step4Props) {
         .map(id => selectedItems.find(item => item.item_id === id))
         .filter(Boolean) as CompetencyItem[]
       setItems(orderedItems)
+
+      // 각 항목의 scoring_template_id를 확인하여 기본 설정 자동 로드
+      await loadDefaultConfigs(orderedItems)
     } catch (error) {
       console.error('Failed to load items:', error)
       message.error('항목 정보를 불러오는데 실패했습니다')
     } finally {
       setLoading(false)
+    }
+  }
+
+  /**
+   * scoring_template_id가 있는 항목들의 기본 설정을 자동으로 로드
+   */
+  const loadDefaultConfigs = async (orderedItems: CompetencyItem[]) => {
+    let autoConfiguredCount = 0
+
+    for (const item of orderedItems) {
+      // 이미 설정이 있으면 건너뜀
+      if (state.scoringConfigs[item.item_id]?.configured) {
+        continue
+      }
+
+      // scoring_template_id가 있으면 해당 템플릿 기반으로 기본 설정 생성
+      if (item.scoring_template_id) {
+        try {
+          const template = await scoringTemplateService.getById(item.scoring_template_id)
+          const mappings = scoringTemplateService.parseMappings(template.default_mappings)
+
+          const defaultConfig: ScoringConfig = {
+            itemId: item.item_id,
+            matchingType: template.matching_type as MatchingType,
+            gradeType: template.grade_type as GradeType,
+            valueSource: (template.value_source?.toLowerCase() || 'submitted') as ValueSource,
+            sourceField: template.source_field || undefined,
+            aggregationMode: template.aggregation_mode as AggregationMode,
+            gradeMappings: mappings.map(m => ({
+              value: m.value,
+              score: m.score,
+              label: m.label
+            })),
+            configured: true
+          }
+
+          actions.updateScoringConfig(item.item_id, defaultConfig)
+          autoConfiguredCount++
+        } catch (error) {
+          console.warn(`템플릿 로드 실패 (${item.scoring_template_id}):`, error)
+          // 템플릿 로드 실패 시 건너뜀 (사용자가 수동 설정)
+        }
+      }
+    }
+
+    if (autoConfiguredCount > 0) {
+      message.success(`${autoConfiguredCount}개 항목에 기본 평가설정이 자동 적용되었습니다`)
     }
   }
 
@@ -112,9 +165,10 @@ export default function Step4Scoring({ state, actions }: Step4Props) {
       </h2>
 
       <Alert
-        type="info"
-        message="템플릿 자동 제안"
-        description="각 항목의 이름을 분석하여 적합한 설정을 자동으로 제안합니다. 필요에 따라 수정할 수 있습니다."
+        type="success"
+        icon={<ThunderboltOutlined />}
+        message="기본 설정 자동 적용"
+        description="역량항목에 지정된 평가템플릿을 기반으로 기본 설정이 자동 적용됩니다. 필요에 따라 등급별 점수를 조정하세요."
         showIcon
         closable
         style={{ marginBottom: 20 }}
