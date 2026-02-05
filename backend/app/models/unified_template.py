@@ -67,6 +67,13 @@ class ProofRequired(str, enum.Enum):
     REQUIRED = "required"
 
 
+class GradeEditMode(str, enum.Enum):
+    """등급 수정 모드 (프로젝트에서 등급 매핑 수정 권한)"""
+    FIXED = "fixed"              # 수정불가: 점수, 항목 모두 수정 불가
+    SCORE_ONLY = "score_only"    # 점수만 수정: 점수만 변경 가능, 항목 추가/삭제/이름변경 불가
+    FLEXIBLE = "flexible"        # 자유수정: 점수, 항목 모두 수정 가능
+
+
 class UnifiedTemplate(Base):
     """통합 템플릿 모델"""
     __tablename__ = "unified_templates"
@@ -123,8 +130,7 @@ class UnifiedTemplate(Base):
     default_mappings = Column(Text, nullable=False, default="[]")
 
     # 평가 옵션
-    fixed_grades = Column(Boolean, nullable=False, default=False)
-    allow_add_grades = Column(Boolean, nullable=False, default=True)
+    grade_edit_mode = Column(String(20), nullable=False, default="flexible")  # fixed, score_only, flexible
     proof_required = Column(String(20), nullable=False, default="optional")
     verification_note = Column(Text, nullable=True)
 
@@ -167,7 +173,7 @@ class UnifiedTemplate(Base):
                     {"value": "true", "score": 20, "label": "유자격"},
                     {"value": "false", "score": 0, "label": "무자격"}
                 ],
-                "fixed_grades": True,
+                "grade_edit_mode": "fixed",  # 유무 평가는 항상 수정불가
                 "scoring_value_source": "submitted",
                 "aggregation_mode": "first"
             }
@@ -182,7 +188,7 @@ class UnifiedTemplate(Base):
                 "grade_type": self.grade_type,
                 "matching_type": self.matching_type,
                 "default_mappings": mappings,
-                "fixed_grades": self.fixed_grades,
+                "grade_edit_mode": self.grade_edit_mode,
                 "scoring_value_source": self.scoring_value_source,
                 "scoring_source_field": self.scoring_source_field,
                 "extract_pattern": self.extract_pattern,

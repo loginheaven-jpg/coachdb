@@ -15,6 +15,7 @@ ValueSourceType = Literal["submitted", "user_field", "json_field"]
 AggregationModeType = Literal["first", "sum", "max", "count", "any_match", "best_match"]
 ProofRequiredType = Literal["not_required", "optional", "required"]
 LayoutType = Literal["vertical", "horizontal", "grid"]
+GradeEditModeType = Literal["fixed", "score_only", "flexible"]  # 수정불가, 점수만, 자유수정
 
 
 class FieldSchema(BaseModel):
@@ -63,8 +64,7 @@ class UnifiedTemplateBase(BaseModel):
     extract_pattern: Optional[str] = Field(default=None, description="JSON 추출 패턴")
     aggregation_mode: Optional[AggregationModeType] = Field(default="first", description="집계 방식")
     default_mappings: str = Field(default="[]", description="등급별 점수 매핑 JSON")
-    fixed_grades: bool = Field(default=False, description="등급 고정 여부")
-    allow_add_grades: bool = Field(default=True, description="등급 추가 허용")
+    grade_edit_mode: GradeEditModeType = Field(default="flexible", description="등급 수정 모드: fixed(수정불가), score_only(점수만), flexible(자유수정)")
     proof_required: ProofRequiredType = Field(default="optional", description="증빙 필수 여부")
     verification_note: Optional[str] = Field(default=None, description="검증 안내")
     is_required_default: bool = Field(default=False, description="기본 필수 여부")
@@ -107,8 +107,7 @@ class UnifiedTemplateUpdate(BaseModel):
     extract_pattern: Optional[str] = None
     aggregation_mode: Optional[AggregationModeType] = None
     default_mappings: Optional[str] = None
-    fixed_grades: Optional[bool] = None
-    allow_add_grades: Optional[bool] = None
+    grade_edit_mode: Optional[GradeEditModeType] = None
     proof_required: Optional[ProofRequiredType] = None
     verification_note: Optional[str] = None
     is_required_default: Optional[bool] = None
@@ -133,7 +132,7 @@ class UnifiedTemplateResponse(UnifiedTemplateBase):
     class Config:
         from_attributes = True
 
-    @field_serializer('data_source', 'evaluation_method', 'proof_required', 'layout_type')
+    @field_serializer('data_source', 'evaluation_method', 'proof_required', 'layout_type', 'grade_edit_mode')
     def serialize_to_lower(self, v: str) -> str:
         """Enum 값을 소문자로 직렬화"""
         if v is None:
@@ -159,7 +158,7 @@ class EffectiveScoringConfig(BaseModel):
     grade_type: Optional[str] = None
     matching_type: Optional[str] = None
     default_mappings: List[GradeMappingSchema] = []
-    fixed_grades: bool = False
+    grade_edit_mode: str = "flexible"  # fixed, score_only, flexible
     scoring_value_source: Optional[str] = None
     scoring_source_field: Optional[str] = None
     extract_pattern: Optional[str] = None

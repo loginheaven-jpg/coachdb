@@ -60,8 +60,7 @@ export interface UnifiedTemplate {
   extract_pattern?: string
   aggregation_mode?: string  // first, sum, max, count, any_match, best_match
   default_mappings: string  // JSON 문자열
-  fixed_grades: boolean
-  allow_add_grades: boolean
+  grade_edit_mode: string  // fixed, score_only, flexible (수정불가, 점수만, 자유수정)
   proof_required: string  // not_required, optional, required
   verification_note?: string
   is_required_default: boolean
@@ -106,8 +105,7 @@ export interface UnifiedTemplateCreate {
   extract_pattern?: string
   aggregation_mode?: string
   default_mappings?: string
-  fixed_grades?: boolean
-  allow_add_grades?: boolean
+  grade_edit_mode?: string
   proof_required?: string
   verification_note?: string
   is_required_default?: boolean
@@ -145,8 +143,7 @@ export interface UnifiedTemplateUpdate {
   extract_pattern?: string
   aggregation_mode?: string
   default_mappings?: string
-  fixed_grades?: boolean
-  allow_add_grades?: boolean
+  grade_edit_mode?: string
   proof_required?: string
   verification_note?: string
   is_required_default?: boolean
@@ -169,7 +166,7 @@ export interface EffectiveScoringConfig {
   grade_type?: string
   matching_type?: string
   default_mappings: GradeMapping[]
-  fixed_grades: boolean
+  grade_edit_mode: string  // fixed, score_only, flexible
   scoring_value_source?: string
   scoring_source_field?: string
   extract_pattern?: string
@@ -401,6 +398,18 @@ const unifiedTemplateService = {
       'grid': '그리드 배치'
     }
     return labels[type] || type
+  },
+
+  /**
+   * 등급 수정 모드 레이블
+   */
+  getGradeEditModeLabel(mode: string): string {
+    const labels: Record<string, string> = {
+      'fixed': '수정불가',
+      'score_only': '점수만 수정',
+      'flexible': '자유수정'
+    }
+    return labels[mode?.toLowerCase()] || mode
   },
 
   /**

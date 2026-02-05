@@ -232,6 +232,24 @@ if DATABASE_URL:
             except Exception as e:
                 print(f"[WARN] status conversion {old_val} -> {new_val}: {e}")
 
+        # Add grade_edit_mode column to unified_templates (replacing fixed_grades and allow_add_grades)
+        try:
+            cur.execute("ALTER TABLE unified_templates ADD COLUMN IF NOT EXISTS grade_edit_mode VARCHAR(20) DEFAULT 'flexible'")
+            print("[OK] unified_templates.grade_edit_mode ensured")
+            # Migrate existing data: convert fixed_grades/allow_add_grades to grade_edit_mode
+            cur.execute("""
+                UPDATE unified_templates SET grade_edit_mode =
+                    CASE
+                        WHEN fixed_grades = true THEN 'fixed'
+                        WHEN allow_add_grades = false THEN 'score_only'
+                        ELSE 'flexible'
+                    END
+                WHERE grade_edit_mode IS NULL OR grade_edit_mode = 'flexible'
+            """)
+            print("[OK] unified_templates.grade_edit_mode migrated from fixed_grades/allow_add_grades")
+        except Exception as e:
+            print(f"[WARN] unified_templates.grade_edit_mode: {e}")
+
         # Update competency_items categories based on item_code patterns
         category_updates = [
             # CERT_* or ADDON_CERT_* → CERTIFICATION

@@ -127,6 +127,13 @@ const PROOF_REQUIRED_OPTIONS = [
   { label: '필수', value: 'required' }
 ]
 
+// 등급 수정 모드 옵션
+const GRADE_EDIT_MODE_OPTIONS = [
+  { label: '수정불가', value: 'fixed' },
+  { label: '점수만 수정', value: 'score_only' },
+  { label: '자유수정', value: 'flexible' }
+]
+
 const FIELD_TYPE_OPTIONS = [
   { label: '텍스트', value: 'text' },
   { label: '숫자', value: 'number' },
@@ -1205,8 +1212,7 @@ export default function AdminCompetencyItemsPage() {
       scoring_source_field: template.scoring_source_field,
       extract_pattern: template.extract_pattern,
       aggregation_mode: template.aggregation_mode || 'first',
-      fixed_grades: template.fixed_grades || false,
-      allow_add_grades: template.allow_add_grades ?? true,
+      grade_edit_mode: template.grade_edit_mode || 'flexible',
       proof_required: template.proof_required || 'optional',
       verification_note: template.verification_note,
       is_required_default: template.is_required_default || false,
@@ -3490,20 +3496,22 @@ export default function AdminCompetencyItemsPage() {
                         ]}
                         onChange={(value) => {
                           if (value === 'by_existence') {
-                            // 유무로 평가 선택 시 자동 설정
+                            // 유무로 평가 선택 시 자동 설정 (수정불가)
                             unifiedTemplateEditForm.setFieldsValue({
                               grade_type: 'file_exists',
-                              matching_type: 'exact'
+                              matching_type: 'exact',
+                              grade_edit_mode: 'fixed'
                             })
                             setUnifiedGradeMappings([
                               { value: 'true', score: 20, label: '유자격' },
                               { value: 'false', score: 0, label: '무자격' }
                             ])
                           } else if (value === 'by_name') {
-                            // 이름으로 평가 선택 시 문자열 등급
+                            // 이름으로 평가 선택 시 문자열 등급 (자유수정)
                             unifiedTemplateEditForm.setFieldsValue({
                               grade_type: 'string',
-                              matching_type: 'contains'
+                              matching_type: 'contains',
+                              grade_edit_mode: 'flexible'
                             })
                           }
                         }}
@@ -3642,29 +3650,18 @@ export default function AdminCompetencyItemsPage() {
                       />
                     </Form.Item>
                   </div>
-                  <div className="col-span-3">
+                  <div className="col-span-4">
                     <span className="text-xs text-gray-500 block mb-1">
-                      등급 고정{' '}
-                      <Tooltip title="활성화 시 프로젝트별로 등급 매핑을 수정할 수 없습니다. 템플릿에 정의된 등급만 사용됩니다.">
+                      등급 수정 모드{' '}
+                      <Tooltip title="프로젝트에서 등급 매핑을 어느 정도까지 수정할 수 있는지 설정합니다. 수정불가: 모두 고정, 점수만: 점수만 변경 가능, 자유수정: 모두 변경 가능">
                         <QuestionCircleOutlined className="text-blue-400 cursor-help" />
                       </Tooltip>
                     </span>
-                    <Form.Item name="fixed_grades" valuePropName="checked" className="!mb-0">
-                      <Switch size="small" checkedChildren="고정" unCheckedChildren="변경가능" />
+                    <Form.Item name="grade_edit_mode" className="!mb-0">
+                      <Select size="small" options={GRADE_EDIT_MODE_OPTIONS} />
                     </Form.Item>
                   </div>
-                  <div className="col-span-3">
-                    <span className="text-xs text-gray-500 block mb-1">
-                      등급 추가{' '}
-                      <Tooltip title="활성화 시 프로젝트에서 새로운 등급을 추가할 수 있습니다.">
-                        <QuestionCircleOutlined className="text-blue-400 cursor-help" />
-                      </Tooltip>
-                    </span>
-                    <Form.Item name="allow_add_grades" valuePropName="checked" className="!mb-0">
-                      <Switch size="small" checkedChildren="허용" unCheckedChildren="불가" />
-                    </Form.Item>
-                  </div>
-                  <div className="col-span-3">
+                  <div className="col-span-2">
                     <span className="text-xs text-gray-500 block mb-1">
                       컨펌 방식{' '}
                       <Tooltip title="자동: 한 프로젝트에서 검증 완료되면 다른 프로젝트에서도 자동 승인. 수동: 각 프로젝트마다 별도 검증 필요.">
