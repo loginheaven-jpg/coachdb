@@ -150,14 +150,20 @@
 - 데이터 무결성: 마감 후에도 지원서 내용 변경 불가
 - 이력 추적: 과거 프로젝트 지원 당시의 역량 상태 보존
 
-#### 2.2. 템플릿 기반 역량 항목 (Template-Based Competency Items)
+#### 2.2. 3-tier 템플릿 아키텍처 (Template-Based Architecture)
 
-**CompetencyItem + CompetencyItemField**
-- 역량 항목은 템플릿으로 정의 (`ItemTemplate` enum)
-- 각 템플릿은 여러 필드로 구성 가능 (예: 학위 = 학위수준 + 전공 + 증빙)
-- 반복 입력 지원 (`is_repeatable=true`) - 예: 복수 자격증
+**3가지 분리된 개념**:
+1. **입력 템플릿 (InputTemplate)**: 폼 구조 정의 (어떻게 입력받을지)
+2. **평가 템플릿 (ScoringTemplate)**: 점수 산정 방식 (어떻게 평가할지)
+3. **역량 항목 (CompetencyItem)**: 1과 2를 조합한 실제 역량 항목
 
-**템플릿 유형**:
+**InputTemplate (입력 템플릿)**
+- `input_templates` 테이블에 정의
+- 필드 스키마(JSON): 입력받을 필드 목록 정의
+- 레이아웃, 반복 입력 여부, 파일 첨부 설정
+- 키워드 기반 자동 매칭 지원
+
+**입력 템플릿 유형** (DB 저장):
 - `text`: 단순 텍스트
 - `number`: 단순 숫자
 - `select`: 단일 선택
@@ -168,11 +174,27 @@
 - `coaching_history`: 코칭 분야 이력 + 증빙
 - `coaching_time`: 코칭시간 (내용 + 연도 + 시간 + 증빙)
 - `coaching_experience`: 코칭경력 (기관명 + 연도 + 시간 + 증빙)
+- `kca_certification`: KCA 자격증
+- `other_certification`: 기타 자격증
+
+**ScoringTemplate (평가 템플릿)**
+- `scoring_templates` 테이블에 정의
+- 등급 유형: 문자열, 숫자, 파일유무, 복수선택
+- 매칭 방식: 정확히 일치, 포함, 범위, 등급별 점수
+- 집계 방식: 첫번째만, 합계, 최대값, 개수, 하나라도 일치, 최고점수
+- 등급별 점수 매핑 (JSON)
+
+**CompetencyItem (역량 항목)**
+- 기존 `ItemTemplate` enum 유지 (하위 호환)
+- `input_template_id`: FK to `input_templates` (신규)
+- `scoring_template_id`: FK to `scoring_templates` (신규)
+- 두 템플릿을 조합하여 완전한 역량 항목 정의
 
 **설계 의도**:
-- 유연성: 새로운 역량 항목을 코드 수정 없이 추가
-- 일관성: 모든 프로젝트에서 동일한 역량 항목 정의 공유
-- 확장성: 템플릿 추가로 다양한 입력 형태 지원
+- **관심사 분리**: 입력 폼과 평가 방식을 독립적으로 정의
+- **재사용성**: 동일한 입력 템플릿을 다른 평가 방식과 조합 가능
+- **유연성**: 새로운 역량 항목을 코드 수정 없이 DB에서 추가
+- **하위 호환**: 기존 `ItemTemplate` enum 유지
 
 #### 2.3. 점수 계산 엔진 (Scoring Engine)
 
@@ -292,13 +314,59 @@ R2_BUCKET=pcms-files
 - created_at, updated_at: TIMESTAMP
 ```
 
-#### 3. competency_items (역량 항목 마스터)
+#### 3. input_templates (입력 템플릿 - 폼 구조 정의)
+```sql
+- template_id: VARCHAR(50) PRIMARY KEY  # 예: "degree", "coaching_time"
+- template_name: VARCHAR(100) NOT NULL  # 예: "학위", "코칭시간"
+- description: TEXT
+- fields_schema: TEXT NOT NULL DEFAULT '[]'  # JSON: 필드 정의 배열
+- layout_type: VARCHAR(50) DEFAULT 'vertical'  # vertical, horizontal, grid
+- is_repeatable: BOOLEAN DEFAULT FALSE  # 다중 입력 허용
+- max_entries: VARCHAR(10)  # 최대 입력 수
+- allow_file_upload: BOOLEAN DEFAULT FALSE  # 파일 첨부 허용
+- file_required: BOOLEAN DEFAULT FALSE  # 파일 필수 여부
+- allowed_file_types: TEXT  # JSON: 허용 파일 형식
+- validation_rules: TEXT  # JSON: 검증 규칙
+- help_text: TEXT  # 사용자 도움말
+- placeholder: VARCHAR(200)
+- keywords: TEXT  # JSON: 자동 매칭용 키워드
+- is_active: BOOLEAN DEFAULT TRUE
+- created_at, updated_at: TIMESTAMP
+```
+
+#### 3-1. scoring_templates (평가 템플릿 - 점수 산정 방식)
+```sql
+- template_id: VARCHAR(100) PRIMARY KEY  # 예: "kca_certification"
+- template_name: VARCHAR(200) NOT NULL  # 예: "코칭관련자격증 (KCA)"
+- description: TEXT
+- grade_type: VARCHAR(50) NOT NULL  # string, numeric, file_exists, multi_select
+- matching_type: VARCHAR(50) NOT NULL  # exact, contains, range, grade
+- value_source: VARCHAR(50) DEFAULT 'SUBMITTED'
+- source_field: VARCHAR(100)  # USER_FIELD, JSON_FIELD인 경우
+- aggregation_mode: VARCHAR(50) DEFAULT 'first'
+- default_mappings: TEXT NOT NULL  # JSON: 등급별 점수 매핑
+- fixed_grades: BOOLEAN DEFAULT FALSE  # 등급 고정 여부
+- allow_add_grades: BOOLEAN DEFAULT TRUE  # 등급 추가 허용
+- proof_required: VARCHAR(20) DEFAULT 'OPTIONAL'
+- verification_note: TEXT
+- is_required_default: BOOLEAN DEFAULT FALSE
+- allow_multiple: BOOLEAN DEFAULT FALSE
+- auto_confirm_across_projects: BOOLEAN DEFAULT FALSE
+- keywords: TEXT  # JSON: 자동 매칭용 키워드
+- is_active: BOOLEAN DEFAULT TRUE
+- created_at, updated_at: TIMESTAMP
+```
+
+#### 3-2. competency_items (역량 항목 마스터)
 ```sql
 - item_id: INTEGER PRIMARY KEY
 - item_code: VARCHAR(100) UNIQUE NOT NULL
 - item_name: VARCHAR(200) NOT NULL
 - category: competencycategory ENUM
-- template: itemtemplate ENUM
+- template: itemtemplate ENUM  # Legacy (하위 호환)
+- input_template_id: VARCHAR(50) FK → input_templates.template_id  # NEW
+- scoring_template_id: VARCHAR(100) FK → scoring_templates.template_id  # NEW
+- scoring_config_override: TEXT  # JSON: 템플릿 커스터마이즈
 - is_repeatable: BOOLEAN DEFAULT FALSE
 - max_entries: INTEGER
 - is_custom: BOOLEAN DEFAULT FALSE
@@ -309,7 +377,7 @@ R2_BUCKET=pcms-files
 - template_config: TEXT  # JSON: template 설정
 ```
 
-#### 3-1. competency_item_fields (템플릿 기반 필드 정의)
+#### 3-3. competency_item_fields (템플릿 기반 필드 정의)
 ```sql
 - field_id: INTEGER PRIMARY KEY
 - item_id: INTEGER FK → competency_items.item_id (ondelete CASCADE)
