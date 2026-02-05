@@ -17,7 +17,9 @@ import {
   Popconfirm,
   Tabs,
   Descriptions,
-  Alert
+  Alert,
+  Divider,
+  Tooltip
 } from 'antd'
 import {
   ArrowLeftOutlined,
@@ -25,7 +27,8 @@ import {
   EditOutlined,
   DeleteOutlined,
   SettingOutlined,
-  SyncOutlined
+  SyncOutlined,
+  LinkOutlined
 } from '@ant-design/icons'
 import api from '../services/api'
 import competencyService, {
@@ -584,6 +587,11 @@ export default function AdminCompetencyItemsPage() {
       is_active: template.is_active
     })
     setIsInputTemplateEditModalOpen(true)
+  }
+
+  // 특정 입력 템플릿을 사용하는 역량항목 찾기
+  const getItemsUsingTemplate = (templateId: string): CompetencyItem[] => {
+    return items.filter(item => item.template === templateId)
   }
 
   const addFieldSchema = () => {
@@ -2220,9 +2228,14 @@ export default function AdminCompetencyItemsPage() {
           </Form>
         </Modal>
 
-        {/* Input Template Edit Modal */}
+        {/* Input Template Edit Modal - 개선된 레이아웃 */}
         <Modal
-          title={`입력 템플릿 수정 - ${editingInputTemplate?.template_name}`}
+          title={
+            <div className="flex items-center gap-2">
+              <SettingOutlined />
+              <span>입력 템플릿 수정</span>
+            </div>
+          }
           open={isInputTemplateEditModalOpen}
           maskClosable={false}
           onCancel={() => {
@@ -2233,174 +2246,248 @@ export default function AdminCompetencyItemsPage() {
             setInputKeywords([])
           }}
           footer={null}
-          width={800}
+          width={720}
         >
           <Form
             form={inputTemplateEditForm}
             layout="vertical"
             onFinish={handleEditInputTemplate}
+            size="small"
           >
-            <Alert
-              message={`템플릿 ID: ${editingInputTemplate?.template_id}`}
-              type="info"
-              className="mb-4"
-            />
+            {/* 연결된 역량항목 표시 */}
+            {editingInputTemplate && (
+              <div className="mb-4 p-3 bg-blue-50 rounded border border-blue-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <LinkOutlined className="text-blue-600" />
+                  <Text strong className="text-blue-800">
+                    이 템플릿을 사용하는 역량항목
+                  </Text>
+                  <Tag color="blue">{getItemsUsingTemplate(editingInputTemplate.template_id).length}개</Tag>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {getItemsUsingTemplate(editingInputTemplate.template_id).length > 0 ? (
+                    getItemsUsingTemplate(editingInputTemplate.template_id).map(item => (
+                      <Tag key={item.item_id} color="geekblue">{item.item_name}</Tag>
+                    ))
+                  ) : (
+                    <Text type="secondary" className="text-xs">사용 중인 역량항목이 없습니다</Text>
+                  )}
+                </div>
+              </div>
+            )}
 
-            <div className="grid grid-cols-2 gap-4">
+            {/* 기본 정보 섹션 */}
+            <div className="mb-4">
+              <Divider orientation="left" orientationMargin={0} className="!mt-0 !mb-3">
+                <Text strong className="text-gray-600 text-sm">기본 정보</Text>
+              </Divider>
+              <div className="grid grid-cols-12 gap-3">
+                <div className="col-span-4">
+                  <div className="text-xs text-gray-500 mb-1">템플릿 ID</div>
+                  <div className="px-2 py-1 bg-gray-100 rounded text-sm font-mono">
+                    {editingInputTemplate?.template_id}
+                  </div>
+                </div>
+                <div className="col-span-6">
+                  <Form.Item
+                    name="template_name"
+                    label={<span className="text-xs">템플릿명</span>}
+                    rules={[{ required: true, message: '필수' }]}
+                    className="!mb-0"
+                  >
+                    <Input />
+                  </Form.Item>
+                </div>
+                <div className="col-span-2">
+                  <Form.Item
+                    name="is_active"
+                    label={<span className="text-xs">활성</span>}
+                    valuePropName="checked"
+                    className="!mb-0"
+                  >
+                    <Switch size="small" />
+                  </Form.Item>
+                </div>
+              </div>
               <Form.Item
-                name="template_name"
-                label="템플릿명"
-                rules={[{ required: true, message: '템플릿명을 입력해주세요' }]}
+                name="description"
+                label={<span className="text-xs">설명</span>}
+                className="!mb-0 !mt-2"
               >
-                <Input />
-              </Form.Item>
-
-              <Form.Item
-                name="is_active"
-                label="활성 상태"
-                valuePropName="checked"
-              >
-                <Switch />
+                <Input.TextArea rows={1} placeholder="템플릿 설명 (선택사항)" />
               </Form.Item>
             </div>
 
-            <Form.Item
-              name="description"
-              label="설명"
-            >
-              <Input.TextArea rows={2} />
-            </Form.Item>
-
-            <div className="grid grid-cols-3 gap-4">
-              <Form.Item
-                name="layout_type"
-                label="레이아웃"
-              >
-                <Select options={[
-                  { label: '세로 배치', value: 'vertical' },
-                  { label: '가로 배치', value: 'horizontal' },
-                  { label: '그리드', value: 'grid' }
-                ]} />
-              </Form.Item>
-
-              <Form.Item
-                name="is_repeatable"
-                label="다중입력"
-                valuePropName="checked"
-              >
-                <Switch />
-              </Form.Item>
-
-              <Form.Item
-                name="max_entries"
-                label="최대 입력 수"
-              >
-                <Input />
-              </Form.Item>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
+            {/* 입력 설정 섹션 */}
+            <div className="mb-4">
+              <Divider orientation="left" orientationMargin={0} className="!mt-0 !mb-3">
+                <Text strong className="text-gray-600 text-sm">입력 설정</Text>
+              </Divider>
+              <div className="grid grid-cols-12 gap-3">
+                <div className="col-span-3">
+                  <Form.Item
+                    name="layout_type"
+                    label={<span className="text-xs">레이아웃</span>}
+                    className="!mb-0"
+                  >
+                    <Select
+                      size="small"
+                      options={[
+                        { label: '세로', value: 'vertical' },
+                        { label: '가로', value: 'horizontal' },
+                        { label: '그리드', value: 'grid' }
+                      ]}
+                    />
+                  </Form.Item>
+                </div>
+                <div className="col-span-3">
+                  <Form.Item
+                    name="is_repeatable"
+                    label={<span className="text-xs">다중입력</span>}
+                    valuePropName="checked"
+                    className="!mb-0"
+                  >
+                    <Switch size="small" />
+                  </Form.Item>
+                </div>
+                <div className="col-span-3">
+                  <Form.Item
+                    name="max_entries"
+                    label={<span className="text-xs">최대 수</span>}
+                    className="!mb-0"
+                  >
+                    <Input size="small" placeholder="무제한" />
+                  </Form.Item>
+                </div>
+                <div className="col-span-3">
+                  <Form.Item
+                    name="placeholder"
+                    label={<span className="text-xs">플레이스홀더</span>}
+                    className="!mb-0"
+                  >
+                    <Input size="small" />
+                  </Form.Item>
+                </div>
+              </div>
               <Form.Item
                 name="help_text"
-                label="도움말"
+                label={<span className="text-xs">도움말</span>}
+                className="!mb-0 !mt-2"
               >
-                <Input.TextArea rows={2} />
-              </Form.Item>
-
-              <Form.Item
-                name="placeholder"
-                label="플레이스홀더"
-              >
-                <Input />
+                <Input size="small" placeholder="사용자에게 표시될 안내 문구" />
               </Form.Item>
             </div>
 
-            {/* 필드 스키마 */}
-            <div className="border-t pt-4 mt-4">
-              <div className="flex justify-between items-center mb-4">
-                <Title level={5}>필드 스키마 ({fieldsSchema.length}개)</Title>
-                <Button type="dashed" icon={<PlusOutlined />} onClick={addFieldSchema}>
-                  필드 추가
-                </Button>
+            {/* 필드 스키마 섹션 */}
+            <div className="mb-4">
+              <Divider orientation="left" orientationMargin={0} className="!mt-0 !mb-3">
+                <Space size="small">
+                  <Text strong className="text-gray-600 text-sm">필드 스키마</Text>
+                  <Tag color="orange" className="!mr-0">{fieldsSchema.length}개</Tag>
+                </Space>
+              </Divider>
+              <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+                {fieldsSchema.map((field, index) => (
+                  <div key={index} className="flex gap-1 items-center bg-gray-50 p-1 rounded">
+                    <Input
+                      size="small"
+                      placeholder="필드명"
+                      value={field.name}
+                      onChange={e => updateFieldSchema(index, 'name', e.target.value)}
+                      style={{ width: 90 }}
+                      className="font-mono text-xs"
+                    />
+                    <Select
+                      size="small"
+                      placeholder="타입"
+                      value={field.type}
+                      onChange={v => updateFieldSchema(index, 'type', v)}
+                      style={{ width: 80 }}
+                      options={[
+                        { label: '텍스트', value: 'text' },
+                        { label: '숫자', value: 'number' },
+                        { label: '선택', value: 'select' },
+                        { label: '다중선택', value: 'multiselect' },
+                        { label: '파일', value: 'file' },
+                        { label: '날짜', value: 'date' },
+                        { label: '장문', value: 'textarea' }
+                      ]}
+                    />
+                    <Input
+                      size="small"
+                      placeholder="레이블"
+                      value={field.label}
+                      onChange={e => updateFieldSchema(index, 'label', e.target.value)}
+                      style={{ flex: 1 }}
+                    />
+                    <Switch
+                      size="small"
+                      checkedChildren="필수"
+                      unCheckedChildren="선택"
+                      checked={field.required}
+                      onChange={v => updateFieldSchema(index, 'required', v)}
+                    />
+                    <Button
+                      type="text"
+                      danger
+                      size="small"
+                      icon={<DeleteOutlined />}
+                      onClick={() => removeFieldSchema(index)}
+                    />
+                  </div>
+                ))}
               </div>
-
-              {fieldsSchema.map((field, index) => (
-                <div key={index} className="flex gap-2 mb-2 items-center">
-                  <Input
-                    placeholder="필드명"
-                    value={field.name}
-                    onChange={e => updateFieldSchema(index, 'name', e.target.value)}
-                    style={{ width: 120 }}
-                  />
-                  <Select
-                    placeholder="타입"
-                    value={field.type}
-                    onChange={v => updateFieldSchema(index, 'type', v)}
-                    style={{ width: 100 }}
-                    options={[
-                      { label: '텍스트', value: 'text' },
-                      { label: '숫자', value: 'number' },
-                      { label: '선택', value: 'select' },
-                      { label: '다중선택', value: 'multiselect' },
-                      { label: '파일', value: 'file' },
-                      { label: '날짜', value: 'date' },
-                      { label: '장문', value: 'textarea' }
-                    ]}
-                  />
-                  <Input
-                    placeholder="레이블"
-                    value={field.label}
-                    onChange={e => updateFieldSchema(index, 'label', e.target.value)}
-                    style={{ flex: 1 }}
-                  />
-                  <Switch
-                    checkedChildren="필수"
-                    unCheckedChildren="선택"
-                    checked={field.required}
-                    onChange={v => updateFieldSchema(index, 'required', v)}
-                  />
-                  <Button
-                    type="text"
-                    danger
-                    icon={<DeleteOutlined />}
-                    onClick={() => removeFieldSchema(index)}
-                  />
-                </div>
-              ))}
+              <Button
+                type="dashed"
+                size="small"
+                icon={<PlusOutlined />}
+                onClick={addFieldSchema}
+                className="w-full mt-2"
+              >
+                필드 추가
+              </Button>
             </div>
 
-            {/* 키워드 */}
-            <div className="border-t pt-4 mt-4">
-              <Title level={5}>키워드 (자동 매칭용)</Title>
-              <div className="mb-2">
+            {/* 키워드 섹션 */}
+            <div className="mb-4">
+              <Divider orientation="left" orientationMargin={0} className="!mt-0 !mb-3">
+                <Text strong className="text-gray-600 text-sm">키워드 (자동 매칭)</Text>
+              </Divider>
+              <div className="flex flex-wrap gap-1 mb-2 min-h-6">
                 {inputKeywords.map(kw => (
-                  <Tag key={kw} closable onClose={() => removeInputKeyword(kw)}>
+                  <Tag key={kw} closable onClose={() => removeInputKeyword(kw)} className="!m-0">
                     {kw}
                   </Tag>
                 ))}
               </div>
               <Input
+                size="small"
                 placeholder="키워드 입력 후 Enter"
                 onPressEnter={(e) => {
                   addInputKeyword(e.currentTarget.value)
                   e.currentTarget.value = ''
                 }}
-                style={{ width: 200 }}
+                style={{ width: 180 }}
               />
             </div>
 
-            <Form.Item className="mt-6">
-              <Space>
-                <Button type="primary" htmlType="submit">저장</Button>
-                <Button onClick={() => {
+            {/* 저장/취소 버튼 */}
+            <div className="flex justify-end gap-2 pt-3 border-t">
+              <Button
+                onClick={() => {
                   setIsInputTemplateEditModalOpen(false)
                   setEditingInputTemplate(null)
                   inputTemplateEditForm.resetFields()
                   setFieldsSchema([])
                   setInputKeywords([])
-                }}>취소</Button>
-              </Space>
-            </Form.Item>
+                }}
+              >
+                취소
+              </Button>
+              <Button type="primary" htmlType="submit">
+                저장
+              </Button>
+            </div>
           </Form>
         </Modal>
     </div>
