@@ -103,11 +103,11 @@ const MATCHING_TYPE_OPTIONS = [
   { label: '등급', value: 'grade' }
 ]
 
-// 값 소스 옵션
+// 값 소스 옵션 (백엔드 Literal 타입에 맞춰 소문자 사용)
 const VALUE_SOURCE_OPTIONS = [
-  { label: '제출값', value: 'SUBMITTED' },
-  { label: '사용자 필드', value: 'USER_FIELD' },
-  { label: 'JSON 필드', value: 'JSON_FIELD' }
+  { label: '제출값', value: 'submitted' },
+  { label: '사용자 필드', value: 'user_field' },
+  { label: 'JSON 필드', value: 'json_field' }
 ]
 
 // 집계 방식 옵션
@@ -120,11 +120,11 @@ const AGGREGATION_MODE_OPTIONS = [
   { label: '최고점수', value: 'best_match' }
 ]
 
-// 증빙 필수 옵션
+// 증빙 필수 옵션 (백엔드 Literal 타입에 맞춰 소문자 사용)
 const PROOF_REQUIRED_OPTIONS = [
-  { label: '불필요', value: 'NOT_REQUIRED' },
-  { label: '선택', value: 'OPTIONAL' },
-  { label: '필수', value: 'REQUIRED' }
+  { label: '불필요', value: 'not_required' },
+  { label: '선택', value: 'optional' },
+  { label: '필수', value: 'required' }
 ]
 
 const FIELD_TYPE_OPTIONS = [
@@ -728,16 +728,17 @@ export default function AdminCompetencyItemsPage() {
       width: '8%',
       render: (v: string) => {
         const colors: Record<string, string> = {
-          'NOT_REQUIRED': 'default',
-          'OPTIONAL': 'blue',
-          'REQUIRED': 'red'
+          'not_required': 'default',
+          'optional': 'blue',
+          'required': 'red'
         }
         const labels: Record<string, string> = {
-          'NOT_REQUIRED': '불필요',
-          'OPTIONAL': '선택',
-          'REQUIRED': '필수'
+          'not_required': '불필요',
+          'optional': '선택',
+          'required': '필수'
         }
-        return <Tag color={colors[v]}>{labels[v] || v}</Tag>
+        const normalizedV = v?.toLowerCase() || v
+        return <Tag color={colors[normalizedV]}>{labels[normalizedV] || v}</Tag>
       }
     },
     {
@@ -2248,9 +2249,9 @@ export default function AdminCompetencyItemsPage() {
             initialValues={{
               grade_type: 'string',
               matching_type: 'grade',
-              value_source: 'SUBMITTED',
+              value_source: 'submitted',
               aggregation_mode: 'best_match',
-              proof_required: 'OPTIONAL',
+              proof_required: 'optional',
               fixed_grades: false,
               allow_add_grades: true,
               is_required_default: false,
