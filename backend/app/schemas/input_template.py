@@ -33,11 +33,6 @@ class InputTemplateBase(BaseModel):
     is_repeatable: bool = Field(default=False, description="다중 입력 허용")
     max_entries: Optional[str] = Field(default=None, description="최대 입력 수")
 
-    # 파일 설정
-    allow_file_upload: bool = Field(default=False)
-    file_required: bool = Field(default=False)
-    allowed_file_types: Optional[str] = Field(default=None, description="허용 파일 형식 JSON")
-
     # 검증/도움말
     validation_rules: Optional[str] = Field(default=None, description="검증 규칙 JSON")
     help_text: Optional[str] = None
@@ -61,9 +56,6 @@ class InputTemplateUpdate(BaseModel):
     layout_type: Optional[str] = None
     is_repeatable: Optional[bool] = None
     max_entries: Optional[str] = None
-    allow_file_upload: Optional[bool] = None
-    file_required: Optional[bool] = None
-    allowed_file_types: Optional[str] = None
     validation_rules: Optional[str] = None
     help_text: Optional[str] = None
     placeholder: Optional[str] = None

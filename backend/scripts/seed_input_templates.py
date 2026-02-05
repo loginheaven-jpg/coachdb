@@ -2,6 +2,11 @@
 입력 템플릿 (InputTemplate) 초기 데이터 시드 스크립트
 
 기존 ItemTemplate enum 값들을 DB 레코드로 마이그레이션합니다.
+
+단순화된 구조:
+- 파일 첨부 여부: fields_schema에 file 타입 필드 유무로 자동 판단
+- 파일 필수 여부: file 필드의 required 속성으로 결정
+- 허용 파일 형식: 실행파일만 차단 (백엔드 로직)
 """
 import json
 import asyncio
@@ -10,7 +15,7 @@ from app.core.database import AsyncSessionLocal
 from app.models.input_template import InputTemplate
 
 
-# 입력 템플릿 정의
+# 입력 템플릿 정의 (12개)
 INPUT_TEMPLATES = [
     {
         "template_id": "text",
@@ -21,7 +26,6 @@ INPUT_TEMPLATES = [
         ]),
         "layout_type": "vertical",
         "is_repeatable": False,
-        "allow_file_upload": False,
         "keywords": json.dumps(["텍스트", "문자열", "TEXT"])
     },
     {
@@ -33,7 +37,6 @@ INPUT_TEMPLATES = [
         ]),
         "layout_type": "vertical",
         "is_repeatable": False,
-        "allow_file_upload": False,
         "keywords": json.dumps(["숫자", "NUMBER"])
     },
     {
@@ -45,7 +48,6 @@ INPUT_TEMPLATES = [
         ]),
         "layout_type": "vertical",
         "is_repeatable": False,
-        "allow_file_upload": False,
         "keywords": json.dumps(["선택", "SELECT"])
     },
     {
@@ -57,7 +59,6 @@ INPUT_TEMPLATES = [
         ]),
         "layout_type": "vertical",
         "is_repeatable": False,
-        "allow_file_upload": False,
         "keywords": json.dumps(["다중선택", "MULTISELECT"])
     },
     {
@@ -69,9 +70,6 @@ INPUT_TEMPLATES = [
         ]),
         "layout_type": "vertical",
         "is_repeatable": False,
-        "allow_file_upload": True,
-        "file_required": True,
-        "allowed_file_types": json.dumps(["pdf", "jpg", "jpeg", "png"]),
         "keywords": json.dumps(["파일", "FILE"])
     },
     {
@@ -84,9 +82,6 @@ INPUT_TEMPLATES = [
         ]),
         "layout_type": "vertical",
         "is_repeatable": True,
-        "allow_file_upload": True,
-        "file_required": False,
-        "allowed_file_types": json.dumps(["pdf", "jpg", "jpeg", "png"]),
         "keywords": json.dumps(["텍스트파일", "TEXT_FILE"])
     },
     {
@@ -104,9 +99,6 @@ INPUT_TEMPLATES = [
         "layout_type": "vertical",
         "is_repeatable": True,
         "max_entries": "5",
-        "allow_file_upload": True,
-        "file_required": False,
-        "allowed_file_types": json.dumps(["pdf", "jpg", "jpeg", "png"]),
         "help_text": "최종 학력부터 입력해주세요.",
         "keywords": json.dumps(["학위", "학력", "DEGREE", "EDUCATION"])
     },
@@ -122,8 +114,6 @@ INPUT_TEMPLATES = [
         ]),
         "layout_type": "vertical",
         "is_repeatable": True,
-        "allow_file_upload": True,
-        "file_required": False,
         "keywords": json.dumps(["코칭이력", "COACHING_HISTORY"])
     },
     {
@@ -138,8 +128,6 @@ INPUT_TEMPLATES = [
         ]),
         "layout_type": "horizontal",
         "is_repeatable": True,
-        "allow_file_upload": True,
-        "file_required": False,
         "help_text": "코칭 시간을 연도별로 입력해주세요.",
         "keywords": json.dumps(["코칭시간", "COACHING_TIME", "시간"])
     },
@@ -156,8 +144,6 @@ INPUT_TEMPLATES = [
         ]),
         "layout_type": "vertical",
         "is_repeatable": True,
-        "allow_file_upload": True,
-        "file_required": False,
         "help_text": "코칭 경력을 기관별로 입력해주세요.",
         "keywords": json.dumps(["코칭경력", "COACHING_EXPERIENCE", "경력"])
     },
@@ -175,8 +161,6 @@ INPUT_TEMPLATES = [
         "layout_type": "vertical",
         "is_repeatable": True,
         "max_entries": "10",
-        "allow_file_upload": True,
-        "file_required": True,
         "help_text": "취득한 코칭 자격증을 모두 입력해주세요.",
         "keywords": json.dumps(["자격증", "KCA", "KSC", "KAC", "KPC", "CERTIFICATION"])
     },
@@ -193,8 +177,6 @@ INPUT_TEMPLATES = [
         ]),
         "layout_type": "vertical",
         "is_repeatable": True,
-        "allow_file_upload": True,
-        "file_required": False,
         "keywords": json.dumps(["기타자격증", "OTHER_CERTIFICATION"])
     },
 ]
@@ -227,9 +209,6 @@ async def seed_input_templates():
                 layout_type=template_data.get("layout_type", "vertical"),
                 is_repeatable=template_data.get("is_repeatable", False),
                 max_entries=template_data.get("max_entries"),
-                allow_file_upload=template_data.get("allow_file_upload", False),
-                file_required=template_data.get("file_required", False),
-                allowed_file_types=template_data.get("allowed_file_types"),
                 validation_rules=template_data.get("validation_rules"),
                 help_text=template_data.get("help_text"),
                 placeholder=template_data.get("placeholder"),

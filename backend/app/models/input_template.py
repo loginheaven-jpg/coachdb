@@ -33,11 +33,6 @@ class InputTemplate(Base):
     is_repeatable = Column(Boolean, nullable=False, default=False)  # 다중 입력 허용
     max_entries = Column(String(10), nullable=True)  # 최대 입력 수 (null=무제한)
 
-    # 파일 첨부 설정
-    allow_file_upload = Column(Boolean, nullable=False, default=False)
-    file_required = Column(Boolean, nullable=False, default=False)
-    allowed_file_types = Column(Text, nullable=True)  # JSON: ["pdf", "jpg", "png"]
-
     # 검증 규칙 (JSON)
     # 예: {"min_length": 10, "max_length": 500, "pattern": "^[가-힣]+$"}
     validation_rules = Column(Text, nullable=True)

@@ -22,6 +22,8 @@ export interface InputTemplate {
   description?: string
 
   // 필드 스키마 (JSON 문자열)
+  // 파일 첨부 여부는 fields_schema에 file 타입 필드 유무로 판단
+  // 파일 필수 여부는 해당 file 필드의 required 속성으로 결정
   fields_schema: string
 
   // 레이아웃
@@ -30,11 +32,6 @@ export interface InputTemplate {
   // 입력 특성
   is_repeatable: boolean
   max_entries?: string
-
-  // 파일 설정
-  allow_file_upload: boolean
-  file_required: boolean
-  allowed_file_types?: string  // JSON 문자열
 
   // 검증/도움말
   validation_rules?: string  // JSON 문자열
@@ -58,9 +55,6 @@ export interface InputTemplateCreate {
   layout_type?: string
   is_repeatable?: boolean
   max_entries?: string
-  allow_file_upload?: boolean
-  file_required?: boolean
-  allowed_file_types?: string
   validation_rules?: string
   help_text?: string
   placeholder?: string
@@ -76,9 +70,6 @@ export interface InputTemplateUpdate {
   layout_type?: string
   is_repeatable?: boolean
   max_entries?: string
-  allow_file_upload?: boolean
-  file_required?: boolean
-  allowed_file_types?: string
   validation_rules?: string
   help_text?: string
   placeholder?: string
@@ -172,25 +163,6 @@ const inputTemplateService = {
    */
   stringifyKeywords(keywords: string[]): string {
     return JSON.stringify(keywords)
-  },
-
-  /**
-   * 허용 파일 타입 파싱 (JSON 문자열 -> 문자열 배열)
-   */
-  parseAllowedFileTypes(typesJson: string | undefined): string[] {
-    if (!typesJson) return []
-    try {
-      return JSON.parse(typesJson)
-    } catch {
-      return []
-    }
-  },
-
-  /**
-   * 허용 파일 타입 직렬화 (문자열 배열 -> JSON 문자열)
-   */
-  stringifyAllowedFileTypes(types: string[]): string {
-    return JSON.stringify(types)
   },
 
   /**

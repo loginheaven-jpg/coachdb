@@ -579,9 +579,6 @@ export default function AdminCompetencyItemsPage() {
       layout_type: template.layout_type,
       is_repeatable: template.is_repeatable,
       max_entries: template.max_entries,
-      allow_file_upload: template.allow_file_upload,
-      file_required: template.file_required,
-      allowed_file_types: template.allowed_file_types,
       help_text: template.help_text,
       placeholder: template.placeholder,
       is_active: template.is_active
@@ -808,18 +805,6 @@ export default function AdminCompetencyItemsPage() {
       )
     },
     {
-      title: '파일첨부',
-      dataIndex: 'allow_file_upload',
-      key: 'allow_file_upload',
-      width: '8%',
-      render: (v: boolean, record: InputTemplate) => {
-        if (!v) return <Tag>불가</Tag>
-        return record.file_required
-          ? <Tag color="red">필수</Tag>
-          : <Tag color="blue">허용</Tag>
-      }
-    },
-    {
       title: '필드 수',
       key: 'fields_count',
       width: '8%',
@@ -866,53 +851,6 @@ export default function AdminCompetencyItemsPage() {
       )
     }
   ]
-
-  // 입력 템플릿 상세 확장 행
-  const inputTemplateExpandedRowRender = (record: InputTemplate) => {
-    const fields = inputTemplateService.parseFieldsSchema(record.fields_schema)
-    const kwds = inputTemplateService.parseKeywords(record.keywords)
-
-    return (
-      <div className="p-4 bg-gray-50">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Text strong>필드 스키마:</Text>
-            <div className="mt-2">
-              {fields.length > 0 ? (
-                <Table
-                  size="small"
-                  pagination={false}
-                  dataSource={fields.map((f, i) => ({ ...f, key: i }))}
-                  columns={[
-                    { title: '필드명', dataIndex: 'name', key: 'name' },
-                    { title: '타입', dataIndex: 'type', key: 'type', render: (v: string) => inputTemplateService.getFieldTypeLabel(v) },
-                    { title: '레이블', dataIndex: 'label', key: 'label' },
-                    { title: '필수', dataIndex: 'required', key: 'required', render: (v: boolean) => v ? <Tag color="red">필수</Tag> : <Tag>선택</Tag> }
-                  ]}
-                />
-              ) : (
-                <Text type="secondary">필드 스키마 없음</Text>
-              )}
-            </div>
-          </div>
-          <div>
-            <Text strong>설정 정보:</Text>
-            <Descriptions size="small" column={1} className="mt-2">
-              <Descriptions.Item label="설명">{record.description || '-'}</Descriptions.Item>
-              <Descriptions.Item label="도움말">{record.help_text || '-'}</Descriptions.Item>
-              <Descriptions.Item label="플레이스홀더">{record.placeholder || '-'}</Descriptions.Item>
-            </Descriptions>
-            {kwds.length > 0 && (
-              <div className="mt-2">
-                <Text strong>키워드: </Text>
-                {kwds.map(k => <Tag key={k}>{k}</Tag>)}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    )
-  }
 
   const columns = [
     {
@@ -1229,9 +1167,6 @@ export default function AdminCompetencyItemsPage() {
               dataSource={inputTemplates}
               rowKey="template_id"
               loading={inputTemplatesLoading}
-              expandable={{
-                expandedRowRender: inputTemplateExpandedRowRender
-              }}
               pagination={{
                 pageSize: 10,
                 showSizeChanger: true,
@@ -2120,9 +2055,7 @@ export default function AdminCompetencyItemsPage() {
             onFinish={handleCreateInputTemplate}
             initialValues={{
               layout_type: 'vertical',
-              is_repeatable: false,
-              allow_file_upload: false,
-              file_required: false
+              is_repeatable: false
             }}
           >
             <div className="grid grid-cols-2 gap-4">
@@ -2180,32 +2113,6 @@ export default function AdminCompetencyItemsPage() {
                 tooltip="다중입력 허용 시 최대 개수"
               >
                 <Input placeholder="예: 10" />
-              </Form.Item>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <Form.Item
-                name="allow_file_upload"
-                label="파일 첨부"
-                valuePropName="checked"
-              >
-                <Switch />
-              </Form.Item>
-
-              <Form.Item
-                name="file_required"
-                label="파일 필수"
-                valuePropName="checked"
-              >
-                <Switch />
-              </Form.Item>
-
-              <Form.Item
-                name="allowed_file_types"
-                label="허용 파일 형식"
-                tooltip='예: ["pdf", "jpg", "png"]'
-              >
-                <Input placeholder='["pdf", "jpg", "png"]' />
               </Form.Item>
             </div>
 
@@ -2387,31 +2294,6 @@ export default function AdminCompetencyItemsPage() {
               <Form.Item
                 name="max_entries"
                 label="최대 입력 수"
-              >
-                <Input />
-              </Form.Item>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <Form.Item
-                name="allow_file_upload"
-                label="파일 첨부"
-                valuePropName="checked"
-              >
-                <Switch />
-              </Form.Item>
-
-              <Form.Item
-                name="file_required"
-                label="파일 필수"
-                valuePropName="checked"
-              >
-                <Switch />
-              </Form.Item>
-
-              <Form.Item
-                name="allowed_file_types"
-                label="허용 파일 형식"
               >
                 <Input />
               </Form.Item>
