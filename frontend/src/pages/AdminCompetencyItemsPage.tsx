@@ -52,6 +52,10 @@ import inputTemplateService, {
   UserProfileFieldInfo,
   DataSourceType
 } from '../services/inputTemplateService'
+import unifiedTemplateService, {
+  UnifiedTemplate,
+  GradeMapping as UnifiedGradeMapping
+} from '../services/unifiedTemplateService'
 
 const { Title, Text } = Typography
 
@@ -160,6 +164,10 @@ export default function AdminCompetencyItemsPage() {
   const [userProfileFields, setUserProfileFields] = useState<UserProfileFieldInfo[]>([])
   const [selectedDataSource, setSelectedDataSource] = useState<DataSourceType>('form_input')
 
+  // 통합 템플릿 관련 상태
+  const [unifiedTemplates, setUnifiedTemplates] = useState<UnifiedTemplate[]>([])
+  const [unifiedTemplatesLoading, setUnifiedTemplatesLoading] = useState(false)
+
   // Modal states
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -179,6 +187,7 @@ export default function AdminCompetencyItemsPage() {
     loadItems()
     loadTemplates()
     loadInputTemplates()
+    loadUnifiedTemplates()
     loadUserProfileFields()
   }, [showInactive, showInactiveTemplates, showInactiveInputTemplates])
 
@@ -237,6 +246,19 @@ export default function AdminCompetencyItemsPage() {
       message.error('입력 템플릿을 불러오는데 실패했습니다.')
     } finally {
       setInputTemplatesLoading(false)
+    }
+  }
+
+  const loadUnifiedTemplates = async () => {
+    setUnifiedTemplatesLoading(true)
+    try {
+      const data = await unifiedTemplateService.getAll(!showInactiveInputTemplates)
+      setUnifiedTemplates(data)
+    } catch (error: any) {
+      console.error('통합 템플릿 로드 실패:', error)
+      // 통합 템플릿 로드 실패는 조용히 무시 (아직 마이그레이션 중일 수 있음)
+    } finally {
+      setUnifiedTemplatesLoading(false)
     }
   }
 
@@ -800,50 +822,158 @@ export default function AdminCompetencyItemsPage() {
     )
   }
 
+  // 입력 템플릿에 대응하는 통합 템플릿 찾기
+  const getUnifiedTemplateForInput = (templateId: string): UnifiedTemplate | undefined => {
+    return unifiedTemplates.find(ut => ut.template_id === templateId)
+  }
+
+  // 입력 템플릿 확장 렌더 (통합 템플릿의 평가 설정 표시)
+  const inputTemplateExpandedRowRender = (record: InputTemplate) => {
+    const unified = getUnifiedTemplateForInput(record.template_id)
+
+    if (!unified) {
+      return (
+        <div className="p-4 bg-gray-50 rounded">
+          <Text type="secondary">통합 템플릿이 연결되지 않았습니다. (기존 입력 템플릿만 사용)</Text>
+        </div>
+      )
+    }
+
+    // 평가 설정이 없는 경우
+    if (!unified.has_scoring) {
+      return (
+        <div className="p-4 bg-gray-50 rounded">
+          <Text type="secondary">평가 설정 없음 (입력만 수집)</Text>
+        </div>
+      )
+    }
+
+    // 등급 매핑 파싱
+    const mappings = unifiedTemplateService.parseMappings(unified.default_mappings)
+
+    return (
+      <div className="p-4 bg-blue-50 rounded">
+        <div className="grid grid-cols-2 gap-4">
+          {/* 평가 설정 요약 */}
+          <div>
+            <Text strong className="text-blue-800">📊 평가 설정</Text>
+            <Descriptions size="small" column={1} className="mt-2">
+              <Descriptions.Item label="평가 방법">
+                <Tag color="blue">{unifiedTemplateService.getEvaluationMethodLabel(unified.evaluation_method)}</Tag>
+              </Descriptions.Item>
+              {unified.grade_type && (
+                <Descriptions.Item label="등급 유형">
+                  {unifiedTemplateService.getGradeTypeLabel(unified.grade_type)}
+                </Descriptions.Item>
+              )}
+              {unified.matching_type && (
+                <Descriptions.Item label="매칭 방식">
+                  {unifiedTemplateService.getMatchingTypeLabel(unified.matching_type)}
+                </Descriptions.Item>
+              )}
+              {unified.aggregation_mode && (
+                <Descriptions.Item label="집계 방식">
+                  {unifiedTemplateService.getAggregationModeLabel(unified.aggregation_mode)}
+                </Descriptions.Item>
+              )}
+            </Descriptions>
+          </div>
+
+          {/* 등급 매핑 */}
+          {mappings.length > 0 && (
+            <div>
+              <Text strong className="text-blue-800">🎯 등급 매핑</Text>
+              <div className="mt-2 space-y-1">
+                {mappings.map((m, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <Tag color="orange">{m.score}점</Tag>
+                    <span className="text-gray-600">
+                      {m.label || (typeof m.value === 'number' ? `${m.value} 이상` : m.value)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   // 입력 템플릿 테이블 컬럼
   const inputTemplateColumns = [
     {
       title: '템플릿 ID',
       dataIndex: 'template_id',
       key: 'template_id',
-      width: '12%'
+      width: '10%'
     },
     {
       title: '템플릿명',
       dataIndex: 'template_name',
       key: 'template_name',
-      width: '15%'
+      width: '12%'
     },
     {
       title: '레이아웃',
       dataIndex: 'layout_type',
       key: 'layout_type',
-      width: '10%',
+      width: '7%',
       render: (v: string) => inputTemplateService.getLayoutTypeLabel(v)
     },
     {
       title: '다중입력',
       dataIndex: 'is_repeatable',
       key: 'is_repeatable',
-      width: '8%',
+      width: '7%',
       render: (v: boolean, record: InputTemplate) => (
-        v ? <Tag color="blue">Yes ({record.max_entries || '무제한'})</Tag> : <Tag>No</Tag>
+        v ? <Tag color="blue">Yes ({record.max_entries || '∞'})</Tag> : <Tag>No</Tag>
       )
     },
     {
-      title: '필드 수',
+      title: '필드',
       key: 'fields_count',
-      width: '8%',
+      width: '5%',
       render: (_: any, record: InputTemplate) => {
         const fields = inputTemplateService.parseFieldsSchema(record.fields_schema)
         return fields.length
       }
     },
     {
+      title: '평가 설정',
+      key: 'scoring_info',
+      width: '20%',
+      render: (_: any, record: InputTemplate) => {
+        const unified = getUnifiedTemplateForInput(record.template_id)
+        if (!unified || !unified.has_scoring) {
+          return <Text type="secondary">-</Text>
+        }
+        return (
+          <Space wrap size={[4, 4]}>
+            {unified.grade_type && (
+              <Tooltip title="등급 유형">
+                <Tag color="purple">{unifiedTemplateService.getGradeTypeLabel(unified.grade_type)}</Tag>
+              </Tooltip>
+            )}
+            {unified.matching_type && (
+              <Tooltip title="매칭 방식">
+                <Tag color="cyan">{unifiedTemplateService.getMatchingTypeLabel(unified.matching_type)}</Tag>
+              </Tooltip>
+            )}
+            {unified.aggregation_mode && unified.aggregation_mode !== 'first' && (
+              <Tooltip title="집계 방식">
+                <Tag color="geekblue">{unifiedTemplateService.getAggregationModeLabel(unified.aggregation_mode)}</Tag>
+              </Tooltip>
+            )}
+          </Space>
+        )
+      }
+    },
+    {
       title: '상태',
       dataIndex: 'is_active',
       key: 'is_active',
-      width: '8%',
+      width: '6%',
       render: (active: boolean) => (
         active ? <Tag color="green">활성</Tag> : <Tag color="red">비활성</Tag>
       )
@@ -851,7 +981,7 @@ export default function AdminCompetencyItemsPage() {
     {
       title: '작업',
       key: 'actions',
-      width: '15%',
+      width: '12%',
       render: (_: any, record: InputTemplate) => (
         <Space>
           <Button
@@ -1192,7 +1322,14 @@ export default function AdminCompetencyItemsPage() {
               columns={inputTemplateColumns}
               dataSource={inputTemplates}
               rowKey="template_id"
-              loading={inputTemplatesLoading}
+              loading={inputTemplatesLoading || unifiedTemplatesLoading}
+              expandable={{
+                expandedRowRender: inputTemplateExpandedRowRender,
+                rowExpandable: (record) => {
+                  const unified = getUnifiedTemplateForInput(record.template_id)
+                  return unified?.has_scoring || false
+                }
+              }}
               pagination={{
                 pageSize: 10,
                 showSizeChanger: true,
