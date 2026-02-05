@@ -41,6 +41,12 @@ import scoringTemplateService, {
   ScoringTemplateUpdate,
   GradeMapping
 } from '../services/scoringTemplateService'
+import inputTemplateService, {
+  InputTemplate,
+  InputTemplateCreate,
+  InputTemplateUpdate,
+  FieldSchema
+} from '../services/inputTemplateService'
 
 const { Title, Text } = Typography
 
@@ -137,6 +143,16 @@ export default function AdminCompetencyItemsPage() {
   const [gradeMappings, setGradeMappings] = useState<GradeMapping[]>([])
   const [keywords, setKeywords] = useState<string[]>([])
 
+  // 입력 템플릿 관련 상태
+  const [inputTemplates, setInputTemplates] = useState<InputTemplate[]>([])
+  const [inputTemplatesLoading, setInputTemplatesLoading] = useState(false)
+  const [showInactiveInputTemplates, setShowInactiveInputTemplates] = useState(false)
+  const [isInputTemplateCreateModalOpen, setIsInputTemplateCreateModalOpen] = useState(false)
+  const [isInputTemplateEditModalOpen, setIsInputTemplateEditModalOpen] = useState(false)
+  const [editingInputTemplate, setEditingInputTemplate] = useState<InputTemplate | null>(null)
+  const [fieldsSchema, setFieldsSchema] = useState<FieldSchema[]>([])
+  const [inputKeywords, setInputKeywords] = useState<string[]>([])
+
   // Modal states
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -149,11 +165,14 @@ export default function AdminCompetencyItemsPage() {
   const [fieldForm] = Form.useForm()
   const [templateCreateForm] = Form.useForm()
   const [templateEditForm] = Form.useForm()
+  const [inputTemplateCreateForm] = Form.useForm()
+  const [inputTemplateEditForm] = Form.useForm()
 
   useEffect(() => {
     loadItems()
     loadTemplates()
-  }, [showInactive, showInactiveTemplates])
+    loadInputTemplates()
+  }, [showInactive, showInactiveTemplates, showInactiveInputTemplates])
 
   // Update editingItem when items change (for field modal updates)
   useEffect(() => {
@@ -188,6 +207,19 @@ export default function AdminCompetencyItemsPage() {
       message.error('평가 템플릿을 불러오는데 실패했습니다.')
     } finally {
       setTemplatesLoading(false)
+    }
+  }
+
+  const loadInputTemplates = async () => {
+    setInputTemplatesLoading(true)
+    try {
+      const data = await inputTemplateService.getAll(!showInactiveInputTemplates)
+      setInputTemplates(data)
+    } catch (error: any) {
+      console.error('입력 템플릿 로드 실패:', error)
+      message.error('입력 템플릿을 불러오는데 실패했습니다.')
+    } finally {
+      setInputTemplatesLoading(false)
     }
   }
 
@@ -483,6 +515,104 @@ export default function AdminCompetencyItemsPage() {
     return templates.find(t => t.template_id === templateId)
   }
 
+  // 입력 템플릿 CRUD
+  const handleCreateInputTemplate = async (values: any) => {
+    try {
+      const templateData: InputTemplateCreate = {
+        ...values,
+        fields_schema: inputTemplateService.stringifyFieldsSchema(fieldsSchema),
+        keywords: inputTemplateService.stringifyKeywords(inputKeywords)
+      }
+      await inputTemplateService.create(templateData)
+      message.success('입력 템플릿이 생성되었습니다.')
+      setIsInputTemplateCreateModalOpen(false)
+      inputTemplateCreateForm.resetFields()
+      setFieldsSchema([])
+      setInputKeywords([])
+      loadInputTemplates()
+    } catch (error: any) {
+      console.error('입력 템플릿 생성 실패:', error)
+      message.error(error.response?.data?.detail || '생성에 실패했습니다.')
+    }
+  }
+
+  const handleEditInputTemplate = async (values: any) => {
+    if (!editingInputTemplate) return
+    try {
+      const templateData: InputTemplateUpdate = {
+        ...values,
+        fields_schema: inputTemplateService.stringifyFieldsSchema(fieldsSchema),
+        keywords: inputTemplateService.stringifyKeywords(inputKeywords)
+      }
+      await inputTemplateService.update(editingInputTemplate.template_id, templateData)
+      message.success('입력 템플릿이 수정되었습니다.')
+      setIsInputTemplateEditModalOpen(false)
+      setEditingInputTemplate(null)
+      inputTemplateEditForm.resetFields()
+      setFieldsSchema([])
+      setInputKeywords([])
+      loadInputTemplates()
+    } catch (error: any) {
+      console.error('입력 템플릿 수정 실패:', error)
+      message.error(error.response?.data?.detail || '수정에 실패했습니다.')
+    }
+  }
+
+  const handleDeleteInputTemplate = async (templateId: string) => {
+    try {
+      await inputTemplateService.delete(templateId)
+      message.success('입력 템플릿이 비활성화되었습니다.')
+      loadInputTemplates()
+    } catch (error: any) {
+      console.error('입력 템플릿 삭제 실패:', error)
+      message.error(error.response?.data?.detail || '삭제에 실패했습니다.')
+    }
+  }
+
+  const openInputTemplateEditModal = (template: InputTemplate) => {
+    setEditingInputTemplate(template)
+    setFieldsSchema(inputTemplateService.parseFieldsSchema(template.fields_schema))
+    setInputKeywords(inputTemplateService.parseKeywords(template.keywords))
+    inputTemplateEditForm.setFieldsValue({
+      template_name: template.template_name,
+      description: template.description,
+      layout_type: template.layout_type,
+      is_repeatable: template.is_repeatable,
+      max_entries: template.max_entries,
+      allow_file_upload: template.allow_file_upload,
+      file_required: template.file_required,
+      allowed_file_types: template.allowed_file_types,
+      help_text: template.help_text,
+      placeholder: template.placeholder,
+      is_active: template.is_active
+    })
+    setIsInputTemplateEditModalOpen(true)
+  }
+
+  const addFieldSchema = () => {
+    setFieldsSchema([...fieldsSchema, { name: '', type: 'text', label: '', required: false }])
+  }
+
+  const updateFieldSchema = (index: number, field: keyof FieldSchema, value: any) => {
+    const updated = [...fieldsSchema]
+    updated[index] = { ...updated[index], [field]: value }
+    setFieldsSchema(updated)
+  }
+
+  const removeFieldSchema = (index: number) => {
+    setFieldsSchema(fieldsSchema.filter((_, i) => i !== index))
+  }
+
+  const addInputKeyword = (keyword: string) => {
+    if (keyword && !inputKeywords.includes(keyword)) {
+      setInputKeywords([...inputKeywords, keyword])
+    }
+  }
+
+  const removeInputKeyword = (keyword: string) => {
+    setInputKeywords(inputKeywords.filter(k => k !== keyword))
+  }
+
   const filteredItems = categoryFilter
     ? items.filter(item => item.category === categoryFilter)
     : items
@@ -635,6 +765,143 @@ export default function AdminCompetencyItemsPage() {
             {record.verification_note && (
               <Alert message={record.verification_note} type="info" className="mt-2" />
             )}
+            {kwds.length > 0 && (
+              <div className="mt-2">
+                <Text strong>키워드: </Text>
+                {kwds.map(k => <Tag key={k}>{k}</Tag>)}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // 입력 템플릿 테이블 컬럼
+  const inputTemplateColumns = [
+    {
+      title: '템플릿 ID',
+      dataIndex: 'template_id',
+      key: 'template_id',
+      width: '12%'
+    },
+    {
+      title: '템플릿명',
+      dataIndex: 'template_name',
+      key: 'template_name',
+      width: '15%'
+    },
+    {
+      title: '레이아웃',
+      dataIndex: 'layout_type',
+      key: 'layout_type',
+      width: '10%',
+      render: (v: string) => inputTemplateService.getLayoutTypeLabel(v)
+    },
+    {
+      title: '다중입력',
+      dataIndex: 'is_repeatable',
+      key: 'is_repeatable',
+      width: '8%',
+      render: (v: boolean, record: InputTemplate) => (
+        v ? <Tag color="blue">Yes ({record.max_entries || '무제한'})</Tag> : <Tag>No</Tag>
+      )
+    },
+    {
+      title: '파일첨부',
+      dataIndex: 'allow_file_upload',
+      key: 'allow_file_upload',
+      width: '8%',
+      render: (v: boolean, record: InputTemplate) => {
+        if (!v) return <Tag>불가</Tag>
+        return record.file_required
+          ? <Tag color="red">필수</Tag>
+          : <Tag color="blue">허용</Tag>
+      }
+    },
+    {
+      title: '필드 수',
+      key: 'fields_count',
+      width: '8%',
+      render: (_: any, record: InputTemplate) => {
+        const fields = inputTemplateService.parseFieldsSchema(record.fields_schema)
+        return fields.length
+      }
+    },
+    {
+      title: '상태',
+      dataIndex: 'is_active',
+      key: 'is_active',
+      width: '8%',
+      render: (active: boolean) => (
+        active ? <Tag color="green">활성</Tag> : <Tag color="red">비활성</Tag>
+      )
+    },
+    {
+      title: '작업',
+      key: 'actions',
+      width: '15%',
+      render: (_: any, record: InputTemplate) => (
+        <Space>
+          <Button
+            type="link"
+            icon={<EditOutlined />}
+            onClick={() => openInputTemplateEditModal(record)}
+          >
+            수정
+          </Button>
+          {record.is_active && (
+            <Popconfirm
+              title="이 템플릿을 비활성화하시겠습니까?"
+              onConfirm={() => handleDeleteInputTemplate(record.template_id)}
+              okText="예"
+              cancelText="아니오"
+            >
+              <Button type="link" danger icon={<DeleteOutlined />}>
+                삭제
+              </Button>
+            </Popconfirm>
+          )}
+        </Space>
+      )
+    }
+  ]
+
+  // 입력 템플릿 상세 확장 행
+  const inputTemplateExpandedRowRender = (record: InputTemplate) => {
+    const fields = inputTemplateService.parseFieldsSchema(record.fields_schema)
+    const kwds = inputTemplateService.parseKeywords(record.keywords)
+
+    return (
+      <div className="p-4 bg-gray-50">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Text strong>필드 스키마:</Text>
+            <div className="mt-2">
+              {fields.length > 0 ? (
+                <Table
+                  size="small"
+                  pagination={false}
+                  dataSource={fields.map((f, i) => ({ ...f, key: i }))}
+                  columns={[
+                    { title: '필드명', dataIndex: 'name', key: 'name' },
+                    { title: '타입', dataIndex: 'type', key: 'type', render: (v: string) => inputTemplateService.getFieldTypeLabel(v) },
+                    { title: '레이블', dataIndex: 'label', key: 'label' },
+                    { title: '필수', dataIndex: 'required', key: 'required', render: (v: boolean) => v ? <Tag color="red">필수</Tag> : <Tag>선택</Tag> }
+                  ]}
+                />
+              ) : (
+                <Text type="secondary">필드 스키마 없음</Text>
+              )}
+            </div>
+          </div>
+          <div>
+            <Text strong>설정 정보:</Text>
+            <Descriptions size="small" column={1} className="mt-2">
+              <Descriptions.Item label="설명">{record.description || '-'}</Descriptions.Item>
+              <Descriptions.Item label="도움말">{record.help_text || '-'}</Descriptions.Item>
+              <Descriptions.Item label="플레이스홀더">{record.placeholder || '-'}</Descriptions.Item>
+            </Descriptions>
             {kwds.length > 0 && (
               <div className="mt-2">
                 <Text strong>키워드: </Text>
@@ -926,6 +1193,52 @@ export default function AdminCompetencyItemsPage() {
               }}
               locale={{
                 emptyText: '등록된 평가 템플릿이 없습니다.'
+              }}
+            />
+          </Tabs.TabPane>
+
+          {/* 입력 템플릿 관리 탭 */}
+          <Tabs.TabPane tab="입력 템플릿 관리" key="inputTemplates">
+            <div className="flex justify-between items-center mb-4">
+              <Text className="text-gray-600">
+                역량항목 입력에 사용되는 폼 구조 템플릿을 관리합니다.
+              </Text>
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => {
+                  setFieldsSchema([])
+                  setInputKeywords([])
+                  inputTemplateCreateForm.resetFields()
+                  setIsInputTemplateCreateModalOpen(true)
+                }}
+              >
+                새 입력 템플릿 추가
+              </Button>
+            </div>
+
+            <div className="mb-4">
+              <Space>
+                <Text>비활성 템플릿 포함:</Text>
+                <Switch checked={showInactiveInputTemplates} onChange={setShowInactiveInputTemplates} />
+              </Space>
+            </div>
+
+            <Table
+              columns={inputTemplateColumns}
+              dataSource={inputTemplates}
+              rowKey="template_id"
+              loading={inputTemplatesLoading}
+              expandable={{
+                expandedRowRender: inputTemplateExpandedRowRender
+              }}
+              pagination={{
+                pageSize: 10,
+                showSizeChanger: true,
+                showTotal: (total) => `총 ${total}개`
+              }}
+              locale={{
+                emptyText: '등록된 입력 템플릿이 없습니다.'
               }}
             />
           </Tabs.TabPane>
@@ -1781,6 +2094,428 @@ export default function AdminCompetencyItemsPage() {
                   templateEditForm.resetFields()
                   setGradeMappings([])
                   setKeywords([])
+                }}>취소</Button>
+              </Space>
+            </Form.Item>
+          </Form>
+        </Modal>
+
+        {/* Input Template Create Modal */}
+        <Modal
+          title="새 입력 템플릿 추가"
+          open={isInputTemplateCreateModalOpen}
+          maskClosable={false}
+          onCancel={() => {
+            setIsInputTemplateCreateModalOpen(false)
+            inputTemplateCreateForm.resetFields()
+            setFieldsSchema([])
+            setInputKeywords([])
+          }}
+          footer={null}
+          width={800}
+        >
+          <Form
+            form={inputTemplateCreateForm}
+            layout="vertical"
+            onFinish={handleCreateInputTemplate}
+            initialValues={{
+              layout_type: 'vertical',
+              is_repeatable: false,
+              allow_file_upload: false,
+              file_required: false
+            }}
+          >
+            <div className="grid grid-cols-2 gap-4">
+              <Form.Item
+                name="template_id"
+                label="템플릿 ID"
+                rules={[
+                  { required: true, message: '템플릿 ID를 입력해주세요' },
+                  { pattern: /^[a-z0-9_]+$/, message: '영문 소문자, 숫자, 언더스코어만 사용 가능합니다' }
+                ]}
+                tooltip="고유 식별자 (영문 소문자, 숫자, 언더스코어)"
+              >
+                <Input placeholder="예: coaching_experience" />
+              </Form.Item>
+
+              <Form.Item
+                name="template_name"
+                label="템플릿명"
+                rules={[{ required: true, message: '템플릿명을 입력해주세요' }]}
+              >
+                <Input placeholder="예: 코칭경력" />
+              </Form.Item>
+            </div>
+
+            <Form.Item
+              name="description"
+              label="설명"
+            >
+              <Input.TextArea rows={2} placeholder="템플릿에 대한 설명" />
+            </Form.Item>
+
+            <div className="grid grid-cols-3 gap-4">
+              <Form.Item
+                name="layout_type"
+                label="레이아웃"
+              >
+                <Select options={[
+                  { label: '세로 배치', value: 'vertical' },
+                  { label: '가로 배치', value: 'horizontal' },
+                  { label: '그리드', value: 'grid' }
+                ]} />
+              </Form.Item>
+
+              <Form.Item
+                name="is_repeatable"
+                label="다중입력"
+                valuePropName="checked"
+              >
+                <Switch />
+              </Form.Item>
+
+              <Form.Item
+                name="max_entries"
+                label="최대 입력 수"
+                tooltip="다중입력 허용 시 최대 개수"
+              >
+                <Input placeholder="예: 10" />
+              </Form.Item>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <Form.Item
+                name="allow_file_upload"
+                label="파일 첨부"
+                valuePropName="checked"
+              >
+                <Switch />
+              </Form.Item>
+
+              <Form.Item
+                name="file_required"
+                label="파일 필수"
+                valuePropName="checked"
+              >
+                <Switch />
+              </Form.Item>
+
+              <Form.Item
+                name="allowed_file_types"
+                label="허용 파일 형식"
+                tooltip='예: ["pdf", "jpg", "png"]'
+              >
+                <Input placeholder='["pdf", "jpg", "png"]' />
+              </Form.Item>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <Form.Item
+                name="help_text"
+                label="도움말"
+              >
+                <Input.TextArea rows={2} placeholder="사용자에게 표시될 도움말" />
+              </Form.Item>
+
+              <Form.Item
+                name="placeholder"
+                label="플레이스홀더"
+              >
+                <Input placeholder="입력 필드 기본 안내 문구" />
+              </Form.Item>
+            </div>
+
+            {/* 필드 스키마 */}
+            <div className="border-t pt-4 mt-4">
+              <div className="flex justify-between items-center mb-4">
+                <Title level={5}>필드 스키마 ({fieldsSchema.length}개)</Title>
+                <Button type="dashed" icon={<PlusOutlined />} onClick={addFieldSchema}>
+                  필드 추가
+                </Button>
+              </div>
+
+              {fieldsSchema.map((field, index) => (
+                <div key={index} className="flex gap-2 mb-2 items-center">
+                  <Input
+                    placeholder="필드명"
+                    value={field.name}
+                    onChange={e => updateFieldSchema(index, 'name', e.target.value)}
+                    style={{ width: 120 }}
+                  />
+                  <Select
+                    placeholder="타입"
+                    value={field.type}
+                    onChange={v => updateFieldSchema(index, 'type', v)}
+                    style={{ width: 100 }}
+                    options={[
+                      { label: '텍스트', value: 'text' },
+                      { label: '숫자', value: 'number' },
+                      { label: '선택', value: 'select' },
+                      { label: '다중선택', value: 'multiselect' },
+                      { label: '파일', value: 'file' },
+                      { label: '날짜', value: 'date' },
+                      { label: '장문', value: 'textarea' }
+                    ]}
+                  />
+                  <Input
+                    placeholder="레이블"
+                    value={field.label}
+                    onChange={e => updateFieldSchema(index, 'label', e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                  <Switch
+                    checkedChildren="필수"
+                    unCheckedChildren="선택"
+                    checked={field.required}
+                    onChange={v => updateFieldSchema(index, 'required', v)}
+                  />
+                  <Button
+                    type="text"
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={() => removeFieldSchema(index)}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* 키워드 */}
+            <div className="border-t pt-4 mt-4">
+              <Title level={5}>키워드 (자동 매칭용)</Title>
+              <div className="mb-2">
+                {inputKeywords.map(kw => (
+                  <Tag key={kw} closable onClose={() => removeInputKeyword(kw)}>
+                    {kw}
+                  </Tag>
+                ))}
+              </div>
+              <Input
+                placeholder="키워드 입력 후 Enter"
+                onPressEnter={(e) => {
+                  addInputKeyword(e.currentTarget.value)
+                  e.currentTarget.value = ''
+                }}
+                style={{ width: 200 }}
+              />
+            </div>
+
+            <Form.Item className="mt-6">
+              <Space>
+                <Button type="primary" htmlType="submit">생성</Button>
+                <Button onClick={() => {
+                  setIsInputTemplateCreateModalOpen(false)
+                  inputTemplateCreateForm.resetFields()
+                  setFieldsSchema([])
+                  setInputKeywords([])
+                }}>취소</Button>
+              </Space>
+            </Form.Item>
+          </Form>
+        </Modal>
+
+        {/* Input Template Edit Modal */}
+        <Modal
+          title={`입력 템플릿 수정 - ${editingInputTemplate?.template_name}`}
+          open={isInputTemplateEditModalOpen}
+          maskClosable={false}
+          onCancel={() => {
+            setIsInputTemplateEditModalOpen(false)
+            setEditingInputTemplate(null)
+            inputTemplateEditForm.resetFields()
+            setFieldsSchema([])
+            setInputKeywords([])
+          }}
+          footer={null}
+          width={800}
+        >
+          <Form
+            form={inputTemplateEditForm}
+            layout="vertical"
+            onFinish={handleEditInputTemplate}
+          >
+            <Alert
+              message={`템플릿 ID: ${editingInputTemplate?.template_id}`}
+              type="info"
+              className="mb-4"
+            />
+
+            <div className="grid grid-cols-2 gap-4">
+              <Form.Item
+                name="template_name"
+                label="템플릿명"
+                rules={[{ required: true, message: '템플릿명을 입력해주세요' }]}
+              >
+                <Input />
+              </Form.Item>
+
+              <Form.Item
+                name="is_active"
+                label="활성 상태"
+                valuePropName="checked"
+              >
+                <Switch />
+              </Form.Item>
+            </div>
+
+            <Form.Item
+              name="description"
+              label="설명"
+            >
+              <Input.TextArea rows={2} />
+            </Form.Item>
+
+            <div className="grid grid-cols-3 gap-4">
+              <Form.Item
+                name="layout_type"
+                label="레이아웃"
+              >
+                <Select options={[
+                  { label: '세로 배치', value: 'vertical' },
+                  { label: '가로 배치', value: 'horizontal' },
+                  { label: '그리드', value: 'grid' }
+                ]} />
+              </Form.Item>
+
+              <Form.Item
+                name="is_repeatable"
+                label="다중입력"
+                valuePropName="checked"
+              >
+                <Switch />
+              </Form.Item>
+
+              <Form.Item
+                name="max_entries"
+                label="최대 입력 수"
+              >
+                <Input />
+              </Form.Item>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <Form.Item
+                name="allow_file_upload"
+                label="파일 첨부"
+                valuePropName="checked"
+              >
+                <Switch />
+              </Form.Item>
+
+              <Form.Item
+                name="file_required"
+                label="파일 필수"
+                valuePropName="checked"
+              >
+                <Switch />
+              </Form.Item>
+
+              <Form.Item
+                name="allowed_file_types"
+                label="허용 파일 형식"
+              >
+                <Input />
+              </Form.Item>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <Form.Item
+                name="help_text"
+                label="도움말"
+              >
+                <Input.TextArea rows={2} />
+              </Form.Item>
+
+              <Form.Item
+                name="placeholder"
+                label="플레이스홀더"
+              >
+                <Input />
+              </Form.Item>
+            </div>
+
+            {/* 필드 스키마 */}
+            <div className="border-t pt-4 mt-4">
+              <div className="flex justify-between items-center mb-4">
+                <Title level={5}>필드 스키마 ({fieldsSchema.length}개)</Title>
+                <Button type="dashed" icon={<PlusOutlined />} onClick={addFieldSchema}>
+                  필드 추가
+                </Button>
+              </div>
+
+              {fieldsSchema.map((field, index) => (
+                <div key={index} className="flex gap-2 mb-2 items-center">
+                  <Input
+                    placeholder="필드명"
+                    value={field.name}
+                    onChange={e => updateFieldSchema(index, 'name', e.target.value)}
+                    style={{ width: 120 }}
+                  />
+                  <Select
+                    placeholder="타입"
+                    value={field.type}
+                    onChange={v => updateFieldSchema(index, 'type', v)}
+                    style={{ width: 100 }}
+                    options={[
+                      { label: '텍스트', value: 'text' },
+                      { label: '숫자', value: 'number' },
+                      { label: '선택', value: 'select' },
+                      { label: '다중선택', value: 'multiselect' },
+                      { label: '파일', value: 'file' },
+                      { label: '날짜', value: 'date' },
+                      { label: '장문', value: 'textarea' }
+                    ]}
+                  />
+                  <Input
+                    placeholder="레이블"
+                    value={field.label}
+                    onChange={e => updateFieldSchema(index, 'label', e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                  <Switch
+                    checkedChildren="필수"
+                    unCheckedChildren="선택"
+                    checked={field.required}
+                    onChange={v => updateFieldSchema(index, 'required', v)}
+                  />
+                  <Button
+                    type="text"
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={() => removeFieldSchema(index)}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* 키워드 */}
+            <div className="border-t pt-4 mt-4">
+              <Title level={5}>키워드 (자동 매칭용)</Title>
+              <div className="mb-2">
+                {inputKeywords.map(kw => (
+                  <Tag key={kw} closable onClose={() => removeInputKeyword(kw)}>
+                    {kw}
+                  </Tag>
+                ))}
+              </div>
+              <Input
+                placeholder="키워드 입력 후 Enter"
+                onPressEnter={(e) => {
+                  addInputKeyword(e.currentTarget.value)
+                  e.currentTarget.value = ''
+                }}
+                style={{ width: 200 }}
+              />
+            </div>
+
+            <Form.Item className="mt-6">
+              <Space>
+                <Button type="primary" htmlType="submit">저장</Button>
+                <Button onClick={() => {
+                  setIsInputTemplateEditModalOpen(false)
+                  setEditingInputTemplate(null)
+                  inputTemplateEditForm.resetFields()
+                  setFieldsSchema([])
+                  setInputKeywords([])
                 }}>취소</Button>
               </Space>
             </Form.Item>

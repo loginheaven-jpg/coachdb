@@ -56,9 +56,9 @@ class CompetencyItemResponse(BaseModel):
     input_type: str  # Deprecated
     is_active: bool
 
-    # Template system
-    template: Optional[ItemTemplate] = None
-    template_config: Optional[str] = None  # JSON string
+    # Template system (legacy)
+    template: Optional[ItemTemplate] = None  # Deprecated: use input_template_id
+    template_config: Optional[str] = None  # JSON string (legacy)
     is_repeatable: bool = False
     max_entries: Optional[int] = None
     description: Optional[str] = None  # 설문 입력 안내 문구
@@ -66,6 +66,9 @@ class CompetencyItemResponse(BaseModel):
     # Custom question support
     is_custom: bool = False
     created_by: Optional[int] = None
+
+    # Input template (입력 폼 구조)
+    input_template_id: Optional[str] = None  # FK to input_templates
 
     # Scoring template (평가 방법 설정)
     scoring_template_id: Optional[str] = None  # FK to scoring_templates
@@ -201,13 +204,14 @@ class CompetencyItemCreate(BaseModel):
     item_name: str
     category: CompetencyCategory = CompetencyCategory.ADDON  # Default for custom
     input_type: InputType = InputType.TEXT  # Deprecated but required
-    template: Optional[ItemTemplate] = None
-    template_config: Optional[str] = None  # JSON string
+    template: Optional[ItemTemplate] = None  # Deprecated: use input_template_id
+    template_config: Optional[str] = None  # JSON string (legacy)
     is_repeatable: bool = False
     max_entries: Optional[int] = None
     is_active: bool = True
     description: Optional[str] = None  # 설문 입력 안내 문구
     is_custom: bool = False  # True for custom questions
+    input_template_id: Optional[str] = None  # FK to input_templates
     scoring_template_id: Optional[str] = None  # FK to scoring_templates
     scoring_config_override: Optional[str] = None  # 커스터마이즈 시 사용 (JSON)
     fields: List[CompetencyItemFieldCreate] = []
@@ -217,11 +221,12 @@ class CompetencyItemUpdate(BaseModel):
     """Update a competency item (Admin only)"""
     item_name: Optional[str] = None
     category: Optional[CompetencyCategory] = None
-    template: Optional[ItemTemplate] = None
-    template_config: Optional[str] = None
+    template: Optional[ItemTemplate] = None  # Deprecated: use input_template_id
+    template_config: Optional[str] = None  # legacy
     is_repeatable: Optional[bool] = None
     max_entries: Optional[int] = None
     is_active: Optional[bool] = None
     description: Optional[str] = None  # 설문 입력 안내 문구
+    input_template_id: Optional[str] = None  # FK to input_templates
     scoring_template_id: Optional[str] = None  # FK to scoring_templates
     scoring_config_override: Optional[str] = None  # 커스터마이즈 시 사용 (JSON)

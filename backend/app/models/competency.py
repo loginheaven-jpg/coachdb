@@ -90,12 +90,15 @@ class CompetencyItem(Base):
     input_type = Column(Enum(InputType), nullable=False)  # Deprecated: use template
     is_active = Column(Boolean, nullable=False, default=True)
 
-    # Template system (new)
-    template = Column(Enum(ItemTemplate), nullable=True)  # Template type
-    template_config = Column(Text, nullable=True)  # JSON configuration for template
+    # Template system (legacy - deprecated, use input_template_id instead)
+    template = Column(Enum(ItemTemplate), nullable=True)  # Deprecated: use input_template_id
+    template_config = Column(Text, nullable=True)  # JSON configuration for template (legacy)
     is_repeatable = Column(Boolean, nullable=False, default=False)  # Allows multiple entries
     max_entries = Column(Integer, nullable=True)  # Max entries if repeatable (null = unlimited)
     description = Column(Text, nullable=True)  # 설문 입력 안내 문구
+
+    # Input template - 입력 폼 구조 설정 (NEW)
+    input_template_id = Column(String(50), ForeignKey("input_templates.template_id"), nullable=True)
 
     # Scoring template - 평가 방법 설정
     scoring_template_id = Column(String(100), ForeignKey("scoring_templates.template_id"), nullable=True)
@@ -109,6 +112,7 @@ class CompetencyItem(Base):
     project_items = relationship("ProjectItem", back_populates="competency_item")
     coach_competencies = relationship("CoachCompetency", back_populates="competency_item")
     fields = relationship("CompetencyItemField", back_populates="item", cascade="all, delete-orphan")
+    input_template = relationship("InputTemplate", backref="competency_items")
     scoring_template = relationship("ScoringTemplate", back_populates="competency_items")
 
     def __repr__(self):

@@ -17,6 +17,7 @@ from app.models.certification import Certification, CertificationType
 from app.models.role_request import RoleRequest, RoleRequestStatus
 from app.models.reviewer_evaluation import ReviewerEvaluation, Recommendation
 from app.models.scoring_template import ScoringTemplate
+from app.models.input_template import InputTemplate
 
 __all__ = [
     "User",
@@ -52,4 +53,5 @@ __all__ = [
     "ReviewerEvaluation",
     "Recommendation",
     "ScoringTemplate",
+    "InputTemplate",
 ]
