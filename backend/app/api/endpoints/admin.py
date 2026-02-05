@@ -2474,3 +2474,404 @@ async def seed_scoring_templates(
             status_code=500,
             detail=f"Error seeding scoring templates: {str(e)}"
         )
+
+
+# ============================================================================
+# Seed Unified Templates Endpoint
+# ============================================================================
+@router.post("/seed-unified-templates")
+async def seed_unified_templates(
+    secret_key: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """통합 템플릿 초기 데이터를 삽입합니다 (requires secret key)
+
+    입력 템플릿 + 평가 템플릿을 통합한 데이터입니다.
+    """
+    if secret_key != "coachdb-seed-2024":
+        raise HTTPException(status_code=403, detail="Invalid secret key")
+
+    from app.models.unified_template import UnifiedTemplate
+
+    # 통합 템플릿 데이터 (13개)
+    UNIFIED_TEMPLATES_DATA = [
+        # 1. 기본 입력 템플릿 (평가 없음)
+        {
+            "template_id": "text",
+            "template_name": "텍스트",
+            "description": "단일 텍스트 입력",
+            "data_source": "form_input",
+            "fields_schema": json.dumps([{"name": "value", "type": "text", "label": "값", "required": True}]),
+            "layout_type": "vertical",
+            "is_repeatable": False,
+            "keywords": json.dumps(["텍스트", "문자열"]),
+        },
+        {
+            "template_id": "number",
+            "template_name": "숫자",
+            "description": "단일 숫자 입력",
+            "data_source": "form_input",
+            "fields_schema": json.dumps([{"name": "value", "type": "number", "label": "값", "required": True}]),
+            "layout_type": "vertical",
+            "is_repeatable": False,
+            "keywords": json.dumps(["숫자"]),
+        },
+        {
+            "template_id": "select",
+            "template_name": "단일선택",
+            "description": "옵션 중 하나 선택",
+            "data_source": "form_input",
+            "fields_schema": json.dumps([{"name": "value", "type": "select", "label": "선택", "required": True, "options": []}]),
+            "layout_type": "vertical",
+            "is_repeatable": False,
+            "keywords": json.dumps(["선택"]),
+        },
+        {
+            "template_id": "file",
+            "template_name": "파일",
+            "description": "파일 업로드",
+            "data_source": "form_input",
+            "fields_schema": json.dumps([{"name": "file", "type": "file", "label": "파일", "required": True}]),
+            "layout_type": "vertical",
+            "is_repeatable": False,
+            "keywords": json.dumps(["파일"]),
+        },
+
+        # 2. 학위 (입력 + 평가)
+        {
+            "template_id": "degree",
+            "template_name": "학위",
+            "description": "학위 정보 입력 및 평가",
+            "data_source": "form_input",
+            "fields_schema": json.dumps([
+                {"name": "degree_level", "type": "select", "label": "학위", "required": True, "options": ["학사", "석사", "박사수료", "박사", "기타"]},
+                {"name": "major", "type": "text", "label": "전공", "required": True},
+                {"name": "school_name", "type": "text", "label": "학교명", "required": True},
+                {"name": "graduation_year", "type": "text", "label": "졸업연도", "required": False},
+                {"name": "file", "type": "file", "label": "증빙서류", "required": False}
+            ]),
+            "layout_type": "vertical",
+            "is_repeatable": True,
+            "max_entries": "5",
+            "help_text": "최종 학력부터 입력해주세요.",
+            # 평가 설정
+            "evaluation_method": "standard",
+            "grade_type": "string",
+            "matching_type": "grade",
+            "scoring_value_source": "submitted",
+            "aggregation_mode": "best_match",
+            "default_mappings": json.dumps([
+                {"value": "박사", "score": 30, "label": "박사"},
+                {"value": "박사수료", "score": 25, "label": "박사수료"},
+                {"value": "석사", "score": 20, "label": "석사"},
+                {"value": "학사", "score": 10, "label": "학사"}
+            ]),
+            "fixed_grades": False,
+            "allow_add_grades": True,
+            "proof_required": "required",
+            "keywords": json.dumps(["학위", "학력", "DEGREE"]),
+        },
+
+        # 3. 코칭이력 (정성 평가, 점수 없음)
+        {
+            "template_id": "coaching_history",
+            "template_name": "코칭이력",
+            "description": "코칭 분야 이력 입력 (정성 평가)",
+            "data_source": "form_input",
+            "fields_schema": json.dumps([
+                {"name": "field_name", "type": "text", "label": "코칭 분야", "required": True},
+                {"name": "period", "type": "text", "label": "기간", "required": False},
+                {"name": "description", "type": "textarea", "label": "주요 내용", "required": False},
+                {"name": "file", "type": "file", "label": "증빙자료", "required": False}
+            ]),
+            "layout_type": "vertical",
+            "is_repeatable": True,
+            "keywords": json.dumps(["코칭이력"]),
+        },
+
+        # 4. 코칭시간 (입력 + 평가)
+        {
+            "template_id": "coaching_time",
+            "template_name": "코칭시간",
+            "description": "코칭 시간 입력 및 범위별 평가",
+            "data_source": "form_input",
+            "fields_schema": json.dumps([
+                {"name": "content", "type": "text", "label": "내용", "required": True},
+                {"name": "year", "type": "text", "label": "연도", "required": True},
+                {"name": "hours", "type": "number", "label": "시간", "required": True},
+                {"name": "file", "type": "file", "label": "증빙자료", "required": False}
+            ]),
+            "layout_type": "horizontal",
+            "is_repeatable": True,
+            "help_text": "코칭 시간을 연도별로 입력해주세요.",
+            # 평가 설정
+            "evaluation_method": "standard",
+            "grade_type": "numeric",
+            "matching_type": "range",
+            "scoring_value_source": "submitted",
+            "aggregation_mode": "sum",
+            "default_mappings": json.dumps([
+                {"value": 1000, "score": 30, "label": "1000시간 이상"},
+                {"value": 500, "score": 20, "label": "500-999시간"},
+                {"value": 100, "score": 10, "label": "100-499시간"}
+            ]),
+            "fixed_grades": False,
+            "allow_add_grades": True,
+            "proof_required": "optional",
+            "keywords": json.dumps(["코칭시간", "시간"]),
+        },
+
+        # 5. 코칭경력 (입력 + 평가)
+        {
+            "template_id": "coaching_experience",
+            "template_name": "코칭경력",
+            "description": "코칭 경력 입력 및 평가",
+            "data_source": "form_input",
+            "fields_schema": json.dumps([
+                {"name": "organization", "type": "text", "label": "기관명", "required": True},
+                {"name": "year", "type": "text", "label": "연도", "required": True},
+                {"name": "hours", "type": "number", "label": "시간", "required": False},
+                {"name": "description", "type": "textarea", "label": "내용", "required": False},
+                {"name": "file", "type": "file", "label": "증빙자료", "required": False}
+            ]),
+            "layout_type": "vertical",
+            "is_repeatable": True,
+            "help_text": "코칭 경력을 기관별로 입력해주세요.",
+            # 평가 설정
+            "evaluation_method": "standard",
+            "grade_type": "numeric",
+            "matching_type": "range",
+            "scoring_value_source": "submitted",
+            "aggregation_mode": "sum",
+            "default_mappings": json.dumps([
+                {"value": 1000, "score": 40, "label": "1000시간 이상"},
+                {"value": 500, "score": 30, "label": "500시간 이상"},
+                {"value": 100, "score": 20, "label": "100시간 이상"},
+                {"value": 0, "score": 10, "label": "100시간 미만"}
+            ]),
+            "fixed_grades": False,
+            "allow_add_grades": True,
+            "proof_required": "required",
+            "keywords": json.dumps(["코칭경력", "경력"]),
+        },
+
+        # 6. KCA 자격증 (고정 등급)
+        {
+            "template_id": "kca_certification",
+            "template_name": "KCA자격증",
+            "description": "KCA 코칭 자격증 (등급 고정)",
+            "data_source": "form_input",
+            "fields_schema": json.dumps([
+                {"name": "cert_level", "type": "select", "label": "자격증", "required": True, "options": ["KSC", "KAC", "KPC", "ACC", "PCC", "MCC", "기타"]},
+                {"name": "cert_number", "type": "text", "label": "자격증번호", "required": False},
+                {"name": "issue_date", "type": "text", "label": "취득일", "required": False},
+                {"name": "file", "type": "file", "label": "자격증 사본", "required": True}
+            ]),
+            "layout_type": "vertical",
+            "is_repeatable": True,
+            "max_entries": "10",
+            "help_text": "취득한 코칭 자격증을 모두 입력해주세요.",
+            # 평가 설정
+            "evaluation_method": "standard",
+            "grade_type": "string",
+            "matching_type": "grade",
+            "scoring_value_source": "user_field",
+            "scoring_source_field": "kca_certification_level",
+            "aggregation_mode": "best_match",
+            "default_mappings": json.dumps([
+                {"value": "KSC", "score": 40, "label": "KSC (수석코치)", "fixed": True},
+                {"value": "KAC", "score": 30, "label": "KAC (전문코치)", "fixed": True},
+                {"value": "KPC", "score": 20, "label": "KPC (전문코치)", "fixed": True},
+                {"value": "무자격", "score": 0, "label": "무자격", "fixed": True}
+            ]),
+            "fixed_grades": True,
+            "allow_add_grades": False,
+            "proof_required": "optional",
+            "keywords": json.dumps(["KCA", "KSC", "KAC", "KPC"]),
+        },
+
+        # 7. 일반 자격증 (평가 방법 선택 가능: by_name / by_existence)
+        {
+            "template_id": "certification",
+            "template_name": "자격증",
+            "description": "일반 자격증 입력 (이름 또는 유무로 평가 선택 가능)",
+            "data_source": "form_input",
+            "fields_schema": json.dumps([
+                {"name": "cert_name", "type": "text", "label": "자격증명", "required": True},
+                {"name": "issuer", "type": "text", "label": "발급기관", "required": False},
+                {"name": "cert_number", "type": "text", "label": "자격증번호", "required": False},
+                {"name": "issue_date", "type": "text", "label": "취득일", "required": False},
+                {"name": "file", "type": "file", "label": "자격증 사본", "required": False}
+            ]),
+            "layout_type": "vertical",
+            "is_repeatable": True,
+            # 평가 설정 (기본: 이름으로 평가)
+            "evaluation_method": "by_name",  # 역량항목에서 by_existence로 오버라이드 가능
+            "grade_type": "string",
+            "matching_type": "contains",
+            "scoring_value_source": "submitted",
+            "aggregation_mode": "best_match",
+            "default_mappings": json.dumps([
+                {"value": "임상심리사", "score": 30, "label": "임상심리사 포함"},
+                {"value": "상담심리사", "score": 20, "label": "상담심리사 포함"}
+            ]),
+            "fixed_grades": False,
+            "allow_add_grades": True,
+            "proof_required": "required",
+            "keywords": json.dumps(["자격증", "상담", "심리", "기타"]),
+        },
+
+        # 8. 텍스트+파일 (범용)
+        {
+            "template_id": "text_file",
+            "template_name": "텍스트+파일",
+            "description": "텍스트 설명과 증빙 파일",
+            "data_source": "form_input",
+            "fields_schema": json.dumps([
+                {"name": "description", "type": "text", "label": "설명", "required": True},
+                {"name": "file", "type": "file", "label": "증빙파일", "required": False}
+            ]),
+            "layout_type": "vertical",
+            "is_repeatable": True,
+            "keywords": json.dumps(["텍스트파일"]),
+        },
+    ]
+
+    created_count = 0
+    updated_count = 0
+
+    try:
+        for template_data in UNIFIED_TEMPLATES_DATA:
+            # 기존 템플릿 확인
+            result = await db.execute(
+                select(UnifiedTemplate).where(
+                    UnifiedTemplate.template_id == template_data["template_id"]
+                )
+            )
+            existing = result.scalar_one_or_none()
+
+            if existing:
+                # 업데이트
+                for key, value in template_data.items():
+                    setattr(existing, key, value)
+                updated_count += 1
+            else:
+                # 생성
+                template = UnifiedTemplate(**template_data, is_active=True)
+                db.add(template)
+                created_count += 1
+
+        await db.commit()
+
+        return {
+            "message": "Unified templates seed completed",
+            "created": created_count,
+            "updated": updated_count
+        }
+
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error seeding unified templates: {str(e)}"
+        )
+
+
+@router.post("/link-unified-templates")
+async def link_unified_templates(
+    secret_key: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """역량항목에 통합 템플릿을 연결합니다 (requires secret key)
+
+    역량항목의 unified_template_id를 설정합니다.
+    자격증 항목의 경우 evaluation_method_override도 설정합니다.
+    """
+    if secret_key != "coachdb-seed-2024":
+        raise HTTPException(status_code=403, detail="Invalid secret key")
+
+    from app.models.unified_template import UnifiedTemplate
+
+    # 역량항목 코드 -> (통합템플릿 ID, 평가방법 오버라이드)
+    ITEM_TEMPLATE_MAPPING = {
+        # 자격증
+        "CERT_KCA": ("kca_certification", None),
+        "CERT_COUNSELING": ("certification", "by_name"),
+        "CERT_OTHER": ("certification", "by_existence"),
+
+        # 학력
+        "EDU_COACHING_FINAL": ("degree", None),
+        "EDU_OTHER_FINAL": ("degree", None),
+        "EDU_COACHING": ("degree", None),
+        "EDU_GENERAL": ("degree", None),
+
+        # 경력
+        "EXP_COACHING_HOURS": ("coaching_time", None),
+        "EXP_COACHING_TIME": ("coaching_time", None),
+        "EXP_COACHING_TRAINING": ("coaching_experience", None),
+        "EXP_COACHING_EXPERIENCE": ("coaching_experience", None),
+        "EXP_HOURS": ("coaching_time", None),
+
+        # 코칭 이력 (정성 평가)
+        "COACHING_BUSINESS": ("coaching_history", None),
+        "COACHING_CAREER": ("coaching_history", None),
+        "COACHING_YOUTH": ("coaching_history", None),
+        "COACHING_YOUNG_ADULT": ("coaching_history", None),
+        "COACHING_FAMILY": ("coaching_history", None),
+        "COACHING_LIFE": ("coaching_history", None),
+    }
+
+    updated_count = 0
+    not_found_items = []
+    not_found_templates = []
+
+    try:
+        # 모든 역량항목 조회
+        result = await db.execute(select(CompetencyItem))
+        items = result.scalars().all()
+
+        # 존재하는 템플릿 ID 목록 조회
+        template_result = await db.execute(select(UnifiedTemplate.template_id))
+        existing_templates = {row[0] for row in template_result.fetchall()}
+
+        for item in items:
+            mapping = ITEM_TEMPLATE_MAPPING.get(item.item_code)
+
+            if mapping:
+                template_id, eval_method = mapping
+
+                if template_id not in existing_templates:
+                    not_found_templates.append(f"{item.item_code} -> {template_id}")
+                    continue
+
+                # 이미 설정되어 있으면 건너뜀
+                if item.unified_template_id == template_id:
+                    continue
+
+                item.unified_template_id = template_id
+                item.evaluation_method_override = eval_method
+                updated_count += 1
+            else:
+                # 기본 정보 항목 제외
+                if item.item_code not in [
+                    "INFO_NAME", "INFO_EMAIL", "INFO_PHONE", "INFO_ADDRESS",
+                    "SPEC_AREA", "SPEC_STRENGTH", "EXP_FIELD", "EXP_ACHIEVEMENT",
+                    "SPECIALTY", "EXP_MENTORING"
+                ]:
+                    not_found_items.append(item.item_code)
+
+        await db.commit()
+
+        return {
+            "message": "Unified template linking completed",
+            "updated": updated_count,
+            "not_found_items": not_found_items,
+            "not_found_templates": not_found_templates
+        }
+
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error linking unified templates: {str(e)}"
+        )

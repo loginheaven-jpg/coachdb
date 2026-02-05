@@ -18,6 +18,7 @@ from app.models.role_request import RoleRequest, RoleRequestStatus
 from app.models.reviewer_evaluation import ReviewerEvaluation, Recommendation
 from app.models.scoring_template import ScoringTemplate
 from app.models.input_template import InputTemplate
+from app.models.unified_template import UnifiedTemplate
 
 __all__ = [
     "User",
@@ -54,4 +55,5 @@ __all__ = [
     "Recommendation",
     "ScoringTemplate",
     "InputTemplate",
+    "UnifiedTemplate",
 ]

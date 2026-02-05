@@ -100,9 +100,13 @@ class CompetencyItem(Base):
     # Input template - 입력 폼 구조 설정 (NEW)
     input_template_id = Column(String(50), ForeignKey("input_templates.template_id"), nullable=True)
 
-    # Scoring template - 평가 방법 설정
+    # Scoring template - 평가 방법 설정 (deprecated - use unified_template_id)
     scoring_template_id = Column(String(100), ForeignKey("scoring_templates.template_id"), nullable=True)
     scoring_config_override = Column(Text, nullable=True)  # 커스터마이즈 시 사용 (JSON)
+
+    # Unified template - 통합 템플릿 (입력+평가 통합, NEW)
+    unified_template_id = Column(String(100), ForeignKey("unified_templates.template_id"), nullable=True)
+    evaluation_method_override = Column(String(50), nullable=True)  # 자격증의 경우 by_name/by_existence 오버라이드
 
     # Custom question support
     is_custom = Column(Boolean, nullable=False, default=False)  # True for custom questions
@@ -114,6 +118,7 @@ class CompetencyItem(Base):
     fields = relationship("CompetencyItemField", back_populates="item", cascade="all, delete-orphan")
     input_template = relationship("InputTemplate", backref="competency_items")
     scoring_template = relationship("ScoringTemplate", back_populates="competency_items")
+    unified_template = relationship("UnifiedTemplate", back_populates="competency_items")
 
     def __repr__(self):
         return f"<CompetencyItem(item_id={self.item_id}, code={self.item_code}, name={self.item_name})>"
