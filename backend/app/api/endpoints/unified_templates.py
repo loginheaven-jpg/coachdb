@@ -24,10 +24,45 @@ router = APIRouter(prefix="/unified-templates", tags=["unified-templates"])
 
 def _to_response(template: UnifiedTemplate) -> UnifiedTemplateResponse:
     """UnifiedTemplate 모델을 응답 스키마로 변환"""
-    response = UnifiedTemplateResponse.model_validate(template)
-    response.has_scoring = template.has_scoring()
-    response.is_certification = template.is_certification_template()
-    return response
+    # 모델을 dict로 변환 후 계산된 필드 추가
+    data = {
+        "template_id": template.template_id,
+        "template_name": template.template_name,
+        "description": template.description,
+        "data_source": template.data_source,
+        "source_field": template.source_field,
+        "display_only": template.display_only,
+        "fields_schema": template.fields_schema,
+        "layout_type": template.layout_type,
+        "is_repeatable": template.is_repeatable,
+        "max_entries": template.max_entries,
+        "validation_rules": template.validation_rules,
+        "help_text": template.help_text,
+        "placeholder": template.placeholder,
+        "evaluation_method": template.evaluation_method,
+        "grade_type": template.grade_type,
+        "matching_type": template.matching_type,
+        "scoring_value_source": template.scoring_value_source,
+        "scoring_source_field": template.scoring_source_field,
+        "extract_pattern": template.extract_pattern,
+        "aggregation_mode": template.aggregation_mode,
+        "default_mappings": template.default_mappings,
+        "fixed_grades": template.fixed_grades,
+        "allow_add_grades": template.allow_add_grades,
+        "proof_required": template.proof_required,
+        "verification_note": template.verification_note,
+        "is_required_default": template.is_required_default,
+        "allow_multiple": template.allow_multiple,
+        "auto_confirm_across_projects": template.auto_confirm_across_projects,
+        "keywords": template.keywords,
+        "is_active": template.is_active,
+        "created_at": template.created_at.isoformat() if template.created_at else None,
+        "updated_at": template.updated_at.isoformat() if template.updated_at else None,
+        # 계산된 필드
+        "has_scoring": template.has_scoring(),
+        "is_certification": template.is_certification_template(),
+    }
+    return UnifiedTemplateResponse(**data)
 
 
 @router.get("", response_model=UnifiedTemplateListResponse)
