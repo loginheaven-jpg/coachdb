@@ -3347,12 +3347,23 @@ export default function AdminCompetencyItemsPage() {
                       }}
                     </Form.Item>
                   </div>
-                  <div className="col-span-4">
-                    <span className="text-xs text-gray-500 block mb-1">추출 패턴</span>
-                    <Form.Item name="extract_pattern" className="!mb-0">
-                      <Input size="small" placeholder="정규식 패턴" />
-                    </Form.Item>
-                  </div>
+                  <Form.Item noStyle shouldUpdate={(prev, curr) => prev.grade_type !== curr.grade_type}>
+                    {({ getFieldValue }) => {
+                      const gradeType = getFieldValue('grade_type')
+                      // 숫자 타입이고 소스필드를 직접 선택한 경우 추출 패턴은 불필요
+                      if (gradeType === 'numeric') return null
+                      return (
+                        <div className="col-span-4">
+                          <Tooltip title="JSON 필드에서 특정 값을 추출할 때 사용하는 정규식 패턴. 예: hours: (\d+)">
+                            <span className="text-xs text-gray-500 block mb-1 cursor-help">추출 패턴 ⓘ</span>
+                          </Tooltip>
+                          <Form.Item name="extract_pattern" className="!mb-0">
+                            <Input size="small" placeholder="정규식 패턴" />
+                          </Form.Item>
+                        </div>
+                      )
+                    }}
+                  </Form.Item>
                 </div>
 
                 {/* 옵션 설정 */}
@@ -3367,27 +3378,35 @@ export default function AdminCompetencyItemsPage() {
                     </Form.Item>
                   </div>
                   <div className="col-span-3">
-                    <Form.Item name="fixed_grades" valuePropName="checked" className="!mb-0 mt-4">
-                      <Switch size="small" checkedChildren="등급고정" unCheckedChildren="등급고정" />
-                    </Form.Item>
+                    <Tooltip title="활성화 시 프로젝트별로 등급 매핑을 수정할 수 없습니다. 템플릿에 정의된 등급만 사용됩니다.">
+                      <Form.Item name="fixed_grades" valuePropName="checked" className="!mb-0 mt-4">
+                        <Switch size="small" checkedChildren="등급고정" unCheckedChildren="등급변경가능" />
+                      </Form.Item>
+                    </Tooltip>
                   </div>
                   <div className="col-span-3">
-                    <Form.Item name="allow_add_grades" valuePropName="checked" className="!mb-0 mt-4">
-                      <Switch size="small" checkedChildren="등급추가허용" unCheckedChildren="등급추가불가" />
-                    </Form.Item>
+                    <Tooltip title="활성화 시 프로젝트에서 새로운 등급을 추가할 수 있습니다.">
+                      <Form.Item name="allow_add_grades" valuePropName="checked" className="!mb-0 mt-4">
+                        <Switch size="small" checkedChildren="등급추가허용" unCheckedChildren="등급추가불가" />
+                      </Form.Item>
+                    </Tooltip>
                   </div>
                   <div className="col-span-3">
-                    <Form.Item name="auto_confirm_across_projects" valuePropName="checked" className="!mb-0 mt-4">
-                      <Switch size="small" checkedChildren="자동컨펌" unCheckedChildren="수동컨펌" />
-                    </Form.Item>
+                    <Tooltip title="자동컨펌: 한 프로젝트에서 검증 완료되면 다른 프로젝트에서도 자동 승인됩니다. 수동컨펌: 각 프로젝트마다 별도로 검증받아야 합니다.">
+                      <Form.Item name="auto_confirm_across_projects" valuePropName="checked" className="!mb-0 mt-4">
+                        <Switch size="small" checkedChildren="자동컨펌" unCheckedChildren="수동컨펌" />
+                      </Form.Item>
+                    </Tooltip>
                   </div>
                 </div>
 
                 {/* 검증 노트 */}
                 <div className="mb-3">
-                  <span className="text-xs text-gray-500 block mb-1">검증 안내</span>
+                  <Tooltip title="검토자가 증빙 확인 시 참고할 수 있는 안내 문구입니다. 검토 화면에서 표시됩니다.">
+                    <span className="text-xs text-gray-500 block mb-1 cursor-help">검증 안내 (검토자용) ⓘ</span>
+                  </Tooltip>
                   <Form.Item name="verification_note" className="!mb-0">
-                    <Input size="small" placeholder="검증 시 참고할 안내 문구" />
+                    <Input size="small" placeholder="검증 시 참고할 안내 문구 (검토자에게 표시됨)" />
                   </Form.Item>
                 </div>
 

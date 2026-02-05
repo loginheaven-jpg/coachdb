@@ -106,5 +106,8 @@ class PendingVerificationItem(BaseModel):
     project_id: Optional[int] = None  # 해당 과제 ID
     project_name: Optional[str] = None  # 과제명
 
+    # 템플릿에서 가져온 검증 안내
+    verification_note: Optional[str] = None  # 검토자에게 표시할 검증 안내 문구
+
     class Config:
         from_attributes = True

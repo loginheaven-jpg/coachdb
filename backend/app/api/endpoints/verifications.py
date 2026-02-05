@@ -119,7 +119,8 @@ async def get_pending_verifications(
         .join(CompetencyItem, CoachCompetency.item_id == CompetencyItem.item_id)
         .join(User, CoachCompetency.user_id == User.user_id)
         .options(
-            selectinload(CoachCompetency.competency_item),
+            selectinload(CoachCompetency.competency_item).selectinload(CompetencyItem.unified_template),
+            selectinload(CoachCompetency.competency_item).selectinload(CompetencyItem.scoring_template),
             selectinload(CoachCompetency.user),
             selectinload(CoachCompetency.verification_records),
             selectinload(CoachCompetency.file)
@@ -177,6 +178,14 @@ async def get_pending_verifications(
                 uploaded_at=comp.file.uploaded_at
             )
 
+        # 검증 안내 추출 (unified_template 우선, 없으면 scoring_template)
+        verification_note = None
+        if comp.competency_item:
+            if comp.competency_item.unified_template:
+                verification_note = comp.competency_item.unified_template.verification_note
+            elif comp.competency_item.scoring_template:
+                verification_note = comp.competency_item.scoring_template.verification_note
+
         items.append(PendingVerificationItem(
             source='competency',
             competency_id=comp.competency_id,
@@ -194,7 +203,8 @@ async def get_pending_verifications(
             required_count=required_count,
             my_verification=my_verification,
             verification_status=comp.verification_status.value if comp.verification_status else "pending",
-            rejection_reason=comp.rejection_reason
+            rejection_reason=comp.rejection_reason,
+            verification_note=verification_note
         ))
 
     # =========================================================================
@@ -212,7 +222,8 @@ async def get_pending_verifications(
         .outerjoin(File, ApplicationData.submitted_file_id == File.file_id)
         .options(
             selectinload(ApplicationData.application),
-            selectinload(ApplicationData.competency_item),
+            selectinload(ApplicationData.competency_item).selectinload(CompetencyItem.unified_template),
+            selectinload(ApplicationData.competency_item).selectinload(CompetencyItem.scoring_template),
             selectinload(ApplicationData.submitted_file),
             selectinload(ApplicationData.verification_records)
         )
@@ -280,6 +291,14 @@ async def get_pending_verifications(
         )
         project = project_result.scalar_one_or_none()
 
+        # 검증 안내 추출 (unified_template 우선, 없으면 scoring_template)
+        ad_verification_note = None
+        if ad.competency_item:
+            if ad.competency_item.unified_template:
+                ad_verification_note = ad.competency_item.unified_template.verification_note
+            elif ad.competency_item.scoring_template:
+                ad_verification_note = ad.competency_item.scoring_template.verification_note
+
         items.append(PendingVerificationItem(
             source='application_data',
             application_data_id=ad.data_id,
@@ -298,6 +317,7 @@ async def get_pending_verifications(
             my_verification=my_verification,
             verification_status=ad.verification_status if isinstance(ad.verification_status, str) else ad.verification_status,
             rejection_reason=ad.rejection_reason,
+            verification_note=ad_verification_note,
             # ApplicationData 전용 필드
             application_id=ad.application_id,
             project_id=app.project_id,

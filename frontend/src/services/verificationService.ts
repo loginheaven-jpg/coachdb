@@ -67,6 +67,7 @@ export interface PendingVerificationItem {
   my_verification: VerificationRecordResponse | null
   verification_status: string | null  // 'pending' | 'rejected'
   rejection_reason: string | null
+  verification_note: string | null  // 검토자에게 표시할 검증 안내 문구
 }
 
 export interface VerificationConfirmRequest {

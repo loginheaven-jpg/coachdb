@@ -450,6 +450,15 @@ export default function VerificationPage() {
               dataSource={filteredItems}
               rowKey="competency_id"
               loading={loading}
+              expandable={{
+                expandedRowRender: (record) => record.verification_note ? (
+                  <div style={{ padding: '8px 16px', background: '#fff7e6', borderRadius: 4 }}>
+                    <Text strong style={{ color: '#d46b08' }}>📋 검증 안내:</Text>{' '}
+                    <Text>{record.verification_note}</Text>
+                  </div>
+                ) : null,
+                rowExpandable: (record) => !!record.verification_note
+              }}
               pagination={{
                 pageSize: 20,
                 showSizeChanger: true,
