@@ -3663,56 +3663,86 @@ export default function AdminCompetencyItemsPage() {
                   </Form.Item>
                 </div>
 
-                {/* 등급 매핑 */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-gray-500">등급 매핑</span>
-                    <Tag color="orange">{unifiedGradeMappings.length}개</Tag>
-                  </div>
-                  <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
-                    {unifiedGradeMappings.map((mapping, index) => (
-                      <div key={index} className="flex gap-2 items-center bg-white p-1 rounded">
-                        <Input
-                          size="small"
-                          placeholder="값"
-                          value={mapping.value as string}
-                          onChange={e => updateUnifiedGradeMapping(index, 'value', e.target.value)}
-                          style={{ width: 100 }}
-                        />
-                        <InputNumber
-                          size="small"
-                          placeholder="점수"
-                          value={mapping.score}
-                          onChange={v => updateUnifiedGradeMapping(index, 'score', v || 0)}
-                          style={{ width: 70 }}
-                        />
-                        <Input
-                          size="small"
-                          placeholder="레이블 (선택)"
-                          value={mapping.label}
-                          onChange={e => updateUnifiedGradeMapping(index, 'label', e.target.value)}
-                          style={{ flex: 1 }}
-                        />
+                {/* 등급 매핑 - 등급 유형에 따라 동적 UI */}
+                <Form.Item noStyle shouldUpdate={(prev, curr) => prev.grade_type !== curr.grade_type}>
+                  {({ getFieldValue }) => {
+                    const gradeType = getFieldValue('grade_type')
+                    const isNumeric = gradeType === 'numeric'
+                    const isString = gradeType === 'string'
+
+                    return (
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs text-gray-500">등급 매핑</span>
+                          <Tag color="orange">{unifiedGradeMappings.length}개</Tag>
+                        </div>
+                        {/* 등급 유형에 따른 안내 메시지 */}
+                        <div className="text-xs text-gray-500 mb-2 p-2 bg-gray-100 rounded">
+                          {isNumeric ? (
+                            <span>📊 <b>숫자</b> 등급: 범위 기준값 입력 (예: 1000 → 1000 이상이면 해당 점수)</span>
+                          ) : isString ? (
+                            <span>📝 <b>문자열</b> 등급: 매칭할 값 입력 (예: KSC, KPC, PCC 등)</span>
+                          ) : (
+                            <span>등급 유형을 선택하면 입력 형식이 변경됩니다</span>
+                          )}
+                        </div>
+                        <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+                          {unifiedGradeMappings.map((mapping, index) => (
+                            <div key={index} className="flex gap-2 items-center bg-white p-1 rounded">
+                              {isNumeric ? (
+                                <InputNumber
+                                  size="small"
+                                  placeholder="예: 1000"
+                                  value={typeof mapping.value === 'number' ? mapping.value : Number(mapping.value) || undefined}
+                                  onChange={v => updateUnifiedGradeMapping(index, 'value', v || 0)}
+                                  style={{ width: 100 }}
+                                />
+                              ) : (
+                                <Input
+                                  size="small"
+                                  placeholder={isString ? "예: KSC" : "값"}
+                                  value={mapping.value as string}
+                                  onChange={e => updateUnifiedGradeMapping(index, 'value', e.target.value)}
+                                  style={{ width: 100 }}
+                                />
+                              )}
+                              <InputNumber
+                                size="small"
+                                placeholder="점수"
+                                value={mapping.score}
+                                onChange={v => updateUnifiedGradeMapping(index, 'score', v || 0)}
+                                style={{ width: 70 }}
+                              />
+                              <Input
+                                size="small"
+                                placeholder={isNumeric ? "예: 1000시간 이상" : isString ? "예: KSC자격" : "레이블 (선택)"}
+                                value={mapping.label}
+                                onChange={e => updateUnifiedGradeMapping(index, 'label', e.target.value)}
+                                style={{ flex: 1 }}
+                              />
+                              <Button
+                                type="text"
+                                danger
+                                size="small"
+                                icon={<DeleteOutlined />}
+                                onClick={() => removeUnifiedGradeMapping(index)}
+                              />
+                            </div>
+                          ))}
+                        </div>
                         <Button
-                          type="text"
-                          danger
+                          type="dashed"
                           size="small"
-                          icon={<DeleteOutlined />}
-                          onClick={() => removeUnifiedGradeMapping(index)}
-                        />
+                          icon={<PlusOutlined />}
+                          onClick={addUnifiedGradeMapping}
+                          className="w-full mt-2"
+                        >
+                          등급 추가
+                        </Button>
                       </div>
-                    ))}
-                  </div>
-                  <Button
-                    type="dashed"
-                    size="small"
-                    icon={<PlusOutlined />}
-                    onClick={addUnifiedGradeMapping}
-                    className="w-full mt-2"
-                  >
-                    등급 추가
-                  </Button>
-                </div>
+                    )
+                  }}
+                </Form.Item>
               </div>
             </div>
 
