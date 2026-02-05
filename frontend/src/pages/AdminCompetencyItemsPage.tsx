@@ -3186,7 +3186,7 @@ export default function AdminCompetencyItemsPage() {
                   <Tag color="orange" className="!mr-0">{unifiedFieldsSchema.length}개</Tag>
                 </Space>
               </Divider>
-              <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+              <div className="space-y-1 max-h-56 overflow-y-auto pr-1">
                 {unifiedFieldsSchema.map((field, index) => (
                   <div key={index} className="flex gap-1 items-center bg-gray-50 p-1 rounded">
                     <Input
@@ -3319,8 +3319,32 @@ export default function AdminCompetencyItemsPage() {
                   </div>
                   <div className="col-span-4">
                     <span className="text-xs text-gray-500 block mb-1">소스 필드</span>
-                    <Form.Item name="scoring_source_field" className="!mb-0">
-                      <Input size="small" placeholder="필드명" />
+                    <Form.Item noStyle shouldUpdate={(prev, curr) => prev.grade_type !== curr.grade_type}>
+                      {({ getFieldValue }) => {
+                        const gradeType = getFieldValue('grade_type')
+                        const numericFields = unifiedFieldsSchema.filter(f => f.type === 'number')
+
+                        if (gradeType === 'numeric' && numericFields.length > 0) {
+                          return (
+                            <Form.Item name="scoring_source_field" className="!mb-0">
+                              <Select
+                                size="small"
+                                allowClear
+                                placeholder="숫자 필드 선택"
+                                options={numericFields.map(f => ({
+                                  label: f.label || f.name,
+                                  value: f.name
+                                }))}
+                              />
+                            </Form.Item>
+                          )
+                        }
+                        return (
+                          <Form.Item name="scoring_source_field" className="!mb-0">
+                            <Input size="small" placeholder="필드명" />
+                          </Form.Item>
+                        )
+                      }}
                     </Form.Item>
                   </div>
                   <div className="col-span-4">
