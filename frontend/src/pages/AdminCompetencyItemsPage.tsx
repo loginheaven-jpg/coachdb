@@ -3488,6 +3488,25 @@ export default function AdminCompetencyItemsPage() {
                           { label: '이름으로 평가', value: 'by_name' },
                           { label: '유무로 평가', value: 'by_existence' }
                         ]}
+                        onChange={(value) => {
+                          if (value === 'by_existence') {
+                            // 유무로 평가 선택 시 자동 설정
+                            unifiedTemplateEditForm.setFieldsValue({
+                              grade_type: 'file_exists',
+                              matching_type: 'exact'
+                            })
+                            setUnifiedGradeMappings([
+                              { value: 'true', score: 20, label: '유자격' },
+                              { value: 'false', score: 0, label: '무자격' }
+                            ])
+                          } else if (value === 'by_name') {
+                            // 이름으로 평가 선택 시 문자열 등급
+                            unifiedTemplateEditForm.setFieldsValue({
+                              grade_type: 'string',
+                              matching_type: 'contains'
+                            })
+                          }
+                        }}
                       />
                     </Form.Item>
                   </div>
@@ -3677,6 +3696,7 @@ export default function AdminCompetencyItemsPage() {
                     const gradeType = getFieldValue('grade_type')
                     const isNumeric = gradeType === 'numeric'
                     const isString = gradeType === 'string'
+                    const isFileExists = gradeType === 'file_exists'
 
                     return (
                       <div>
@@ -3690,6 +3710,8 @@ export default function AdminCompetencyItemsPage() {
                             <span>📊 <b>숫자</b> 등급: 범위 기준값 입력 (예: 1000 → 1000 이상이면 해당 점수)</span>
                           ) : isString ? (
                             <span>📝 <b>문자열</b> 등급: 매칭할 값 입력 (예: KSC, KPC, PCC 등)</span>
+                          ) : isFileExists ? (
+                            <span>📎 <b>파일 유무</b> 등급: 증빙파일 첨부 여부로 점수 부여 (있음/없음 고정)</span>
                           ) : (
                             <span>등급 유형을 선택하면 입력 형식이 변경됩니다</span>
                           )}
@@ -3697,7 +3719,12 @@ export default function AdminCompetencyItemsPage() {
                         <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
                           {unifiedGradeMappings.map((mapping, index) => (
                             <div key={index} className="flex gap-2 items-center bg-white p-1 rounded">
-                              {isNumeric ? (
+                              {isFileExists ? (
+                                // 파일 유무 등급: 값은 고정, 점수와 레이블만 수정 가능
+                                <Tag color={mapping.value === 'true' ? 'green' : 'default'} style={{ width: 100, textAlign: 'center' }}>
+                                  {mapping.value === 'true' ? '✓ 있음' : '✗ 없음'}
+                                </Tag>
+                              ) : isNumeric ? (
                                 <InputNumber
                                   size="small"
                                   placeholder="예: 1000"
@@ -3723,30 +3750,34 @@ export default function AdminCompetencyItemsPage() {
                               />
                               <Input
                                 size="small"
-                                placeholder={isNumeric ? "예: 1000시간 이상" : isString ? "예: KSC자격" : "레이블 (선택)"}
+                                placeholder={isNumeric ? "예: 1000시간 이상" : isString ? "예: KSC자격" : isFileExists ? "레이블" : "레이블 (선택)"}
                                 value={mapping.label}
                                 onChange={e => updateUnifiedGradeMapping(index, 'label', e.target.value)}
                                 style={{ flex: 1 }}
                               />
-                              <Button
-                                type="text"
-                                danger
-                                size="small"
-                                icon={<DeleteOutlined />}
-                                onClick={() => removeUnifiedGradeMapping(index)}
-                              />
+                              {!isFileExists && (
+                                <Button
+                                  type="text"
+                                  danger
+                                  size="small"
+                                  icon={<DeleteOutlined />}
+                                  onClick={() => removeUnifiedGradeMapping(index)}
+                                />
+                              )}
                             </div>
                           ))}
                         </div>
-                        <Button
-                          type="dashed"
-                          size="small"
-                          icon={<PlusOutlined />}
-                          onClick={addUnifiedGradeMapping}
-                          className="w-full mt-2"
-                        >
-                          등급 추가
-                        </Button>
+                        {!isFileExists && (
+                          <Button
+                            type="dashed"
+                            size="small"
+                            icon={<PlusOutlined />}
+                            onClick={addUnifiedGradeMapping}
+                            className="w-full mt-2"
+                          >
+                            등급 추가
+                          </Button>
+                        )}
                       </div>
                     )
                   }}
