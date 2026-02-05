@@ -3690,13 +3690,17 @@ export default function AdminCompetencyItemsPage() {
                   </Form.Item>
                 </div>
 
-                {/* 등급 매핑 - 등급 유형에 따라 동적 UI */}
-                <Form.Item noStyle shouldUpdate={(prev, curr) => prev.grade_type !== curr.grade_type}>
+                {/* 등급 매핑 - 등급 유형/평가 방법에 따라 동적 UI */}
+                <Form.Item noStyle shouldUpdate={(prev, curr) =>
+                  prev.grade_type !== curr.grade_type ||
+                  prev.evaluation_method !== curr.evaluation_method
+                }>
                   {({ getFieldValue }) => {
                     const gradeType = getFieldValue('grade_type')
+                    const evaluationMethod = getFieldValue('evaluation_method')
                     const isNumeric = gradeType === 'numeric'
                     const isString = gradeType === 'string'
-                    const isFileExists = gradeType === 'file_exists'
+                    const isFileExists = gradeType === 'file_exists' || evaluationMethod === 'by_existence'
 
                     return (
                       <div>
