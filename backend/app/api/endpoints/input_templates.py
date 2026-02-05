@@ -7,8 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.core.database import get_db
-from app.core.security import get_current_user
-from app.models.user import User, UserRole
+from app.core.security import get_current_user, require_role
+from app.models.user import User
 from app.models.input_template import InputTemplate
 from app.schemas.input_template import (
     InputTemplateCreate,
@@ -18,16 +18,6 @@ from app.schemas.input_template import (
 )
 
 router = APIRouter(prefix="/input-templates", tags=["input-templates"])
-
-
-def require_admin(current_user: User = Depends(get_current_user)) -> User:
-    """Require SUPER_ADMIN or ADMIN role"""
-    if current_user.role not in [UserRole.SUPER_ADMIN, UserRole.ADMIN]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="관리자 권한이 필요합니다"
-        )
-    return current_user
 
 
 @router.get("", response_model=InputTemplateListResponse)
@@ -76,7 +66,7 @@ async def get_input_template(
 async def create_input_template(
     data: InputTemplateCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_role(["SUPER_ADMIN", "ADMIN"]))
 ):
     """입력 템플릿 생성 (관리자 전용)"""
     # 중복 체크
@@ -116,7 +106,7 @@ async def update_input_template(
     template_id: str,
     data: InputTemplateUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_role(["SUPER_ADMIN", "ADMIN"]))
 ):
     """입력 템플릿 수정 (관리자 전용)"""
     import traceback
@@ -162,7 +152,7 @@ async def update_input_template(
 async def delete_input_template(
     template_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_role(["SUPER_ADMIN", "ADMIN"]))
 ):
     """입력 템플릿 비활성화 (관리자 전용)"""
     result = await db.execute(
