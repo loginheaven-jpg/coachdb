@@ -28,7 +28,8 @@ import {
   DeleteOutlined,
   SettingOutlined,
   SyncOutlined,
-  LinkOutlined
+  LinkOutlined,
+  QuestionCircleOutlined
 } from '@ant-design/icons'
 import api from '../services/api'
 import competencyService, {
@@ -3354,9 +3355,12 @@ export default function AdminCompetencyItemsPage() {
                       if (gradeType === 'numeric') return null
                       return (
                         <div className="col-span-4">
-                          <Tooltip title="JSON 필드에서 특정 값을 추출할 때 사용하는 정규식 패턴. 예: hours: (\d+)">
-                            <span className="text-xs text-gray-500 block mb-1 cursor-help">추출 패턴 ⓘ</span>
-                          </Tooltip>
+                          <span className="text-xs text-gray-500 block mb-1">
+                            추출 패턴{' '}
+                            <Tooltip title="JSON 필드에서 특정 값을 추출할 때 사용하는 정규식 패턴. 예: hours: (\d+)">
+                              <QuestionCircleOutlined className="text-blue-400 cursor-help" />
+                            </Tooltip>
+                          </span>
                           <Form.Item name="extract_pattern" className="!mb-0">
                             <Input size="small" placeholder="정규식 패턴" />
                           </Form.Item>
@@ -3378,33 +3382,48 @@ export default function AdminCompetencyItemsPage() {
                     </Form.Item>
                   </div>
                   <div className="col-span-3">
-                    <Tooltip title="활성화 시 프로젝트별로 등급 매핑을 수정할 수 없습니다. 템플릿에 정의된 등급만 사용됩니다.">
-                      <Form.Item name="fixed_grades" valuePropName="checked" className="!mb-0 mt-4">
-                        <Switch size="small" checkedChildren="등급고정" unCheckedChildren="등급변경가능" />
-                      </Form.Item>
-                    </Tooltip>
+                    <span className="text-xs text-gray-500 block mb-1">
+                      등급 고정{' '}
+                      <Tooltip title="활성화 시 프로젝트별로 등급 매핑을 수정할 수 없습니다. 템플릿에 정의된 등급만 사용됩니다.">
+                        <QuestionCircleOutlined className="text-blue-400 cursor-help" />
+                      </Tooltip>
+                    </span>
+                    <Form.Item name="fixed_grades" valuePropName="checked" className="!mb-0">
+                      <Switch size="small" checkedChildren="고정" unCheckedChildren="변경가능" />
+                    </Form.Item>
                   </div>
                   <div className="col-span-3">
-                    <Tooltip title="활성화 시 프로젝트에서 새로운 등급을 추가할 수 있습니다.">
-                      <Form.Item name="allow_add_grades" valuePropName="checked" className="!mb-0 mt-4">
-                        <Switch size="small" checkedChildren="등급추가허용" unCheckedChildren="등급추가불가" />
-                      </Form.Item>
-                    </Tooltip>
+                    <span className="text-xs text-gray-500 block mb-1">
+                      등급 추가{' '}
+                      <Tooltip title="활성화 시 프로젝트에서 새로운 등급을 추가할 수 있습니다.">
+                        <QuestionCircleOutlined className="text-blue-400 cursor-help" />
+                      </Tooltip>
+                    </span>
+                    <Form.Item name="allow_add_grades" valuePropName="checked" className="!mb-0">
+                      <Switch size="small" checkedChildren="허용" unCheckedChildren="불가" />
+                    </Form.Item>
                   </div>
                   <div className="col-span-3">
-                    <Tooltip title="자동컨펌: 한 프로젝트에서 검증 완료되면 다른 프로젝트에서도 자동 승인됩니다. 수동컨펌: 각 프로젝트마다 별도로 검증받아야 합니다.">
-                      <Form.Item name="auto_confirm_across_projects" valuePropName="checked" className="!mb-0 mt-4">
-                        <Switch size="small" checkedChildren="자동컨펌" unCheckedChildren="수동컨펌" />
-                      </Form.Item>
-                    </Tooltip>
+                    <span className="text-xs text-gray-500 block mb-1">
+                      컨펌 방식{' '}
+                      <Tooltip title="자동: 한 프로젝트에서 검증 완료되면 다른 프로젝트에서도 자동 승인. 수동: 각 프로젝트마다 별도 검증 필요.">
+                        <QuestionCircleOutlined className="text-blue-400 cursor-help" />
+                      </Tooltip>
+                    </span>
+                    <Form.Item name="auto_confirm_across_projects" valuePropName="checked" className="!mb-0">
+                      <Switch size="small" checkedChildren="자동" unCheckedChildren="수동" />
+                    </Form.Item>
                   </div>
                 </div>
 
                 {/* 검증 노트 */}
                 <div className="mb-3">
-                  <Tooltip title="검토자가 증빙 확인 시 참고할 수 있는 안내 문구입니다. 검토 화면에서 표시됩니다.">
-                    <span className="text-xs text-gray-500 block mb-1 cursor-help">검증 안내 (검토자용) ⓘ</span>
-                  </Tooltip>
+                  <span className="text-xs text-gray-500 block mb-1">
+                    검증 안내 (검토자용){' '}
+                    <Tooltip title="검토자가 증빙 확인 시 참고할 수 있는 안내 문구입니다. 검토 화면에서 표시됩니다.">
+                      <QuestionCircleOutlined className="text-blue-400 cursor-help" />
+                    </Tooltip>
+                  </span>
                   <Form.Item name="verification_note" className="!mb-0">
                     <Input size="small" placeholder="검증 시 참고할 안내 문구 (검토자에게 표시됨)" />
                   </Form.Item>
