@@ -20,6 +20,7 @@ import EvaluationDashboard from './pages/EvaluationDashboard'
 import ProjectEvaluationCreatePage from './pages/ProjectEvaluationCreatePage'
 import ApplicationSubmitPage from './pages/ApplicationSubmitPage'
 import AdminCompetencyItemsPage from './pages/AdminCompetencyItemsPage'
+import AdminScoringTemplatesPage from './pages/AdminScoringTemplatesPage'
 import UserManagementPage from './pages/UserManagementPage'
 import VerificationPage from './pages/VerificationPage'
 import SystemSettingsPage from './pages/SystemSettingsPage'
@@ -337,6 +338,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
               <AdminCompetencyItemsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/scoring-templates"
+          element={
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+              <AdminScoringTemplatesPage />
             </ProtectedRoute>
           }
         />

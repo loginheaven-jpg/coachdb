@@ -20,8 +20,9 @@ export interface ScoringTemplate {
   // 평가 설정
   grade_type: string      // string, numeric, file_exists, multi_select
   matching_type: string   // exact, contains, range, grade
-  value_source: string    // SUBMITTED, USER_FIELD, JSON_FIELD
+  value_source: string    // submitted, user_field, json_field
   source_field?: string
+  extract_pattern?: string  // JSON 추출 패턴
   aggregation_mode: string  // first, sum, max, count, any_match, best_match
 
   // 등급 매핑 (JSON 문자열)
@@ -57,6 +58,7 @@ export interface ScoringTemplateCreate {
   matching_type: string
   value_source?: string
   source_field?: string
+  extract_pattern?: string
   aggregation_mode?: string
   default_mappings: string
   fixed_grades?: boolean
@@ -78,6 +80,7 @@ export interface ScoringTemplateUpdate {
   matching_type?: string
   value_source?: string
   source_field?: string
+  extract_pattern?: string
   aggregation_mode?: string
   default_mappings?: string
   fixed_grades?: boolean
@@ -177,6 +180,71 @@ const scoringTemplateService = {
    */
   stringifyKeywords(keywords: string[]): string {
     return JSON.stringify(keywords)
+  },
+
+  /**
+   * 등급 유형 레이블 가져오기
+   */
+  getGradeTypeLabel(type: string): string {
+    const labels: Record<string, string> = {
+      'string': '문자열',
+      'numeric': '숫자',
+      'file_exists': '파일 유무',
+      'multi_select': '복수 선택'
+    }
+    return labels[type] || type
+  },
+
+  /**
+   * 매칭 방식 레이블 가져오기
+   */
+  getMatchingTypeLabel(type: string): string {
+    const labels: Record<string, string> = {
+      'exact': '정확 일치',
+      'contains': '포함 여부',
+      'range': '범위 (이상/이하)',
+      'grade': '등급별 점수'
+    }
+    return labels[type] || type
+  },
+
+  /**
+   * 값 소스 레이블 가져오기
+   */
+  getValueSourceLabel(type: string): string {
+    const labels: Record<string, string> = {
+      'submitted': '제출된 값',
+      'user_field': '사용자 필드',
+      'json_field': 'JSON 필드'
+    }
+    return labels[type?.toLowerCase()] || type
+  },
+
+  /**
+   * 집계 방식 레이블 가져오기
+   */
+  getAggregationModeLabel(type: string): string {
+    const labels: Record<string, string> = {
+      'first': '첫 번째 값',
+      'sum': '합계',
+      'max': '최대값',
+      'count': '개수',
+      'any_match': '하나라도 일치',
+      'best_match': '가장 높은 점수'
+    }
+    return labels[type] || type
+  },
+
+  /**
+   * 증빙 필수 여부 레이블 가져오기
+   */
+  getProofRequiredLabel(type: string): string {
+    const labels: Record<string, string> = {
+      'not_required': '필요 없음',
+      'optional': '선택',
+      'required': '필수'
+    }
+    return labels[type?.toLowerCase()] || type
   }
 }
 

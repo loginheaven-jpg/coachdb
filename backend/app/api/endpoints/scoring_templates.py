@@ -110,6 +110,7 @@ async def create_scoring_template(
         matching_type=template_data.matching_type,
         value_source=template_data.value_source,
         source_field=template_data.source_field,
+        extract_pattern=template_data.extract_pattern,
         aggregation_mode=template_data.aggregation_mode,
         default_mappings=template_data.default_mappings,
         fixed_grades=template_data.fixed_grades,

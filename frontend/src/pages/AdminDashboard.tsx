@@ -186,7 +186,16 @@ export default function AdminDashboard() {
                   icon={<SettingOutlined />}
                   onClick={() => navigate('/admin/competency-items')}
                 >
-                  설문항목 관리
+                  역량항목 관리
+                </Button>
+              )}
+              {isSuperAdmin() && (
+                <Button
+                  block
+                  icon={<SettingOutlined />}
+                  onClick={() => navigate('/admin/scoring-templates')}
+                >
+                  평가템플릿 관리
                 </Button>
               )}
             </div>
