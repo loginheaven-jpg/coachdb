@@ -2205,3 +2205,90 @@ async def seed_input_templates(
         "created": created_count,
         "skipped": skipped_count
     }
+
+
+@router.post("/link-scoring-templates")
+async def link_scoring_templates(
+    secret_key: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """역량항목에 기본 평가템플릿을 연결합니다 (requires secret key)
+
+    어드민이 미리 설정한 역량항목에 적합한 평가템플릿을 자동 연결하여,
+    과제관리자가 위저드에서 항목 선택 시 기본 설정이 자동 로드되도록 합니다.
+    """
+    if secret_key != "coachdb-seed-2024":
+        raise HTTPException(status_code=403, detail="Invalid secret key")
+
+    # 역량항목 코드 -> 평가템플릿 ID 매핑
+    ITEM_TEMPLATE_MAPPING = {
+        # 자격증
+        "CERT_KCA": "kca_certification",
+        "CERT_COUNSELING": "counseling_by_name",
+        "CERT_OTHER": "other_by_name",
+
+        # 학력
+        "EDU_COACHING_FINAL": "degree",
+        "EDU_OTHER_FINAL": "degree",
+        "EDU_COACHING": "degree",
+        "EDU_GENERAL": "degree",
+
+        # 경력
+        "EXP_COACHING_HOURS": "coaching_hours",
+        "EXP_COACHING_TIME": "coaching_hours",
+        "EXP_COACHING_TRAINING": "coaching_training",
+        "EXP_COACHING_EXPERIENCE": "coaching_training",
+        "EXP_HOURS": "coaching_hours",
+    }
+
+    updated_count = 0
+    not_found_items = []
+    not_found_templates = []
+
+    try:
+        # 모든 역량항목 조회
+        result = await db.execute(select(CompetencyItem))
+        items = result.scalars().all()
+
+        # 존재하는 템플릿 ID 목록 조회
+        from app.models.scoring_template import ScoringTemplate
+        template_result = await db.execute(select(ScoringTemplate.template_id))
+        existing_templates = {row[0] for row in template_result.fetchall()}
+
+        for item in items:
+            template_id = ITEM_TEMPLATE_MAPPING.get(item.item_code)
+
+            if template_id:
+                if template_id not in existing_templates:
+                    not_found_templates.append(f"{item.item_code} -> {template_id}")
+                    continue
+
+                # 이미 설정되어 있으면 건너뜀
+                if item.scoring_template_id == template_id:
+                    continue
+
+                item.scoring_template_id = template_id
+                updated_count += 1
+            else:
+                if item.item_code not in [
+                    # 평가 항목이 아닌 기본 정보 항목은 제외
+                    "INFO_NAME", "INFO_EMAIL", "INFO_PHONE", "INFO_ADDRESS",
+                    "SPEC_AREA", "SPEC_STRENGTH", "EXP_FIELD", "EXP_ACHIEVEMENT"
+                ]:
+                    not_found_items.append(item.item_code)
+
+        await db.commit()
+
+        return {
+            "message": "Scoring template linking completed",
+            "updated": updated_count,
+            "not_found_items": not_found_items,
+            "not_found_templates": not_found_templates
+        }
+
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error linking scoring templates: {str(e)}"
+        )
