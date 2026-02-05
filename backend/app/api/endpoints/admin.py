@@ -2316,7 +2316,7 @@ async def seed_scoring_templates(
             "description": "학위별로 점수를 부여합니다",
             "grade_type": "string",
             "matching_type": "grade",
-            "value_source": "SUBMITTED",
+            "value_source": "submitted",
             "aggregation_mode": "best_match",
             "default_mappings": json.dumps([
                 {"value": "박사", "score": 30, "label": "박사"},
@@ -2326,7 +2326,7 @@ async def seed_scoring_templates(
             ]),
             "fixed_grades": False,
             "allow_add_grades": True,
-            "proof_required": "REQUIRED",
+            "proof_required": "required",
             "keywords": json.dumps(["학위", "학력", "degree"]),
         },
         {
@@ -2335,7 +2335,7 @@ async def seed_scoring_templates(
             "description": "기본정보의 코치인증번호를 자동 조회합니다",
             "grade_type": "string",
             "matching_type": "grade",
-            "value_source": "USER_FIELD",
+            "value_source": "user_field",
             "source_field": "kca_certification_level",
             "aggregation_mode": "best_match",
             "default_mappings": json.dumps([
@@ -2346,7 +2346,7 @@ async def seed_scoring_templates(
             ]),
             "fixed_grades": True,
             "allow_add_grades": False,
-            "proof_required": "OPTIONAL",
+            "proof_required": "optional",
             "keywords": json.dumps(["kca"]),
         },
         {
@@ -2355,7 +2355,7 @@ async def seed_scoring_templates(
             "description": "시간 범위별로 점수를 부여합니다",
             "grade_type": "numeric",
             "matching_type": "range",
-            "value_source": "SUBMITTED",
+            "value_source": "submitted",
             "aggregation_mode": "sum",
             "default_mappings": json.dumps([
                 {"value": 1000, "score": 30, "label": "1000시간 이상"},
@@ -2364,7 +2364,7 @@ async def seed_scoring_templates(
             ]),
             "fixed_grades": False,
             "allow_add_grades": True,
-            "proof_required": "OPTIONAL",
+            "proof_required": "optional",
             "keywords": json.dumps(["경력", "시간", "hour"]),
         },
         {
@@ -2373,7 +2373,7 @@ async def seed_scoring_templates(
             "description": "자격증 이름으로 등급을 설정합니다",
             "grade_type": "string",
             "matching_type": "contains",
-            "value_source": "SUBMITTED",
+            "value_source": "submitted",
             "aggregation_mode": "best_match",
             "default_mappings": json.dumps([
                 {"value": "임상심리사", "score": 30, "label": "임상심리사 포함"},
@@ -2381,7 +2381,7 @@ async def seed_scoring_templates(
             ]),
             "fixed_grades": False,
             "allow_add_grades": True,
-            "proof_required": "REQUIRED",
+            "proof_required": "required",
             "keywords": json.dumps(["상담", "심리", "치료"]),
         },
         {
@@ -2390,14 +2390,14 @@ async def seed_scoring_templates(
             "description": "자격증 이름으로 등급을 설정합니다",
             "grade_type": "string",
             "matching_type": "contains",
-            "value_source": "SUBMITTED",
+            "value_source": "submitted",
             "aggregation_mode": "best_match",
             "default_mappings": json.dumps([
                 {"value": "", "score": 20, "label": "특정 자격증명 입력"}
             ]),
             "fixed_grades": False,
             "allow_add_grades": True,
-            "proof_required": "REQUIRED",
+            "proof_required": "required",
             "keywords": json.dumps([]),
         },
         {
@@ -2406,7 +2406,7 @@ async def seed_scoring_templates(
             "description": "시간 합산 후 범위별 점수를 부여합니다",
             "grade_type": "numeric",
             "matching_type": "range",
-            "value_source": "SUBMITTED",
+            "value_source": "submitted",
             "aggregation_mode": "sum",
             "default_mappings": json.dumps([
                 {"value": 1000, "score": 40, "label": "1000시간 이상"},
@@ -2416,7 +2416,7 @@ async def seed_scoring_templates(
             ]),
             "fixed_grades": False,
             "allow_add_grades": True,
-            "proof_required": "REQUIRED",
+            "proof_required": "required",
             "keywords": json.dumps(["연수", "경험", "training"]),
         },
     ]
