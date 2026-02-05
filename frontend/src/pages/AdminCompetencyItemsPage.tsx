@@ -3323,16 +3323,37 @@ export default function AdminCompetencyItemsPage() {
                     <Form.Item noStyle shouldUpdate={(prev, curr) => prev.grade_type !== curr.grade_type}>
                       {({ getFieldValue }) => {
                         const gradeType = getFieldValue('grade_type')
-                        const numericFields = unifiedFieldsSchema.filter(f => f.type === 'number')
 
-                        if (gradeType === 'numeric' && numericFields.length > 0) {
+                        // 등급 유형에 따라 선택 가능한 필드 타입 결정
+                        let matchingFields: typeof unifiedFieldsSchema = []
+                        let placeholder = '필드 선택'
+
+                        if (gradeType === 'numeric') {
+                          matchingFields = unifiedFieldsSchema.filter(f => f.type === 'number')
+                          placeholder = '숫자 필드 선택'
+                        } else if (gradeType === 'string') {
+                          matchingFields = unifiedFieldsSchema.filter(f =>
+                            ['text', 'select', 'textarea'].includes(f.type)
+                          )
+                          placeholder = '문자열 필드 선택'
+                        } else if (gradeType === 'file_exists') {
+                          matchingFields = unifiedFieldsSchema.filter(f => f.type === 'file')
+                          placeholder = '파일 필드 선택'
+                        } else if (gradeType === 'multi_select') {
+                          matchingFields = unifiedFieldsSchema.filter(f =>
+                            ['select', 'multiselect'].includes(f.type)
+                          )
+                          placeholder = '선택 필드 선택'
+                        }
+
+                        if (matchingFields.length > 0) {
                           return (
                             <Form.Item name="scoring_source_field" className="!mb-0">
                               <Select
                                 size="small"
                                 allowClear
-                                placeholder="숫자 필드 선택"
-                                options={numericFields.map(f => ({
+                                placeholder={placeholder}
+                                options={matchingFields.map(f => ({
                                   label: f.label || f.name,
                                   value: f.name
                                 }))}
@@ -3340,9 +3361,11 @@ export default function AdminCompetencyItemsPage() {
                             </Form.Item>
                           )
                         }
+
+                        // 필드가 없거나 등급 유형이 지정되지 않은 경우 수동 입력
                         return (
                           <Form.Item name="scoring_source_field" className="!mb-0">
-                            <Input size="small" placeholder="필드명" />
+                            <Input size="small" placeholder="필드명 직접 입력" />
                           </Form.Item>
                         )
                       }}
