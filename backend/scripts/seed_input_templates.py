@@ -15,7 +15,7 @@ from app.core.database import AsyncSessionLocal
 from app.models.input_template import InputTemplate
 
 
-# 입력 템플릿 정의 (12개)
+# 입력 템플릿 정의 (16개: form_input 12개 + user_profile 4개)
 INPUT_TEMPLATES = [
     {
         "template_id": "text",
@@ -179,6 +179,57 @@ INPUT_TEMPLATES = [
         "is_repeatable": True,
         "keywords": json.dumps(["기타자격증", "OTHER_CERTIFICATION"])
     },
+    # ============================================
+    # user_profile 타입 템플릿 (User 테이블 참조)
+    # ============================================
+    {
+        "template_id": "user_kca_cert_number",
+        "template_name": "KCA 인증번호 (회원정보)",
+        "description": "회원정보에서 KCA 인증번호를 자동으로 가져옵니다. 읽기 전용입니다.",
+        "data_source": "user_profile",
+        "source_field": "coach_certification_number",
+        "display_only": True,
+        "fields_schema": "[]",  # user_profile 타입은 필드 스키마 불필요
+        "layout_type": "vertical",
+        "is_repeatable": False,
+        "keywords": json.dumps(["KCA인증번호", "인증번호", "회원정보"])
+    },
+    {
+        "template_id": "user_organization",
+        "template_name": "소속기관 (회원정보)",
+        "description": "회원정보에서 소속기관을 자동으로 가져옵니다. 읽기 전용입니다.",
+        "data_source": "user_profile",
+        "source_field": "organization",
+        "display_only": True,
+        "fields_schema": "[]",
+        "layout_type": "vertical",
+        "is_repeatable": False,
+        "keywords": json.dumps(["소속기관", "회원정보"])
+    },
+    {
+        "template_id": "user_specialization",
+        "template_name": "전문 분야 (회원정보)",
+        "description": "회원정보에서 전문 분야를 자동으로 가져옵니다. 읽기 전용입니다.",
+        "data_source": "user_profile",
+        "source_field": "specialization",
+        "display_only": True,
+        "fields_schema": "[]",
+        "layout_type": "vertical",
+        "is_repeatable": False,
+        "keywords": json.dumps(["전문분야", "회원정보"])
+    },
+    {
+        "template_id": "user_years_experience",
+        "template_name": "경력년수 (회원정보)",
+        "description": "회원정보에서 경력년수를 자동으로 가져옵니다. 읽기 전용입니다.",
+        "data_source": "user_profile",
+        "source_field": "years_of_experience",
+        "display_only": True,
+        "fields_schema": "[]",
+        "layout_type": "vertical",
+        "is_repeatable": False,
+        "keywords": json.dumps(["경력년수", "회원정보"])
+    },
 ]
 
 
@@ -205,6 +256,11 @@ async def seed_input_templates():
                 template_id=template_data["template_id"],
                 template_name=template_data["template_name"],
                 description=template_data.get("description"),
+                # 데이터 소스 설정 (form_input, user_profile, coach_competency)
+                data_source=template_data.get("data_source", "form_input"),
+                source_field=template_data.get("source_field"),
+                display_only=template_data.get("display_only", False),
+                # 필드 스키마 (form_input 타입에서만 사용)
                 fields_schema=template_data.get("fields_schema", "[]"),
                 layout_type=template_data.get("layout_type", "vertical"),
                 is_repeatable=template_data.get("is_repeatable", False),
