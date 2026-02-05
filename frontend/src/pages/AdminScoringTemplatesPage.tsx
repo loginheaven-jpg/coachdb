@@ -5,10 +5,10 @@
 import { useState, useEffect } from 'react'
 import {
   Card, Table, Button, Space, Tag, Modal, Form, Input, Select,
-  Switch, message, Divider, InputNumber, Popconfirm, Typography
+  Switch, message, Divider, InputNumber, Popconfirm, Typography, Tooltip
 } from 'antd'
 import {
-  PlusOutlined, EditOutlined, DeleteOutlined, ReloadOutlined
+  PlusOutlined, EditOutlined, DeleteOutlined, ReloadOutlined, QuestionCircleOutlined
 } from '@ant-design/icons'
 import scoringTemplateService, {
   ScoringTemplate, GradeMapping
@@ -498,7 +498,18 @@ export default function AdminScoringTemplatesPage() {
             <Form.Item name="allow_multiple" label="다중 입력" valuePropName="checked">
               <Switch checkedChildren="허용" unCheckedChildren="단일" />
             </Form.Item>
-            <Form.Item name="auto_confirm_across_projects" label="자동 컨펌" valuePropName="checked">
+            <Form.Item
+              name="auto_confirm_across_projects"
+              label={
+                <span>
+                  자동 컨펌{' '}
+                  <Tooltip title="ON: 한번 확인되면 다른 과제에서도 유효 (검토 효율화) / OFF: 과제마다 새로 검토 필요 (신선도 보장)">
+                    <QuestionCircleOutlined style={{ color: '#999' }} />
+                  </Tooltip>
+                </span>
+              }
+              valuePropName="checked"
+            >
               <Switch checkedChildren="켜짐" unCheckedChildren="꺼짐" />
             </Form.Item>
             <Form.Item name="is_active" label="활성 상태" valuePropName="checked">
