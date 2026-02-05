@@ -119,26 +119,43 @@ async def update_input_template(
     current_user: User = Depends(require_admin)
 ):
     """입력 템플릿 수정 (관리자 전용)"""
-    result = await db.execute(
-        select(InputTemplate).where(InputTemplate.template_id == template_id)
-    )
-    template = result.scalar_one_or_none()
+    import traceback
 
-    if not template:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"입력 템플릿을 찾을 수 없습니다: {template_id}"
+    try:
+        result = await db.execute(
+            select(InputTemplate).where(InputTemplate.template_id == template_id)
         )
+        template = result.scalar_one_or_none()
 
-    # Update only provided fields
-    update_data = data.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(template, field, value)
+        if not template:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"입력 템플릿을 찾을 수 없습니다: {template_id}"
+            )
 
-    await db.commit()
-    await db.refresh(template)
+        # Update only provided fields
+        update_data = data.model_dump(exclude_unset=True)
+        print(f"[InputTemplate Update] template_id={template_id}, update_data={update_data}")
 
-    return InputTemplateResponse.model_validate(template)
+        for field, value in update_data.items():
+            if hasattr(template, field):
+                setattr(template, field, value)
+            else:
+                print(f"[InputTemplate Update] Warning: field '{field}' not in model, skipping")
+
+        await db.commit()
+        await db.refresh(template)
+
+        return InputTemplateResponse.model_validate(template)
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[InputTemplate Update] Error: {e}")
+        print(f"[InputTemplate Update] Traceback: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"입력 템플릿 수정 중 오류 발생: {str(e)}"
+        )
 
 
 @router.delete("/{template_id}")
