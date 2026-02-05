@@ -1064,11 +1064,69 @@ async def get_all_competency_items(
     check_super_admin(current_user)
 
     from sqlalchemy.orm import selectinload
-    query = select(CompetencyItem).options(selectinload(CompetencyItem.fields))
+    query = select(CompetencyItem).options(
+        selectinload(CompetencyItem.fields),
+        selectinload(CompetencyItem.unified_template)
+    )
 
     if not include_inactive:
         query = query.where(CompetencyItem.is_active == True)
 
     result = await db.execute(query)
     items = result.scalars().all()
-    return items
+
+    # Build response with unified_template info
+    response_items = []
+    for item in items:
+        item_dict = {
+            "item_id": item.item_id,
+            "item_name": item.item_name or "",
+            "item_code": item.item_code or "",
+            "category": item.category.value if item.category else "ADDON",
+            "input_type": item.input_type.value if item.input_type else "text",
+            "is_active": item.is_active if item.is_active is not None else True,
+            "template": item.template,
+            "template_config": item.template_config,
+            "is_repeatable": item.is_repeatable if item.is_repeatable is not None else False,
+            "max_entries": item.max_entries,
+            "description": item.description,
+            "is_custom": item.is_custom if item.is_custom is not None else False,
+            "created_by": item.created_by,
+            "input_template_id": item.input_template_id,
+            "scoring_template_id": item.scoring_template_id,
+            "scoring_config_override": item.scoring_config_override,
+            "unified_template_id": item.unified_template_id,
+            "evaluation_method_override": item.evaluation_method_override,
+            "fields": [
+                {
+                    "field_id": f.field_id,
+                    "field_name": f.field_name or "",
+                    "field_label": f.field_label or "",
+                    "field_type": f.field_type or "text",
+                    "field_options": f.field_options,
+                    "is_required": f.is_required if f.is_required is not None else True,
+                    "display_order": f.display_order if f.display_order is not None else 0,
+                    "placeholder": f.placeholder
+                } for f in (item.fields or [])
+            ],
+            "unified_template": None
+        }
+
+        # Add unified_template info if exists
+        if item.unified_template:
+            ut = item.unified_template
+            item_dict["unified_template"] = {
+                "template_id": ut.template_id,
+                "template_name": ut.template_name,
+                "description": ut.description,
+                "data_source": ut.data_source,
+                "evaluation_method": ut.evaluation_method,
+                "grade_type": ut.grade_type,
+                "matching_type": ut.matching_type,
+                "has_scoring": ut.has_scoring(),
+                "is_certification": ut.is_certification_template()
+            }
+
+        response_items.append(item_dict)
+
+    return response_items
