@@ -2292,3 +2292,185 @@ async def link_scoring_templates(
             status_code=500,
             detail=f"Error linking scoring templates: {str(e)}"
         )
+
+
+@router.post("/seed-scoring-templates")
+async def seed_scoring_templates(
+    secret_key: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """평가 템플릿 초기 데이터를 삽입합니다 (requires secret key)
+
+    gradeTemplates.ts의 상수를 DB로 이관합니다.
+    """
+    if secret_key != "coachdb-seed-2024":
+        raise HTTPException(status_code=403, detail="Invalid secret key")
+
+    from app.models.scoring_template import ScoringTemplate
+
+    # 평가 템플릿 데이터
+    SCORING_TEMPLATES_DATA = [
+        {
+            "template_id": "degree",
+            "template_name": "학위",
+            "description": "학위별로 점수를 부여합니다",
+            "grade_type": "string",
+            "matching_type": "grade",
+            "value_source": "SUBMITTED",
+            "aggregation_mode": "best_match",
+            "default_mappings": json.dumps([
+                {"value": "박사", "score": 30, "label": "박사"},
+                {"value": "박사수료", "score": 25, "label": "박사수료"},
+                {"value": "석사", "score": 20, "label": "석사"},
+                {"value": "학사", "score": 10, "label": "학사"}
+            ]),
+            "fixed_grades": False,
+            "allow_add_grades": True,
+            "proof_required": "REQUIRED",
+            "keywords": json.dumps(["학위", "학력", "degree"]),
+        },
+        {
+            "template_id": "kca_certification",
+            "template_name": "코칭관련자격증 (KCA)",
+            "description": "기본정보의 코치인증번호를 자동 조회합니다",
+            "grade_type": "string",
+            "matching_type": "grade",
+            "value_source": "USER_FIELD",
+            "source_field": "kca_certification_level",
+            "aggregation_mode": "best_match",
+            "default_mappings": json.dumps([
+                {"value": "KSC", "score": 40, "label": "KSC (수석코치)", "fixed": True},
+                {"value": "KAC", "score": 30, "label": "KAC (전문코치)", "fixed": True},
+                {"value": "KPC", "score": 20, "label": "KPC (전문코치)", "fixed": True},
+                {"value": "무자격", "score": 0, "label": "무자격", "fixed": True}
+            ]),
+            "fixed_grades": True,
+            "allow_add_grades": False,
+            "proof_required": "OPTIONAL",
+            "keywords": json.dumps(["kca"]),
+        },
+        {
+            "template_id": "coaching_hours",
+            "template_name": "코칭 경력 시간",
+            "description": "시간 범위별로 점수를 부여합니다",
+            "grade_type": "numeric",
+            "matching_type": "range",
+            "value_source": "SUBMITTED",
+            "aggregation_mode": "sum",
+            "default_mappings": json.dumps([
+                {"value": 1000, "score": 30, "label": "1000시간 이상"},
+                {"value": 500, "score": 20, "label": "500-999시간"},
+                {"value": 100, "score": 10, "label": "100-499시간"}
+            ]),
+            "fixed_grades": False,
+            "allow_add_grades": True,
+            "proof_required": "OPTIONAL",
+            "keywords": json.dumps(["경력", "시간", "hour"]),
+        },
+        {
+            "template_id": "counseling_by_name",
+            "template_name": "상담/심리치료관련자격 (이름 기준)",
+            "description": "자격증 이름으로 등급을 설정합니다",
+            "grade_type": "string",
+            "matching_type": "contains",
+            "value_source": "SUBMITTED",
+            "aggregation_mode": "best_match",
+            "default_mappings": json.dumps([
+                {"value": "임상심리사", "score": 30, "label": "임상심리사 포함"},
+                {"value": "상담심리사", "score": 20, "label": "상담심리사 포함"}
+            ]),
+            "fixed_grades": False,
+            "allow_add_grades": True,
+            "proof_required": "REQUIRED",
+            "keywords": json.dumps(["상담", "심리", "치료"]),
+        },
+        {
+            "template_id": "other_by_name",
+            "template_name": "기타 자격증 (이름 기준)",
+            "description": "자격증 이름으로 등급을 설정합니다",
+            "grade_type": "string",
+            "matching_type": "contains",
+            "value_source": "SUBMITTED",
+            "aggregation_mode": "best_match",
+            "default_mappings": json.dumps([
+                {"value": "", "score": 20, "label": "특정 자격증명 입력"}
+            ]),
+            "fixed_grades": False,
+            "allow_add_grades": True,
+            "proof_required": "REQUIRED",
+            "keywords": json.dumps([]),
+        },
+        {
+            "template_id": "coaching_training",
+            "template_name": "코칭연수/경험",
+            "description": "시간 합산 후 범위별 점수를 부여합니다",
+            "grade_type": "numeric",
+            "matching_type": "range",
+            "value_source": "SUBMITTED",
+            "aggregation_mode": "sum",
+            "default_mappings": json.dumps([
+                {"value": 1000, "score": 40, "label": "1000시간 이상"},
+                {"value": 500, "score": 30, "label": "500시간 이상"},
+                {"value": 100, "score": 20, "label": "100시간 이상"},
+                {"value": 0, "score": 10, "label": "100시간 미만"}
+            ]),
+            "fixed_grades": False,
+            "allow_add_grades": True,
+            "proof_required": "REQUIRED",
+            "keywords": json.dumps(["연수", "경험", "training"]),
+        },
+    ]
+
+    created_count = 0
+    updated_count = 0
+
+    try:
+        for template_data in SCORING_TEMPLATES_DATA:
+            # 기존 템플릿 확인
+            result = await db.execute(
+                select(ScoringTemplate).where(
+                    ScoringTemplate.template_id == template_data["template_id"]
+                )
+            )
+            existing = result.scalar_one_or_none()
+
+            if existing:
+                # 업데이트
+                for key, value in template_data.items():
+                    setattr(existing, key, value)
+                updated_count += 1
+            else:
+                # 생성
+                template = ScoringTemplate(
+                    template_id=template_data["template_id"],
+                    template_name=template_data["template_name"],
+                    description=template_data.get("description"),
+                    grade_type=template_data["grade_type"],
+                    matching_type=template_data["matching_type"],
+                    value_source=template_data.get("value_source", "SUBMITTED"),
+                    source_field=template_data.get("source_field"),
+                    aggregation_mode=template_data.get("aggregation_mode", "first"),
+                    default_mappings=template_data["default_mappings"],
+                    fixed_grades=template_data.get("fixed_grades", False),
+                    allow_add_grades=template_data.get("allow_add_grades", True),
+                    proof_required=template_data.get("proof_required", "OPTIONAL"),
+                    keywords=template_data.get("keywords"),
+                    is_active=True
+                )
+                db.add(template)
+                created_count += 1
+
+        await db.commit()
+
+        return {
+            "message": "Scoring templates seed completed",
+            "created": created_count,
+            "updated": updated_count
+        }
+
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error seeding scoring templates: {str(e)}"
+        )
