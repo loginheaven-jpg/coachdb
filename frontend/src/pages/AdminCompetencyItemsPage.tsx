@@ -1209,9 +1209,113 @@ export default function AdminCompetencyItemsPage() {
     setIsUnifiedTemplateEditModalOpen(true)
   }
 
+  // 통합 템플릿 검증
+  const validateUnifiedTemplate = (values: any): { errors: string[], warnings: string[] } => {
+    const errors: string[] = []
+    const warnings: string[] = []
+
+    const { grade_type, matching_type, scoring_source_field, aggregation_mode } = values
+
+    // 평가 설정이 있는지 확인
+    const hasScoring = grade_type && matching_type
+
+    if (hasScoring) {
+      // 1. 소스 필드 검증
+      if (!scoring_source_field) {
+        warnings.push('평가 설정이 있지만 소스 필드가 지정되지 않았습니다.')
+      } else {
+        // 소스 필드가 필드 스키마에 존재하는지 확인
+        const sourceField = unifiedFieldsSchema.find(f => f.name === scoring_source_field)
+
+        if (!sourceField) {
+          errors.push(`소스 필드 '${scoring_source_field}'가 필드 스키마에 존재하지 않습니다.`)
+        } else {
+          // 소스 필드 타입과 등급 유형 일치 여부
+          if (grade_type === 'numeric' && sourceField.type !== 'number') {
+            errors.push(`등급 유형이 '숫자'이지만 소스 필드 '${sourceField.label || sourceField.name}'의 타입이 '${sourceField.type}'입니다.`)
+          }
+          if (grade_type === 'string' && !['text', 'select', 'textarea'].includes(sourceField.type)) {
+            warnings.push(`등급 유형이 '문자열'이지만 소스 필드 '${sourceField.label || sourceField.name}'의 타입이 '${sourceField.type}'입니다.`)
+          }
+          if (grade_type === 'file_exists' && sourceField.type !== 'file') {
+            errors.push(`등급 유형이 '파일유무'이지만 소스 필드 '${sourceField.label || sourceField.name}'의 타입이 '${sourceField.type}'입니다.`)
+          }
+
+          // 소스 필드가 필수인지 확인
+          if (!sourceField.required) {
+            warnings.push(`소스 필드 '${sourceField.label || sourceField.name}'가 '선택'으로 설정되어 있습니다. 평가에 사용되는 필드는 '필수'로 설정하는 것이 좋습니다.`)
+          }
+        }
+      }
+
+      // 2. 집계 방식과 등급 유형 검증 (합계/최대값은 숫자 타입에서만 의미 있음)
+      if (['sum', 'max'].includes(aggregation_mode) && grade_type !== 'numeric') {
+        errors.push(`집계 방식이 '${aggregation_mode === 'sum' ? '합계' : '최대값'}'이지만 등급 유형이 '숫자'가 아닙니다. 합계/최대값은 숫자 타입에서만 사용할 수 있습니다.`)
+      }
+
+      // 3. 등급 매핑 검증
+      if (unifiedGradeMappings.length === 0) {
+        warnings.push('등급 매핑이 설정되지 않았습니다. 점수 계산이 제대로 되지 않을 수 있습니다.')
+      }
+    }
+
+    // 4. 등급 유형만 있고 매칭 방식이 없는 경우
+    if (grade_type && !matching_type) {
+      warnings.push('등급 유형은 선택되었지만 매칭 방식이 선택되지 않았습니다.')
+    }
+
+    return { errors, warnings }
+  }
+
   // 통합 템플릿 수정 핸들러
   const handleEditUnifiedTemplate = async (values: any) => {
     if (!editingUnifiedTemplate) return
+
+    // 검증 수행
+    const { errors, warnings } = validateUnifiedTemplate(values)
+
+    // 에러가 있으면 저장 차단
+    if (errors.length > 0) {
+      Modal.error({
+        title: '템플릿 검증 오류',
+        content: (
+          <div>
+            <p className="mb-2">다음 오류를 수정해주세요:</p>
+            <ul className="list-disc pl-4">
+              {errors.map((err, i) => <li key={i} className="text-red-600">{err}</li>)}
+            </ul>
+          </div>
+        )
+      })
+      return
+    }
+
+    // 경고가 있으면 확인 요청
+    if (warnings.length > 0) {
+      Modal.confirm({
+        title: '템플릿 검증 경고',
+        content: (
+          <div>
+            <p className="mb-2">다음 사항을 확인해주세요:</p>
+            <ul className="list-disc pl-4">
+              {warnings.map((warn, i) => <li key={i} className="text-orange-600">{warn}</li>)}
+            </ul>
+            <p className="mt-3">그래도 저장하시겠습니까?</p>
+          </div>
+        ),
+        okText: '저장',
+        cancelText: '취소',
+        onOk: () => saveUnifiedTemplate(values)
+      })
+      return
+    }
+
+    // 검증 통과 시 바로 저장
+    await saveUnifiedTemplate(values)
+  }
+
+  // 실제 저장 로직
+  const saveUnifiedTemplate = async (values: any) => {
     try {
       const templateData: UnifiedTemplateUpdate = {
         ...values,
@@ -1219,7 +1323,7 @@ export default function AdminCompetencyItemsPage() {
         default_mappings: unifiedTemplateService.stringifyMappings(unifiedGradeMappings),
         keywords: unifiedTemplateService.stringifyKeywords(unifiedKeywords)
       }
-      await unifiedTemplateService.update(editingUnifiedTemplate.template_id, templateData)
+      await unifiedTemplateService.update(editingUnifiedTemplate!.template_id, templateData)
       message.success('템플릿이 수정되었습니다.')
       setIsUnifiedTemplateEditModalOpen(false)
       setEditingUnifiedTemplate(null)
