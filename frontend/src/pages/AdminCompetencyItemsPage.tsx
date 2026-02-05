@@ -2281,41 +2281,43 @@ export default function AdminCompetencyItemsPage() {
               <Divider orientation="left" orientationMargin={0} className="!mt-0 !mb-3">
                 <Text strong className="text-gray-600 text-sm">기본 정보</Text>
               </Divider>
-              <div className="grid grid-cols-12 gap-3">
+              {/* 라벨 행 */}
+              <div className="grid grid-cols-12 gap-3 mb-1">
                 <div className="col-span-4">
-                  <div className="text-xs text-gray-500 mb-1">템플릿 ID</div>
-                  <div className="px-2 py-1 bg-gray-100 rounded text-sm font-mono">
+                  <span className="text-xs text-gray-500">템플릿 ID</span>
+                </div>
+                <div className="col-span-6">
+                  <span className="text-xs text-gray-500">* 템플릿명</span>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-xs text-gray-500">활성</span>
+                </div>
+              </div>
+              {/* 값/입력 행 */}
+              <div className="grid grid-cols-12 gap-3 items-center">
+                <div className="col-span-4">
+                  <div className="px-2 py-1 bg-gray-100 rounded text-sm font-mono h-[30px] flex items-center">
                     {editingInputTemplate?.template_id}
                   </div>
                 </div>
                 <div className="col-span-6">
-                  <Form.Item
-                    name="template_name"
-                    label={<span className="text-xs">템플릿명</span>}
-                    rules={[{ required: true, message: '필수' }]}
-                    className="!mb-0"
-                  >
-                    <Input />
+                  <Form.Item name="template_name" rules={[{ required: true, message: '필수' }]} className="!mb-0">
+                    <Input size="small" />
                   </Form.Item>
                 </div>
                 <div className="col-span-2">
-                  <Form.Item
-                    name="is_active"
-                    label={<span className="text-xs">활성</span>}
-                    valuePropName="checked"
-                    className="!mb-0"
-                  >
+                  <Form.Item name="is_active" valuePropName="checked" className="!mb-0">
                     <Switch size="small" />
                   </Form.Item>
                 </div>
               </div>
-              <Form.Item
-                name="description"
-                label={<span className="text-xs">설명</span>}
-                className="!mb-0 !mt-2"
-              >
-                <Input.TextArea rows={1} placeholder="템플릿 설명 (선택사항)" />
-              </Form.Item>
+              {/* 설명 - 인라인 */}
+              <div className="flex items-center gap-3 mt-2">
+                <span className="text-xs text-gray-500 w-12 flex-shrink-0">설명</span>
+                <Form.Item name="description" className="!mb-0 flex-1">
+                  <Input size="small" placeholder="템플릿 설명 (선택사항)" />
+                </Form.Item>
+              </div>
             </div>
 
             {/* 입력 설정 섹션 */}
@@ -2323,13 +2325,25 @@ export default function AdminCompetencyItemsPage() {
               <Divider orientation="left" orientationMargin={0} className="!mt-0 !mb-3">
                 <Text strong className="text-gray-600 text-sm">입력 설정</Text>
               </Divider>
-              <div className="grid grid-cols-12 gap-3">
-                <div className="col-span-3">
-                  <Form.Item
-                    name="layout_type"
-                    label={<span className="text-xs">레이아웃</span>}
-                    className="!mb-0"
-                  >
+              {/* 라벨 행 */}
+              <div className="grid grid-cols-12 gap-2 mb-1">
+                <div className="col-span-2">
+                  <span className="text-xs text-gray-500">레이아웃</span>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-xs text-gray-500">다중입력</span>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-xs text-gray-500">최대 수</span>
+                </div>
+                <div className="col-span-6">
+                  <span className="text-xs text-gray-500">플레이스홀더</span>
+                </div>
+              </div>
+              {/* 값/입력 행 */}
+              <div className="grid grid-cols-12 gap-2 items-center">
+                <div className="col-span-2">
+                  <Form.Item name="layout_type" className="!mb-0">
                     <Select
                       size="small"
                       options={[
@@ -2340,42 +2354,29 @@ export default function AdminCompetencyItemsPage() {
                     />
                   </Form.Item>
                 </div>
-                <div className="col-span-3">
-                  <Form.Item
-                    name="is_repeatable"
-                    label={<span className="text-xs">다중입력</span>}
-                    valuePropName="checked"
-                    className="!mb-0"
-                  >
+                <div className="col-span-2">
+                  <Form.Item name="is_repeatable" valuePropName="checked" className="!mb-0">
                     <Switch size="small" />
                   </Form.Item>
                 </div>
-                <div className="col-span-3">
-                  <Form.Item
-                    name="max_entries"
-                    label={<span className="text-xs">최대 수</span>}
-                    className="!mb-0"
-                  >
+                <div className="col-span-2">
+                  <Form.Item name="max_entries" className="!mb-0">
                     <Input size="small" placeholder="무제한" />
                   </Form.Item>
                 </div>
-                <div className="col-span-3">
-                  <Form.Item
-                    name="placeholder"
-                    label={<span className="text-xs">플레이스홀더</span>}
-                    className="!mb-0"
-                  >
+                <div className="col-span-6">
+                  <Form.Item name="placeholder" className="!mb-0">
                     <Input size="small" />
                   </Form.Item>
                 </div>
               </div>
-              <Form.Item
-                name="help_text"
-                label={<span className="text-xs">도움말</span>}
-                className="!mb-0 !mt-2"
-              >
-                <Input size="small" placeholder="사용자에게 표시될 안내 문구" />
-              </Form.Item>
+              {/* 도움말 - 인라인 */}
+              <div className="flex items-center gap-3 mt-2">
+                <span className="text-xs text-gray-500 w-12 flex-shrink-0">도움말</span>
+                <Form.Item name="help_text" className="!mb-0 flex-1">
+                  <Input size="small" placeholder="사용자에게 표시될 안내 문구" />
+                </Form.Item>
+              </div>
             </div>
 
             {/* 필드 스키마 섹션 */}
