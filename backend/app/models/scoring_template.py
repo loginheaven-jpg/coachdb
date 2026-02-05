@@ -9,6 +9,7 @@
 - 등급별 점수 매핑
 """
 from sqlalchemy import Column, String, Text, Boolean, DateTime
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
 
@@ -98,3 +99,6 @@ class ScoringTemplate(Base):
     # 타임스탬프
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    competency_items = relationship("CompetencyItem", back_populates="scoring_template")
