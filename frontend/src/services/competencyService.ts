@@ -11,6 +11,19 @@ export interface CompetencyItemField {
   placeholder: string | null
 }
 
+// 역량항목에 연결된 통합 템플릿 간략 정보
+export interface UnifiedTemplateBasicInfo {
+  template_id: string
+  template_name: string
+  description: string | null
+  data_source: string
+  evaluation_method: string
+  grade_type: string | null
+  matching_type: string | null
+  has_scoring: boolean
+  is_certification: boolean
+}
+
 export interface CompetencyItem {
   item_id: number
   item_name: string
@@ -22,10 +35,18 @@ export interface CompetencyItem {
   template_config: string | null
   is_repeatable: boolean
   max_entries: number | null
+  description?: string | null
+  is_custom?: boolean
+  created_by?: number | null
   fields: CompetencyItemField[]
-  // 평가 템플릿 연결
+  // 평가 템플릿 연결 (legacy)
+  input_template_id?: string | null
   scoring_template_id: string | null
   scoring_config_override: string | null
+  // 2-tier 통합 템플릿
+  unified_template_id: string | null
+  evaluation_method_override: string | null
+  unified_template: UnifiedTemplateBasicInfo | null
 }
 
 // Admin create/update types
@@ -49,9 +70,16 @@ export interface CompetencyItemCreate {
   is_repeatable?: boolean
   max_entries?: number
   is_active?: boolean
+  description?: string
+  is_custom?: boolean
   fields?: CompetencyItemFieldCreate[]
+  // Legacy template fields
+  input_template_id?: string
   scoring_template_id?: string
   scoring_config_override?: string
+  // 2-tier unified template
+  unified_template_id?: string
+  evaluation_method_override?: string
 }
 
 export interface CompetencyItemUpdate {
@@ -62,8 +90,14 @@ export interface CompetencyItemUpdate {
   is_repeatable?: boolean
   max_entries?: number
   is_active?: boolean
+  description?: string
+  // Legacy template fields
+  input_template_id?: string
   scoring_template_id?: string
   scoring_config_override?: string
+  // 2-tier unified template
+  unified_template_id?: string
+  evaluation_method_override?: string
 }
 
 export interface FileBasicInfo {

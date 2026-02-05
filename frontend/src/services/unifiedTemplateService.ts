@@ -317,8 +317,8 @@ const unifiedTemplateService = {
   /**
    * 평가 방법 레이블
    */
-  getEvaluationMethodLabel(method: EvaluationMethodType): string {
-    const labels: Record<EvaluationMethodType, string> = {
+  getEvaluationMethodLabel(method: string): string {
+    const labels: Record<string, string> = {
       'standard': '일반 평가',
       'by_name': '이름으로 평가',
       'by_existence': '유무로 평가'

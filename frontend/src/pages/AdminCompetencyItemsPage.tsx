@@ -404,7 +404,13 @@ export default function AdminCompetencyItemsPage() {
       is_repeatable: item.is_repeatable,
       max_entries: item.max_entries,
       is_active: item.is_active,
-      scoring_template_id: item.scoring_template_id
+      description: item.description,
+      // Legacy fields (deprecated)
+      scoring_template_id: item.scoring_template_id,
+      input_template_id: item.input_template_id,
+      // 2-tier unified template
+      unified_template_id: item.unified_template_id,
+      evaluation_method_override: item.evaluation_method_override
     })
     setIsEditModalOpen(true)
   }
@@ -1389,63 +1395,81 @@ export default function AdminCompetencyItemsPage() {
       title: '항목코드',
       dataIndex: 'item_code',
       key: 'item_code',
-      width: '15%',
+      width: '12%',
     },
     {
       title: '항목명',
       dataIndex: 'item_name',
       key: 'item_name',
-      width: '20%',
+      width: '18%',
     },
     {
       title: '카테고리',
       dataIndex: 'category',
       key: 'category',
-      width: '10%',
+      width: '8%',
       render: (category: string) => getCategoryTag(category),
     },
     {
-      title: '입력 템플릿',
-      dataIndex: 'template',
-      key: 'template',
-      width: '8%',
-      render: (template: string) => template || '-',
-    },
-    {
-      title: '평가 템플릿',
-      dataIndex: 'scoring_template_id',
-      key: 'scoring_template_id',
-      width: '10%',
-      render: (templateId: string) => {
-        if (!templateId) return <Text type="secondary">-</Text>
-        const template = templates.find(t => t.template_id === templateId)
-        return template ? (
-          <Tag color="orange">{template.template_name}</Tag>
-        ) : (
-          <Text type="secondary">{templateId}</Text>
-        )
+      title: '연결 템플릿',
+      key: 'unified_template',
+      width: '20%',
+      render: (_: any, record: CompetencyItem) => {
+        // 통합 템플릿이 연결된 경우
+        if (record.unified_template) {
+          return (
+            <Space direction="vertical" size={0}>
+              <Tag color="blue" icon={<LinkOutlined />}>
+                {record.unified_template.template_name}
+              </Tag>
+              {record.unified_template.has_scoring ? (
+                <Text type="secondary" style={{ fontSize: '11px' }}>
+                  {unifiedTemplateService.getEvaluationMethodLabel(record.unified_template.evaluation_method)}
+                  {record.evaluation_method_override && ` → ${unifiedTemplateService.getEvaluationMethodLabel(record.evaluation_method_override)}`}
+                </Text>
+              ) : (
+                <Text type="secondary" style={{ fontSize: '11px' }}>입력만</Text>
+              )}
+            </Space>
+          )
+        }
+        // unified_template_id만 있는 경우 (아직 로딩 안됨)
+        if (record.unified_template_id) {
+          return <Tag color="blue">{record.unified_template_id}</Tag>
+        }
+        // Legacy: 이전 템플릿만 있는 경우
+        if (record.scoring_template_id || record.template) {
+          return (
+            <Tooltip title="Legacy 템플릿 (마이그레이션 필요)">
+              <Tag color="orange">
+                {record.scoring_template_id || record.template}
+              </Tag>
+            </Tooltip>
+          )
+        }
+        return <Text type="secondary">-</Text>
       },
     },
     {
       title: '다중입력',
       dataIndex: 'is_repeatable',
       key: 'is_repeatable',
-      width: '6%',
+      width: '8%',
       render: (repeatable: boolean, record: CompetencyItem) => (
-        repeatable ? <Tag color="blue">Yes ({record.max_entries || '무제한'})</Tag> : <Tag>No</Tag>
+        repeatable ? <Tag color="blue">Yes ({record.max_entries || '∞'})</Tag> : <Tag>No</Tag>
       ),
     },
     {
       title: '필드 수',
       key: 'fields_count',
-      width: '8%',
+      width: '6%',
       render: (_: any, record: CompetencyItem) => record.fields?.length || 0,
     },
     {
       title: '상태',
       dataIndex: 'is_active',
       key: 'is_active',
-      width: '8%',
+      width: '6%',
       render: (active: boolean) => (
         active ? <Tag color="green">활성</Tag> : <Tag color="red">비활성</Tag>
       ),
@@ -1710,21 +1734,6 @@ export default function AdminCompetencyItemsPage() {
             </Form.Item>
 
             <Form.Item
-              name="template"
-              label="템플릿 유형"
-            >
-              <Select options={TEMPLATE_OPTIONS} allowClear />
-            </Form.Item>
-
-            <Form.Item
-              name="template_config"
-              label="템플릿 설정 (JSON)"
-              tooltip={'예: {"options": ["옵션1", "옵션2"]}'}
-            >
-              <Input.TextArea rows={3} placeholder='{"options": ["옵션1", "옵션2"]}' />
-            </Form.Item>
-
-            <Form.Item
               name="is_repeatable"
               label="다중 입력 허용"
               valuePropName="checked"
@@ -1740,59 +1749,113 @@ export default function AdminCompetencyItemsPage() {
               <InputNumber min={1} max={100} />
             </Form.Item>
 
-            {/* 평가방법 설정 섹션 */}
+            <Form.Item
+              name="description"
+              label="설명/안내문구"
+              tooltip="코치에게 표시될 입력 안내 문구"
+            >
+              <Input.TextArea rows={2} placeholder="예: 보유하신 코칭 자격증 정보를 입력해주세요" />
+            </Form.Item>
+
+            {/* 통합 템플릿 선택 섹션 */}
             <div className="border-t pt-4 mt-4">
-              <Title level={5}>평가방법 설정</Title>
+              <Title level={5}>
+                <LinkOutlined className="mr-2" />
+                통합 템플릿 연결
+              </Title>
+              <Alert
+                message="템플릿 연결"
+                description="역량항목에 템플릿을 연결하면 입력 폼 구조와 평가 방법이 자동으로 적용됩니다."
+                type="info"
+                showIcon
+                className="mb-4"
+              />
               <Form.Item
-                name="scoring_template_id"
-                label="평가 템플릿"
-                tooltip="이 항목의 점수 계산에 사용할 템플릿을 선택합니다"
+                name="unified_template_id"
+                label="통합 템플릿"
+                tooltip="이 항목의 입력 폼과 평가에 사용할 템플릿을 선택합니다"
               >
                 <Select
-                  placeholder="평가 템플릿 선택 (선택사항)"
+                  placeholder="통합 템플릿 선택"
                   allowClear
-                  options={templates.map(t => ({
-                    label: t.template_name,
+                  showSearch
+                  optionFilterProp="label"
+                  options={unifiedTemplates.map(t => ({
+                    label: `${t.template_name} (${t.template_id})`,
                     value: t.template_id
                   }))}
                 />
               </Form.Item>
 
-              <Form.Item noStyle shouldUpdate={(prev, curr) => prev.scoring_template_id !== curr.scoring_template_id}>
+              {/* 자격증 평가방법 오버라이드 (자격증 템플릿 선택 시) */}
+              <Form.Item noStyle shouldUpdate={(prev, curr) => prev.unified_template_id !== curr.unified_template_id}>
                 {({ getFieldValue }) => {
-                  const selectedTemplateId = getFieldValue('scoring_template_id')
-                  const template = getTemplatePreview(selectedTemplateId)
+                  const selectedTemplateId = getFieldValue('unified_template_id')
+                  const template = unifiedTemplates.find(t => t.template_id === selectedTemplateId)
                   if (!template) return null
 
-                  const mappings = scoringTemplateService.parseMappings(template.default_mappings)
+                  const mappings = unifiedTemplateService.parseMappings(template.default_mappings)
 
                   return (
-                    <div className="bg-gray-50 p-4 rounded mb-4">
-                      <Text strong>선택된 템플릿 미리보기:</Text>
-                      <Descriptions size="small" column={2} className="mt-2">
-                        <Descriptions.Item label="등급유형">
-                          {GRADE_TYPE_OPTIONS.find(o => o.value === template.grade_type)?.label}
-                        </Descriptions.Item>
-                        <Descriptions.Item label="매칭방식">
-                          {MATCHING_TYPE_OPTIONS.find(o => o.value === template.matching_type)?.label}
-                        </Descriptions.Item>
-                        <Descriptions.Item label="집계방식">
-                          {AGGREGATION_MODE_OPTIONS.find(o => o.value === template.aggregation_mode)?.label}
-                        </Descriptions.Item>
-                        <Descriptions.Item label="증빙필수">
-                          {PROOF_REQUIRED_OPTIONS.find(o => o.value === template.proof_required)?.label}
-                        </Descriptions.Item>
-                      </Descriptions>
-                      <div className="mt-2">
-                        <Text type="secondary">등급 매핑 ({mappings.length}개):</Text>
-                        <div className="flex flex-wrap gap-2 mt-1">
-                          {mappings.slice(0, 5).map((m, i) => (
-                            <Tag key={i}>{String(m.value)} → {m.score}점</Tag>
-                          ))}
-                          {mappings.length > 5 && <Tag>+{mappings.length - 5}개</Tag>}
-                        </div>
+                    <>
+                      {/* 자격증 템플릿인 경우 평가방법 선택 */}
+                      {template.is_certification && (
+                        <Form.Item
+                          name="evaluation_method_override"
+                          label="평가방법 (자격증)"
+                          tooltip="자격증 평가 시 이름으로 평가할지, 유무로 평가할지 선택합니다"
+                        >
+                          <Select
+                            placeholder="평가방법 선택"
+                            allowClear
+                            options={[
+                              { label: '기본 (템플릿 설정 사용)', value: '' },
+                              { label: '이름으로 평가 (자격증명 키워드 매칭)', value: 'by_name' },
+                              { label: '유무로 평가 (증빙파일 첨부 여부)', value: 'by_existence' }
+                            ]}
+                          />
+                        </Form.Item>
+                      )}
+
+                      {/* 선택된 템플릿 미리보기 */}
+                      <div className="bg-gray-50 p-4 rounded mb-4">
+                        <Text strong>선택된 템플릿:</Text> <Tag color="blue">{template.template_name}</Tag>
+                        <Descriptions size="small" column={2} className="mt-2">
+                          <Descriptions.Item label="데이터소스">
+                            {unifiedTemplateService.getDataSourceLabel(template.data_source)}
+                          </Descriptions.Item>
+                          <Descriptions.Item label="평가방법">
+                            {unifiedTemplateService.getEvaluationMethodLabel(template.evaluation_method)}
+                          </Descriptions.Item>
+                          {template.grade_type && (
+                            <Descriptions.Item label="등급유형">
+                              {unifiedTemplateService.getGradeTypeLabel(template.grade_type)}
+                            </Descriptions.Item>
+                          )}
+                          {template.matching_type && (
+                            <Descriptions.Item label="매칭방식">
+                              {unifiedTemplateService.getMatchingTypeLabel(template.matching_type)}
+                            </Descriptions.Item>
+                          )}
+                        </Descriptions>
+                        {template.has_scoring && mappings.length > 0 && (
+                          <div className="mt-2">
+                            <Text type="secondary">등급 매핑 ({mappings.length}개):</Text>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                              {mappings.slice(0, 5).map((m, i) => (
+                                <Tag key={i}>{String(m.value)} → {m.score}점</Tag>
+                              ))}
+                              {mappings.length > 5 && <Tag>+{mappings.length - 5}개</Tag>}
+                            </div>
+                          </div>
+                        )}
+                        {!template.has_scoring && (
+                          <div className="mt-2">
+                            <Tag color="default">평가 없음 (입력만)</Tag>
+                          </div>
+                        )}
                       </div>
-                    </div>
+                    </>
                   )
                 }}
               </Form.Item>
@@ -1844,20 +1907,6 @@ export default function AdminCompetencyItemsPage() {
             </Form.Item>
 
             <Form.Item
-              name="template"
-              label="템플릿 유형"
-            >
-              <Select options={TEMPLATE_OPTIONS} allowClear />
-            </Form.Item>
-
-            <Form.Item
-              name="template_config"
-              label="템플릿 설정 (JSON)"
-            >
-              <Input.TextArea rows={3} />
-            </Form.Item>
-
-            <Form.Item
               name="is_repeatable"
               label="다중 입력 허용"
               valuePropName="checked"
@@ -1872,59 +1921,117 @@ export default function AdminCompetencyItemsPage() {
               <InputNumber min={1} max={100} />
             </Form.Item>
 
-            {/* 평가방법 설정 섹션 */}
+            <Form.Item
+              name="description"
+              label="설명/안내문구"
+              tooltip="코치에게 표시될 입력 안내 문구"
+            >
+              <Input.TextArea rows={2} placeholder="예: 보유하신 코칭 자격증 정보를 입력해주세요" />
+            </Form.Item>
+
+            {/* 통합 템플릿 선택 섹션 */}
             <div className="border-t pt-4 mt-4">
-              <Title level={5}>평가방법 설정</Title>
+              <Title level={5}>
+                <LinkOutlined className="mr-2" />
+                통합 템플릿 연결
+              </Title>
+
+              {/* 현재 연결 상태 표시 */}
+              {editingItem?.unified_template && (
+                <Alert
+                  message={`현재 연결: ${editingItem.unified_template.template_name}`}
+                  type="success"
+                  showIcon
+                  className="mb-4"
+                />
+              )}
+
               <Form.Item
-                name="scoring_template_id"
-                label="평가 템플릿"
-                tooltip="이 항목의 점수 계산에 사용할 템플릿을 선택합니다"
+                name="unified_template_id"
+                label="통합 템플릿"
+                tooltip="이 항목의 입력 폼과 평가에 사용할 템플릿을 선택합니다"
               >
                 <Select
-                  placeholder="평가 템플릿 선택 (선택사항)"
+                  placeholder="통합 템플릿 선택"
                   allowClear
-                  options={templates.map(t => ({
-                    label: t.template_name,
+                  showSearch
+                  optionFilterProp="label"
+                  options={unifiedTemplates.map(t => ({
+                    label: `${t.template_name} (${t.template_id})`,
                     value: t.template_id
                   }))}
                 />
               </Form.Item>
 
-              <Form.Item noStyle shouldUpdate={(prev, curr) => prev.scoring_template_id !== curr.scoring_template_id}>
+              {/* 자격증 평가방법 오버라이드 및 템플릿 미리보기 */}
+              <Form.Item noStyle shouldUpdate={(prev, curr) => prev.unified_template_id !== curr.unified_template_id}>
                 {({ getFieldValue }) => {
-                  const selectedTemplateId = getFieldValue('scoring_template_id')
-                  const template = getTemplatePreview(selectedTemplateId)
+                  const selectedTemplateId = getFieldValue('unified_template_id')
+                  const template = unifiedTemplates.find(t => t.template_id === selectedTemplateId)
                   if (!template) return null
 
-                  const mappings = scoringTemplateService.parseMappings(template.default_mappings)
+                  const mappings = unifiedTemplateService.parseMappings(template.default_mappings)
 
                   return (
-                    <div className="bg-gray-50 p-4 rounded mb-4">
-                      <Text strong>선택된 템플릿 미리보기:</Text>
-                      <Descriptions size="small" column={2} className="mt-2">
-                        <Descriptions.Item label="등급유형">
-                          {GRADE_TYPE_OPTIONS.find(o => o.value === template.grade_type)?.label}
-                        </Descriptions.Item>
-                        <Descriptions.Item label="매칭방식">
-                          {MATCHING_TYPE_OPTIONS.find(o => o.value === template.matching_type)?.label}
-                        </Descriptions.Item>
-                        <Descriptions.Item label="집계방식">
-                          {AGGREGATION_MODE_OPTIONS.find(o => o.value === template.aggregation_mode)?.label}
-                        </Descriptions.Item>
-                        <Descriptions.Item label="증빙필수">
-                          {PROOF_REQUIRED_OPTIONS.find(o => o.value === template.proof_required)?.label}
-                        </Descriptions.Item>
-                      </Descriptions>
-                      <div className="mt-2">
-                        <Text type="secondary">등급 매핑 ({mappings.length}개):</Text>
-                        <div className="flex flex-wrap gap-2 mt-1">
-                          {mappings.slice(0, 5).map((m, i) => (
-                            <Tag key={i}>{String(m.value)} → {m.score}점</Tag>
-                          ))}
-                          {mappings.length > 5 && <Tag>+{mappings.length - 5}개</Tag>}
-                        </div>
+                    <>
+                      {/* 자격증 템플릿인 경우 평가방법 선택 */}
+                      {template.is_certification && (
+                        <Form.Item
+                          name="evaluation_method_override"
+                          label="평가방법 (자격증)"
+                          tooltip="자격증 평가 시 이름으로 평가할지, 유무로 평가할지 선택합니다"
+                        >
+                          <Select
+                            placeholder="평가방법 선택"
+                            allowClear
+                            options={[
+                              { label: '기본 (템플릿 설정 사용)', value: '' },
+                              { label: '이름으로 평가 (자격증명 키워드 매칭)', value: 'by_name' },
+                              { label: '유무로 평가 (증빙파일 첨부 여부)', value: 'by_existence' }
+                            ]}
+                          />
+                        </Form.Item>
+                      )}
+
+                      {/* 선택된 템플릿 미리보기 */}
+                      <div className="bg-gray-50 p-4 rounded mb-4">
+                        <Text strong>선택된 템플릿:</Text> <Tag color="blue">{template.template_name}</Tag>
+                        <Descriptions size="small" column={2} className="mt-2">
+                          <Descriptions.Item label="데이터소스">
+                            {unifiedTemplateService.getDataSourceLabel(template.data_source)}
+                          </Descriptions.Item>
+                          <Descriptions.Item label="평가방법">
+                            {unifiedTemplateService.getEvaluationMethodLabel(template.evaluation_method)}
+                          </Descriptions.Item>
+                          {template.grade_type && (
+                            <Descriptions.Item label="등급유형">
+                              {unifiedTemplateService.getGradeTypeLabel(template.grade_type)}
+                            </Descriptions.Item>
+                          )}
+                          {template.matching_type && (
+                            <Descriptions.Item label="매칭방식">
+                              {unifiedTemplateService.getMatchingTypeLabel(template.matching_type)}
+                            </Descriptions.Item>
+                          )}
+                        </Descriptions>
+                        {template.has_scoring && mappings.length > 0 && (
+                          <div className="mt-2">
+                            <Text type="secondary">등급 매핑 ({mappings.length}개):</Text>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                              {mappings.slice(0, 5).map((m, i) => (
+                                <Tag key={i}>{String(m.value)} → {m.score}점</Tag>
+                              ))}
+                              {mappings.length > 5 && <Tag>+{mappings.length - 5}개</Tag>}
+                            </div>
+                          </div>
+                        )}
+                        {!template.has_scoring && (
+                          <div className="mt-2">
+                            <Tag color="default">평가 없음 (입력만)</Tag>
+                          </div>
+                        )}
                       </div>
-                    </div>
+                    </>
                   )
                 }}
               </Form.Item>

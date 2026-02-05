@@ -134,13 +134,73 @@ async def get_competency_items(
 ):
     """Get all active competency items (master data)"""
     from sqlalchemy.orm import selectinload
+    from app.schemas.competency import UnifiedTemplateBasicInfo
+
     result = await db.execute(
         select(CompetencyItem)
         .where(CompetencyItem.is_active == True)
-        .options(selectinload(CompetencyItem.fields))
+        .options(
+            selectinload(CompetencyItem.fields),
+            selectinload(CompetencyItem.unified_template)
+        )
     )
     items = result.scalars().all()
-    return items
+
+    # Build response with unified_template info
+    response_items = []
+    for item in items:
+        item_dict = {
+            "item_id": item.item_id,
+            "item_name": item.item_name or "",
+            "item_code": item.item_code or "",
+            "category": item.category.value if item.category else "ADDON",
+            "input_type": item.input_type.value if item.input_type else "text",
+            "is_active": item.is_active if item.is_active is not None else True,
+            "template": item.template,
+            "template_config": item.template_config,
+            "is_repeatable": item.is_repeatable if item.is_repeatable is not None else False,
+            "max_entries": item.max_entries,
+            "description": item.description,
+            "is_custom": item.is_custom if item.is_custom is not None else False,
+            "created_by": item.created_by,
+            "input_template_id": item.input_template_id,
+            "scoring_template_id": item.scoring_template_id,
+            "scoring_config_override": item.scoring_config_override,
+            "unified_template_id": item.unified_template_id,
+            "evaluation_method_override": item.evaluation_method_override,
+            "fields": [
+                {
+                    "field_id": f.field_id,
+                    "field_name": f.field_name or "",
+                    "field_label": f.field_label or "",
+                    "field_type": f.field_type or "text",
+                    "field_options": f.field_options,
+                    "is_required": f.is_required if f.is_required is not None else True,
+                    "display_order": f.display_order if f.display_order is not None else 0,
+                    "placeholder": f.placeholder
+                } for f in (item.fields or [])
+            ],
+            "unified_template": None
+        }
+
+        # Add unified_template info if exists
+        if item.unified_template:
+            ut = item.unified_template
+            item_dict["unified_template"] = {
+                "template_id": ut.template_id,
+                "template_name": ut.template_name,
+                "description": ut.description,
+                "data_source": ut.data_source,
+                "evaluation_method": ut.evaluation_method,
+                "grade_type": ut.grade_type,
+                "matching_type": ut.matching_type,
+                "has_scoring": ut.has_scoring(),
+                "is_certification": ut.is_certification_template()
+            }
+
+        response_items.append(item_dict)
+
+    return response_items
 
 
 @router.get("/my", response_model=List[CoachCompetencyResponse])
@@ -655,7 +715,14 @@ async def create_competency_item(
         is_active=item_data.is_active,
         description=item_data.description,
         is_custom=item_data.is_custom,
-        created_by=current_user.user_id if item_data.is_custom else None
+        created_by=current_user.user_id if item_data.is_custom else None,
+        # Legacy template fields
+        input_template_id=item_data.input_template_id,
+        scoring_template_id=item_data.scoring_template_id,
+        scoring_config_override=item_data.scoring_config_override,
+        # 2-tier unified template
+        unified_template_id=item_data.unified_template_id,
+        evaluation_method_override=item_data.evaluation_method_override
     )
     db.add(new_item)
     await db.flush()
@@ -746,11 +813,84 @@ async def update_competency_item(
         item.is_active = item_data.is_active
     if item_data.description is not None:
         item.description = item_data.description
+    # Legacy template fields
+    if item_data.input_template_id is not None:
+        item.input_template_id = item_data.input_template_id
+    if item_data.scoring_template_id is not None:
+        item.scoring_template_id = item_data.scoring_template_id
+    if item_data.scoring_config_override is not None:
+        item.scoring_config_override = item_data.scoring_config_override
+    # 2-tier unified template
+    if item_data.unified_template_id is not None:
+        item.unified_template_id = item_data.unified_template_id
+    if item_data.evaluation_method_override is not None:
+        item.evaluation_method_override = item_data.evaluation_method_override
 
     await db.commit()
     await db.refresh(item)
 
-    return item
+    # Reload with unified_template
+    from sqlalchemy.orm import selectinload
+    result = await db.execute(
+        select(CompetencyItem)
+        .where(CompetencyItem.item_id == item.item_id)
+        .options(
+            selectinload(CompetencyItem.fields),
+            selectinload(CompetencyItem.unified_template)
+        )
+    )
+    updated_item = result.scalar_one()
+
+    # Build response with unified_template info
+    response = {
+        "item_id": updated_item.item_id,
+        "item_name": updated_item.item_name or "",
+        "item_code": updated_item.item_code or "",
+        "category": updated_item.category.value if updated_item.category else "ADDON",
+        "input_type": updated_item.input_type.value if updated_item.input_type else "text",
+        "is_active": updated_item.is_active if updated_item.is_active is not None else True,
+        "template": updated_item.template,
+        "template_config": updated_item.template_config,
+        "is_repeatable": updated_item.is_repeatable if updated_item.is_repeatable is not None else False,
+        "max_entries": updated_item.max_entries,
+        "description": updated_item.description,
+        "is_custom": updated_item.is_custom if updated_item.is_custom is not None else False,
+        "created_by": updated_item.created_by,
+        "input_template_id": updated_item.input_template_id,
+        "scoring_template_id": updated_item.scoring_template_id,
+        "scoring_config_override": updated_item.scoring_config_override,
+        "unified_template_id": updated_item.unified_template_id,
+        "evaluation_method_override": updated_item.evaluation_method_override,
+        "fields": [
+            {
+                "field_id": f.field_id,
+                "field_name": f.field_name or "",
+                "field_label": f.field_label or "",
+                "field_type": f.field_type or "text",
+                "field_options": f.field_options,
+                "is_required": f.is_required if f.is_required is not None else True,
+                "display_order": f.display_order if f.display_order is not None else 0,
+                "placeholder": f.placeholder
+            } for f in (updated_item.fields or [])
+        ],
+        "unified_template": None
+    }
+
+    if updated_item.unified_template:
+        ut = updated_item.unified_template
+        response["unified_template"] = {
+            "template_id": ut.template_id,
+            "template_name": ut.template_name,
+            "description": ut.description,
+            "data_source": ut.data_source,
+            "evaluation_method": ut.evaluation_method,
+            "grade_type": ut.grade_type,
+            "matching_type": ut.matching_type,
+            "has_scoring": ut.has_scoring(),
+            "is_certification": ut.is_certification_template()
+        }
+
+    return response
 
 
 @router.delete("/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
