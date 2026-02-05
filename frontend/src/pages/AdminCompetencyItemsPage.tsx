@@ -1008,6 +1008,165 @@ export default function AdminCompetencyItemsPage() {
     }
   ]
 
+  // 통합 템플릿 테이블 컬럼
+  const unifiedTemplateColumns = [
+    {
+      title: '템플릿 ID',
+      dataIndex: 'template_id',
+      key: 'template_id',
+      width: '12%'
+    },
+    {
+      title: '템플릿명',
+      dataIndex: 'template_name',
+      key: 'template_name',
+      width: '15%'
+    },
+    {
+      title: '레이아웃',
+      dataIndex: 'layout_type',
+      key: 'layout_type',
+      width: '7%',
+      render: (v: string) => unifiedTemplateService.getLayoutTypeLabel(v as any)
+    },
+    {
+      title: '다중입력',
+      dataIndex: 'is_repeatable',
+      key: 'is_repeatable',
+      width: '7%',
+      render: (v: boolean, record: UnifiedTemplate) => (
+        v ? <Tag color="blue">Yes ({record.max_entries || '∞'})</Tag> : <Tag>No</Tag>
+      )
+    },
+    {
+      title: '필드',
+      key: 'fields_count',
+      width: '5%',
+      render: (_: any, record: UnifiedTemplate) => {
+        const fields = unifiedTemplateService.parseFieldsSchema(record.fields_schema)
+        return fields.length
+      }
+    },
+    {
+      title: '평가 설정',
+      key: 'scoring_info',
+      width: '18%',
+      render: (_: any, record: UnifiedTemplate) => {
+        if (!record.has_scoring) {
+          return <Text type="secondary">-</Text>
+        }
+        return (
+          <Space wrap size={[4, 4]}>
+            {record.grade_type && (
+              <Tooltip title="등급 유형">
+                <Tag color="purple">{unifiedTemplateService.getGradeTypeLabel(record.grade_type)}</Tag>
+              </Tooltip>
+            )}
+            {record.matching_type && (
+              <Tooltip title="매칭 방식">
+                <Tag color="cyan">{unifiedTemplateService.getMatchingTypeLabel(record.matching_type)}</Tag>
+              </Tooltip>
+            )}
+            {record.aggregation_mode && record.aggregation_mode !== 'first' && (
+              <Tooltip title="집계 방식">
+                <Tag color="geekblue">{unifiedTemplateService.getAggregationModeLabel(record.aggregation_mode)}</Tag>
+              </Tooltip>
+            )}
+          </Space>
+        )
+      }
+    },
+    {
+      title: '상태',
+      dataIndex: 'is_active',
+      key: 'is_active',
+      width: '6%',
+      render: (active: boolean) => (
+        active ? <Tag color="green">활성</Tag> : <Tag color="red">비활성</Tag>
+      )
+    },
+    {
+      title: '작업',
+      key: 'actions',
+      width: '12%',
+      render: (_: any, record: UnifiedTemplate) => (
+        <Space>
+          <Button
+            type="link"
+            icon={<EditOutlined />}
+            onClick={() => openUnifiedTemplateEditModal(record)}
+          >
+            수정
+          </Button>
+        </Space>
+      )
+    }
+  ]
+
+  // 통합 템플릿 확장 렌더
+  const unifiedTemplateExpandedRowRender = (record: UnifiedTemplate) => {
+    if (!record.has_scoring) {
+      return (
+        <div className="p-4 bg-gray-50 rounded">
+          <Text type="secondary">평가 설정 없음 (입력만 수집)</Text>
+        </div>
+      )
+    }
+
+    const mappings = unifiedTemplateService.parseMappings(record.default_mappings)
+
+    return (
+      <div className="p-4 bg-blue-50 rounded">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Text strong className="text-blue-800">📊 평가 설정</Text>
+            <Descriptions size="small" column={1} className="mt-2">
+              <Descriptions.Item label="평가 방법">
+                <Tag color="blue">{unifiedTemplateService.getEvaluationMethodLabel(record.evaluation_method)}</Tag>
+              </Descriptions.Item>
+              {record.grade_type && (
+                <Descriptions.Item label="등급 유형">
+                  {unifiedTemplateService.getGradeTypeLabel(record.grade_type)}
+                </Descriptions.Item>
+              )}
+              {record.matching_type && (
+                <Descriptions.Item label="매칭 방식">
+                  {unifiedTemplateService.getMatchingTypeLabel(record.matching_type)}
+                </Descriptions.Item>
+              )}
+              {record.aggregation_mode && (
+                <Descriptions.Item label="집계 방식">
+                  {unifiedTemplateService.getAggregationModeLabel(record.aggregation_mode)}
+                </Descriptions.Item>
+              )}
+            </Descriptions>
+          </div>
+          {mappings.length > 0 && (
+            <div>
+              <Text strong className="text-blue-800">🎯 등급 매핑</Text>
+              <div className="mt-2 space-y-1">
+                {mappings.map((m, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <Tag color="orange">{m.score}점</Tag>
+                    <span className="text-gray-600">
+                      {m.label || (typeof m.value === 'number' ? `${m.value} 이상` : m.value)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // 통합 템플릿 수정 모달 열기
+  const openUnifiedTemplateEditModal = (template: UnifiedTemplate) => {
+    message.info('통합 템플릿 수정 기능은 준비 중입니다. 템플릿 ID: ' + template.template_id)
+    // TODO: 통합 템플릿 수정 모달 구현
+  }
+
   const columns = [
     {
       title: '항목코드',
@@ -1245,69 +1404,21 @@ export default function AdminCompetencyItemsPage() {
             />
           </Tabs.TabPane>
 
-          {/* 평가 템플릿 관리 탭 */}
-          <Tabs.TabPane tab="평가 템플릿 관리" key="templates">
+          {/* 템플릿 관리 탭 (입력+평가 통합) */}
+          <Tabs.TabPane tab="템플릿 관리" key="unifiedTemplates">
             <div className="flex justify-between items-center mb-4">
               <Text className="text-gray-600">
-                역량항목 평가에 사용되는 등급/점수 템플릿을 관리합니다.
+                역량항목의 입력 폼 구조와 평가 방법을 통합 관리합니다.
               </Text>
               <Button
                 type="primary"
                 icon={<PlusOutlined />}
                 onClick={() => {
-                  setGradeMappings([])
-                  setKeywords([])
-                  templateCreateForm.resetFields()
-                  setIsTemplateCreateModalOpen(true)
+                  // TODO: 통합 템플릿 생성 모달
+                  message.info('통합 템플릿 생성 기능은 준비 중입니다.')
                 }}
               >
-                새 평가 템플릿 추가
-              </Button>
-            </div>
-
-            <div className="mb-4">
-              <Space>
-                <Text>비활성 템플릿 포함:</Text>
-                <Switch checked={showInactiveTemplates} onChange={setShowInactiveTemplates} />
-              </Space>
-            </div>
-
-            <Table
-              columns={templateColumns}
-              dataSource={templates}
-              rowKey="template_id"
-              loading={templatesLoading}
-              expandable={{
-                expandedRowRender: templateExpandedRowRender
-              }}
-              pagination={{
-                pageSize: 10,
-                showSizeChanger: true,
-                showTotal: (total) => `총 ${total}개`
-              }}
-              locale={{
-                emptyText: '등록된 평가 템플릿이 없습니다.'
-              }}
-            />
-          </Tabs.TabPane>
-
-          {/* 입력 템플릿 관리 탭 */}
-          <Tabs.TabPane tab="입력 템플릿 관리" key="inputTemplates">
-            <div className="flex justify-between items-center mb-4">
-              <Text className="text-gray-600">
-                역량항목 입력에 사용되는 폼 구조 템플릿을 관리합니다.
-              </Text>
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={() => {
-                  setFieldsSchema([])
-                  setInputKeywords([])
-                  inputTemplateCreateForm.resetFields()
-                  setIsInputTemplateCreateModalOpen(true)
-                }}
-              >
-                새 입력 템플릿 추가
+                새 템플릿 추가
               </Button>
             </div>
 
@@ -1319,16 +1430,13 @@ export default function AdminCompetencyItemsPage() {
             </div>
 
             <Table
-              columns={inputTemplateColumns}
-              dataSource={inputTemplates}
+              columns={unifiedTemplateColumns}
+              dataSource={unifiedTemplates}
               rowKey="template_id"
-              loading={inputTemplatesLoading || unifiedTemplatesLoading}
+              loading={unifiedTemplatesLoading}
               expandable={{
-                expandedRowRender: inputTemplateExpandedRowRender,
-                rowExpandable: (record) => {
-                  const unified = getUnifiedTemplateForInput(record.template_id)
-                  return unified?.has_scoring || false
-                }
+                expandedRowRender: unifiedTemplateExpandedRowRender,
+                rowExpandable: (record) => record.has_scoring
               }}
               pagination={{
                 pageSize: 10,
@@ -1336,7 +1444,7 @@ export default function AdminCompetencyItemsPage() {
                 showTotal: (total) => `총 ${total}개`
               }}
               locale={{
-                emptyText: '등록된 입력 템플릿이 없습니다.'
+                emptyText: '등록된 템플릿이 없습니다.'
               }}
             />
           </Tabs.TabPane>
