@@ -1690,6 +1690,154 @@ CompetencyItem(
 
 ---
 
+## 3-tier 템플릿 아키텍처 확장 (2026-02-06)
+
+### 개요
+
+2-tier 통합 템플릿을 기반으로, 역량항목과 프로젝트 설정을 분리하는 3계층 구조:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Tier 1: UnifiedTemplate (SUPER_ADMIN)                              │
+│  "기본값/예시 제공" - 수정 불가 영역                                  │
+│                                                                     │
+│  - fields_schema (필드 구조)                                         │
+│  - data_source, layout_type, is_repeatable                          │
+│  - grade_type, matching_type, aggregation_mode                      │
+│  - evaluation_method (standard / by_name / by_existence)            │
+│  - grade_edit_mode (fixed / score_only / flexible)  ← 수정 권한 제어 │
+│  - default_mappings (기본 등급-점수 매핑)                            │
+└─────────────────────────────────────────────────────────────────────┘
+                              │
+                              │ "복사 후 독립"
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  Tier 2: CompetencyItem (SUPER_ADMIN)                               │
+│  "역량항목별 커스터마이징" - 템플릿에서 복사 후 독립 관리              │
+│                                                                     │
+│  unified_template_id: "certification"                               │
+│                                                                     │
+│  ┌── 템플릿에서 복사 → 독립 ──┐  ┌── 역량항목 전용 ──────────────────┐│
+│  │ - grade_mappings          │  │ - verification_note              ││
+│  │ - proof_required          │  │ - auto_confirm_across_projects   ││
+│  │ - help_text               │  │ - field_label_overrides          ││
+│  │ - placeholder             │  │                                   ││
+│  └───────────────────────────┘  └───────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────────────┘
+                              │
+                              │ 프로젝트별 설정
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  Tier 3: ProjectCompetencyMapping (PROJECT_MANAGER)                 │
+│  "프로젝트별 추가 설정" - grade_edit_mode 범위 내에서만 수정 가능     │
+│                                                                     │
+│  - max_score (최대 점수)                                             │
+│  - is_required (필수 여부)                                           │
+│  - scoring_criteria (점수 기준) ← grade_edit_mode에 따라 제한        │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### 핵심 원칙: "복사 후 독립"
+
+역량항목 생성 시 템플릿의 기본값을 복사하고, 이후에는 독립적으로 관리됩니다:
+
+1. **복사 시점**: CompetencyItem 생성 시 template의 default_mappings → grade_mappings로 복사
+2. **독립 관리**: 복사 후에는 역량항목이 템플릿과 독립적으로 관리됨
+3. **템플릿 수정 영향 없음**: 템플릿 수정이 기존 역량항목에 영향을 주지 않음
+
+```python
+# 역량항목 생성 시 템플릿 기본값 복사
+item = CompetencyItem(
+    item_code="CERT_NEW",
+    unified_template_id="certification",
+    # 템플릿에서 복사된 필드들
+    grade_mappings=template.default_mappings,  # 복사
+    proof_required=template.proof_required,     # 복사
+    help_text=template.help_text,               # 복사
+    placeholder=template.placeholder,           # 복사
+    # 역량항목 전용 필드
+    verification_note="검증 안내 문구",
+    auto_confirm_across_projects=True
+)
+```
+
+### 필드 분류
+
+| 분류 | 필드 | 위치 | 수정 권한 |
+|------|------|------|----------|
+| **템플릿 전용** | fields_schema, data_source, layout_type, is_repeatable, grade_type, matching_type, aggregation_mode | UnifiedTemplate | SUPER_ADMIN만 |
+| **복사 후 독립** | grade_mappings, proof_required, help_text, placeholder | CompetencyItem | SUPER_ADMIN (grade_edit_mode 범위 내) |
+| **역량항목 전용** | verification_note, auto_confirm_across_projects, field_label_overrides | CompetencyItem | SUPER_ADMIN |
+| **프로젝트 설정** | max_score, is_required, scoring_criteria | ProjectCompetencyMapping | PROJECT_MANAGER (grade_edit_mode 범위 내) |
+
+### grade_edit_mode 제어 로직
+
+템플릿의 `grade_edit_mode`가 모든 계층에서 등급 매핑 수정 권한을 결정합니다:
+
+| grade_edit_mode | 등급 이름 수정 | 점수 수정 | 항목 추가/삭제 | 비고 |
+|-----------------|--------------|----------|--------------|------|
+| `fixed` | ❌ | ❌ | ❌ | 완전 고정 (예: KCA 자격증) |
+| `score_only` | ❌ | ✅ | ❌ | 점수만 조정 가능 |
+| `flexible` | ✅ | ✅ | ✅ | 자유롭게 수정 가능 (기본값) |
+
+**고정된 템플릿 (grade_edit_mode="fixed")**:
+- `kca_certification`: KSC(30), KAC(20), KPC(10) 고정
+- `by_exists`: 유자격(20), 무자격(0) 고정
+- `counseling_by_exists`: 유자격(20), 무자격(0) 고정
+
+### DB 스키마 변경 (competency_items)
+
+```sql
+ALTER TABLE competency_items ADD COLUMN IF NOT EXISTS
+    -- 템플릿에서 복사 후 독립 관리
+    grade_mappings TEXT DEFAULT '[]',           -- 등급-점수 매핑 (JSON)
+    proof_required VARCHAR(20) DEFAULT 'optional',
+    help_text TEXT,
+    placeholder VARCHAR(200),
+
+    -- 역량항목 전용
+    verification_note TEXT,
+    auto_confirm_across_projects BOOLEAN DEFAULT FALSE,
+    field_label_overrides TEXT DEFAULT '{}';    -- {"필드명": "커스텀 라벨"}
+```
+
+### 역량항목 생성 API 동작
+
+`POST /api/admin/competency-items`:
+
+```python
+# 1. 템플릿 조회
+template = await get_unified_template(data.unified_template_id)
+
+# 2. 기본값 복사 (명시적 값이 없는 경우)
+item = CompetencyItem(
+    grade_mappings=data.grade_mappings or template.default_mappings,
+    proof_required=data.proof_required or template.proof_required,
+    help_text=data.help_text or template.help_text,
+    placeholder=data.placeholder or template.placeholder,
+    auto_confirm_across_projects=data.auto_confirm_across_projects or template.auto_confirm_across_projects,
+)
+```
+
+### 프론트엔드 UI
+
+**역량항목 관리 모달** (`/admin/competency-items`):
+- "역량항목 설정 (커스터마이징)" 섹션 추가
+- 증빙 요구 수준 (proof_required) 라디오 버튼
+- 검증 안내 (verification_note) 텍스트 영역
+- 도움말 (help_text) 텍스트 영역
+- 타 과제 자동 컨펌 (auto_confirm_across_projects) 체크박스
+
+### 권한 체계 요약
+
+| 역할 | 템플릿 | 역량항목 | 프로젝트 항목 설정 |
+|------|--------|---------|------------------|
+| SUPER_ADMIN | 생성/수정/삭제 | 생성/수정/삭제 | 생성/수정/삭제 |
+| PROJECT_MANAGER | 조회만 | 조회만 | grade_edit_mode 범위 내 수정 |
+| COACH | 조회만 | 조회만 | 조회만 |
+
+---
+
 ## 주요 비즈니스 로직
 
 ### 1. 자동 점수 계산 (Auto Scoring)
