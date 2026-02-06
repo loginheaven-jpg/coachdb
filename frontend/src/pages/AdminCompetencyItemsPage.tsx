@@ -55,6 +55,7 @@ import inputTemplateService, {
 } from '../services/inputTemplateService'
 import unifiedTemplateService, {
   UnifiedTemplate,
+  UnifiedTemplateCreate,
   UnifiedTemplateUpdate,
   GradeMapping as UnifiedGradeMapping,
   FieldSchema as UnifiedFieldSchema
@@ -178,6 +179,9 @@ export default function AdminCompetencyItemsPage() {
   const [unifiedTemplates, setUnifiedTemplates] = useState<UnifiedTemplate[]>([])
   const [unifiedTemplatesLoading, setUnifiedTemplatesLoading] = useState(false)
   const [isUnifiedTemplateEditModalOpen, setIsUnifiedTemplateEditModalOpen] = useState(false)
+  const [isUnifiedTemplateCreateModalOpen, setIsUnifiedTemplateCreateModalOpen] = useState(false)
+  const [isUnifiedTemplateSelectModalOpen, setIsUnifiedTemplateSelectModalOpen] = useState(false)
+  const [cloneSourceTemplate, setCloneSourceTemplate] = useState<UnifiedTemplate | null>(null)
   const [editingUnifiedTemplate, setEditingUnifiedTemplate] = useState<UnifiedTemplate | null>(null)
   const [unifiedFieldsSchema, setUnifiedFieldsSchema] = useState<UnifiedFieldSchema[]>([])
   const [unifiedGradeMappings, setUnifiedGradeMappings] = useState<UnifiedGradeMapping[]>([])
@@ -199,6 +203,7 @@ export default function AdminCompetencyItemsPage() {
   const [inputTemplateCreateForm] = Form.useForm()
   const [inputTemplateEditForm] = Form.useForm()
   const [unifiedTemplateEditForm] = Form.useForm()
+  const [unifiedTemplateCreateForm] = Form.useForm()
 
   useEffect(() => {
     loadItems()
@@ -270,7 +275,16 @@ export default function AdminCompetencyItemsPage() {
     setUnifiedTemplatesLoading(true)
     try {
       const data = await unifiedTemplateService.getAll(!showInactiveInputTemplates)
-      setUnifiedTemplates(data)
+      // 정렬: 1) 평가 설정이 있는 것(has_scoring) 먼저, 2) 템플릿명 순
+      const sorted = [...data].sort((a, b) => {
+        // has_scoring이 true인 것 먼저
+        if (a.has_scoring !== b.has_scoring) {
+          return a.has_scoring ? -1 : 1
+        }
+        // 그 다음 템플릿명 순 (한글 정렬)
+        return a.template_name.localeCompare(b.template_name, 'ko')
+      })
+      setUnifiedTemplates(sorted)
     } catch (error: any) {
       console.error('통합 템플릿 로드 실패:', error)
       // 통합 템플릿 로드 실패는 조용히 무시 (아직 마이그레이션 중일 수 있음)
@@ -1282,6 +1296,141 @@ export default function AdminCompetencyItemsPage() {
     return { errors, warnings }
   }
 
+  // 통합 템플릿 생성 - 신규
+  const openCreateNewUnifiedTemplate = () => {
+    setIsUnifiedTemplateSelectModalOpen(false)
+    setCloneSourceTemplate(null)
+    unifiedTemplateCreateForm.resetFields()
+    setUnifiedFieldsSchema([])
+    setUnifiedGradeMappings([])
+    setUnifiedKeywords([])
+    setUnifiedDataSource('form_input')
+    unifiedTemplateCreateForm.setFieldsValue({
+      data_source: 'form_input',
+      layout_type: 'vertical',
+      evaluation_method: 'standard',
+      grade_edit_mode: 'flexible',
+      proof_required: 'optional',
+      is_active: true
+    })
+    setIsUnifiedTemplateCreateModalOpen(true)
+  }
+
+  // 통합 템플릿 생성 - 복제
+  const openCloneUnifiedTemplate = (template: UnifiedTemplate) => {
+    setIsUnifiedTemplateSelectModalOpen(false)
+    setCloneSourceTemplate(template)
+    unifiedTemplateCreateForm.resetFields()
+    // 복제할 템플릿의 데이터로 초기화
+    setUnifiedFieldsSchema(unifiedTemplateService.parseFieldsSchema(template.fields_schema))
+    setUnifiedGradeMappings(unifiedTemplateService.parseMappings(template.default_mappings))
+    setUnifiedKeywords(unifiedTemplateService.parseKeywords(template.keywords))
+    setUnifiedDataSource((template.data_source as DataSourceType) || 'form_input')
+    unifiedTemplateCreateForm.setFieldsValue({
+      template_name: `${template.template_name} (복제)`,
+      description: template.description,
+      data_source: template.data_source || 'form_input',
+      source_field: template.source_field,
+      display_only: template.display_only || false,
+      layout_type: template.layout_type,
+      is_repeatable: template.is_repeatable,
+      max_entries: template.max_entries,
+      help_text: template.help_text,
+      placeholder: template.placeholder,
+      is_active: true,
+      evaluation_method: template.evaluation_method || 'standard',
+      grade_type: template.grade_type,
+      matching_type: template.matching_type,
+      scoring_value_source: template.scoring_value_source,
+      scoring_source_field: template.scoring_source_field,
+      extract_pattern: template.extract_pattern,
+      aggregation_mode: template.aggregation_mode || 'first',
+      grade_edit_mode: template.grade_edit_mode || 'flexible',
+      proof_required: template.proof_required || 'optional',
+      verification_note: template.verification_note,
+      is_required_default: template.is_required_default || false,
+      allow_multiple: template.allow_multiple || false,
+      auto_confirm_across_projects: template.auto_confirm_across_projects || false
+    })
+    setIsUnifiedTemplateCreateModalOpen(true)
+  }
+
+  // 통합 템플릿 생성 핸들러
+  const handleCreateUnifiedTemplate = async (values: any) => {
+    // template_id 검증
+    if (!values.template_id || !/^[a-z0-9_]+$/.test(values.template_id)) {
+      message.error('템플릿 ID는 영문 소문자, 숫자, 언더스코어만 사용할 수 있습니다.')
+      return
+    }
+
+    // 검증 수행
+    const { errors, warnings } = validateUnifiedTemplate(values)
+
+    if (errors.length > 0) {
+      Modal.error({
+        title: '템플릿 검증 오류',
+        content: (
+          <div>
+            <p className="mb-2">다음 오류를 수정해주세요:</p>
+            <ul className="list-disc pl-4">
+              {errors.map((err, i) => <li key={i} className="text-red-600">{err}</li>)}
+            </ul>
+          </div>
+        )
+      })
+      return
+    }
+
+    const doCreate = async () => {
+      try {
+        const cleanedValues = Object.fromEntries(
+          Object.entries(values).map(([key, value]) => [key, value === '' ? null : value])
+        )
+
+        const templateData = {
+          ...cleanedValues,
+          fields_schema: unifiedTemplateService.stringifyFieldsSchema(unifiedFieldsSchema),
+          default_mappings: unifiedTemplateService.stringifyMappings(unifiedGradeMappings),
+          keywords: unifiedTemplateService.stringifyKeywords(unifiedKeywords)
+        } as UnifiedTemplateCreate
+        await unifiedTemplateService.create(templateData)
+        message.success('템플릿이 생성되었습니다.')
+        setIsUnifiedTemplateCreateModalOpen(false)
+        setCloneSourceTemplate(null)
+        unifiedTemplateCreateForm.resetFields()
+        setUnifiedFieldsSchema([])
+        setUnifiedGradeMappings([])
+        setUnifiedKeywords([])
+        loadUnifiedTemplates()
+      } catch (error: any) {
+        console.error('템플릿 생성 실패:', error)
+        if (error.response?.status === 409) {
+          message.error('이미 존재하는 템플릿 ID입니다. 다른 ID를 사용해주세요.')
+        } else {
+          message.error(error.response?.data?.detail || '생성에 실패했습니다.')
+        }
+      }
+    }
+
+    if (warnings.length > 0) {
+      Modal.confirm({
+        title: '템플릿 검증 경고',
+        content: (
+          <div>
+            <p className="mb-2">다음 사항을 확인해주세요:</p>
+            <ul className="list-disc pl-4">
+              {warnings.map((warn, i) => <li key={i} className="text-orange-600">{warn}</li>)}
+            </ul>
+            <p className="mt-2 font-semibold">계속 생성하시겠습니까?</p>
+          </div>
+        ),
+        onOk: doCreate
+      })
+    } else {
+      await doCreate()
+    }
+  }
+
   // 통합 템플릿 수정 핸들러
   const handleEditUnifiedTemplate = async (values: any) => {
     if (!editingUnifiedTemplate) return
@@ -1668,10 +1817,7 @@ export default function AdminCompetencyItemsPage() {
               <Button
                 type="primary"
                 icon={<PlusOutlined />}
-                onClick={() => {
-                  // TODO: 통합 템플릿 생성 모달
-                  message.info('통합 템플릿 생성 기능은 준비 중입니다.')
-                }}
+                onClick={() => setIsUnifiedTemplateSelectModalOpen(true)}
               >
                 새 템플릿 추가
               </Button>
@@ -3825,6 +3971,412 @@ export default function AdminCompetencyItemsPage() {
               </Button>
               <Button type="primary" htmlType="submit">
                 저장
+              </Button>
+            </div>
+          </Form>
+        </Modal>
+
+        {/* 템플릿 추가 방식 선택 모달 */}
+        <Modal
+          title="새 템플릿 추가"
+          open={isUnifiedTemplateSelectModalOpen}
+          onCancel={() => setIsUnifiedTemplateSelectModalOpen(false)}
+          footer={null}
+          width={500}
+        >
+          <div className="py-4">
+            <p className="text-gray-600 mb-6">템플릿 추가 방식을 선택해주세요.</p>
+            <div className="flex gap-3 justify-center">
+              <Button onClick={() => setIsUnifiedTemplateSelectModalOpen(false)}>
+                취소
+              </Button>
+              <Button
+                type="default"
+                onClick={() => {
+                  setIsUnifiedTemplateSelectModalOpen(false)
+                  // 복제할 템플릿 선택 모달 열기
+                  Modal.confirm({
+                    title: '복제할 템플릿 선택',
+                    width: 600,
+                    content: (
+                      <div className="max-h-80 overflow-y-auto mt-4">
+                        {unifiedTemplates.filter(t => t.is_active).map(template => (
+                          <div
+                            key={template.template_id}
+                            className="p-3 border rounded mb-2 cursor-pointer hover:bg-blue-50 hover:border-blue-300"
+                            onClick={() => {
+                              Modal.destroyAll()
+                              openCloneUnifiedTemplate(template)
+                            }}
+                          >
+                            <div className="font-medium">{template.template_name}</div>
+                            <div className="text-xs text-gray-500">{template.template_id}</div>
+                            {template.description && (
+                              <div className="text-sm text-gray-600 mt-1">{template.description}</div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ),
+                    okButtonProps: { style: { display: 'none' } },
+                    cancelText: '취소'
+                  })
+                }}
+              >
+                기존 템플릿 복제
+              </Button>
+              <Button type="primary" onClick={openCreateNewUnifiedTemplate}>
+                신규 생성
+              </Button>
+            </div>
+          </div>
+        </Modal>
+
+        {/* 통합 템플릿 생성 모달 */}
+        <Modal
+          title={
+            <div className="flex items-center gap-2">
+              <PlusOutlined className="text-green-600" />
+              <span>새 통합 템플릿 생성</span>
+              {cloneSourceTemplate && (
+                <Tag color="blue">복제: {cloneSourceTemplate.template_name}</Tag>
+              )}
+            </div>
+          }
+          open={isUnifiedTemplateCreateModalOpen}
+          maskClosable={false}
+          onCancel={() => {
+            setIsUnifiedTemplateCreateModalOpen(false)
+            setCloneSourceTemplate(null)
+            unifiedTemplateCreateForm.resetFields()
+            setUnifiedFieldsSchema([])
+            setUnifiedGradeMappings([])
+            setUnifiedKeywords([])
+          }}
+          footer={null}
+          width={900}
+        >
+          <Form
+            form={unifiedTemplateCreateForm}
+            layout="vertical"
+            onFinish={handleCreateUnifiedTemplate}
+            size="small"
+          >
+            {/* 기본 정보 섹션 */}
+            <div className="mb-4">
+              <Divider orientation="left" orientationMargin={0} className="!mt-0 !mb-3">
+                <Text strong className="text-gray-600 text-sm">기본 정보</Text>
+              </Divider>
+              <div className="grid grid-cols-12 gap-3 mb-2">
+                <div className="col-span-4">
+                  <Form.Item
+                    name="template_id"
+                    label="템플릿 ID"
+                    rules={[
+                      { required: true, message: '템플릿 ID를 입력해주세요' },
+                      { pattern: /^[a-z0-9_]+$/, message: '영문 소문자, 숫자, 언더스코어만 사용 가능' }
+                    ]}
+                    className="!mb-0"
+                  >
+                    <Input placeholder="예: kca_certification" />
+                  </Form.Item>
+                </div>
+                <div className="col-span-5">
+                  <Form.Item
+                    name="template_name"
+                    label="템플릿명"
+                    rules={[{ required: true, message: '템플릿명을 입력해주세요' }]}
+                    className="!mb-0"
+                  >
+                    <Input placeholder="예: KCA 자격증" />
+                  </Form.Item>
+                </div>
+                <div className="col-span-3">
+                  <Form.Item name="is_active" label="활성화" valuePropName="checked" className="!mb-0">
+                    <Switch checkedChildren="활성" unCheckedChildren="비활성" defaultChecked />
+                  </Form.Item>
+                </div>
+              </div>
+              <Form.Item name="description" label="설명" className="!mb-0">
+                <Input.TextArea rows={2} placeholder="템플릿에 대한 설명" />
+              </Form.Item>
+            </div>
+
+            {/* 데이터 소스 섹션 */}
+            <div className="mb-4">
+              <Divider orientation="left" orientationMargin={0} className="!mt-0 !mb-3">
+                <Text strong className="text-gray-600 text-sm">📥 데이터 소스</Text>
+              </Divider>
+              <div className="p-3 bg-gray-50 rounded border">
+                <div className="grid grid-cols-12 gap-2">
+                  <div className="col-span-4">
+                    <span className="text-xs text-gray-500 block mb-1">소스 유형</span>
+                    <Form.Item name="data_source" className="!mb-0">
+                      <Select
+                        size="small"
+                        options={[
+                          { label: '폼 입력', value: 'form_input' },
+                          { label: '사용자 프로필', value: 'user_profile' },
+                          { label: '중앙 역량 DB', value: 'coach_competency' }
+                        ]}
+                        onChange={(value) => setUnifiedDataSource(value as DataSourceType)}
+                      />
+                    </Form.Item>
+                  </div>
+                  <div className="col-span-4">
+                    <span className="text-xs text-gray-500 block mb-1">참조 필드</span>
+                    <Form.Item name="source_field" className="!mb-0">
+                      <Select
+                        size="small"
+                        allowClear
+                        disabled={unifiedDataSource === 'form_input'}
+                        placeholder="필드 선택"
+                        options={[
+                          { label: '이름', value: 'full_name' },
+                          { label: '이메일', value: 'email' },
+                          { label: '전화번호', value: 'phone' },
+                          { label: '소속기관', value: 'organization' },
+                          { label: '직위', value: 'position' },
+                          { label: '자격증', value: 'certifications' },
+                          { label: '코칭연수', value: 'coaching_years' },
+                          { label: '전문분야', value: 'specialty' }
+                        ]}
+                      />
+                    </Form.Item>
+                  </div>
+                  <div className="col-span-4">
+                    <span className="text-xs text-gray-500 block mb-1">읽기전용</span>
+                    <Form.Item name="display_only" valuePropName="checked" className="!mb-0">
+                      <Switch size="small" />
+                    </Form.Item>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 입력 설정 섹션 */}
+            {unifiedDataSource === 'form_input' && (
+              <div className="mb-4">
+                <Divider orientation="left" orientationMargin={0} className="!mt-0 !mb-3">
+                  <Text strong className="text-gray-600 text-sm">📝 입력 설정</Text>
+                </Divider>
+                <div className="p-3 bg-green-50 rounded border border-green-200">
+                  <div className="grid grid-cols-12 gap-2 mb-3">
+                    <div className="col-span-2">
+                      <Form.Item name="layout_type" className="!mb-0">
+                        <Select
+                          size="small"
+                          options={[
+                            { label: '세로', value: 'vertical' },
+                            { label: '가로', value: 'horizontal' },
+                            { label: '그리드', value: 'grid' }
+                          ]}
+                        />
+                      </Form.Item>
+                    </div>
+                    <div className="col-span-2">
+                      <Form.Item name="is_repeatable" valuePropName="checked" className="!mb-0">
+                        <Switch size="small" checkedChildren="다중입력" unCheckedChildren="단일" />
+                      </Form.Item>
+                    </div>
+                    <div className="col-span-2">
+                      <Form.Item name="max_entries" className="!mb-0">
+                        <Input size="small" placeholder="최대 개수" />
+                      </Form.Item>
+                    </div>
+                    <div className="col-span-6">
+                      <Form.Item name="help_text" className="!mb-0">
+                        <Input size="small" placeholder="도움말 텍스트" />
+                      </Form.Item>
+                    </div>
+                  </div>
+                  {/* 필드 스키마 */}
+                  <div className="mb-2">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs text-gray-500">필드 스키마</span>
+                      <Tag color="green">{unifiedFieldsSchema.length}개</Tag>
+                    </div>
+                    <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
+                      {unifiedFieldsSchema.map((field, index) => (
+                        <div key={index} className="flex gap-2 items-center bg-white p-1 rounded">
+                          <Input
+                            size="small"
+                            placeholder="필드명"
+                            value={field.name}
+                            onChange={e => updateUnifiedFieldSchema(index, 'name', e.target.value)}
+                            style={{ width: 80 }}
+                          />
+                          <Select
+                            size="small"
+                            value={field.type}
+                            onChange={v => updateUnifiedFieldSchema(index, 'type', v)}
+                            options={FIELD_TYPE_OPTIONS}
+                            style={{ width: 80 }}
+                          />
+                          <Input
+                            size="small"
+                            placeholder="라벨"
+                            value={field.label}
+                            onChange={e => updateUnifiedFieldSchema(index, 'label', e.target.value)}
+                            style={{ flex: 1 }}
+                          />
+                          <Switch
+                            size="small"
+                            checked={field.required}
+                            onChange={v => updateUnifiedFieldSchema(index, 'required', v)}
+                            checkedChildren="필수"
+                            unCheckedChildren="선택"
+                          />
+                          <Button type="text" danger size="small" icon={<DeleteOutlined />} onClick={() => removeUnifiedFieldSchema(index)} />
+                        </div>
+                      ))}
+                    </div>
+                    <Button type="dashed" size="small" icon={<PlusOutlined />} onClick={addUnifiedFieldSchema} className="w-full mt-2">
+                      필드 추가
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 평가 설정 섹션 */}
+            <div className="mb-4">
+              <Divider orientation="left" orientationMargin={0} className="!mt-0 !mb-3">
+                <Text strong className="text-blue-600 text-sm">📊 평가 설정</Text>
+              </Divider>
+              <div className="p-3 bg-blue-50 rounded border border-blue-200">
+                <div className="grid grid-cols-12 gap-2 mb-3">
+                  <div className="col-span-3">
+                    <span className="text-xs text-gray-500 block mb-1">평가 방법</span>
+                    <Form.Item name="evaluation_method" className="!mb-0">
+                      <Select
+                        size="small"
+                        options={[
+                          { label: '일반 평가', value: 'standard' },
+                          { label: '이름으로 평가', value: 'by_name' },
+                          { label: '유무로 평가', value: 'by_existence' }
+                        ]}
+                        onChange={(value) => {
+                          if (value === 'by_existence') {
+                            unifiedTemplateCreateForm.setFieldsValue({
+                              grade_type: 'file_exists',
+                              matching_type: 'exact',
+                              grade_edit_mode: 'fixed'
+                            })
+                            setUnifiedGradeMappings([
+                              { value: 'true', score: 20, label: '유자격' },
+                              { value: 'false', score: 0, label: '무자격' }
+                            ])
+                          } else if (value === 'by_name') {
+                            unifiedTemplateCreateForm.setFieldsValue({
+                              grade_type: 'string',
+                              matching_type: 'contains',
+                              grade_edit_mode: 'flexible'
+                            })
+                          }
+                        }}
+                      />
+                    </Form.Item>
+                  </div>
+                  <div className="col-span-3">
+                    <span className="text-xs text-gray-500 block mb-1">등급 유형</span>
+                    <Form.Item name="grade_type" className="!mb-0">
+                      <Select size="small" allowClear placeholder="선택" options={GRADE_TYPE_OPTIONS} />
+                    </Form.Item>
+                  </div>
+                  <div className="col-span-3">
+                    <span className="text-xs text-gray-500 block mb-1">매칭 방식</span>
+                    <Form.Item name="matching_type" className="!mb-0">
+                      <Select size="small" allowClear placeholder="선택" options={MATCHING_TYPE_OPTIONS} />
+                    </Form.Item>
+                  </div>
+                  <div className="col-span-3">
+                    <span className="text-xs text-gray-500 block mb-1">집계 방식</span>
+                    <Form.Item name="aggregation_mode" className="!mb-0">
+                      <Select size="small" options={AGGREGATION_MODE_OPTIONS} />
+                    </Form.Item>
+                  </div>
+                </div>
+
+                {/* 등급 매핑 */}
+                <div className="mb-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-gray-500">등급 매핑</span>
+                    <Tag color="orange">{unifiedGradeMappings.length}개</Tag>
+                  </div>
+                  <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
+                    {unifiedGradeMappings.map((mapping, index) => (
+                      <div key={index} className="flex gap-2 items-center bg-white p-1 rounded">
+                        <Input
+                          size="small"
+                          placeholder="값"
+                          value={mapping.value as string}
+                          onChange={e => updateUnifiedGradeMapping(index, 'value', e.target.value)}
+                          style={{ width: 100 }}
+                        />
+                        <InputNumber
+                          size="small"
+                          placeholder="점수"
+                          value={mapping.score}
+                          onChange={v => updateUnifiedGradeMapping(index, 'score', v || 0)}
+                          style={{ width: 70 }}
+                        />
+                        <Input
+                          size="small"
+                          placeholder="레이블"
+                          value={mapping.label}
+                          onChange={e => updateUnifiedGradeMapping(index, 'label', e.target.value)}
+                          style={{ flex: 1 }}
+                        />
+                        <Button type="text" danger size="small" icon={<DeleteOutlined />} onClick={() => removeUnifiedGradeMapping(index)} />
+                      </div>
+                    ))}
+                  </div>
+                  <Button type="dashed" size="small" icon={<PlusOutlined />} onClick={addUnifiedGradeMapping} className="w-full mt-2">
+                    등급 추가
+                  </Button>
+                </div>
+
+                {/* 기타 설정 */}
+                <div className="grid grid-cols-12 gap-2">
+                  <div className="col-span-3">
+                    <span className="text-xs text-gray-500 block mb-1">증빙 필수</span>
+                    <Form.Item name="proof_required" className="!mb-0">
+                      <Select size="small" options={PROOF_REQUIRED_OPTIONS} />
+                    </Form.Item>
+                  </div>
+                  <div className="col-span-4">
+                    <span className="text-xs text-gray-500 block mb-1">등급 수정 모드</span>
+                    <Form.Item name="grade_edit_mode" className="!mb-0">
+                      <Select size="small" options={GRADE_EDIT_MODE_OPTIONS} />
+                    </Form.Item>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-xs text-gray-500 block mb-1">컨펌 방식</span>
+                    <Form.Item name="auto_confirm_across_projects" valuePropName="checked" className="!mb-0">
+                      <Switch size="small" checkedChildren="자동" unCheckedChildren="수동" />
+                    </Form.Item>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 버튼 영역 */}
+            <div className="flex justify-end gap-2 pt-4 border-t">
+              <Button
+                onClick={() => {
+                  setIsUnifiedTemplateCreateModalOpen(false)
+                  setCloneSourceTemplate(null)
+                  unifiedTemplateCreateForm.resetFields()
+                  setUnifiedFieldsSchema([])
+                  setUnifiedGradeMappings([])
+                  setUnifiedKeywords([])
+                }}
+              >
+                취소
+              </Button>
+              <Button type="primary" htmlType="submit">
+                생성
               </Button>
             </div>
           </Form>
