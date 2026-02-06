@@ -259,6 +259,12 @@ if DATABASE_URL:
             ('verification_note', 'TEXT'),
             ('auto_confirm_across_projects', 'BOOLEAN DEFAULT FALSE'),
             ('field_label_overrides', "TEXT DEFAULT '{}'"),
+            # Phase 4: 역량항목 완전 독립화 - 평가 설정 필드 추가
+            ('grade_type', 'VARCHAR(50)'),
+            ('matching_type', 'VARCHAR(50)'),
+            ('grade_edit_mode', "VARCHAR(20) DEFAULT 'flexible'"),
+            ('evaluation_method', "VARCHAR(50) DEFAULT 'standard'"),
+            ('data_source', "VARCHAR(50) DEFAULT 'form_input'"),
         ]
         for col_name, col_type in competency_item_columns:
             try:
@@ -284,6 +290,23 @@ if DATABASE_URL:
             print(f"[OK] competency_items: copied {cur.rowcount} rows from unified_templates")
         except Exception as e:
             print(f"[WARN] competency_items migration from unified_templates: {e}")
+
+        # Phase 4: Migrate evaluation settings from unified_templates to competency_items
+        try:
+            cur.execute("""
+                UPDATE competency_items ci
+                SET grade_type = ut.grade_type,
+                    matching_type = ut.matching_type,
+                    grade_edit_mode = COALESCE(ut.grade_edit_mode, 'flexible'),
+                    evaluation_method = COALESCE(ci.evaluation_method_override, ut.evaluation_method, 'standard'),
+                    data_source = COALESCE(ut.data_source, 'form_input')
+                FROM unified_templates ut
+                WHERE ci.unified_template_id = ut.template_id
+                  AND ci.grade_type IS NULL
+            """)
+            print(f"[OK] competency_items: Phase 4 evaluation settings migrated for {cur.rowcount} rows")
+        except Exception as e:
+            print(f"[WARN] competency_items Phase 4 migration: {e}")
 
         # Update competency_items categories based on item_code patterns
         category_updates = [

@@ -178,12 +178,13 @@ async def get_pending_verifications(
                 uploaded_at=comp.file.uploaded_at
             )
 
-        # 검증 안내 추출 (unified_template 우선, 없으면 scoring_template)
+        # 검증 안내 추출 (역량항목 독립 필드 우선, 없으면 템플릿 fallback)
         verification_note = None
         if comp.competency_item:
-            if comp.competency_item.unified_template:
+            verification_note = comp.competency_item.verification_note
+            if not verification_note and comp.competency_item.unified_template:
                 verification_note = comp.competency_item.unified_template.verification_note
-            elif comp.competency_item.scoring_template:
+            if not verification_note and comp.competency_item.scoring_template:
                 verification_note = comp.competency_item.scoring_template.verification_note
 
         items.append(PendingVerificationItem(
@@ -291,12 +292,13 @@ async def get_pending_verifications(
         )
         project = project_result.scalar_one_or_none()
 
-        # 검증 안내 추출 (unified_template 우선, 없으면 scoring_template)
+        # 검증 안내 추출 (역량항목 독립 필드 우선, 없으면 템플릿 fallback)
         ad_verification_note = None
         if ad.competency_item:
-            if ad.competency_item.unified_template:
+            ad_verification_note = ad.competency_item.verification_note
+            if not ad_verification_note and ad.competency_item.unified_template:
                 ad_verification_note = ad.competency_item.unified_template.verification_note
-            elif ad.competency_item.scoring_template:
+            if not ad_verification_note and ad.competency_item.scoring_template:
                 ad_verification_note = ad.competency_item.scoring_template.verification_note
 
         items.append(PendingVerificationItem(

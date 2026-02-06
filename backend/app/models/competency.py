@@ -114,6 +114,13 @@ class CompetencyItem(Base):
     help_text = Column(Text, nullable=True)  # 도움말
     placeholder = Column(String(200), nullable=True)  # 플레이스홀더
 
+    # 평가 설정 (Phase 4: 템플릿에서 역량항목으로 완전 이동)
+    grade_type = Column(String(50), nullable=True)  # string, numeric, file_exists, multi_select
+    matching_type = Column(String(50), nullable=True)  # exact, contains, range, grade
+    grade_edit_mode = Column(String(20), nullable=False, default="flexible")  # fixed, score_only, flexible
+    evaluation_method = Column(String(50), nullable=False, default="standard")  # standard, by_name, by_existence
+    data_source = Column(String(50), nullable=False, default="form_input")  # form_input, user_profile, coach_competency
+
     # 역량항목 전용 필드
     verification_note = Column(Text, nullable=True)  # 검증 안내 문구
     auto_confirm_across_projects = Column(Boolean, nullable=True, default=False)  # 타 과제 자동 컨펌

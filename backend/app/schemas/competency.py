@@ -101,6 +101,14 @@ class CompetencyItemResponse(BaseModel):
     help_text: Optional[str] = None  # 도움말
     placeholder: Optional[str] = None  # 플레이스홀더
 
+    # 평가 설정 (Phase 4: 역량항목 완전 독립화)
+    grade_type: Optional[str] = None  # string, numeric, file_exists, multi_select
+    matching_type: Optional[str] = None  # exact, contains, range, grade
+    grade_edit_mode: str = "flexible"  # fixed, score_only, flexible
+    evaluation_method: str = "standard"  # standard, by_name, by_existence
+    data_source: str = "form_input"  # form_input, user_profile, coach_competency
+    has_scoring: bool = False  # computed: grade_type and matching_type both non-null
+
     # 역량항목 전용 필드
     verification_note: Optional[str] = None  # 검증 안내 문구
     auto_confirm_across_projects: Optional[bool] = None  # 타 과제 자동 컨펌
@@ -257,6 +265,13 @@ class CompetencyItemCreate(BaseModel):
     help_text: Optional[str] = None  # 도움말
     placeholder: Optional[str] = None  # 플레이스홀더
 
+    # 평가 설정 (Phase 4: 역량항목 완전 독립화)
+    grade_type: Optional[str] = None
+    matching_type: Optional[str] = None
+    grade_edit_mode: Optional[str] = None
+    evaluation_method: Optional[str] = None
+    data_source: Optional[str] = None
+
     # 역량항목 전용 필드
     verification_note: Optional[str] = None  # 검증 안내 문구
     auto_confirm_across_projects: Optional[bool] = None  # 타 과제 자동 컨펌
@@ -288,6 +303,13 @@ class CompetencyItemUpdate(BaseModel):
     proof_required: Optional[str] = None  # not_required, optional, required
     help_text: Optional[str] = None  # 도움말
     placeholder: Optional[str] = None  # 플레이스홀더
+
+    # 평가 설정 (Phase 4: 역량항목 완전 독립화)
+    grade_type: Optional[str] = None
+    matching_type: Optional[str] = None
+    grade_edit_mode: Optional[str] = None
+    evaluation_method: Optional[str] = None
+    data_source: Optional[str] = None
 
     # 역량항목 전용 필드
     verification_note: Optional[str] = None  # 검증 안내 문구

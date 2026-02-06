@@ -52,6 +52,13 @@ export interface CompetencyItem {
   proof_required: string | null  // not_required, optional, required
   help_text: string | null
   placeholder: string | null
+  // Phase 4: 평가 설정 (역량항목 완전 독립화)
+  grade_type: string | null       // string, numeric, file_exists, multi_select
+  matching_type: string | null     // exact, contains, range, grade
+  grade_edit_mode: string          // fixed, score_only, flexible
+  evaluation_method: string        // standard, by_name, by_existence
+  data_source: string              // form_input, user_profile, coach_competency
+  has_scoring: boolean             // computed: grade_type && matching_type
   // 역량항목 전용 필드
   verification_note: string | null  // 검증 안내 문구
   auto_confirm_across_projects: boolean | null  // 타 과제 자동 컨펌
@@ -94,6 +101,12 @@ export interface CompetencyItemCreate {
   proof_required?: string
   help_text?: string
   placeholder?: string
+  // Phase 4: 평가 설정 (역량항목 완전 독립화)
+  grade_type?: string
+  matching_type?: string
+  grade_edit_mode?: string
+  evaluation_method?: string
+  data_source?: string
   // 역량항목 전용 필드
   verification_note?: string
   auto_confirm_across_projects?: boolean
@@ -121,6 +134,12 @@ export interface CompetencyItemUpdate {
   proof_required?: string
   help_text?: string
   placeholder?: string
+  // Phase 4: 평가 설정 (역량항목 완전 독립화)
+  grade_type?: string
+  matching_type?: string
+  grade_edit_mode?: string
+  evaluation_method?: string
+  data_source?: string
   // 역량항목 전용 필드
   verification_note?: string
   auto_confirm_across_projects?: boolean

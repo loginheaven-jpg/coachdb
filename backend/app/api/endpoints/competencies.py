@@ -168,6 +168,21 @@ async def get_competency_items(
             "scoring_config_override": item.scoring_config_override,
             "unified_template_id": item.unified_template_id,
             "evaluation_method_override": item.evaluation_method_override,
+            # 역량항목 독립 필드
+            "grade_mappings": item.grade_mappings,
+            "proof_required": item.proof_required,
+            "help_text": item.help_text,
+            "placeholder": item.placeholder,
+            "verification_note": item.verification_note,
+            "auto_confirm_across_projects": item.auto_confirm_across_projects,
+            "field_label_overrides": item.field_label_overrides,
+            # Phase 4: 평가 설정 (역량항목 완전 독립화)
+            "grade_type": item.grade_type,
+            "matching_type": item.matching_type,
+            "grade_edit_mode": item.grade_edit_mode or "flexible",
+            "evaluation_method": item.evaluation_method or "standard",
+            "data_source": item.data_source or "form_input",
+            "has_scoring": item.grade_type is not None and item.matching_type is not None,
             "fields": [
                 {
                     "field_id": f.field_id,
@@ -183,7 +198,7 @@ async def get_competency_items(
             "unified_template": None
         }
 
-        # Add unified_template info if exists
+        # Add unified_template info if exists (kept for preset reference)
         if item.unified_template:
             ut = item.unified_template
             item_dict["unified_template"] = {
@@ -718,6 +733,12 @@ async def create_competency_item(
                 'placeholder': template.placeholder,
                 'verification_note': template.verification_note,
                 'auto_confirm_across_projects': template.auto_confirm_across_projects,
+                # Phase 4: 평가 설정도 복사
+                'grade_type': template.grade_type,
+                'matching_type': template.matching_type,
+                'grade_edit_mode': template.grade_edit_mode,
+                'evaluation_method': template.evaluation_method,
+                'data_source': template.data_source,
             }
 
     # Create item
@@ -749,6 +770,12 @@ async def create_competency_item(
         verification_note=item_data.verification_note or template_defaults.get('verification_note'),
         auto_confirm_across_projects=item_data.auto_confirm_across_projects if item_data.auto_confirm_across_projects is not None else template_defaults.get('auto_confirm_across_projects', False),
         field_label_overrides=item_data.field_label_overrides or '{}',
+        # Phase 4: 평가 설정 (역량항목 완전 독립화)
+        grade_type=item_data.grade_type or template_defaults.get('grade_type'),
+        matching_type=item_data.matching_type or template_defaults.get('matching_type'),
+        grade_edit_mode=item_data.grade_edit_mode or template_defaults.get('grade_edit_mode', 'flexible'),
+        evaluation_method=item_data.evaluation_method or item_data.evaluation_method_override or template_defaults.get('evaluation_method', 'standard'),
+        data_source=item_data.data_source or template_defaults.get('data_source', 'form_input'),
     )
     db.add(new_item)
     await db.flush()
@@ -866,6 +893,17 @@ async def update_competency_item(
         item.auto_confirm_across_projects = item_data.auto_confirm_across_projects
     if item_data.field_label_overrides is not None:
         item.field_label_overrides = item_data.field_label_overrides
+    # Phase 4: 평가 설정 (역량항목 완전 독립화)
+    if item_data.grade_type is not None:
+        item.grade_type = item_data.grade_type
+    if item_data.matching_type is not None:
+        item.matching_type = item_data.matching_type
+    if item_data.grade_edit_mode is not None:
+        item.grade_edit_mode = item_data.grade_edit_mode
+    if item_data.evaluation_method is not None:
+        item.evaluation_method = item_data.evaluation_method
+    if item_data.data_source is not None:
+        item.data_source = item_data.data_source
 
     await db.commit()
     await db.refresh(item)
@@ -1138,6 +1176,21 @@ async def get_all_competency_items(
             "scoring_config_override": item.scoring_config_override,
             "unified_template_id": item.unified_template_id,
             "evaluation_method_override": item.evaluation_method_override,
+            # 역량항목 독립 필드
+            "grade_mappings": item.grade_mappings,
+            "proof_required": item.proof_required,
+            "help_text": item.help_text,
+            "placeholder": item.placeholder,
+            "verification_note": item.verification_note,
+            "auto_confirm_across_projects": item.auto_confirm_across_projects,
+            "field_label_overrides": item.field_label_overrides,
+            # Phase 4: 평가 설정 (역량항목 완전 독립화)
+            "grade_type": item.grade_type,
+            "matching_type": item.matching_type,
+            "grade_edit_mode": item.grade_edit_mode or "flexible",
+            "evaluation_method": item.evaluation_method or "standard",
+            "data_source": item.data_source or "form_input",
+            "has_scoring": item.grade_type is not None and item.matching_type is not None,
             "fields": [
                 {
                     "field_id": f.field_id,
@@ -1153,7 +1206,7 @@ async def get_all_competency_items(
             "unified_template": None
         }
 
-        # Add unified_template info if exists
+        # Add unified_template info if exists (kept for preset reference)
         if item.unified_template:
             ut = item.unified_template
             item_dict["unified_template"] = {

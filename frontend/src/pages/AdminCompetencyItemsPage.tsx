@@ -19,7 +19,9 @@ import {
   Descriptions,
   Alert,
   Divider,
-  Tooltip
+  Tooltip,
+  Row,
+  Col
 } from 'antd'
 import {
   ArrowLeftOutlined,
@@ -455,10 +457,16 @@ export default function AdminCompetencyItemsPage() {
       // Legacy fields (deprecated)
       scoring_template_id: item.scoring_template_id,
       input_template_id: item.input_template_id,
-      // 2-tier unified template
+      // 2-tier unified template (프리셋 참조용)
       unified_template_id: item.unified_template_id,
       evaluation_method_override: item.evaluation_method_override,
-      // 역량항목 전용 설정 (fallback 제거 - 값이 없으면 undefined로 유지)
+      // Phase 4: 평가 설정 (역량항목 독립 필드)
+      grade_type: item.grade_type,
+      matching_type: item.matching_type,
+      grade_edit_mode: item.grade_edit_mode || 'flexible',
+      evaluation_method: item.evaluation_method || 'standard',
+      data_source: item.data_source || 'form_input',
+      // 입력/증빙 설정
       proof_required: item.proof_required,
       verification_note: item.verification_note,
       help_text: item.help_text,
@@ -500,8 +508,25 @@ export default function AdminCompetencyItemsPage() {
     const mappings = unifiedTemplateService.parseMappings(template.default_mappings)
     setItemGradeMappings(mappings)
 
-    // 역량항목 전용 설정 기본값 적용 (현재 값이 없는 경우에만)
+    // 모든 설정 기본값 적용 (현재 값이 없는 경우에만)
     const updates: Record<string, any> = {}
+    // Phase 4: 평가 설정도 복사
+    if (!currentValues.grade_type) {
+      updates.grade_type = template.grade_type
+    }
+    if (!currentValues.matching_type) {
+      updates.matching_type = template.matching_type
+    }
+    if (!currentValues.grade_edit_mode || currentValues.grade_edit_mode === 'flexible') {
+      updates.grade_edit_mode = template.grade_edit_mode || 'flexible'
+    }
+    if (!currentValues.evaluation_method || currentValues.evaluation_method === 'standard') {
+      updates.evaluation_method = template.evaluation_method || 'standard'
+    }
+    if (!currentValues.data_source || currentValues.data_source === 'form_input') {
+      updates.data_source = template.data_source || 'form_input'
+    }
+    // 입력/증빙 설정
     if (!currentValues.proof_required) {
       updates.proof_required = template.proof_required
     }
@@ -2132,7 +2157,7 @@ export default function AdminCompetencyItemsPage() {
           </Form>
         </Modal>
 
-        {/* Edit Modal */}
+        {/* Edit Modal - 좌우 분할 레이아웃 */}
         <Modal
           title="역량항목 수정"
           open={isEditModalOpen}
@@ -2144,347 +2169,302 @@ export default function AdminCompetencyItemsPage() {
             editForm.resetFields()
           }}
           footer={null}
-          width={600}
+          width={1000}
         >
           <Form
             form={editForm}
             layout="vertical"
             onFinish={handleEdit}
+            size="small"
           >
-            <Form.Item
-              name="item_name"
-              label="항목명"
-              rules={[{ required: true, message: '항목명을 입력해주세요' }]}
-            >
-              <Input />
-            </Form.Item>
-
-            <Form.Item
-              name="category"
-              label="카테고리"
-            >
-              <Select options={CATEGORY_OPTIONS} />
-            </Form.Item>
-
-            <Form.Item
-              name="is_repeatable"
-              label="다중 입력 허용"
-              valuePropName="checked"
-            >
-              <Switch />
-            </Form.Item>
-
-            <Form.Item
-              name="max_entries"
-              label="최대 입력 수"
-            >
-              <InputNumber min={1} max={100} />
-            </Form.Item>
-
-            <Form.Item
-              name="description"
-              label="설명/안내문구"
-              tooltip="코치에게 표시될 입력 안내 문구"
-            >
-              <Input.TextArea rows={2} placeholder="예: 보유하신 코칭 자격증 정보를 입력해주세요" />
-            </Form.Item>
-
-            {/* 통합 템플릿 선택 섹션 */}
-            <div className="border-t pt-4 mt-4">
-              <Title level={5}>
-                <LinkOutlined className="mr-2" />
-                통합 템플릿 연결
-              </Title>
-
-              {/* 현재 연결 상태 표시 */}
-              {editingItem?.unified_template && (
-                <Alert
-                  message={`현재 연결: ${editingItem.unified_template.template_name}`}
-                  type="success"
-                  showIcon
-                  className="mb-4"
-                />
-              )}
-
-              <Form.Item
-                name="unified_template_id"
-                label="통합 템플릿"
-                tooltip="이 항목의 입력 폼과 평가에 사용할 템플릿을 선택합니다"
-              >
+            {/* 프리셋 템플릿 선택 (최상단) */}
+            <div className="bg-blue-50 p-3 rounded mb-4">
+              <div className="flex items-center gap-2 mb-2">
+                <LinkOutlined />
+                <Text strong>프리셋 템플릿</Text>
+                <Text type="secondary">(선택 시 아래 필드에 기본값 채움)</Text>
+              </div>
+              <Form.Item name="unified_template_id" noStyle>
                 <Select
-                  placeholder="통합 템플릿 선택"
+                  placeholder="템플릿에서 기본값 불러오기..."
                   allowClear
                   showSearch
                   optionFilterProp="label"
                   onChange={handleTemplateSelectionChange}
+                  style={{ width: '100%' }}
                   options={unifiedTemplates.map(t => ({
                     label: `${t.template_name} (${t.template_id})`,
                     value: t.template_id
                   }))}
                 />
               </Form.Item>
-
-              {/* 자격증 평가방법 오버라이드 및 템플릿 미리보기 */}
-              <Form.Item noStyle shouldUpdate={(prev, curr) => prev.unified_template_id !== curr.unified_template_id}>
-                {({ getFieldValue }) => {
-                  const selectedTemplateId = getFieldValue('unified_template_id')
-                  const template = unifiedTemplates.find(t => t.template_id === selectedTemplateId)
-                  if (!template) return null
-
-                  const mappings = unifiedTemplateService.parseMappings(template.default_mappings)
-
-                  return (
-                    <>
-                      {/* 자격증 템플릿인 경우 평가방법 선택 */}
-                      {template.is_certification && (
-                        <Form.Item
-                          name="evaluation_method_override"
-                          label="평가방법 (자격증)"
-                          tooltip="자격증 평가 시 이름으로 평가할지, 유무로 평가할지 선택합니다"
-                        >
-                          <Select
-                            placeholder="평가방법 선택"
-                            allowClear
-                            options={[
-                              { label: '기본 (템플릿 설정 사용)', value: '' },
-                              { label: '이름으로 평가 (자격증명 키워드 매칭)', value: 'by_name' },
-                              { label: '유무로 평가 (증빙파일 첨부 여부)', value: 'by_existence' }
-                            ]}
-                          />
-                        </Form.Item>
-                      )}
-
-                      {/* 선택된 템플릿 미리보기 */}
-                      <div className="bg-gray-50 p-4 rounded mb-4">
-                        <Text strong>선택된 템플릿:</Text> <Tag color="blue">{template.template_name}</Tag>
-                        <Descriptions size="small" column={2} className="mt-2">
-                          <Descriptions.Item label="데이터소스">
-                            {unifiedTemplateService.getDataSourceLabel(template.data_source)}
-                          </Descriptions.Item>
-                          <Descriptions.Item label="평가방법">
-                            {unifiedTemplateService.getEvaluationMethodLabel(template.evaluation_method)}
-                          </Descriptions.Item>
-                          {template.grade_type && (
-                            <Descriptions.Item label="등급유형">
-                              {unifiedTemplateService.getGradeTypeLabel(template.grade_type)}
-                            </Descriptions.Item>
-                          )}
-                          {template.matching_type && (
-                            <Descriptions.Item label="매칭방식">
-                              {unifiedTemplateService.getMatchingTypeLabel(template.matching_type)}
-                            </Descriptions.Item>
-                          )}
-                        </Descriptions>
-                        {!template.has_scoring && (
-                          <div className="mt-2">
-                            <Tag color="default">평가 없음 (입력만)</Tag>
-                          </div>
-                        )}
-                        {/* 등급 수정 모드 안내 (템플릿 기본 설정) */}
-                        {template.has_scoring && (
-                          <div className="mt-2">
-                            <Text type="secondary">등급 수정 모드: </Text>
-                            <Tag color={template.grade_edit_mode === 'fixed' ? 'red' : template.grade_edit_mode === 'score_only' ? 'orange' : 'green'}>
-                              {unifiedTemplateService.getGradeEditModeLabel(template.grade_edit_mode)}
-                            </Tag>
-                          </div>
-                        )}
-                      </div>
-                    </>
-                  )
-                }}
-              </Form.Item>
             </div>
 
-            {/* 역량항목 전용 설정 섹션 */}
-            <div className="border-t pt-4 mt-4">
-              <Title level={5}>역량항목 설정 (커스터마이징)</Title>
+            <Row gutter={24}>
+              {/* ===== 왼쪽: 기본 정보 + 입력/증빙 설정 ===== */}
+              <Col span={12}>
+                <Title level={5}>기본 정보</Title>
 
-              {/* 등급 매핑 편집 UI - 템플릿에 평가 설정이 있는 경우에만 표시 */}
-              <Form.Item noStyle shouldUpdate={(prev, curr) => prev.unified_template_id !== curr.unified_template_id}>
-                {({ getFieldValue }) => {
-                  const selectedTemplateId = getFieldValue('unified_template_id')
-                  const template = unifiedTemplates.find(t => t.template_id === selectedTemplateId)
+                <Form.Item
+                  name="item_name"
+                  label="항목명"
+                  rules={[{ required: true, message: '항목명을 입력해주세요' }]}
+                >
+                  <Input />
+                </Form.Item>
 
-                  if (!template || !template.has_scoring) return null
+                <Row gutter={12}>
+                  <Col span={12}>
+                    <Form.Item name="category" label="카테고리">
+                      <Select options={CATEGORY_OPTIONS} />
+                    </Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <Form.Item name="data_source" label="데이터 소스">
+                      <Select options={[
+                        { label: '폼 입력', value: 'form_input' },
+                        { label: '사용자 프로필', value: 'user_profile' },
+                        { label: '역량 DB', value: 'coach_competency' }
+                      ]} />
+                    </Form.Item>
+                  </Col>
+                </Row>
 
-                  const gradeEditMode = template.grade_edit_mode || 'flexible'
-                  const isFixed = gradeEditMode === 'fixed'
-                  const isScoreOnly = gradeEditMode === 'score_only'
-                  const isFlexible = gradeEditMode === 'flexible'
+                <Form.Item
+                  name="description"
+                  label="설명/안내문구"
+                >
+                  <Input.TextArea rows={2} placeholder="예: 보유하신 코칭 자격증 정보를 입력해주세요" />
+                </Form.Item>
 
-                  return (
-                    <div className="border rounded p-4 mb-4 bg-gray-50">
-                      <div className="flex justify-between items-center mb-3">
-                        <Text strong>등급 매핑</Text>
-                        <Tag color={isFixed ? 'red' : isScoreOnly ? 'orange' : 'green'}>
-                          {unifiedTemplateService.getGradeEditModeLabel(gradeEditMode)}
-                        </Tag>
-                      </div>
+                <Row gutter={12}>
+                  <Col span={12}>
+                    <Form.Item name="is_repeatable" label="다중입력" valuePropName="checked">
+                      <Switch />
+                    </Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <Form.Item name="max_entries" label="최대 입력수">
+                      <InputNumber min={1} max={100} style={{ width: '100%' }} />
+                    </Form.Item>
+                  </Col>
+                </Row>
 
-                      {/* grade_edit_mode 안내 */}
-                      <Alert
-                        type="info"
-                        message={
-                          isFixed
-                            ? '이 템플릿은 등급 수정이 불가능합니다'
-                            : isScoreOnly
-                              ? '점수만 수정 가능합니다 (등급 이름/추가/삭제 불가)'
-                              : '등급과 점수를 자유롭게 수정할 수 있습니다'
-                        }
-                        className="mb-3"
-                        showIcon
+                <Divider style={{ margin: '12px 0' }} />
+                <Title level={5}>입력/증빙 설정</Title>
+
+                <Form.Item name="proof_required" label="증빙 필수">
+                  <Select
+                    placeholder="선택"
+                    allowClear
+                    options={PROOF_REQUIRED_OPTIONS}
+                  />
+                </Form.Item>
+
+                <Form.Item name="help_text" label="도움말">
+                  <Input.TextArea rows={2} placeholder="예: 코칭 관련 자격증만 입력해주세요" />
+                </Form.Item>
+
+                <Form.Item name="placeholder" label="플레이스홀더">
+                  <Input placeholder="예: 자격증 명칭을 입력하세요" />
+                </Form.Item>
+
+                <Form.Item name="verification_note" label="검증 안내">
+                  <Input.TextArea rows={2} placeholder="예: 자격증 적합성은 검토자가 증빙을 확인하여 판단합니다" />
+                </Form.Item>
+
+                <Row gutter={12}>
+                  <Col span={12}>
+                    <Form.Item name="auto_confirm_across_projects" label="타 과제 자동 컨펌" valuePropName="checked">
+                      <Switch />
+                    </Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <Form.Item name="is_active" label="활성 상태" valuePropName="checked">
+                      <Switch />
+                    </Form.Item>
+                  </Col>
+                </Row>
+              </Col>
+
+              {/* ===== 오른쪽: 평가 설정 ===== */}
+              <Col span={12}>
+                <Title level={5}>평가 설정</Title>
+
+                <Form.Item name="evaluation_method" label="평가방법">
+                  <Select
+                    options={[
+                      { label: '일반 (표준)', value: 'standard' },
+                      { label: '이름 기준 (키워드 매칭)', value: 'by_name' },
+                      { label: '유무 기준 (파일 첨부 여부)', value: 'by_existence' }
+                    ]}
+                    onChange={(value: string) => {
+                      // 평가방법 변경 시 관련 필드 자동 설정
+                      if (value === 'by_existence') {
+                        editForm.setFieldsValue({
+                          grade_type: 'file_exists',
+                          matching_type: 'exact',
+                          grade_edit_mode: 'fixed'
+                        })
+                        // 파일 유무 기본 매핑 설정
+                        setItemGradeMappings([
+                          { value: 'true', score: 20, label: '유자격' },
+                          { value: 'false', score: 0, label: '무자격' }
+                        ])
+                      } else if (value === 'by_name') {
+                        editForm.setFieldsValue({
+                          grade_type: 'string',
+                          matching_type: 'contains',
+                          grade_edit_mode: 'flexible'
+                        })
+                      }
+                    }}
+                  />
+                </Form.Item>
+
+                <Row gutter={12}>
+                  <Col span={12}>
+                    <Form.Item name="grade_type" label="등급 유형">
+                      <Select
+                        allowClear
+                        placeholder="선택"
+                        options={GRADE_TYPE_OPTIONS}
                       />
+                    </Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <Form.Item name="matching_type" label="매칭 방식">
+                      <Select
+                        allowClear
+                        placeholder="선택"
+                        options={MATCHING_TYPE_OPTIONS}
+                      />
+                    </Form.Item>
+                  </Col>
+                </Row>
 
-                      {/* 등급 매핑 테이블 */}
-                      <Table
-                        size="small"
-                        pagination={false}
-                        dataSource={itemGradeMappings.map((m, i) => ({ ...m, key: i }))}
-                        columns={[
-                          {
-                            title: '등급 (label)',
-                            dataIndex: 'label',
-                            width: '30%',
-                            render: (text: string, _: any, index: number) => (
-                              <Input
-                                size="small"
-                                value={text || ''}
-                                onChange={e => updateItemGradeMapping(index, 'label', e.target.value)}
-                                disabled={!isFlexible}
-                                placeholder="등급 이름"
-                              />
-                            )
-                          },
-                          {
-                            title: '값 (value)',
-                            dataIndex: 'value',
-                            width: '30%',
-                            render: (text: string | number, _: any, index: number) => (
-                              <Input
-                                size="small"
-                                value={String(text ?? '')}
-                                onChange={e => updateItemGradeMapping(index, 'value', e.target.value)}
-                                disabled={!isFlexible}
-                                placeholder="매칭 값"
-                              />
-                            )
-                          },
-                          {
-                            title: '점수',
-                            dataIndex: 'score',
-                            width: '20%',
-                            render: (score: number, _: any, index: number) => (
+                <Form.Item name="grade_edit_mode" label="등급 수정 모드">
+                  <Select options={GRADE_EDIT_MODE_OPTIONS} />
+                </Form.Item>
+
+                {/* 등급 매핑 편집 UI - grade_type과 matching_type이 모두 있을 때만 표시 */}
+                <Form.Item noStyle shouldUpdate={(prev, curr) =>
+                  prev.grade_type !== curr.grade_type ||
+                  prev.matching_type !== curr.matching_type ||
+                  prev.grade_edit_mode !== curr.grade_edit_mode
+                }>
+                  {({ getFieldValue }) => {
+                    const gradeType = getFieldValue('grade_type')
+                    const matchingType = getFieldValue('matching_type')
+                    const gradeEditMode = getFieldValue('grade_edit_mode') || 'flexible'
+
+                    if (!gradeType || !matchingType) return null
+
+                    const isFixed = gradeEditMode === 'fixed'
+                    const isScoreOnly = gradeEditMode === 'score_only'
+                    const isFlexible = gradeEditMode === 'flexible'
+                    const isFileExists = gradeType === 'file_exists'
+                    const isNumeric = gradeType === 'numeric'
+
+                    return (
+                      <div className="border rounded p-3 mb-3 bg-gray-50">
+                        <div className="flex justify-between items-center mb-2">
+                          <Text strong>등급 매핑 ({itemGradeMappings.length}개)</Text>
+                          <Tag color={isFixed ? 'red' : isScoreOnly ? 'orange' : 'green'}>
+                            {GRADE_EDIT_MODE_OPTIONS.find(o => o.value === gradeEditMode)?.label || gradeEditMode}
+                          </Tag>
+                        </div>
+
+                        {/* 등급 매핑 목록 */}
+                        <div style={{ maxHeight: 240, overflowY: 'auto' }}>
+                          {itemGradeMappings.map((mapping, index) => (
+                            <div key={index} className="flex items-center gap-1 mb-1">
+                              {/* 값(value) */}
+                              {isFileExists ? (
+                                <Tag color={String(mapping.value) === 'true' ? 'green' : 'default'} style={{ width: 70, textAlign: 'center' }}>
+                                  {String(mapping.value) === 'true' ? '있음' : '없음'}
+                                </Tag>
+                              ) : isNumeric ? (
+                                <InputNumber
+                                  size="small"
+                                  value={typeof mapping.value === 'number' ? mapping.value : Number(mapping.value) || 0}
+                                  onChange={v => updateItemGradeMapping(index, 'value', v ?? 0)}
+                                  disabled={!isFlexible}
+                                  placeholder="값"
+                                  style={{ width: 80 }}
+                                />
+                              ) : (
+                                <Input
+                                  size="small"
+                                  value={String(mapping.value ?? '')}
+                                  onChange={e => updateItemGradeMapping(index, 'value', e.target.value)}
+                                  disabled={!isFlexible}
+                                  placeholder="값"
+                                  style={{ flex: 1 }}
+                                />
+                              )}
+                              {/* 점수(score) */}
                               <InputNumber
                                 size="small"
-                                value={score}
+                                value={mapping.score}
                                 onChange={v => updateItemGradeMapping(index, 'score', v ?? 0)}
                                 disabled={isFixed}
-                                style={{ width: '100%' }}
+                                style={{ width: 65 }}
+                                addonAfter="점"
                               />
-                            )
-                          },
-                          ...(isFlexible ? [{
-                            title: '',
-                            width: '10%',
-                            render: (_: any, __: any, index: number) => (
-                              <Button
-                                type="text"
-                                danger
+                              {/* 라벨(label) */}
+                              <Input
                                 size="small"
-                                icon={<DeleteOutlined />}
-                                onClick={() => removeItemGradeMapping(index)}
+                                value={mapping.label || ''}
+                                onChange={e => updateItemGradeMapping(index, 'label', e.target.value)}
+                                disabled={!isFlexible}
+                                placeholder="라벨"
+                                style={{ width: 90 }}
                               />
-                            )
-                          }] : [])
-                        ]}
-                      />
+                              {/* 삭제 버튼 */}
+                              {isFlexible && !isFileExists && (
+                                <Button
+                                  type="text"
+                                  danger
+                                  size="small"
+                                  icon={<DeleteOutlined />}
+                                  onClick={() => removeItemGradeMapping(index)}
+                                />
+                              )}
+                            </div>
+                          ))}
+                        </div>
 
-                      {/* flexible 모드에서만 추가 버튼 */}
-                      {isFlexible && (
-                        <Button
-                          size="small"
-                          type="dashed"
-                          icon={<PlusOutlined />}
-                          onClick={addItemGradeMapping}
-                          className="mt-2"
-                          style={{ width: '100%' }}
-                        >
-                          등급 추가
-                        </Button>
-                      )}
-                    </div>
-                  )
-                }}
-              </Form.Item>
+                        {/* flexible 모드에서만 추가 버튼 */}
+                        {isFlexible && !isFileExists && (
+                          <Button
+                            size="small"
+                            type="dashed"
+                            icon={<PlusOutlined />}
+                            onClick={addItemGradeMapping}
+                            className="mt-2"
+                            style={{ width: '100%' }}
+                          >
+                            등급 추가
+                          </Button>
+                        )}
+                      </div>
+                    )
+                  }}
+                </Form.Item>
+              </Col>
+            </Row>
 
-              <Form.Item
-                name="proof_required"
-                label="증빙 필수"
-                tooltip="코치가 증빙을 제출해야 하는지 여부"
-              >
-                <Select
-                  placeholder="증빙 필수 여부 선택"
-                  allowClear
-                  options={[
-                    { label: '필요 없음', value: 'not_required' },
-                    { label: '선택 (제출 가능)', value: 'optional' },
-                    { label: '필수', value: 'required' }
-                  ]}
-                />
-              </Form.Item>
-
-              <Form.Item
-                name="verification_note"
-                label="검증 안내"
-                tooltip="검토자가 확인할 때 참고할 안내 문구"
-              >
-                <Input.TextArea rows={2} placeholder="예: 자격증 적합성은 검토자가 증빙을 확인하여 판단합니다" />
-              </Form.Item>
-
-              <Form.Item
-                name="help_text"
-                label="도움말"
-                tooltip="코치에게 표시될 도움말"
-              >
-                <Input.TextArea rows={2} placeholder="예: 코칭 관련 자격증만 입력해주세요" />
-              </Form.Item>
-
-              <Form.Item
-                name="placeholder"
-                label="플레이스홀더"
-                tooltip="입력 필드에 표시될 힌트 텍스트"
-              >
-                <Input placeholder="예: 자격증 명칭을 입력하세요" />
-              </Form.Item>
-
-              <Form.Item
-                name="auto_confirm_across_projects"
-                label="타 과제 자동 컨펌"
-                valuePropName="checked"
-                tooltip="한 과제에서 확인완료되면 다른 과제에도 자동 적용"
-              >
-                <Switch />
-              </Form.Item>
-            </div>
-
-            <Form.Item
-              name="is_active"
-              label="활성 상태"
-              valuePropName="checked"
-            >
-              <Switch />
-            </Form.Item>
-
-            <Form.Item>
+            <Divider style={{ margin: '12px 0' }} />
+            <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
               <Space>
-                <Button type="primary" htmlType="submit">저장</Button>
                 <Button onClick={() => {
                   setIsEditModalOpen(false)
                   setEditingItem(null)
                   setItemGradeMappings([])
                   editForm.resetFields()
                 }}>취소</Button>
+                <Button type="primary" htmlType="submit">저장</Button>
               </Space>
             </Form.Item>
           </Form>
