@@ -4426,7 +4426,7 @@ export default function AdminCompetencyItemsPage() {
                 </div>
 
                 {/* 기타 설정 */}
-                <div className="grid grid-cols-12 gap-2">
+                <div className="grid grid-cols-12 gap-2 mb-3">
                   <div className="col-span-3">
                     <span className="text-xs text-gray-500 block mb-1">증빙 필수</span>
                     <Form.Item name="proof_required" className="!mb-0">
@@ -4434,17 +4434,40 @@ export default function AdminCompetencyItemsPage() {
                     </Form.Item>
                   </div>
                   <div className="col-span-4">
-                    <span className="text-xs text-gray-500 block mb-1">등급 수정 모드</span>
+                    <span className="text-xs text-gray-500 block mb-1">
+                      등급 수정 모드{' '}
+                      <Tooltip title="프로젝트에서 등급 매핑을 어느 정도까지 수정할 수 있는지 설정합니다. 수정불가: 모두 고정, 점수만: 점수만 변경 가능, 자유수정: 모두 변경 가능">
+                        <QuestionCircleOutlined className="text-blue-400 cursor-help" />
+                      </Tooltip>
+                    </span>
                     <Form.Item name="grade_edit_mode" className="!mb-0">
                       <Select size="small" options={GRADE_EDIT_MODE_OPTIONS} />
                     </Form.Item>
                   </div>
                   <div className="col-span-2">
-                    <span className="text-xs text-gray-500 block mb-1">컨펌 방식</span>
+                    <span className="text-xs text-gray-500 block mb-1">
+                      컨펌 방식{' '}
+                      <Tooltip title="자동: 한 프로젝트에서 검증 완료되면 다른 프로젝트에서도 자동 승인. 수동: 각 프로젝트마다 별도 검증 필요.">
+                        <QuestionCircleOutlined className="text-blue-400 cursor-help" />
+                      </Tooltip>
+                    </span>
                     <Form.Item name="auto_confirm_across_projects" valuePropName="checked" className="!mb-0">
                       <Switch size="small" checkedChildren="자동" unCheckedChildren="수동" />
                     </Form.Item>
                   </div>
+                </div>
+
+                {/* 검증 안내 */}
+                <div className="mb-3">
+                  <span className="text-xs text-gray-500 block mb-1">
+                    검증 안내 (검토자용){' '}
+                    <Tooltip title="검토자가 증빙 확인 시 참고할 수 있는 안내 문구입니다. 검토 화면에서 표시됩니다.">
+                      <QuestionCircleOutlined className="text-blue-400 cursor-help" />
+                    </Tooltip>
+                  </span>
+                  <Form.Item name="verification_note" className="!mb-0">
+                    <Input size="small" placeholder="검증 시 참고할 안내 문구 (검토자에게 표시됨)" />
+                  </Form.Item>
                 </div>
               </div>
             </div>
