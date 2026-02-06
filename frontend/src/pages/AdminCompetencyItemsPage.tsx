@@ -4298,6 +4298,94 @@ export default function AdminCompetencyItemsPage() {
                   </div>
                 </div>
 
+                {/* 값 소스 설정 */}
+                <div className="grid grid-cols-12 gap-2 mb-3">
+                  <div className="col-span-4">
+                    <span className="text-xs text-gray-500 block mb-1">값 소스</span>
+                    <Form.Item name="scoring_value_source" className="!mb-0">
+                      <Select
+                        size="small"
+                        allowClear
+                        placeholder="선택"
+                        options={VALUE_SOURCE_OPTIONS}
+                      />
+                    </Form.Item>
+                  </div>
+                  <div className="col-span-4">
+                    <span className="text-xs text-gray-500 block mb-1">소스 필드</span>
+                    <Form.Item noStyle shouldUpdate={(prev, curr) => prev.grade_type !== curr.grade_type}>
+                      {({ getFieldValue }) => {
+                        const gradeType = getFieldValue('grade_type')
+
+                        // 등급 유형에 따라 선택 가능한 필드 타입 결정
+                        let matchingFields: typeof unifiedFieldsSchema = []
+                        let placeholder = '필드 선택'
+
+                        if (gradeType === 'numeric') {
+                          matchingFields = unifiedFieldsSchema.filter(f => f.type === 'number')
+                          placeholder = '숫자 필드 선택'
+                        } else if (gradeType === 'string') {
+                          matchingFields = unifiedFieldsSchema.filter(f =>
+                            ['text', 'select', 'textarea'].includes(f.type)
+                          )
+                          placeholder = '문자열 필드 선택'
+                        } else if (gradeType === 'file_exists') {
+                          matchingFields = unifiedFieldsSchema.filter(f => f.type === 'file')
+                          placeholder = '파일 필드 선택'
+                        } else if (gradeType === 'multi_select') {
+                          matchingFields = unifiedFieldsSchema.filter(f =>
+                            ['select', 'multiselect'].includes(f.type)
+                          )
+                          placeholder = '선택 필드 선택'
+                        }
+
+                        if (matchingFields.length > 0) {
+                          return (
+                            <Form.Item name="scoring_source_field" className="!mb-0">
+                              <Select
+                                size="small"
+                                allowClear
+                                placeholder={placeholder}
+                                options={matchingFields.map(f => ({
+                                  label: f.label || f.name,
+                                  value: f.name
+                                }))}
+                              />
+                            </Form.Item>
+                          )
+                        }
+
+                        // 필드가 없거나 등급 유형이 지정되지 않은 경우 수동 입력
+                        return (
+                          <Form.Item name="scoring_source_field" className="!mb-0">
+                            <Input size="small" placeholder="필드명 직접 입력" />
+                          </Form.Item>
+                        )
+                      }}
+                    </Form.Item>
+                  </div>
+                  <Form.Item noStyle shouldUpdate={(prev, curr) => prev.grade_type !== curr.grade_type}>
+                    {({ getFieldValue }) => {
+                      const gradeType = getFieldValue('grade_type')
+                      // 숫자 타입이고 소스필드를 직접 선택한 경우 추출 패턴은 불필요
+                      if (gradeType === 'numeric') return null
+                      return (
+                        <div className="col-span-4">
+                          <span className="text-xs text-gray-500 block mb-1">
+                            추출 패턴{' '}
+                            <Tooltip title="JSON 필드에서 특정 값을 추출할 때 사용하는 정규식 패턴">
+                              <QuestionCircleOutlined className="text-blue-400 cursor-help" />
+                            </Tooltip>
+                          </span>
+                          <Form.Item name="extract_pattern" className="!mb-0">
+                            <Input size="small" placeholder="정규식 패턴" />
+                          </Form.Item>
+                        </div>
+                      )
+                    }}
+                  </Form.Item>
+                </div>
+
                 {/* 등급 매핑 */}
                 <div className="mb-3">
                   <div className="flex items-center justify-between mb-2">
