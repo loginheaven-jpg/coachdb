@@ -192,8 +192,11 @@ export default function AdminCompetencyItemsPage() {
 
   // 역량항목 수정 모달용 등급 매핑 상태
   const [itemGradeMappings, setItemGradeMappings] = useState<UnifiedGradeMapping[]>([])
+  // 역량항목 생성 모달용 등급 매핑 상태
+  const [createGradeMappings, setCreateGradeMappings] = useState<UnifiedGradeMapping[]>([])
 
   // Modal states
+  const [isCreateSelectModalOpen, setIsCreateSelectModalOpen] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isFieldModalOpen, setIsFieldModalOpen] = useState(false)
@@ -355,17 +358,123 @@ export default function AdminCompetencyItemsPage() {
 
   const handleCreate = async (values: CompetencyItemCreate) => {
     try {
-      await competencyService.createCompetencyItem({
+      const createData: CompetencyItemCreate = {
         ...values,
-        input_type: 'text' // Default deprecated field
-      })
+        input_type: 'text', // Default deprecated field
+        grade_mappings: createGradeMappings.length > 0
+          ? JSON.stringify(createGradeMappings)
+          : undefined
+      }
+      await competencyService.createCompetencyItem(createData)
       message.success('역량항목이 생성되었습니다.')
       setIsCreateModalOpen(false)
+      setCreateGradeMappings([])
       createForm.resetFields()
       loadItems()
     } catch (error: any) {
       console.error('생성 실패:', error)
       message.error(error.response?.data?.detail || '생성에 실패했습니다.')
+    }
+  }
+
+  // 새 역량항목 추가 - 복제 생성
+  const openCloneItemModal = (sourceItem: CompetencyItem) => {
+    // 등급 매핑 복사
+    let mappings: UnifiedGradeMapping[] = []
+    if (sourceItem.grade_mappings) {
+      mappings = unifiedTemplateService.parseMappings(sourceItem.grade_mappings)
+    }
+    setCreateGradeMappings(mappings)
+
+    createForm.setFieldsValue({
+      item_code: sourceItem.item_code + '_COPY',
+      item_name: sourceItem.item_name + ' (복사)',
+      category: sourceItem.category,
+      description: sourceItem.description,
+      is_repeatable: sourceItem.is_repeatable,
+      max_entries: sourceItem.max_entries,
+      unified_template_id: sourceItem.unified_template_id,
+      // Phase 4: 평가 설정
+      grade_type: sourceItem.grade_type,
+      matching_type: sourceItem.matching_type,
+      grade_edit_mode: sourceItem.grade_edit_mode || 'flexible',
+      evaluation_method: sourceItem.evaluation_method || 'standard',
+      data_source: sourceItem.data_source || 'form_input',
+      // 입력/증빙 설정
+      proof_required: sourceItem.proof_required,
+      help_text: sourceItem.help_text,
+      placeholder: sourceItem.placeholder,
+      verification_note: sourceItem.verification_note,
+      auto_confirm_across_projects: sourceItem.auto_confirm_across_projects ?? false,
+      is_active: true
+    })
+    setIsCreateModalOpen(true)
+  }
+
+  // 새 역량항목 추가 - 신규 생성
+  const openNewItemModal = () => {
+    createForm.resetFields()
+    setCreateGradeMappings([])
+    createForm.setFieldsValue({
+      category: 'OTHER',
+      is_active: true,
+      grade_edit_mode: 'flexible',
+      evaluation_method: 'standard',
+      data_source: 'form_input'
+    })
+    setIsCreateModalOpen(true)
+  }
+
+  // 생성 모달용 등급 매핑 함수들
+  const updateCreateGradeMapping = (index: number, field: keyof UnifiedGradeMapping, value: string | number) => {
+    const newMappings = [...createGradeMappings]
+    newMappings[index] = { ...newMappings[index], [field]: value }
+    setCreateGradeMappings(newMappings)
+  }
+
+  const addCreateGradeMapping = () => {
+    setCreateGradeMappings([...createGradeMappings, { value: '', score: 0, label: '' }])
+  }
+
+  const removeCreateGradeMapping = (index: number) => {
+    setCreateGradeMappings(createGradeMappings.filter((_, i) => i !== index))
+  }
+
+  // 생성 모달 - 템플릿 선택 변경 시 기본값 자동 로드
+  const handleCreateTemplateSelectionChange = (templateId: string | undefined) => {
+    if (!templateId) {
+      setCreateGradeMappings([])
+      return
+    }
+
+    const template = unifiedTemplates.find(t => t.template_id === templateId)
+    if (!template) return
+
+    const currentValues = createForm.getFieldsValue()
+
+    // 등급 매핑 로드
+    const mappings = unifiedTemplateService.parseMappings(template.default_mappings)
+    setCreateGradeMappings(mappings)
+
+    const updates: Record<string, any> = {}
+    if (!currentValues.grade_type) updates.grade_type = template.grade_type
+    if (!currentValues.matching_type) updates.matching_type = template.matching_type
+    if (!currentValues.grade_edit_mode || currentValues.grade_edit_mode === 'flexible') {
+      updates.grade_edit_mode = template.grade_edit_mode || 'flexible'
+    }
+    if (!currentValues.evaluation_method || currentValues.evaluation_method === 'standard') {
+      updates.evaluation_method = template.evaluation_method || 'standard'
+    }
+    if (!currentValues.data_source || currentValues.data_source === 'form_input') {
+      updates.data_source = template.data_source || 'form_input'
+    }
+    if (!currentValues.proof_required) updates.proof_required = template.proof_required
+    if (!currentValues.help_text) updates.help_text = template.help_text
+    if (!currentValues.placeholder) updates.placeholder = template.placeholder
+    if (!currentValues.verification_note) updates.verification_note = template.verification_note
+
+    if (Object.keys(updates).length > 0) {
+      createForm.setFieldsValue(updates)
     }
   }
 
@@ -1889,7 +1998,7 @@ export default function AdminCompetencyItemsPage() {
               <Button
                 type="primary"
                 icon={<PlusOutlined />}
-                onClick={() => setIsCreateModalOpen(true)}
+                onClick={() => setIsCreateSelectModalOpen(true)}
               >
                 새 역량항목 추가
               </Button>
@@ -1976,182 +2085,366 @@ export default function AdminCompetencyItemsPage() {
         </Tabs>
       </Card>
 
-        {/* Create Modal */}
+        {/* 역량항목 추가 방식 선택 모달 */}
+        <Modal
+          title="새 역량항목 추가"
+          open={isCreateSelectModalOpen}
+          onCancel={() => setIsCreateSelectModalOpen(false)}
+          footer={null}
+          width={500}
+        >
+          <div className="py-4">
+            <p className="text-gray-600 mb-6">역량항목 추가 방식을 선택해주세요.</p>
+            <div className="flex gap-3 justify-center">
+              <Button onClick={() => setIsCreateSelectModalOpen(false)}>
+                취소
+              </Button>
+              <Button
+                type="default"
+                onClick={() => {
+                  setIsCreateSelectModalOpen(false)
+                  Modal.confirm({
+                    title: '복제할 역량항목 선택',
+                    width: 600,
+                    content: (
+                      <div className="max-h-80 overflow-y-auto mt-4">
+                        {items.filter(item => item.is_active).map(item => (
+                          <div
+                            key={item.item_id}
+                            className="p-3 border rounded mb-2 cursor-pointer hover:bg-blue-50 hover:border-blue-300"
+                            onClick={() => {
+                              Modal.destroyAll()
+                              openCloneItemModal(item)
+                            }}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{item.item_name}</span>
+                              {getCategoryTag(item.category)}
+                            </div>
+                            <div className="text-xs text-gray-500">{item.item_code}</div>
+                            {item.description && (
+                              <div className="text-sm text-gray-600 mt-1">{item.description}</div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ),
+                    okButtonProps: { style: { display: 'none' } },
+                    cancelText: '취소'
+                  })
+                }}
+              >
+                기존 항목 복제
+              </Button>
+              <Button type="primary" onClick={() => {
+                setIsCreateSelectModalOpen(false)
+                openNewItemModal()
+              }}>
+                신규 생성
+              </Button>
+            </div>
+          </div>
+        </Modal>
+
+        {/* Create Modal - 좌우 분할 레이아웃 (Edit 모달과 동일 구조) */}
         <Modal
           title="새 역량항목 추가"
           open={isCreateModalOpen}
           maskClosable={false}
           onCancel={() => {
             setIsCreateModalOpen(false)
+            setCreateGradeMappings([])
             createForm.resetFields()
           }}
           footer={null}
-          width={600}
+          width={1000}
         >
           <Form
             form={createForm}
             layout="vertical"
             onFinish={handleCreate}
+            size="small"
           >
-            <Form.Item
-              name="item_code"
-              label="항목 코드"
-              rules={[{ required: true, message: '항목 코드를 입력해주세요' }]}
-            >
-              <Input placeholder="예: ADDON_NEW_ITEM" />
-            </Form.Item>
-
-            <Form.Item
-              name="item_name"
-              label="항목명"
-              rules={[{ required: true, message: '항목명을 입력해주세요' }]}
-            >
-              <Input placeholder="예: 새로운 역량항목" />
-            </Form.Item>
-
-            <Form.Item
-              name="category"
-              label="카테고리"
-              rules={[{ required: true, message: '카테고리를 선택해주세요' }]}
-            >
-              <Select options={CATEGORY_OPTIONS} />
-            </Form.Item>
-
-            <Form.Item
-              name="is_repeatable"
-              label="다중 입력 허용"
-              valuePropName="checked"
-            >
-              <Switch />
-            </Form.Item>
-
-            <Form.Item
-              name="max_entries"
-              label="최대 입력 수"
-              tooltip="다중 입력 허용 시 최대 개수"
-            >
-              <InputNumber min={1} max={100} />
-            </Form.Item>
-
-            <Form.Item
-              name="description"
-              label="설명/안내문구"
-              tooltip="코치에게 표시될 입력 안내 문구"
-            >
-              <Input.TextArea rows={2} placeholder="예: 보유하신 코칭 자격증 정보를 입력해주세요" />
-            </Form.Item>
-
-            {/* 통합 템플릿 선택 섹션 */}
-            <div className="border-t pt-4 mt-4">
-              <Title level={5}>
-                <LinkOutlined className="mr-2" />
-                통합 템플릿 연결
-              </Title>
-              <Alert
-                message="템플릿 연결"
-                description="역량항목에 템플릿을 연결하면 입력 폼 구조와 평가 방법이 자동으로 적용됩니다."
-                type="info"
-                showIcon
-                className="mb-4"
-              />
-              <Form.Item
-                name="unified_template_id"
-                label="통합 템플릿"
-                tooltip="이 항목의 입력 폼과 평가에 사용할 템플릿을 선택합니다"
-              >
+            {/* 프리셋 템플릿 선택 (최상단) */}
+            <div className="bg-blue-50 p-3 rounded mb-4">
+              <div className="flex items-center gap-2 mb-2">
+                <LinkOutlined />
+                <Text strong>프리셋 템플릿</Text>
+                <Text type="secondary">(선택 시 아래 필드에 기본값 채움)</Text>
+              </div>
+              <Form.Item name="unified_template_id" noStyle>
                 <Select
-                  placeholder="통합 템플릿 선택"
+                  placeholder="템플릿에서 기본값 불러오기..."
                   allowClear
                   showSearch
                   optionFilterProp="label"
+                  onChange={handleCreateTemplateSelectionChange}
+                  style={{ width: '100%' }}
                   options={unifiedTemplates.map(t => ({
                     label: `${t.template_name} (${t.template_id})`,
                     value: t.template_id
                   }))}
                 />
               </Form.Item>
-
-              {/* 자격증 평가방법 오버라이드 (자격증 템플릿 선택 시) */}
-              <Form.Item noStyle shouldUpdate={(prev, curr) => prev.unified_template_id !== curr.unified_template_id}>
-                {({ getFieldValue }) => {
-                  const selectedTemplateId = getFieldValue('unified_template_id')
-                  const template = unifiedTemplates.find(t => t.template_id === selectedTemplateId)
-                  if (!template) return null
-
-                  const mappings = unifiedTemplateService.parseMappings(template.default_mappings)
-
-                  return (
-                    <>
-                      {/* 자격증 템플릿인 경우 평가방법 선택 */}
-                      {template.is_certification && (
-                        <Form.Item
-                          name="evaluation_method_override"
-                          label="평가방법 (자격증)"
-                          tooltip="자격증 평가 시 이름으로 평가할지, 유무로 평가할지 선택합니다"
-                        >
-                          <Select
-                            placeholder="평가방법 선택"
-                            allowClear
-                            options={[
-                              { label: '기본 (템플릿 설정 사용)', value: '' },
-                              { label: '이름으로 평가 (자격증명 키워드 매칭)', value: 'by_name' },
-                              { label: '유무로 평가 (증빙파일 첨부 여부)', value: 'by_existence' }
-                            ]}
-                          />
-                        </Form.Item>
-                      )}
-
-                      {/* 선택된 템플릿 미리보기 */}
-                      <div className="bg-gray-50 p-4 rounded mb-4">
-                        <Text strong>선택된 템플릿:</Text> <Tag color="blue">{template.template_name}</Tag>
-                        <Descriptions size="small" column={2} className="mt-2">
-                          <Descriptions.Item label="데이터소스">
-                            {unifiedTemplateService.getDataSourceLabel(template.data_source)}
-                          </Descriptions.Item>
-                          <Descriptions.Item label="평가방법">
-                            {unifiedTemplateService.getEvaluationMethodLabel(template.evaluation_method)}
-                          </Descriptions.Item>
-                          {template.grade_type && (
-                            <Descriptions.Item label="등급유형">
-                              {unifiedTemplateService.getGradeTypeLabel(template.grade_type)}
-                            </Descriptions.Item>
-                          )}
-                          {template.matching_type && (
-                            <Descriptions.Item label="매칭방식">
-                              {unifiedTemplateService.getMatchingTypeLabel(template.matching_type)}
-                            </Descriptions.Item>
-                          )}
-                        </Descriptions>
-                        {template.has_scoring && mappings.length > 0 && (
-                          <div className="mt-2">
-                            <Text type="secondary">등급 매핑 ({mappings.length}개):</Text>
-                            <div className="flex flex-wrap gap-2 mt-1">
-                              {mappings.slice(0, 5).map((m, i) => (
-                                <Tag key={i}>{String(m.value)} → {m.score}점</Tag>
-                              ))}
-                              {mappings.length > 5 && <Tag>+{mappings.length - 5}개</Tag>}
-                            </div>
-                          </div>
-                        )}
-                        {!template.has_scoring && (
-                          <div className="mt-2">
-                            <Tag color="default">평가 없음 (입력만)</Tag>
-                          </div>
-                        )}
-                      </div>
-                    </>
-                  )
-                }}
-              </Form.Item>
             </div>
 
-            <Form.Item>
+            <Row gutter={24}>
+              {/* ===== 왼쪽: 기본 정보 + 입력/증빙 설정 ===== */}
+              <Col span={12}>
+                <Title level={5}>기본 정보</Title>
+
+                <Form.Item
+                  name="item_code"
+                  label="항목 코드"
+                  rules={[{ required: true, message: '항목 코드를 입력해주세요' }]}
+                >
+                  <Input placeholder="예: CERT_NEW_ITEM" />
+                </Form.Item>
+
+                <Form.Item
+                  name="item_name"
+                  label="항목명"
+                  rules={[{ required: true, message: '항목명을 입력해주세요' }]}
+                >
+                  <Input placeholder="예: 새로운 역량항목" />
+                </Form.Item>
+
+                <Row gutter={12}>
+                  <Col span={12}>
+                    <Form.Item name="category" label="카테고리" rules={[{ required: true }]}>
+                      <Select options={CATEGORY_OPTIONS} />
+                    </Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <Form.Item name="data_source" label="데이터 소스">
+                      <Select options={[
+                        { label: '폼 입력', value: 'form_input' },
+                        { label: '사용자 프로필', value: 'user_profile' },
+                        { label: '역량 DB', value: 'coach_competency' }
+                      ]} />
+                    </Form.Item>
+                  </Col>
+                </Row>
+
+                <Form.Item name="description" label="설명/안내문구">
+                  <Input.TextArea rows={2} placeholder="예: 보유하신 코칭 자격증 정보를 입력해주세요" />
+                </Form.Item>
+
+                <Row gutter={12}>
+                  <Col span={12}>
+                    <Form.Item name="is_repeatable" label="다중입력" valuePropName="checked">
+                      <Switch />
+                    </Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <Form.Item name="max_entries" label="최대 입력수">
+                      <InputNumber min={1} max={100} style={{ width: '100%' }} />
+                    </Form.Item>
+                  </Col>
+                </Row>
+
+                <Divider style={{ margin: '12px 0' }} />
+                <Title level={5}>입력/증빙 설정</Title>
+
+                <Form.Item name="proof_required" label="증빙 필수">
+                  <Select placeholder="선택" allowClear options={PROOF_REQUIRED_OPTIONS} />
+                </Form.Item>
+
+                <Form.Item name="help_text" label="도움말">
+                  <Input.TextArea rows={2} placeholder="예: 코칭 관련 자격증만 입력해주세요" />
+                </Form.Item>
+
+                <Form.Item name="placeholder" label="플레이스홀더">
+                  <Input placeholder="예: 자격증 명칭을 입력하세요" />
+                </Form.Item>
+
+                <Form.Item name="verification_note" label="검증 안내">
+                  <Input.TextArea rows={2} placeholder="예: 자격증 적합성은 검토자가 증빙을 확인하여 판단합니다" />
+                </Form.Item>
+
+                <Row gutter={12}>
+                  <Col span={12}>
+                    <Form.Item name="auto_confirm_across_projects" label="타 과제 자동 컨펌" valuePropName="checked">
+                      <Switch />
+                    </Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <Form.Item name="is_active" label="활성 상태" valuePropName="checked" initialValue={true}>
+                      <Switch />
+                    </Form.Item>
+                  </Col>
+                </Row>
+              </Col>
+
+              {/* ===== 오른쪽: 평가 설정 ===== */}
+              <Col span={12}>
+                <Title level={5}>평가 설정</Title>
+
+                <Form.Item name="evaluation_method" label="평가방법">
+                  <Select
+                    options={[
+                      { label: '일반 (표준)', value: 'standard' },
+                      { label: '이름 기준 (키워드 매칭)', value: 'by_name' },
+                      { label: '유무 기준 (파일 첨부 여부)', value: 'by_existence' }
+                    ]}
+                    onChange={(value: string) => {
+                      if (value === 'by_existence') {
+                        createForm.setFieldsValue({
+                          grade_type: 'file_exists',
+                          matching_type: 'exact',
+                          grade_edit_mode: 'fixed'
+                        })
+                        setCreateGradeMappings([
+                          { value: 'true', score: 20, label: '유자격' },
+                          { value: 'false', score: 0, label: '무자격' }
+                        ])
+                      } else if (value === 'by_name') {
+                        createForm.setFieldsValue({
+                          grade_type: 'string',
+                          matching_type: 'contains',
+                          grade_edit_mode: 'flexible'
+                        })
+                      }
+                    }}
+                  />
+                </Form.Item>
+
+                <Row gutter={12}>
+                  <Col span={12}>
+                    <Form.Item name="grade_type" label="등급 유형">
+                      <Select allowClear placeholder="선택" options={GRADE_TYPE_OPTIONS} />
+                    </Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <Form.Item name="matching_type" label="매칭 방식">
+                      <Select allowClear placeholder="선택" options={MATCHING_TYPE_OPTIONS} />
+                    </Form.Item>
+                  </Col>
+                </Row>
+
+                <Form.Item name="grade_edit_mode" label="등급 수정 모드">
+                  <Select options={GRADE_EDIT_MODE_OPTIONS} />
+                </Form.Item>
+
+                {/* 등급 매핑 편집 UI */}
+                <Form.Item noStyle shouldUpdate={(prev, curr) =>
+                  prev.grade_type !== curr.grade_type ||
+                  prev.matching_type !== curr.matching_type ||
+                  prev.grade_edit_mode !== curr.grade_edit_mode
+                }>
+                  {({ getFieldValue }) => {
+                    const gradeType = getFieldValue('grade_type')
+                    const matchingType = getFieldValue('matching_type')
+                    const gradeEditMode = getFieldValue('grade_edit_mode') || 'flexible'
+
+                    if (!gradeType || !matchingType) return null
+
+                    const isFixed = gradeEditMode === 'fixed'
+                    const isScoreOnly = gradeEditMode === 'score_only'
+                    const isFlexible = gradeEditMode === 'flexible'
+                    const isFileExists = gradeType === 'file_exists'
+                    const isNumeric = gradeType === 'numeric'
+
+                    return (
+                      <div className="border rounded p-3 mb-3 bg-gray-50">
+                        <div className="flex justify-between items-center mb-2">
+                          <Text strong>등급 매핑 ({createGradeMappings.length}개)</Text>
+                          <Tag color={isFixed ? 'red' : isScoreOnly ? 'orange' : 'green'}>
+                            {GRADE_EDIT_MODE_OPTIONS.find(o => o.value === gradeEditMode)?.label || gradeEditMode}
+                          </Tag>
+                        </div>
+
+                        {/* 헤더 행 */}
+                        <div style={{ display: 'flex', gap: 8, marginBottom: 4, paddingRight: isFlexible && !isFileExists ? 32 : 0 }}>
+                          <Text type="secondary" style={{ flex: 3, fontSize: 12 }}>등급/값</Text>
+                          <Text type="secondary" style={{ flex: 2, fontSize: 12 }}>점수</Text>
+                          <Text type="secondary" style={{ flex: 4, fontSize: 12 }}>설명</Text>
+                        </div>
+                        {/* 등급 매핑 목록 */}
+                        <div style={{ maxHeight: 240, overflowY: 'auto' }}>
+                          {createGradeMappings.map((mapping, index) => (
+                            <div key={index} style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'center' }}>
+                              {isFileExists ? (
+                                <Tag color={String(mapping.value) === 'true' ? 'green' : 'default'} style={{ flex: 3, textAlign: 'center', margin: 0 }}>
+                                  {String(mapping.value) === 'true' ? '있음' : '없음'}
+                                </Tag>
+                              ) : isNumeric ? (
+                                <InputNumber
+                                  size="small"
+                                  value={typeof mapping.value === 'number' ? mapping.value : Number(mapping.value) || 0}
+                                  onChange={v => updateCreateGradeMapping(index, 'value', v ?? 0)}
+                                  disabled={!isFlexible}
+                                  placeholder="값"
+                                  style={{ flex: 3 }}
+                                />
+                              ) : (
+                                <Input
+                                  size="small"
+                                  value={String(mapping.value ?? '')}
+                                  onChange={e => updateCreateGradeMapping(index, 'value', e.target.value)}
+                                  disabled={!isFlexible}
+                                  placeholder="값"
+                                  style={{ flex: 3 }}
+                                />
+                              )}
+                              <InputNumber
+                                size="small"
+                                value={mapping.score}
+                                onChange={v => updateCreateGradeMapping(index, 'score', v ?? 0)}
+                                disabled={isFixed}
+                                style={{ flex: 2 }}
+                                addonAfter="점"
+                              />
+                              <Input
+                                size="small"
+                                value={mapping.label || ''}
+                                onChange={e => updateCreateGradeMapping(index, 'label', e.target.value)}
+                                disabled={!isFlexible}
+                                placeholder="설명"
+                                style={{ flex: 4 }}
+                              />
+                              {isFlexible && !isFileExists ? (
+                                <Button
+                                  type="text"
+                                  danger
+                                  size="small"
+                                  icon={<DeleteOutlined />}
+                                  onClick={() => removeCreateGradeMapping(index)}
+                                  style={{ flexShrink: 0 }}
+                                />
+                              ) : null}
+                            </div>
+                          ))}
+                        </div>
+
+                        {isFlexible && !isFileExists && (
+                          <Button
+                            size="small"
+                            type="dashed"
+                            icon={<PlusOutlined />}
+                            onClick={addCreateGradeMapping}
+                            className="mt-2"
+                            style={{ width: '100%' }}
+                          >
+                            등급 추가
+                          </Button>
+                        )}
+                      </div>
+                    )
+                  }}
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <Divider style={{ margin: '12px 0' }} />
+            <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
               <Space>
-                <Button type="primary" htmlType="submit">생성</Button>
                 <Button onClick={() => {
                   setIsCreateModalOpen(false)
+                  setCreateGradeMappings([])
                   createForm.resetFields()
                 }}>취소</Button>
+                <Button type="primary" htmlType="submit">생성</Button>
               </Space>
             </Form.Item>
           </Form>
@@ -2375,13 +2668,19 @@ export default function AdminCompetencyItemsPage() {
                           </Tag>
                         </div>
 
+                        {/* 헤더 행 */}
+                        <div style={{ display: 'flex', gap: 8, marginBottom: 4, paddingRight: isFlexible && !isFileExists ? 32 : 0 }}>
+                          <Text type="secondary" style={{ flex: 3, fontSize: 12 }}>등급/값</Text>
+                          <Text type="secondary" style={{ flex: 2, fontSize: 12 }}>점수</Text>
+                          <Text type="secondary" style={{ flex: 4, fontSize: 12 }}>설명</Text>
+                        </div>
                         {/* 등급 매핑 목록 */}
                         <div style={{ maxHeight: 240, overflowY: 'auto' }}>
                           {itemGradeMappings.map((mapping, index) => (
-                            <div key={index} className="flex items-center gap-1 mb-1">
+                            <div key={index} style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'center' }}>
                               {/* 값(value) */}
                               {isFileExists ? (
-                                <Tag color={String(mapping.value) === 'true' ? 'green' : 'default'} style={{ width: 70, textAlign: 'center' }}>
+                                <Tag color={String(mapping.value) === 'true' ? 'green' : 'default'} style={{ flex: 3, textAlign: 'center', margin: 0 }}>
                                   {String(mapping.value) === 'true' ? '있음' : '없음'}
                                 </Tag>
                               ) : isNumeric ? (
@@ -2391,7 +2690,7 @@ export default function AdminCompetencyItemsPage() {
                                   onChange={v => updateItemGradeMapping(index, 'value', v ?? 0)}
                                   disabled={!isFlexible}
                                   placeholder="값"
-                                  style={{ width: 80 }}
+                                  style={{ flex: 3 }}
                                 />
                               ) : (
                                 <Input
@@ -2400,7 +2699,7 @@ export default function AdminCompetencyItemsPage() {
                                   onChange={e => updateItemGradeMapping(index, 'value', e.target.value)}
                                   disabled={!isFlexible}
                                   placeholder="값"
-                                  style={{ flex: 1 }}
+                                  style={{ flex: 3 }}
                                 />
                               )}
                               {/* 점수(score) */}
@@ -2409,7 +2708,7 @@ export default function AdminCompetencyItemsPage() {
                                 value={mapping.score}
                                 onChange={v => updateItemGradeMapping(index, 'score', v ?? 0)}
                                 disabled={isFixed}
-                                style={{ width: 65 }}
+                                style={{ flex: 2 }}
                                 addonAfter="점"
                               />
                               {/* 라벨(label) */}
@@ -2418,19 +2717,20 @@ export default function AdminCompetencyItemsPage() {
                                 value={mapping.label || ''}
                                 onChange={e => updateItemGradeMapping(index, 'label', e.target.value)}
                                 disabled={!isFlexible}
-                                placeholder="라벨"
-                                style={{ width: 90 }}
+                                placeholder="설명"
+                                style={{ flex: 4 }}
                               />
                               {/* 삭제 버튼 */}
-                              {isFlexible && !isFileExists && (
+                              {isFlexible && !isFileExists ? (
                                 <Button
                                   type="text"
                                   danger
                                   size="small"
                                   icon={<DeleteOutlined />}
                                   onClick={() => removeItemGradeMapping(index)}
+                                  style={{ flexShrink: 0 }}
                                 />
-                              )}
+                              ) : null}
                             </div>
                           ))}
                         </div>
