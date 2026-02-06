@@ -747,7 +747,7 @@ async def seed_competency_items(
                 {"field_name": "hours", "field_label": "시간", "field_type": "number", "is_required": True, "display_order": 1},
                 {"field_name": "proof", "field_label": "코칭일지", "field_type": "file", "is_required": False, "display_order": 2}
             ]
-        }
+        },
         # ===== KCA 인증자격 (CERTIFICATION - 특수 항목) =====
         {
             "item_name": "KCA 인증자격",
