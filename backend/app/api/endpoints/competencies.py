@@ -702,6 +702,24 @@ async def create_competency_item(
                 detail=f"Item code '{item_code}' already exists"
             )
 
+    # 템플릿에서 기본값 복사 (unified_template_id가 있는 경우)
+    template_defaults = {}
+    if item_data.unified_template_id:
+        from app.models.unified_template import UnifiedTemplate
+        template_result = await db.execute(
+            select(UnifiedTemplate).where(UnifiedTemplate.template_id == item_data.unified_template_id)
+        )
+        template = template_result.scalar_one_or_none()
+        if template:
+            template_defaults = {
+                'grade_mappings': template.default_mappings,
+                'proof_required': template.proof_required,
+                'help_text': template.help_text,
+                'placeholder': template.placeholder,
+                'verification_note': template.verification_note,
+                'auto_confirm_across_projects': template.auto_confirm_across_projects,
+            }
+
     # Create item
     new_item = CompetencyItem(
         item_code=item_code,
@@ -722,7 +740,15 @@ async def create_competency_item(
         scoring_config_override=item_data.scoring_config_override,
         # 2-tier unified template
         unified_template_id=item_data.unified_template_id,
-        evaluation_method_override=item_data.evaluation_method_override
+        evaluation_method_override=item_data.evaluation_method_override,
+        # 템플릿에서 복사 (명시적 값이 없으면 템플릿 기본값 사용)
+        grade_mappings=item_data.grade_mappings or template_defaults.get('grade_mappings', '[]'),
+        proof_required=item_data.proof_required or template_defaults.get('proof_required', 'optional'),
+        help_text=item_data.help_text or template_defaults.get('help_text'),
+        placeholder=item_data.placeholder or template_defaults.get('placeholder'),
+        verification_note=item_data.verification_note or template_defaults.get('verification_note'),
+        auto_confirm_across_projects=item_data.auto_confirm_across_projects if item_data.auto_confirm_across_projects is not None else template_defaults.get('auto_confirm_across_projects', False),
+        field_label_overrides=item_data.field_label_overrides or '{}',
     )
     db.add(new_item)
     await db.flush()
@@ -825,6 +851,21 @@ async def update_competency_item(
         item.unified_template_id = item_data.unified_template_id
     if item_data.evaluation_method_override is not None:
         item.evaluation_method_override = item_data.evaluation_method_override
+    # 템플릿에서 복사 후 독립 관리 필드들
+    if item_data.grade_mappings is not None:
+        item.grade_mappings = item_data.grade_mappings
+    if item_data.proof_required is not None:
+        item.proof_required = item_data.proof_required
+    if item_data.help_text is not None:
+        item.help_text = item_data.help_text
+    if item_data.placeholder is not None:
+        item.placeholder = item_data.placeholder
+    if item_data.verification_note is not None:
+        item.verification_note = item_data.verification_note
+    if item_data.auto_confirm_across_projects is not None:
+        item.auto_confirm_across_projects = item_data.auto_confirm_across_projects
+    if item_data.field_label_overrides is not None:
+        item.field_label_overrides = item_data.field_label_overrides
 
     await db.commit()
     await db.refresh(item)

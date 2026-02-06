@@ -431,7 +431,12 @@ export default function AdminCompetencyItemsPage() {
       input_template_id: item.input_template_id,
       // 2-tier unified template
       unified_template_id: item.unified_template_id,
-      evaluation_method_override: item.evaluation_method_override
+      evaluation_method_override: item.evaluation_method_override,
+      // 역량항목 전용 설정
+      proof_required: item.proof_required || 'optional',
+      verification_note: item.verification_note,
+      help_text: item.help_text,
+      auto_confirm_across_projects: item.auto_confirm_across_projects || false
     })
     setIsEditModalOpen(true)
   }
@@ -2202,10 +2207,60 @@ export default function AdminCompetencyItemsPage() {
                             <Tag color="default">평가 없음 (입력만)</Tag>
                           </div>
                         )}
+                        {/* 등급 수정 모드 안내 */}
+                        <div className="mt-2">
+                          <Tag color={template.grade_edit_mode === 'fixed' ? 'red' : template.grade_edit_mode === 'score_only' ? 'orange' : 'green'}>
+                            {unifiedTemplateService.getGradeEditModeLabel(template.grade_edit_mode)}
+                          </Tag>
+                        </div>
                       </div>
                     </>
                   )
                 }}
+              </Form.Item>
+            </div>
+
+            {/* 역량항목 전용 설정 섹션 */}
+            <div className="border-t pt-4 mt-4">
+              <Title level={5}>역량항목 설정 (커스터마이징)</Title>
+
+              <Form.Item
+                name="proof_required"
+                label="증빙 필수"
+                tooltip="코치가 증빙을 제출해야 하는지 여부"
+              >
+                <Select
+                  options={[
+                    { label: '필요 없음', value: 'not_required' },
+                    { label: '선택 (제출 가능)', value: 'optional' },
+                    { label: '필수', value: 'required' }
+                  ]}
+                />
+              </Form.Item>
+
+              <Form.Item
+                name="verification_note"
+                label="검증 안내"
+                tooltip="검토자가 확인할 때 참고할 안내 문구"
+              >
+                <Input.TextArea rows={2} placeholder="예: 자격증 적합성은 검토자가 증빙을 확인하여 판단합니다" />
+              </Form.Item>
+
+              <Form.Item
+                name="help_text"
+                label="도움말"
+                tooltip="코치에게 표시될 도움말"
+              >
+                <Input.TextArea rows={2} placeholder="예: 코칭 관련 자격증만 입력해주세요" />
+              </Form.Item>
+
+              <Form.Item
+                name="auto_confirm_across_projects"
+                label="타 과제 자동 컨펌"
+                valuePropName="checked"
+                tooltip="한 과제에서 확인완료되면 다른 과제에도 자동 적용"
+              >
+                <Switch />
               </Form.Item>
             </div>
 

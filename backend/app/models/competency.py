@@ -108,6 +108,17 @@ class CompetencyItem(Base):
     unified_template_id = Column(String(100), ForeignKey("unified_templates.template_id"), nullable=True)
     evaluation_method_override = Column(String(50), nullable=True)  # 자격증의 경우 by_name/by_existence 오버라이드
 
+    # 템플릿에서 복사 후 독립 관리하는 필드들
+    grade_mappings = Column(Text, nullable=True, default="[]")  # 등급-점수 매핑 JSON
+    proof_required = Column(String(20), nullable=True, default="optional")  # not_required, optional, required
+    help_text = Column(Text, nullable=True)  # 도움말
+    placeholder = Column(String(200), nullable=True)  # 플레이스홀더
+
+    # 역량항목 전용 필드
+    verification_note = Column(Text, nullable=True)  # 검증 안내 문구
+    auto_confirm_across_projects = Column(Boolean, nullable=True, default=False)  # 타 과제 자동 컨펌
+    field_label_overrides = Column(Text, nullable=True, default="{}")  # 필드 라벨 오버라이드 JSON
+
     # Custom question support
     is_custom = Column(Boolean, nullable=False, default=False)  # True for custom questions
     created_by = Column(Integer, ForeignKey("users.user_id"), nullable=True)  # Creator for custom questions

@@ -47,6 +47,15 @@ export interface CompetencyItem {
   unified_template_id: string | null
   evaluation_method_override: string | null
   unified_template: UnifiedTemplateBasicInfo | null
+  // 템플릿에서 복사 후 독립 관리 (역량항목별 커스터마이징)
+  grade_mappings: string | null  // 등급-점수 매핑 JSON
+  proof_required: string | null  // not_required, optional, required
+  help_text: string | null
+  placeholder: string | null
+  // 역량항목 전용 필드
+  verification_note: string | null  // 검증 안내 문구
+  auto_confirm_across_projects: boolean | null  // 타 과제 자동 컨펌
+  field_label_overrides: string | null  // 필드 라벨 오버라이드 JSON
 }
 
 // Admin create/update types
@@ -80,6 +89,15 @@ export interface CompetencyItemCreate {
   // 2-tier unified template
   unified_template_id?: string
   evaluation_method_override?: string
+  // 템플릿에서 복사 후 독립 관리 (역량항목별 커스터마이징)
+  grade_mappings?: string
+  proof_required?: string
+  help_text?: string
+  placeholder?: string
+  // 역량항목 전용 필드
+  verification_note?: string
+  auto_confirm_across_projects?: boolean
+  field_label_overrides?: string
 }
 
 export interface CompetencyItemUpdate {
@@ -98,6 +116,15 @@ export interface CompetencyItemUpdate {
   // 2-tier unified template
   unified_template_id?: string
   evaluation_method_override?: string
+  // 템플릿에서 복사 후 독립 관리 (역량항목별 커스터마이징)
+  grade_mappings?: string
+  proof_required?: string
+  help_text?: string
+  placeholder?: string
+  // 역량항목 전용 필드
+  verification_note?: string
+  auto_confirm_across_projects?: boolean
+  field_label_overrides?: string
 }
 
 export interface FileBasicInfo {

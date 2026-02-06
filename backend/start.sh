@@ -250,6 +250,41 @@ if DATABASE_URL:
         except Exception as e:
             print(f"[WARN] unified_templates.grade_edit_mode: {e}")
 
+        # Add new columns to competency_items for template-item separation
+        competency_item_columns = [
+            ('grade_mappings', "TEXT DEFAULT '[]'"),
+            ('proof_required', "VARCHAR(20) DEFAULT 'optional'"),
+            ('help_text', 'TEXT'),
+            ('placeholder', 'VARCHAR(200)'),
+            ('verification_note', 'TEXT'),
+            ('auto_confirm_across_projects', 'BOOLEAN DEFAULT FALSE'),
+            ('field_label_overrides', "TEXT DEFAULT '{}'"),
+        ]
+        for col_name, col_type in competency_item_columns:
+            try:
+                cur.execute(f"ALTER TABLE competency_items ADD COLUMN IF NOT EXISTS {col_name} {col_type}")
+                print(f"[OK] competency_items.{col_name} ensured")
+            except Exception as e:
+                print(f"[WARN] competency_items.{col_name}: {e}")
+
+        # Migrate existing competency_items: copy default_mappings from unified_templates
+        try:
+            cur.execute("""
+                UPDATE competency_items ci
+                SET grade_mappings = ut.default_mappings,
+                    proof_required = ut.proof_required,
+                    help_text = ut.help_text,
+                    placeholder = ut.placeholder,
+                    verification_note = ut.verification_note,
+                    auto_confirm_across_projects = ut.auto_confirm_across_projects
+                FROM unified_templates ut
+                WHERE ci.unified_template_id = ut.template_id
+                  AND (ci.grade_mappings IS NULL OR ci.grade_mappings = '[]')
+            """)
+            print(f"[OK] competency_items: copied {cur.rowcount} rows from unified_templates")
+        except Exception as e:
+            print(f"[WARN] competency_items migration from unified_templates: {e}")
+
         # Update competency_items categories based on item_code patterns
         category_updates = [
             # CERT_* or ADDON_CERT_* → CERTIFICATION

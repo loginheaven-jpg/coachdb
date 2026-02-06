@@ -95,6 +95,17 @@ class CompetencyItemResponse(BaseModel):
     evaluation_method_override: Optional[str] = None  # by_name/by_existence 오버라이드 (자격증용)
     unified_template: Optional[UnifiedTemplateBasicInfo] = None  # 연결된 템플릿 정보
 
+    # 템플릿에서 복사 후 독립 관리 (역량항목별 커스터마이징)
+    grade_mappings: Optional[str] = None  # 등급-점수 매핑 JSON
+    proof_required: Optional[str] = None  # not_required, optional, required
+    help_text: Optional[str] = None  # 도움말
+    placeholder: Optional[str] = None  # 플레이스홀더
+
+    # 역량항목 전용 필드
+    verification_note: Optional[str] = None  # 검증 안내 문구
+    auto_confirm_across_projects: Optional[bool] = None  # 타 과제 자동 컨펌
+    field_label_overrides: Optional[str] = None  # 필드 라벨 오버라이드 JSON
+
     # Fields
     fields: List[CompetencyItemFieldResponse] = []
 
@@ -239,6 +250,18 @@ class CompetencyItemCreate(BaseModel):
     # 2-tier 통합 템플릿
     unified_template_id: Optional[str] = None  # FK to unified_templates
     evaluation_method_override: Optional[str] = None  # by_name/by_existence 오버라이드 (자격증용)
+
+    # 템플릿에서 복사 후 독립 관리 (역량항목별 커스터마이징)
+    grade_mappings: Optional[str] = None  # 등급-점수 매핑 JSON
+    proof_required: Optional[str] = None  # not_required, optional, required
+    help_text: Optional[str] = None  # 도움말
+    placeholder: Optional[str] = None  # 플레이스홀더
+
+    # 역량항목 전용 필드
+    verification_note: Optional[str] = None  # 검증 안내 문구
+    auto_confirm_across_projects: Optional[bool] = None  # 타 과제 자동 컨펌
+    field_label_overrides: Optional[str] = None  # 필드 라벨 오버라이드 JSON
+
     fields: List[CompetencyItemFieldCreate] = []
 
 
@@ -259,3 +282,14 @@ class CompetencyItemUpdate(BaseModel):
     # 2-tier 통합 템플릿
     unified_template_id: Optional[str] = None  # FK to unified_templates
     evaluation_method_override: Optional[str] = None  # by_name/by_existence 오버라이드 (자격증용)
+
+    # 템플릿에서 복사 후 독립 관리 (역량항목별 커스터마이징)
+    grade_mappings: Optional[str] = None  # 등급-점수 매핑 JSON
+    proof_required: Optional[str] = None  # not_required, optional, required
+    help_text: Optional[str] = None  # 도움말
+    placeholder: Optional[str] = None  # 플레이스홀더
+
+    # 역량항목 전용 필드
+    verification_note: Optional[str] = None  # 검증 안내 문구
+    auto_confirm_across_projects: Optional[bool] = None  # 타 과제 자동 컨펌
+    field_label_overrides: Optional[str] = None  # 필드 라벨 오버라이드 JSON
