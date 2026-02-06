@@ -188,6 +188,9 @@ export default function AdminCompetencyItemsPage() {
   const [unifiedKeywords, setUnifiedKeywords] = useState<string[]>([])
   const [unifiedDataSource, setUnifiedDataSource] = useState<DataSourceType>('form_input')
 
+  // 역량항목 수정 모달용 등급 매핑 상태
+  const [itemGradeMappings, setItemGradeMappings] = useState<UnifiedGradeMapping[]>([])
+
   // Modal states
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -367,10 +370,19 @@ export default function AdminCompetencyItemsPage() {
   const handleEdit = async (values: CompetencyItemUpdate) => {
     if (!editingItem) return
     try {
-      await competencyService.updateCompetencyItem(editingItem.item_id, values)
+      // 등급 매핑을 JSON 문자열로 변환하여 포함
+      const updateData: CompetencyItemUpdate = {
+        ...values,
+        grade_mappings: itemGradeMappings.length > 0
+          ? JSON.stringify(itemGradeMappings)
+          : undefined
+      }
+
+      await competencyService.updateCompetencyItem(editingItem.item_id, updateData)
       message.success('역량항목이 수정되었습니다.')
       setIsEditModalOpen(false)
       setEditingItem(null)
+      setItemGradeMappings([])
       editForm.resetFields()
       loadItems()
     } catch (error: any) {
@@ -417,6 +429,20 @@ export default function AdminCompetencyItemsPage() {
 
   const openEditModal = (item: CompetencyItem) => {
     setEditingItem(item)
+
+    // 등급 매핑 상태 초기화 (역량항목에 저장된 값 또는 템플릿 기본값)
+    let mappings: UnifiedGradeMapping[] = []
+    if (item.grade_mappings) {
+      mappings = unifiedTemplateService.parseMappings(item.grade_mappings)
+    } else if (item.unified_template_id) {
+      // 역량항목에 저장된 값이 없으면 템플릿 기본값 사용
+      const template = unifiedTemplates.find(t => t.template_id === item.unified_template_id)
+      if (template) {
+        mappings = unifiedTemplateService.parseMappings(template.default_mappings)
+      }
+    }
+    setItemGradeMappings(mappings)
+
     editForm.setFieldsValue({
       item_name: item.item_name,
       category: item.category,
@@ -432,13 +458,69 @@ export default function AdminCompetencyItemsPage() {
       // 2-tier unified template
       unified_template_id: item.unified_template_id,
       evaluation_method_override: item.evaluation_method_override,
-      // 역량항목 전용 설정
-      proof_required: item.proof_required || 'optional',
+      // 역량항목 전용 설정 (fallback 제거 - 값이 없으면 undefined로 유지)
+      proof_required: item.proof_required,
       verification_note: item.verification_note,
       help_text: item.help_text,
-      auto_confirm_across_projects: item.auto_confirm_across_projects || false
+      placeholder: item.placeholder,
+      auto_confirm_across_projects: item.auto_confirm_across_projects ?? false
     })
     setIsEditModalOpen(true)
+  }
+
+  // 역량항목 등급 매핑 수정 함수들
+  const updateItemGradeMapping = (index: number, field: keyof UnifiedGradeMapping, value: string | number) => {
+    const newMappings = [...itemGradeMappings]
+    newMappings[index] = { ...newMappings[index], [field]: value }
+    setItemGradeMappings(newMappings)
+  }
+
+  const addItemGradeMapping = () => {
+    setItemGradeMappings([...itemGradeMappings, { value: '', score: 0, label: '' }])
+  }
+
+  const removeItemGradeMapping = (index: number) => {
+    setItemGradeMappings(itemGradeMappings.filter((_, i) => i !== index))
+  }
+
+  // 템플릿 선택 변경 시 기본값 자동 로드
+  const handleTemplateSelectionChange = (templateId: string | undefined) => {
+    if (!templateId) {
+      setItemGradeMappings([])
+      return
+    }
+
+    const template = unifiedTemplates.find(t => t.template_id === templateId)
+    if (!template) return
+
+    // 역량항목에 기존 값이 없는 경우에만 템플릿 기본값 적용
+    const currentValues = editForm.getFieldsValue()
+
+    // 등급 매핑 로드
+    const mappings = unifiedTemplateService.parseMappings(template.default_mappings)
+    setItemGradeMappings(mappings)
+
+    // 역량항목 전용 설정 기본값 적용 (현재 값이 없는 경우에만)
+    const updates: Record<string, any> = {}
+    if (!currentValues.proof_required) {
+      updates.proof_required = template.proof_required
+    }
+    if (!currentValues.help_text) {
+      updates.help_text = template.help_text
+    }
+    if (!currentValues.placeholder) {
+      updates.placeholder = template.placeholder
+    }
+    if (!currentValues.verification_note) {
+      updates.verification_note = template.verification_note
+    }
+    if (currentValues.auto_confirm_across_projects === undefined || currentValues.auto_confirm_across_projects === null) {
+      updates.auto_confirm_across_projects = template.auto_confirm_across_projects
+    }
+
+    if (Object.keys(updates).length > 0) {
+      editForm.setFieldsValue(updates)
+    }
   }
 
   const openFieldModal = (item: CompetencyItem) => {
@@ -2058,6 +2140,7 @@ export default function AdminCompetencyItemsPage() {
           onCancel={() => {
             setIsEditModalOpen(false)
             setEditingItem(null)
+            setItemGradeMappings([])
             editForm.resetFields()
           }}
           footer={null}
@@ -2133,6 +2216,7 @@ export default function AdminCompetencyItemsPage() {
                   allowClear
                   showSearch
                   optionFilterProp="label"
+                  onChange={handleTemplateSelectionChange}
                   options={unifiedTemplates.map(t => ({
                     label: `${t.template_name} (${t.template_id})`,
                     value: t.template_id
@@ -2191,28 +2275,20 @@ export default function AdminCompetencyItemsPage() {
                             </Descriptions.Item>
                           )}
                         </Descriptions>
-                        {template.has_scoring && mappings.length > 0 && (
-                          <div className="mt-2">
-                            <Text type="secondary">등급 매핑 ({mappings.length}개):</Text>
-                            <div className="flex flex-wrap gap-2 mt-1">
-                              {mappings.slice(0, 5).map((m, i) => (
-                                <Tag key={i}>{String(m.value)} → {m.score}점</Tag>
-                              ))}
-                              {mappings.length > 5 && <Tag>+{mappings.length - 5}개</Tag>}
-                            </div>
-                          </div>
-                        )}
                         {!template.has_scoring && (
                           <div className="mt-2">
                             <Tag color="default">평가 없음 (입력만)</Tag>
                           </div>
                         )}
-                        {/* 등급 수정 모드 안내 */}
-                        <div className="mt-2">
-                          <Tag color={template.grade_edit_mode === 'fixed' ? 'red' : template.grade_edit_mode === 'score_only' ? 'orange' : 'green'}>
-                            {unifiedTemplateService.getGradeEditModeLabel(template.grade_edit_mode)}
-                          </Tag>
-                        </div>
+                        {/* 등급 수정 모드 안내 (템플릿 기본 설정) */}
+                        {template.has_scoring && (
+                          <div className="mt-2">
+                            <Text type="secondary">등급 수정 모드: </Text>
+                            <Tag color={template.grade_edit_mode === 'fixed' ? 'red' : template.grade_edit_mode === 'score_only' ? 'orange' : 'green'}>
+                              {unifiedTemplateService.getGradeEditModeLabel(template.grade_edit_mode)}
+                            </Tag>
+                          </div>
+                        )}
                       </div>
                     </>
                   )
@@ -2224,12 +2300,132 @@ export default function AdminCompetencyItemsPage() {
             <div className="border-t pt-4 mt-4">
               <Title level={5}>역량항목 설정 (커스터마이징)</Title>
 
+              {/* 등급 매핑 편집 UI - 템플릿에 평가 설정이 있는 경우에만 표시 */}
+              <Form.Item noStyle shouldUpdate={(prev, curr) => prev.unified_template_id !== curr.unified_template_id}>
+                {({ getFieldValue }) => {
+                  const selectedTemplateId = getFieldValue('unified_template_id')
+                  const template = unifiedTemplates.find(t => t.template_id === selectedTemplateId)
+
+                  if (!template || !template.has_scoring) return null
+
+                  const gradeEditMode = template.grade_edit_mode || 'flexible'
+                  const isFixed = gradeEditMode === 'fixed'
+                  const isScoreOnly = gradeEditMode === 'score_only'
+                  const isFlexible = gradeEditMode === 'flexible'
+
+                  return (
+                    <div className="border rounded p-4 mb-4 bg-gray-50">
+                      <div className="flex justify-between items-center mb-3">
+                        <Text strong>등급 매핑</Text>
+                        <Tag color={isFixed ? 'red' : isScoreOnly ? 'orange' : 'green'}>
+                          {unifiedTemplateService.getGradeEditModeLabel(gradeEditMode)}
+                        </Tag>
+                      </div>
+
+                      {/* grade_edit_mode 안내 */}
+                      <Alert
+                        type="info"
+                        message={
+                          isFixed
+                            ? '이 템플릿은 등급 수정이 불가능합니다'
+                            : isScoreOnly
+                              ? '점수만 수정 가능합니다 (등급 이름/추가/삭제 불가)'
+                              : '등급과 점수를 자유롭게 수정할 수 있습니다'
+                        }
+                        className="mb-3"
+                        showIcon
+                      />
+
+                      {/* 등급 매핑 테이블 */}
+                      <Table
+                        size="small"
+                        pagination={false}
+                        dataSource={itemGradeMappings.map((m, i) => ({ ...m, key: i }))}
+                        columns={[
+                          {
+                            title: '등급 (label)',
+                            dataIndex: 'label',
+                            width: '30%',
+                            render: (text: string, _: any, index: number) => (
+                              <Input
+                                size="small"
+                                value={text || ''}
+                                onChange={e => updateItemGradeMapping(index, 'label', e.target.value)}
+                                disabled={!isFlexible}
+                                placeholder="등급 이름"
+                              />
+                            )
+                          },
+                          {
+                            title: '값 (value)',
+                            dataIndex: 'value',
+                            width: '30%',
+                            render: (text: string | number, _: any, index: number) => (
+                              <Input
+                                size="small"
+                                value={String(text ?? '')}
+                                onChange={e => updateItemGradeMapping(index, 'value', e.target.value)}
+                                disabled={!isFlexible}
+                                placeholder="매칭 값"
+                              />
+                            )
+                          },
+                          {
+                            title: '점수',
+                            dataIndex: 'score',
+                            width: '20%',
+                            render: (score: number, _: any, index: number) => (
+                              <InputNumber
+                                size="small"
+                                value={score}
+                                onChange={v => updateItemGradeMapping(index, 'score', v ?? 0)}
+                                disabled={isFixed}
+                                style={{ width: '100%' }}
+                              />
+                            )
+                          },
+                          ...(isFlexible ? [{
+                            title: '',
+                            width: '10%',
+                            render: (_: any, __: any, index: number) => (
+                              <Button
+                                type="text"
+                                danger
+                                size="small"
+                                icon={<DeleteOutlined />}
+                                onClick={() => removeItemGradeMapping(index)}
+                              />
+                            )
+                          }] : [])
+                        ]}
+                      />
+
+                      {/* flexible 모드에서만 추가 버튼 */}
+                      {isFlexible && (
+                        <Button
+                          size="small"
+                          type="dashed"
+                          icon={<PlusOutlined />}
+                          onClick={addItemGradeMapping}
+                          className="mt-2"
+                          style={{ width: '100%' }}
+                        >
+                          등급 추가
+                        </Button>
+                      )}
+                    </div>
+                  )
+                }}
+              </Form.Item>
+
               <Form.Item
                 name="proof_required"
                 label="증빙 필수"
                 tooltip="코치가 증빙을 제출해야 하는지 여부"
               >
                 <Select
+                  placeholder="증빙 필수 여부 선택"
+                  allowClear
                   options={[
                     { label: '필요 없음', value: 'not_required' },
                     { label: '선택 (제출 가능)', value: 'optional' },
@@ -2252,6 +2448,14 @@ export default function AdminCompetencyItemsPage() {
                 tooltip="코치에게 표시될 도움말"
               >
                 <Input.TextArea rows={2} placeholder="예: 코칭 관련 자격증만 입력해주세요" />
+              </Form.Item>
+
+              <Form.Item
+                name="placeholder"
+                label="플레이스홀더"
+                tooltip="입력 필드에 표시될 힌트 텍스트"
+              >
+                <Input placeholder="예: 자격증 명칭을 입력하세요" />
               </Form.Item>
 
               <Form.Item
@@ -2278,6 +2482,7 @@ export default function AdminCompetencyItemsPage() {
                 <Button onClick={() => {
                   setIsEditModalOpen(false)
                   setEditingItem(null)
+                  setItemGradeMappings([])
                   editForm.resetFields()
                 }}>취소</Button>
               </Space>
