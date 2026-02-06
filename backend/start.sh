@@ -265,6 +265,10 @@ if DATABASE_URL:
             ('grade_edit_mode', "VARCHAR(20) DEFAULT 'flexible'"),
             ('evaluation_method', "VARCHAR(50) DEFAULT 'standard'"),
             ('data_source', "VARCHAR(50) DEFAULT 'form_input'"),
+            # Phase 5: 점수 소스 설정 (프리셋에서 완전 독립)
+            ('scoring_value_source', "VARCHAR(50) DEFAULT 'submitted'"),
+            ('scoring_source_field', 'VARCHAR(100)'),
+            ('extract_pattern', 'VARCHAR(200)'),
         ]
         for col_name, col_type in competency_item_columns:
             try:
@@ -307,6 +311,21 @@ if DATABASE_URL:
             print(f"[OK] competency_items: Phase 4 evaluation settings migrated for {cur.rowcount} rows")
         except Exception as e:
             print(f"[WARN] competency_items Phase 4 migration: {e}")
+
+        # Phase 5: Migrate scoring source settings from unified_templates to competency_items
+        try:
+            cur.execute("""
+                UPDATE competency_items ci
+                SET scoring_value_source = COALESCE(ut.scoring_value_source, 'submitted'),
+                    scoring_source_field = ut.scoring_source_field,
+                    extract_pattern = ut.extract_pattern
+                FROM unified_templates ut
+                WHERE ci.unified_template_id = ut.template_id
+                  AND ci.scoring_value_source IS NULL
+            """)
+            print(f"[OK] competency_items: Phase 5 scoring source migrated for {cur.rowcount} rows")
+        except Exception as e:
+            print(f"[WARN] competency_items Phase 5 migration: {e}")
 
         # Update competency_items categories based on item_code patterns
         category_updates = [

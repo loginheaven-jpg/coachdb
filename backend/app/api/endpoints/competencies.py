@@ -182,6 +182,10 @@ async def get_competency_items(
             "grade_edit_mode": item.grade_edit_mode or "flexible",
             "evaluation_method": item.evaluation_method or "standard",
             "data_source": item.data_source or "form_input",
+            # Phase 5: 점수 소스 설정
+            "scoring_value_source": item.scoring_value_source or "submitted",
+            "scoring_source_field": item.scoring_source_field,
+            "extract_pattern": item.extract_pattern,
             "has_scoring": item.grade_type is not None and item.matching_type is not None,
             "fields": [
                 {
@@ -739,6 +743,10 @@ async def create_competency_item(
                 'grade_edit_mode': template.grade_edit_mode,
                 'evaluation_method': template.evaluation_method,
                 'data_source': template.data_source,
+                # Phase 5: 점수 소스 설정
+                'scoring_value_source': template.scoring_value_source,
+                'scoring_source_field': template.scoring_source_field,
+                'extract_pattern': template.extract_pattern,
             }
 
     # Create item
@@ -776,6 +784,10 @@ async def create_competency_item(
         grade_edit_mode=item_data.grade_edit_mode or template_defaults.get('grade_edit_mode', 'flexible'),
         evaluation_method=item_data.evaluation_method or item_data.evaluation_method_override or template_defaults.get('evaluation_method', 'standard'),
         data_source=item_data.data_source or template_defaults.get('data_source', 'form_input'),
+        # Phase 5: 점수 소스 설정
+        scoring_value_source=item_data.scoring_value_source or template_defaults.get('scoring_value_source', 'submitted'),
+        scoring_source_field=item_data.scoring_source_field or template_defaults.get('scoring_source_field'),
+        extract_pattern=item_data.extract_pattern or template_defaults.get('extract_pattern'),
     )
     db.add(new_item)
     await db.flush()
@@ -842,6 +854,10 @@ async def create_competency_item(
         "grade_edit_mode": created_item.grade_edit_mode or "flexible",
         "evaluation_method": created_item.evaluation_method or "standard",
         "data_source": created_item.data_source or "form_input",
+        # Phase 5: 점수 소스 설정
+        "scoring_value_source": created_item.scoring_value_source or "submitted",
+        "scoring_source_field": created_item.scoring_source_field,
+        "extract_pattern": created_item.extract_pattern,
         "has_scoring": created_item.grade_type is not None and created_item.matching_type is not None,
         "fields": [
             {
@@ -973,6 +989,13 @@ async def update_competency_item(
         item.evaluation_method = item_data.evaluation_method
     if item_data.data_source is not None:
         item.data_source = item_data.data_source
+    # Phase 5: 점수 소스 설정
+    if item_data.scoring_value_source is not None:
+        item.scoring_value_source = item_data.scoring_value_source
+    if item_data.scoring_source_field is not None:
+        item.scoring_source_field = item_data.scoring_source_field
+    if item_data.extract_pattern is not None:
+        item.extract_pattern = item_data.extract_pattern
 
     await db.commit()
     await db.refresh(item)
@@ -1259,6 +1282,10 @@ async def get_all_competency_items(
             "grade_edit_mode": item.grade_edit_mode or "flexible",
             "evaluation_method": item.evaluation_method or "standard",
             "data_source": item.data_source or "form_input",
+            # Phase 5: 점수 소스 설정
+            "scoring_value_source": item.scoring_value_source or "submitted",
+            "scoring_source_field": item.scoring_source_field,
+            "extract_pattern": item.extract_pattern,
             "has_scoring": item.grade_type is not None and item.matching_type is not None,
             "fields": [
                 {

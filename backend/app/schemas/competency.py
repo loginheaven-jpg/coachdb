@@ -109,6 +109,11 @@ class CompetencyItemResponse(BaseModel):
     data_source: str = "form_input"  # form_input, user_profile, coach_competency
     has_scoring: bool = False  # computed: grade_type and matching_type both non-null
 
+    # 점수 소스 설정 (Phase 5: 프리셋에서 완전 독립)
+    scoring_value_source: Optional[str] = "submitted"  # submitted, user_field, json_field
+    scoring_source_field: Optional[str] = None  # User 필드명
+    extract_pattern: Optional[str] = None  # 정규식 추출 패턴
+
     # 역량항목 전용 필드
     verification_note: Optional[str] = None  # 검증 안내 문구
     auto_confirm_across_projects: Optional[bool] = None  # 타 과제 자동 컨펌
@@ -272,6 +277,11 @@ class CompetencyItemCreate(BaseModel):
     evaluation_method: Optional[str] = None
     data_source: Optional[str] = None
 
+    # 점수 소스 설정 (Phase 5)
+    scoring_value_source: Optional[str] = None
+    scoring_source_field: Optional[str] = None
+    extract_pattern: Optional[str] = None
+
     # 역량항목 전용 필드
     verification_note: Optional[str] = None  # 검증 안내 문구
     auto_confirm_across_projects: Optional[bool] = None  # 타 과제 자동 컨펌
@@ -310,6 +320,11 @@ class CompetencyItemUpdate(BaseModel):
     grade_edit_mode: Optional[str] = None
     evaluation_method: Optional[str] = None
     data_source: Optional[str] = None
+
+    # 점수 소스 설정 (Phase 5)
+    scoring_value_source: Optional[str] = None
+    scoring_source_field: Optional[str] = None
+    extract_pattern: Optional[str] = None
 
     # 역량항목 전용 필드
     verification_note: Optional[str] = None  # 검증 안내 문구

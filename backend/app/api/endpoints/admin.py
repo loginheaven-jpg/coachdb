@@ -748,6 +748,33 @@ async def seed_competency_items(
                 {"field_name": "proof", "field_label": "코칭일지", "field_type": "file", "is_required": False, "display_order": 2}
             ]
         }
+        # ===== KCA 인증자격 (CERTIFICATION - 특수 항목) =====
+        {
+            "item_name": "KCA 인증자격",
+            "item_code": "CERT_KCA",
+            "category": CompetencyCategory.CERTIFICATION,
+            "is_repeatable": False,
+            "description": "회원가입 시 입력한 코칭자격인증번호에서 자동 판별됩니다. (KSC/KPC/KAC)",
+            # Phase 4: 평가 설정
+            "data_source": "user_profile",
+            "evaluation_method": "standard",
+            "grade_type": "string",
+            "matching_type": "grade",
+            "grade_edit_mode": "fixed",
+            # Phase 5: 점수 소스 설정
+            "scoring_value_source": "user_field",
+            "scoring_source_field": "coach_certification_number",
+            "extract_pattern": "^(.{3})",
+            # 등급 매핑: KSC→30, KPC→20, KAC→10
+            "grade_mappings": json.dumps([
+                {"value": "KSC", "score": 30, "label": "한국코칭수퍼바이저"},
+                {"value": "KPC", "score": 20, "label": "전문코치"},
+                {"value": "KAC", "score": 10, "label": "코치"}
+            ]),
+            "proof_required": "not_required",
+            "help_text": "코칭자격인증번호(예: KPC03669)의 앞 3자리로 등급이 자동 판별됩니다.",
+            "fields": []  # 코치가 직접 입력할 필드 없음 - 사용자 프로필에서 자동 읽기
+        },
         # 기타 그룹 (OTHER): 기본 항목 없음 - 커스텀 항목만 추가 가능
         # 자기소개: users.introduction으로 이동
         # 전문분야: 삭제
@@ -784,7 +811,22 @@ async def seed_competency_items(
                 template_config=item_data.get("template_config"),
                 is_repeatable=item_data.get("is_repeatable", False),
                 max_entries=item_data.get("max_entries"),
-                is_custom=False
+                description=item_data.get("description"),
+                is_custom=False,
+                # Phase 4: 평가 설정
+                data_source=item_data.get("data_source", "form_input"),
+                evaluation_method=item_data.get("evaluation_method", "standard"),
+                grade_type=item_data.get("grade_type"),
+                matching_type=item_data.get("matching_type"),
+                grade_edit_mode=item_data.get("grade_edit_mode", "flexible"),
+                # Phase 5: 점수 소스 설정
+                scoring_value_source=item_data.get("scoring_value_source", "submitted"),
+                scoring_source_field=item_data.get("scoring_source_field"),
+                extract_pattern=item_data.get("extract_pattern"),
+                # 독립 관리 필드
+                grade_mappings=item_data.get("grade_mappings"),
+                proof_required=item_data.get("proof_required"),
+                help_text=item_data.get("help_text")
             )
             db.add(item)
             await db.flush()

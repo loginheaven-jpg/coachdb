@@ -186,7 +186,7 @@ export default function AdminDashboard() {
                   icon={<SettingOutlined />}
                   onClick={() => navigate('/admin/competency-items')}
                 >
-                  역량항목 관리
+                  역량 템플릿
                 </Button>
               )}
               {isSuperAdmin() && (

@@ -121,6 +121,11 @@ class CompetencyItem(Base):
     evaluation_method = Column(String(50), nullable=False, default="standard")  # standard, by_name, by_existence
     data_source = Column(String(50), nullable=False, default="form_input")  # form_input, user_profile, coach_competency
 
+    # 점수 소스 설정 (Phase 5: 프리셋에서 완전 독립)
+    scoring_value_source = Column(String(50), nullable=True, default="submitted")  # submitted, user_field, json_field
+    scoring_source_field = Column(String(100), nullable=True)  # User 필드명 (예: coach_certification_number)
+    extract_pattern = Column(String(200), nullable=True)  # 정규식 패턴 (예: ^(.{3}))
+
     # 역량항목 전용 필드
     verification_note = Column(Text, nullable=True)  # 검증 안내 문구
     auto_confirm_across_projects = Column(Boolean, nullable=True, default=False)  # 타 과제 자동 컨펌

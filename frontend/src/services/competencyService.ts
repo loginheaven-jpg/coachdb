@@ -59,6 +59,10 @@ export interface CompetencyItem {
   evaluation_method: string        // standard, by_name, by_existence
   data_source: string              // form_input, user_profile, coach_competency
   has_scoring: boolean             // computed: grade_type && matching_type
+  // Phase 5: 점수 소스 설정
+  scoring_value_source: string     // submitted, user_field, json_field
+  scoring_source_field: string | null  // User 필드명 (예: coach_certification_number)
+  extract_pattern: string | null   // 정규식 추출 패턴 (예: ^(.{3}))
   // 역량항목 전용 필드
   verification_note: string | null  // 검증 안내 문구
   auto_confirm_across_projects: boolean | null  // 타 과제 자동 컨펌
@@ -107,6 +111,10 @@ export interface CompetencyItemCreate {
   grade_edit_mode?: string
   evaluation_method?: string
   data_source?: string
+  // Phase 5: 점수 소스 설정
+  scoring_value_source?: string
+  scoring_source_field?: string
+  extract_pattern?: string
   // 역량항목 전용 필드
   verification_note?: string
   auto_confirm_across_projects?: boolean
@@ -140,6 +148,10 @@ export interface CompetencyItemUpdate {
   grade_edit_mode?: string
   evaluation_method?: string
   data_source?: string
+  // Phase 5: 점수 소스 설정
+  scoring_value_source?: string
+  scoring_source_field?: string
+  extract_pattern?: string
   // 역량항목 전용 필드
   verification_note?: string
   auto_confirm_across_projects?: boolean

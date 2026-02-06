@@ -17,7 +17,7 @@
 7. [프로젝트 생명주기](#프로젝트-생명주기-project-lifecycle)
 8. [응모 및 검토 프로세스](#응모-및-검토-프로세스)
 9. [배포 및 인프라 (Railway)](#배포-및-인프라-railway)
-10. [2-tier 통합 템플릿 아키텍처](#2-tier-통합-템플릿-아키텍처-2026-02-05)
+10. [역량 템플릿 아키텍처](#역량-템플릿-아키텍처-2026-02-06)
 11. [주요 비즈니스 로직](#주요-비즈니스-로직)
 12. [프론트엔드 구조](#프론트엔드-구조)
 13. [트러블슈팅 가이드](#트러블슈팅-가이드)
@@ -1690,45 +1690,49 @@ CompetencyItem(
 
 ---
 
-## 3-tier 템플릿 아키텍처 확장 (2026-02-06)
+## 역량 템플릿 아키텍처 (2026-02-06)
 
 ### 개요
 
-2-tier 통합 템플릿을 기반으로, 역량항목과 프로젝트 설정을 분리하는 3계층 구조:
+**역량 템플릿(CompetencyItem)**: 기존 "역량항목"을 "역량 템플릿"으로 재정의.
+모든 평가/입력 설정이 역량 템플릿에 완전 통합되어, 프리셋(UnifiedTemplate)은 생성 시 기본값 제공 역할만 담당.
+
+3계층 구조:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │  Tier 1: UnifiedTemplate (SUPER_ADMIN) — "프리셋 (Preset)"          │
-│  템플릿은 새 역량항목 생성 시 기본값 제공용. 저장 후 연결 의미 없음    │
+│  역량 템플릿 생성 시 기본값 제공용. 저장 후 연결 의미 없음             │
 │                                                                     │
 │  - fields_schema (필드 구조)                                         │
 │  - layout_type, is_repeatable, aggregation_mode                     │
-│  - scoring_value_source, scoring_source_field, extract_pattern      │
 │  - validation_rules                                                 │
 │  - default_mappings (기본 등급-점수 매핑 → 복사 원본)                │
-│  - grade_type, matching_type, evaluation_method (→ 복사 원본)       │
-│  - grade_edit_mode (→ 복사 원본)                                    │
+│  - 모든 평가/소스 설정은 역량 템플릿에 복사 후 독립                   │
 └─────────────────────────────────────────────────────────────────────┘
                               │
                               │ "복사 후 독립" (생성 시 1회 복사)
                               ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│  Tier 2: CompetencyItem (SUPER_ADMIN) — 마스터 정의 (제약 없음)      │
+│  Tier 2: CompetencyItem (SUPER_ADMIN) — "역량 템플릿"                │
 │  저장 후 프리셋과 독립. 수퍼어드민은 모든 항목을 자유롭게 편집.       │
 │  grade_edit_mode는 과제관리자의 제약만 정의. 수퍼어드민 자신은 무제약. │
 │                                                                     │
-│  ┌── 평가 설정 (Phase 4) ────┐  ┌── 복사 후 독립 ──────────────────┐│
-│  │ - grade_type              │  │ - grade_mappings                 ││
-│  │ - matching_type           │  │ - proof_required                 ││
-│  │ - grade_edit_mode         │  │ - help_text                      ││
-│  │ - evaluation_method       │  │ - placeholder                    ││
-│  │ - data_source             │  │                                   ││
-│  │ - has_scoring (computed)  │  │                                   ││
-│  └───────────────────────────┘  └───────────────────────────────────┘│
-│  ┌── 역량항목 전용 ──────────────────────────────────────────────────┐│
-│  │ - verification_note, auto_confirm_across_projects                ││
-│  │ - field_label_overrides                                          ││
-│  └───────────────────────────────────────────────────────────────────┘│
+│  ┌── 평가 설정 (Phase 4) ────┐  ┌── 점수 소스 (Phase 5) ───────────┐│
+│  │ - grade_type              │  │ - scoring_value_source            ││
+│  │ - matching_type           │  │ - scoring_source_field            ││
+│  │ - grade_edit_mode         │  │ - extract_pattern                 ││
+│  │ - evaluation_method       │  └───────────────────────────────────┘│
+│  │ - data_source             │                                       │
+│  │ - has_scoring (computed)  │  ┌── 복사 후 독립 ──────────────────┐│
+│  └───────────────────────────┘  │ - grade_mappings                 ││
+│                                  │ - proof_required                 ││
+│  ┌── 역량 템플릿 전용 ──────┐   │ - help_text                      ││
+│  │ - verification_note      │   │ - placeholder                    ││
+│  │ - auto_confirm_across_   │   └───────────────────────────────────┘│
+│  │   projects               │                                       │
+│  │ - field_label_overrides  │                                       │
+│  └───────────────────────────┘                                       │
 └─────────────────────────────────────────────────────────────────────┘
                               │
                               │ 프로젝트별 설정
@@ -1745,11 +1749,12 @@ CompetencyItem(
 
 ### 핵심 원칙: "복사 후 독립"
 
-역량항목 생성 시 템플릿의 기본값을 복사하고, 이후에는 독립적으로 관리됩니다:
+역량 템플릿 생성 시 프리셋의 기본값을 복사하고, 이후에는 독립적으로 관리됩니다:
 
-1. **복사 시점**: CompetencyItem 생성 시 template의 default_mappings → grade_mappings로 복사
-2. **독립 관리**: 복사 후에는 역량항목이 템플릿과 독립적으로 관리됨
-3. **템플릿 수정 영향 없음**: 템플릿 수정이 기존 역량항목에 영향을 주지 않음
+1. **복사 시점**: CompetencyItem 생성 시 프리셋의 default_mappings → grade_mappings로 복사
+2. **독립 관리**: 복사 후에는 역량 템플릿이 프리셋과 독립적으로 관리됨
+3. **프리셋 수정 영향 없음**: 프리셋 수정이 기존 역량 템플릿에 영향을 주지 않음
+4. **Phase 5 완전 독립**: scoring_value_source, scoring_source_field, extract_pattern도 역량 템플릿에서 직접 관리
 
 ```python
 # 역량항목 생성 시 템플릿 기본값 복사
@@ -1771,10 +1776,11 @@ item = CompetencyItem(
 
 | 분류 | 필드 | 위치 | 수정 권한 |
 |------|------|------|----------|
-| **템플릿 전용** | fields_schema, layout_type, is_repeatable, aggregation_mode, scoring_value_source, scoring_source_field, extract_pattern, validation_rules | UnifiedTemplate | SUPER_ADMIN만 |
-| **평가 설정 (독립화)** | grade_type, matching_type, grade_edit_mode, evaluation_method, data_source, has_scoring(computed) | CompetencyItem | SUPER_ADMIN |
+| **프리셋 전용** | fields_schema, layout_type, is_repeatable, aggregation_mode, validation_rules | UnifiedTemplate | SUPER_ADMIN만 |
+| **평가 설정 (Phase 4)** | grade_type, matching_type, grade_edit_mode, evaluation_method, data_source, has_scoring(computed) | CompetencyItem | SUPER_ADMIN (제약 없음) |
+| **점수 소스 (Phase 5)** | scoring_value_source, scoring_source_field, extract_pattern | CompetencyItem | SUPER_ADMIN (제약 없음) |
 | **복사 후 독립** | grade_mappings, proof_required, help_text, placeholder | CompetencyItem | SUPER_ADMIN (제약 없음) |
-| **역량항목 전용** | verification_note, auto_confirm_across_projects, field_label_overrides | CompetencyItem | SUPER_ADMIN (제약 없음) |
+| **역량 템플릿 전용** | verification_note, auto_confirm_across_projects, field_label_overrides | CompetencyItem | SUPER_ADMIN (제약 없음) |
 | **프로젝트 설정** | max_score, is_required, scoring_criteria | ProjectCompetencyMapping | PROJECT_MANAGER (grade_edit_mode 범위 내) |
 
 ### grade_edit_mode 제어 로직
@@ -1791,7 +1797,30 @@ item = CompetencyItem(
 | `flexible` | ✅ | ✅ | ✅ | 자유롭게 수정 가능 (기본값) |
 
 **고정 설정 예시 (grade_edit_mode="fixed")**:
-- `KCA 자격증`: KSC(30), KAC(20), KPC(10) 고정
+- `KCA 자격증`: KSC(30), KPC(20), KAC(10) 고정
+
+### KCA 인증자격 역량 템플릿 (특수 패턴)
+
+코치 가입 시 입력한 `coach_certification_number` (예: KPC03669)에서 자동 판별:
+
+```
+item_code: CERT_KCA
+data_source: user_profile
+scoring_value_source: user_field
+scoring_source_field: coach_certification_number
+extract_pattern: ^(.{3})          # 앞 3자리 추출
+grade_type: string
+matching_type: grade
+grade_edit_mode: fixed
+grade_mappings: [
+  {"value": "KSC", "score": 30, "label": "한국코칭수퍼바이저"},
+  {"value": "KPC", "score": 20, "label": "전문코치"},
+  {"value": "KAC", "score": 10, "label": "코치"}
+]
+proof_required: not_required       # 사용자 프로필에서 자동 읽기
+```
+
+**특징**: 코치가 직접 입력할 필드 없음 (fields: []). 사용자 프로필의 인증번호에서 자동으로 등급과 점수가 결정됨.
 - `유무 평가`: 유자격(20), 무자격(0) 고정
 
 ### DB 스키마 변경 (competency_items)
@@ -1809,12 +1838,17 @@ ALTER TABLE competency_items ADD COLUMN IF NOT EXISTS
     auto_confirm_across_projects BOOLEAN DEFAULT FALSE,
     field_label_overrides TEXT DEFAULT '{}',    -- {"필드명": "커스텀 라벨"}
 
-    -- Phase 4: 평가 설정 (역량항목 완전 독립화 - 2026-02-06)
+    -- Phase 4: 평가 설정 (역량 템플릿 완전 독립화 - 2026-02-06)
     grade_type VARCHAR(50),                    -- string, numeric, file_exists, multi_select
     matching_type VARCHAR(50),                 -- exact, contains, range, grade
     grade_edit_mode VARCHAR(20) DEFAULT 'flexible',  -- fixed, score_only, flexible
     evaluation_method VARCHAR(50) DEFAULT 'standard', -- standard, by_name, by_existence
-    data_source VARCHAR(50) DEFAULT 'form_input';     -- form_input, user_profile, coach_competency
+    data_source VARCHAR(50) DEFAULT 'form_input',     -- form_input, user_profile, coach_competency
+
+    -- Phase 5: 점수 소스 설정 (프리셋에서 완전 독립 - 2026-02-06)
+    scoring_value_source VARCHAR(50) DEFAULT 'submitted', -- submitted, user_field, json_field
+    scoring_source_field VARCHAR(100),                    -- User 필드명 (예: coach_certification_number)
+    extract_pattern VARCHAR(200);                         -- 정규식 추출 패턴 (예: ^(.{3}))
 ```
 
 ### 역량항목 생성 API 동작
@@ -1822,10 +1856,10 @@ ALTER TABLE competency_items ADD COLUMN IF NOT EXISTS
 `POST /api/competencies/items`:
 
 ```python
-# 1. 템플릿 조회 (프리셋으로만 사용)
+# 1. 프리셋 조회 (기본값 제공용)
 template = await get_unified_template(data.unified_template_id)
 
-# 2. 기본값 복사 (명시적 값이 없는 경우 - 저장 후 템플릿과 독립)
+# 2. 기본값 복사 (명시적 값이 없는 경우 - 저장 후 프리셋과 독립)
 item = CompetencyItem(
     # 복사 후 독립 필드
     grade_mappings=data.grade_mappings or template.default_mappings,
@@ -1833,20 +1867,28 @@ item = CompetencyItem(
     help_text=data.help_text or template.help_text,
     placeholder=data.placeholder or template.placeholder,
     auto_confirm_across_projects=data.auto_confirm_across_projects or template.auto_confirm_across_projects,
-    # Phase 4: 평가 설정도 템플릿에서 복사 후 독립
+    # Phase 4: 평가 설정도 프리셋에서 복사 후 독립
     grade_type=data.grade_type or template.grade_type,
     matching_type=data.matching_type or template.matching_type,
     grade_edit_mode=data.grade_edit_mode or template.grade_edit_mode or 'flexible',
     evaluation_method=data.evaluation_method or template.evaluation_method or 'standard',
     data_source=data.data_source or template.data_source or 'form_input',
+    # Phase 5: 점수 소스 설정도 프리셋에서 복사 후 독립
+    scoring_value_source=data.scoring_value_source or template.scoring_value_source or 'submitted',
+    scoring_source_field=data.scoring_source_field or template.scoring_source_field,
+    extract_pattern=data.extract_pattern or template.extract_pattern,
 )
 ```
 
-### 프론트엔드 UI (Phase 4: 좌우 분할 레이아웃)
+### 프론트엔드 UI (좌우 분할 레이아웃)
 
-**역량항목 관리 모달** (`/admin/competency-items`) - 1000px 좌우 분할:
+**역량 템플릿 관리** (`/admin/competency-items`) - 탭 구성:
+- **역량템플릿** 탭: 역량 템플릿 목록 관리 (생성/수정/삭제)
+- **프리셋** 탭: UnifiedTemplate 프리셋 관리 (기본값 제공용)
 
-**상단**: 프리셋 템플릿 선택 (선택 시 아래 필드에 기본값 자동 채움, 저장 후 연결 의미 없음)
+**역량 템플릿 편집/생성 모달** - 1000px 좌우 분할:
+
+**상단**: 프리셋 선택 (선택 시 아래 필드에 기본값 자동 채움, 저장 후 연결 의미 없음)
 
 **좌측 (입력/기본 설정)**:
 - 항목명, 카테고리, 데이터 소스, 설명/안내문구
@@ -1865,14 +1907,18 @@ item = CompetencyItem(
 - 매칭 방식 (matching_type): exact, contains, range, grade
 - 등급 수정 모드 (grade_edit_mode): fixed, score_only, flexible
 - **등급 매핑 편집기**: grade_type에 따라 동적 UI
-  - file_exists: Tag 형태, numeric: InputNumber, string: Input
-  - grade_edit_mode에 따른 편집 제한 적용
+  - file_exists: Select(있음/없음), numeric: InputNumber, string: Input
+  - 수퍼어드민은 모든 모드에서 자유 편집 가능
+- **점수 소스 설정** (Phase 5):
+  - 값 소스 (scoring_value_source): submitted, user_field, json_field
+  - 소스 필드명 (scoring_source_field): user_field/json_field일 때만 표시
+  - 추출 패턴 (extract_pattern): 정규식 패턴
 
 ### 권한 체계 요약
 
-| 역할 | 템플릿 | 역량항목 | 프로젝트 항목 설정 |
-|------|--------|---------|------------------|
-| SUPER_ADMIN | 생성/수정/삭제 | 생성/수정/삭제 | 생성/수정/삭제 |
+| 역할 | 프리셋 | 역량 템플릿 | 프로젝트 항목 설정 |
+|------|--------|-----------|------------------|
+| SUPER_ADMIN | 생성/수정/삭제 | 생성/수정/삭제 (무제약) | 생성/수정/삭제 |
 | PROJECT_MANAGER | 조회만 | 조회만 | grade_edit_mode 범위 내 수정 |
 | COACH | 조회만 | 조회만 | 조회만 |
 

@@ -425,7 +425,7 @@ export default function UserManagementPage() {
           icon={<AppstoreOutlined />}
           onClick={() => navigate('/admin/competency-items')}
         >
-          역량항목 관리
+          역량 템플릿
         </Button>
       </div>
 

@@ -247,7 +247,7 @@ export default function AdminCompetencyItemsPage() {
       setItems(data)
     } catch (error: any) {
       console.error('역량항목 로드 실패:', error)
-      message.error('역량항목을 불러오는데 실패했습니다.')
+      message.error('역량템플릿을 불러오는데 실패했습니다.')
     } finally {
       setLoading(false)
     }
@@ -306,11 +306,11 @@ export default function AdminCompetencyItemsPage() {
     try {
       const response = await api.post('/admin/seed-competency-items?secret_key=coachdb2024!')
       const data = response.data
-      message.success(`역량항목 초기화 완료: ${data.created}개 생성, ${data.skipped}개 스킵`)
+      message.success(`역량템플릿 초기화 완료: ${data.created}개 생성, ${data.skipped}개 스킵`)
       loadItems()
     } catch (error: any) {
       console.error('역량항목 초기화 실패:', error)
-      message.error(error.response?.data?.detail || '역량항목 초기화에 실패했습니다.')
+      message.error(error.response?.data?.detail || '역량템플릿 초기화에 실패했습니다.')
     } finally {
       setSeedLoading(false)
     }
@@ -320,11 +320,11 @@ export default function AdminCompetencyItemsPage() {
     setClearLoading(true)
     try {
       await api.post('/admin/clear-competency-items?secret_key=coachdb2024!')
-      message.success('역량항목 전체 삭제 완료')
+      message.success('역량템플릿 전체 삭제 완료')
       loadItems()
     } catch (error: any) {
       console.error('역량항목 삭제 실패:', error)
-      message.error(error.response?.data?.detail || '역량항목 삭제에 실패했습니다.')
+      message.error(error.response?.data?.detail || '역량템플릿 삭제에 실패했습니다.')
     } finally {
       setClearLoading(false)
     }
@@ -366,7 +366,7 @@ export default function AdminCompetencyItemsPage() {
           : undefined
       }
       await competencyService.createCompetencyItem(createData)
-      message.success('역량항목이 생성되었습니다.')
+      message.success('역량템플릿이 생성되었습니다.')
       setIsCreateModalOpen(false)
       setCreateGradeMappings([])
       createForm.resetFields()
@@ -377,7 +377,7 @@ export default function AdminCompetencyItemsPage() {
     }
   }
 
-  // 새 역량항목 추가 - 복제 생성
+  // 새 역량템플릿 추가 - 복제 생성
   const openCloneItemModal = (sourceItem: CompetencyItem) => {
     // 등급 매핑 복사
     let mappings: UnifiedGradeMapping[] = []
@@ -400,6 +400,10 @@ export default function AdminCompetencyItemsPage() {
       grade_edit_mode: sourceItem.grade_edit_mode || 'flexible',
       evaluation_method: sourceItem.evaluation_method || 'standard',
       data_source: sourceItem.data_source || 'form_input',
+      // Phase 5: 점수 소스 설정
+      scoring_value_source: sourceItem.scoring_value_source || 'submitted',
+      scoring_source_field: sourceItem.scoring_source_field,
+      extract_pattern: sourceItem.extract_pattern,
       // 입력/증빙 설정
       proof_required: sourceItem.proof_required,
       help_text: sourceItem.help_text,
@@ -411,7 +415,7 @@ export default function AdminCompetencyItemsPage() {
     setIsCreateModalOpen(true)
   }
 
-  // 새 역량항목 추가 - 신규 생성
+  // 새 역량템플릿 추가 - 신규 생성
   const openNewItemModal = () => {
     createForm.resetFields()
     setCreateGradeMappings([])
@@ -468,6 +472,12 @@ export default function AdminCompetencyItemsPage() {
     if (!currentValues.data_source || currentValues.data_source === 'form_input') {
       updates.data_source = template.data_source || 'form_input'
     }
+    // Phase 5: 점수 소스 설정
+    if (!currentValues.scoring_value_source || currentValues.scoring_value_source === 'submitted') {
+      updates.scoring_value_source = template.scoring_value_source || 'submitted'
+    }
+    if (!currentValues.scoring_source_field) updates.scoring_source_field = template.scoring_source_field
+    if (!currentValues.extract_pattern) updates.extract_pattern = template.extract_pattern
     if (!currentValues.proof_required) updates.proof_required = template.proof_required
     if (!currentValues.help_text) updates.help_text = template.help_text
     if (!currentValues.placeholder) updates.placeholder = template.placeholder
@@ -490,7 +500,7 @@ export default function AdminCompetencyItemsPage() {
       }
 
       await competencyService.updateCompetencyItem(editingItem.item_id, updateData)
-      message.success('역량항목이 수정되었습니다.')
+      message.success('역량템플릿이 수정되었습니다.')
       setIsEditModalOpen(false)
       setEditingItem(null)
       setItemGradeMappings([])
@@ -574,6 +584,10 @@ export default function AdminCompetencyItemsPage() {
       grade_edit_mode: item.grade_edit_mode || 'flexible',
       evaluation_method: item.evaluation_method || 'standard',
       data_source: item.data_source || 'form_input',
+      // Phase 5: 점수 소스 설정
+      scoring_value_source: item.scoring_value_source || 'submitted',
+      scoring_source_field: item.scoring_source_field,
+      extract_pattern: item.extract_pattern,
       // 입력/증빙 설정
       proof_required: item.proof_required,
       verification_note: item.verification_note,
@@ -633,6 +647,16 @@ export default function AdminCompetencyItemsPage() {
     }
     if (!currentValues.data_source || currentValues.data_source === 'form_input') {
       updates.data_source = template.data_source || 'form_input'
+    }
+    // Phase 5: 점수 소스 설정
+    if (!currentValues.scoring_value_source || currentValues.scoring_value_source === 'submitted') {
+      updates.scoring_value_source = template.scoring_value_source || 'submitted'
+    }
+    if (!currentValues.scoring_source_field) {
+      updates.scoring_source_field = template.scoring_source_field
+    }
+    if (!currentValues.extract_pattern) {
+      updates.extract_pattern = template.extract_pattern
     }
     // 입력/증빙 설정
     if (!currentValues.proof_required) {
@@ -1953,19 +1977,19 @@ export default function AdminCompetencyItemsPage() {
         >
           대시보드로 돌아가기
         </Button>
-        <Title level={3} style={{ margin: 0 }}>시스템관리 &gt; 역량항목 설정</Title>
+        <Title level={3} style={{ margin: 0 }}>시스템관리 &gt; 역량 템플릿</Title>
         <div style={{ width: 200 }} />
       </div>
 
       <Card>
         <Tabs activeKey={activeTab} onChange={setActiveTab}>
-          {/* 역량항목 관리 탭 */}
-          <Tabs.TabPane tab="역량항목 관리" key="items">
+          {/* 역량템플릿 탭 */}
+          <Tabs.TabPane tab="역량템플릿" key="items">
             <div className="flex justify-between items-center mb-4">
               <Space>
                 <Popconfirm
-                  title="⚠️ 역량항목 전체 삭제"
-                  description="모든 역량항목, 필드, 코치역량 데이터를 삭제합니다. 이 작업은 되돌릴 수 없습니다!"
+                  title="⚠️ 역량템플릿 전체 삭제"
+                  description="모든 역량템플릿, 필드, 코치역량 데이터를 삭제합니다. 이 작업은 되돌릴 수 없습니다!"
                   onConfirm={handleClear}
                   okText="전체 삭제"
                   cancelText="취소"
@@ -1980,8 +2004,8 @@ export default function AdminCompetencyItemsPage() {
                   </Button>
                 </Popconfirm>
                 <Popconfirm
-                  title="역량항목 초기화"
-                  description="기본 역량항목(자격증, 학력, 코칭연수, 코칭경력)을 생성합니다. 이미 존재하는 항목은 스킵됩니다."
+                  title="역량템플릿 초기화"
+                  description="기본 역량템플릿(자격증, 학력, 코칭연수, 코칭경력)을 생성합니다. 이미 존재하는 항목은 스킵됩니다."
                   onConfirm={handleSeed}
                   okText="초기화"
                   cancelText="취소"
@@ -1990,7 +2014,7 @@ export default function AdminCompetencyItemsPage() {
                     icon={<SyncOutlined />}
                     loading={seedLoading}
                   >
-                    역량항목 초기화
+                    역량템플릿 초기화
                   </Button>
                 </Popconfirm>
               </Space>
@@ -1999,7 +2023,7 @@ export default function AdminCompetencyItemsPage() {
                 icon={<PlusOutlined />}
                 onClick={() => setIsCreateSelectModalOpen(true)}
               >
-                새 역량항목 추가
+                새 역량템플릿 추가
               </Button>
             </div>
             <div className="mb-4 flex justify-between">
@@ -2040,11 +2064,11 @@ export default function AdminCompetencyItemsPage() {
             />
           </Tabs.TabPane>
 
-          {/* 템플릿 관리 탭 (입력+평가 통합) */}
-          <Tabs.TabPane tab="템플릿 관리" key="unifiedTemplates">
+          {/* 프리셋 탭 (입력+평가 통합) */}
+          <Tabs.TabPane tab="프리셋" key="unifiedTemplates">
             <div className="flex justify-between items-center mb-4">
               <Text className="text-gray-600">
-                역량항목의 입력 폼 구조와 평가 방법을 통합 관리합니다.
+                역량템플릿 생성 시 기본값으로 사용할 프리셋을 관리합니다.
               </Text>
               <Button
                 type="primary"
@@ -2086,14 +2110,14 @@ export default function AdminCompetencyItemsPage() {
 
         {/* 역량항목 추가 방식 선택 모달 */}
         <Modal
-          title="새 역량항목 추가"
+          title="새 역량템플릿 추가"
           open={isCreateSelectModalOpen}
           onCancel={() => setIsCreateSelectModalOpen(false)}
           footer={null}
           width={500}
         >
           <div className="py-4">
-            <p className="text-gray-600 mb-6">역량항목 추가 방식을 선택해주세요.</p>
+            <p className="text-gray-600 mb-6">역량템플릿 추가 방식을 선택해주세요.</p>
             <div className="flex gap-3 justify-center">
               <Button onClick={() => setIsCreateSelectModalOpen(false)}>
                 취소
@@ -2103,7 +2127,7 @@ export default function AdminCompetencyItemsPage() {
                 onClick={() => {
                   setIsCreateSelectModalOpen(false)
                   Modal.confirm({
-                    title: '복제할 역량항목 선택',
+                    title: '복제할 역량템플릿 선택',
                     width: 600,
                     content: (
                       <div className="max-h-80 overflow-y-auto mt-4">
@@ -2147,7 +2171,7 @@ export default function AdminCompetencyItemsPage() {
 
         {/* Create Modal - 좌우 분할 레이아웃 (Edit 모달과 동일 구조) */}
         <Modal
-          title="새 역량항목 추가"
+          title="새 역량템플릿 추가"
           open={isCreateModalOpen}
           maskClosable={false}
           onCancel={() => {
@@ -2426,6 +2450,40 @@ export default function AdminCompetencyItemsPage() {
                     )
                   }}
                 </Form.Item>
+
+                <Divider style={{ margin: '12px 0' }} />
+                <Title level={5}>점수 소스 설정</Title>
+
+                <Form.Item name="scoring_value_source" label="값 소스">
+                  <Select
+                    allowClear
+                    placeholder="기본값: 제출값"
+                    options={[
+                      { label: '제출값 (submitted)', value: 'submitted' },
+                      { label: '사용자 필드 (user_field)', value: 'user_field' },
+                      { label: 'JSON 필드 (json_field)', value: 'json_field' }
+                    ]}
+                  />
+                </Form.Item>
+
+                <Form.Item noStyle shouldUpdate={(prev: Record<string, string>, curr: Record<string, string>) => prev.scoring_value_source !== curr.scoring_value_source}>
+                  {({ getFieldValue }: { getFieldValue: (name: string) => string }) => {
+                    const source = getFieldValue('scoring_value_source')
+                    if (source === 'user_field' || source === 'json_field') {
+                      return (
+                        <>
+                          <Form.Item name="scoring_source_field" label={source === 'user_field' ? '사용자 필드명' : 'JSON 필드명'}>
+                            <Input placeholder={source === 'user_field' ? '예: coach_certification_number' : '예: degree_level'} />
+                          </Form.Item>
+                          <Form.Item name="extract_pattern" label="추출 패턴 (정규식)">
+                            <Input placeholder="예: ^(.{3}) (앞 3글자 추출)" />
+                          </Form.Item>
+                        </>
+                      )
+                    }
+                    return null
+                  }}
+                </Form.Item>
               </Col>
             </Row>
 
@@ -2445,7 +2503,7 @@ export default function AdminCompetencyItemsPage() {
 
         {/* Edit Modal - 좌우 분할 레이아웃 */}
         <Modal
-          title="역량항목 수정"
+          title="역량템플릿 수정"
           open={isEditModalOpen}
           maskClosable={false}
           onCancel={() => {
@@ -2732,6 +2790,40 @@ export default function AdminCompetencyItemsPage() {
                         </Button>
                       </div>
                     )
+                  }}
+                </Form.Item>
+
+                <Divider style={{ margin: '12px 0' }} />
+                <Title level={5}>점수 소스 설정</Title>
+
+                <Form.Item name="scoring_value_source" label="값 소스">
+                  <Select
+                    allowClear
+                    placeholder="기본값: 제출값"
+                    options={[
+                      { label: '제출값 (submitted)', value: 'submitted' },
+                      { label: '사용자 필드 (user_field)', value: 'user_field' },
+                      { label: 'JSON 필드 (json_field)', value: 'json_field' }
+                    ]}
+                  />
+                </Form.Item>
+
+                <Form.Item noStyle shouldUpdate={(prev: Record<string, string>, curr: Record<string, string>) => prev.scoring_value_source !== curr.scoring_value_source}>
+                  {({ getFieldValue }: { getFieldValue: (name: string) => string }) => {
+                    const source = getFieldValue('scoring_value_source')
+                    if (source === 'user_field' || source === 'json_field') {
+                      return (
+                        <>
+                          <Form.Item name="scoring_source_field" label={source === 'user_field' ? '사용자 필드명' : 'JSON 필드명'}>
+                            <Input placeholder={source === 'user_field' ? '예: coach_certification_number' : '예: degree_level'} />
+                          </Form.Item>
+                          <Form.Item name="extract_pattern" label="추출 패턴 (정규식)">
+                            <Input placeholder="예: ^(.{3}) (앞 3글자 추출)" />
+                          </Form.Item>
+                        </>
+                      )
+                    }
+                    return null
                   }}
                 </Form.Item>
               </Col>
