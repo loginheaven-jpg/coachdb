@@ -518,7 +518,6 @@ export default function AdminCompetencyItemsPage() {
     try {
       await competencyService.createCompetencyItemField(editingItem.item_id, values)
       message.success('필드가 추가되었습니다.')
-      setIsFieldModalOpen(false)
       fieldForm.resetFields()
       loadItems()
     } catch (error: any) {
