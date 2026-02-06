@@ -1387,6 +1387,12 @@ export default function AdminCompetencyItemsPage() {
           Object.entries(values).map(([key, value]) => [key, value === '' ? null : value])
         )
 
+        // file 필드가 없으면 proof_required를 자동으로 not_required로 설정
+        const hasFileField = unifiedFieldsSchema.some(f => f.type === 'file')
+        if (!hasFileField) {
+          cleanedValues.proof_required = 'not_required'
+        }
+
         const templateData = {
           ...cleanedValues,
           fields_schema: unifiedTemplateService.stringifyFieldsSchema(unifiedFieldsSchema),
@@ -1485,6 +1491,12 @@ export default function AdminCompetencyItemsPage() {
       const cleanedValues = Object.fromEntries(
         Object.entries(values).map(([key, value]) => [key, value === '' ? null : value])
       )
+
+      // file 필드가 없으면 proof_required를 자동으로 not_required로 설정
+      const hasFileField = unifiedFieldsSchema.some(f => f.type === 'file')
+      if (!hasFileField) {
+        cleanedValues.proof_required = 'not_required'
+      }
 
       const templateData: UnifiedTemplateUpdate = {
         ...cleanedValues,
@@ -3665,7 +3677,12 @@ export default function AdminCompetencyItemsPage() {
                     </Form.Item>
                   </div>
                   <div className="col-span-3">
-                    <span className="text-xs text-gray-500 block mb-1">등급 유형</span>
+                    <span className="text-xs text-gray-500 block mb-1">
+                      등급 유형{' '}
+                      <Tooltip title="비교할 원본 값의 데이터 타입. 문자열: 텍스트 값 매칭(자격증명 등), 숫자: 범위 비교(시간, 점수), 파일유무: 첨부 여부, 복수선택: 선택 항목 매칭">
+                        <QuestionCircleOutlined className="text-blue-400 cursor-help" />
+                      </Tooltip>
+                    </span>
                     <Form.Item name="grade_type" className="!mb-0">
                       <Select
                         size="small"
@@ -3687,7 +3704,12 @@ export default function AdminCompetencyItemsPage() {
                     </Form.Item>
                   </div>
                   <div className="col-span-3">
-                    <span className="text-xs text-gray-500 block mb-1">집계 방식</span>
+                    <span className="text-xs text-gray-500 block mb-1">
+                      집계 방식{' '}
+                      <Tooltip title="복수 입력 시 점수 계산 방법. 첫번째: 첫 값만, 합계: 모든 점수 합산, 최대값: 숫자 중 가장 큰 값, 최고점수: 각 값의 점수 중 가장 높은 점수, 개수: 입력 개수로 점수">
+                        <QuestionCircleOutlined className="text-blue-400 cursor-help" />
+                      </Tooltip>
+                    </span>
                     <Form.Item name="aggregation_mode" className="!mb-0">
                       <Select
                         size="small"
@@ -3788,11 +3810,19 @@ export default function AdminCompetencyItemsPage() {
                 {/* 옵션 설정 */}
                 <div className="grid grid-cols-12 gap-2 mb-3">
                   <div className="col-span-3">
-                    <span className="text-xs text-gray-500 block mb-1">증빙 필수</span>
+                    <span className="text-xs text-gray-500 block mb-1">
+                      증빙 필수{' '}
+                      {!unifiedFieldsSchema.some(f => f.type === 'file') && (
+                        <Tooltip title="file 타입 필드가 없어 증빙 불필요로 고정됩니다">
+                          <QuestionCircleOutlined className="text-orange-400 cursor-help" />
+                        </Tooltip>
+                      )}
+                    </span>
                     <Form.Item name="proof_required" className="!mb-0">
                       <Select
                         size="small"
                         options={PROOF_REQUIRED_OPTIONS}
+                        disabled={!unifiedFieldsSchema.some(f => f.type === 'file')}
                       />
                     </Form.Item>
                   </div>
@@ -4279,7 +4309,12 @@ export default function AdminCompetencyItemsPage() {
                     </Form.Item>
                   </div>
                   <div className="col-span-3">
-                    <span className="text-xs text-gray-500 block mb-1">등급 유형</span>
+                    <span className="text-xs text-gray-500 block mb-1">
+                      등급 유형{' '}
+                      <Tooltip title="비교할 원본 값의 데이터 타입. 문자열: 텍스트 값 매칭(자격증명 등), 숫자: 범위 비교(시간, 점수), 파일유무: 첨부 여부, 복수선택: 선택 항목 매칭">
+                        <QuestionCircleOutlined className="text-blue-400 cursor-help" />
+                      </Tooltip>
+                    </span>
                     <Form.Item name="grade_type" className="!mb-0">
                       <Select size="small" allowClear placeholder="선택" options={GRADE_TYPE_OPTIONS} />
                     </Form.Item>
@@ -4291,7 +4326,12 @@ export default function AdminCompetencyItemsPage() {
                     </Form.Item>
                   </div>
                   <div className="col-span-3">
-                    <span className="text-xs text-gray-500 block mb-1">집계 방식</span>
+                    <span className="text-xs text-gray-500 block mb-1">
+                      집계 방식{' '}
+                      <Tooltip title="복수 입력 시 점수 계산 방법. 첫번째: 첫 값만, 합계: 모든 점수 합산, 최대값: 숫자 중 가장 큰 값, 최고점수: 각 값의 점수 중 가장 높은 점수, 개수: 입력 개수로 점수">
+                        <QuestionCircleOutlined className="text-blue-400 cursor-help" />
+                      </Tooltip>
+                    </span>
                     <Form.Item name="aggregation_mode" className="!mb-0">
                       <Select size="small" options={AGGREGATION_MODE_OPTIONS} />
                     </Form.Item>
@@ -4428,9 +4468,20 @@ export default function AdminCompetencyItemsPage() {
                 {/* 기타 설정 */}
                 <div className="grid grid-cols-12 gap-2 mb-3">
                   <div className="col-span-3">
-                    <span className="text-xs text-gray-500 block mb-1">증빙 필수</span>
+                    <span className="text-xs text-gray-500 block mb-1">
+                      증빙 필수{' '}
+                      {!unifiedFieldsSchema.some(f => f.type === 'file') && (
+                        <Tooltip title="file 타입 필드가 없어 증빙 불필요로 고정됩니다">
+                          <QuestionCircleOutlined className="text-orange-400 cursor-help" />
+                        </Tooltip>
+                      )}
+                    </span>
                     <Form.Item name="proof_required" className="!mb-0">
-                      <Select size="small" options={PROOF_REQUIRED_OPTIONS} />
+                      <Select
+                        size="small"
+                        options={PROOF_REQUIRED_OPTIONS}
+                        disabled={!unifiedFieldsSchema.some(f => f.type === 'file')}
+                      />
                     </Form.Item>
                   </div>
                   <div className="col-span-4">
