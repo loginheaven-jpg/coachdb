@@ -2,7 +2,8 @@
  * Step 4: 등급 설정
  * GradeConfigModal을 사용하여 각 항목의 등급별 점수를 설정
  *
- * 자동 로드: 역량항목에 설정된 scoring_template_id 기반으로 기본 설정 자동 적용
+ * 자동 로드: 역량 템플릿(CompetencyItem)의 Phase 4/5 필드에서 기본 설정 자동 적용
+ * Fallback: 레거시 scoring_template_id 기반 로드
  */
 
 import { Card, Button, Space, Tag, message, Progress, Alert } from 'antd'
@@ -14,6 +15,7 @@ import scoringTemplateService from '../../../../services/scoringTemplateService'
 import GradeConfigModal from '../../../../components/scoring/GradeConfigModal'
 import { ScoringConfig, MatchingType, GradeType, ValueSource, AggregationMode } from '../../../../types/scoring'
 import { getScoringConfigSummary } from '../../../../utils/scoringHelpers'
+import { useAuthStore } from '../../../../stores/authStore'
 
 interface Step4Props {
   state: WizardState
@@ -25,6 +27,7 @@ export default function Step4Scoring({ state, actions }: Step4Props) {
   const [loading, setLoading] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [modalVisible, setModalVisible] = useState(false)
+  const { user } = useAuthStore()
 
   const currentItemId = state.selectedItemIds[currentIndex]
   const currentItem = items.find(i => i.item_id === currentItemId)
@@ -62,7 +65,8 @@ export default function Step4Scoring({ state, actions }: Step4Props) {
   }
 
   /**
-   * scoring_template_id가 있는 항목들의 기본 설정을 자동으로 로드
+   * 역량 템플릿(CompetencyItem)의 Phase 4/5 필드에서 기본 설정을 자동 로드
+   * Fallback: 레거시 scoring_template_id 기반
    */
   const loadDefaultConfigs = async (orderedItems: CompetencyItem[]) => {
     let autoConfiguredCount = 0
@@ -73,7 +77,54 @@ export default function Step4Scoring({ state, actions }: Step4Props) {
         continue
       }
 
-      // scoring_template_id가 있으면 해당 템플릿 기반으로 기본 설정 생성
+      // Phase 4/5: CompetencyItem에서 직접 읽음 (우선)
+      if (item.has_scoring && item.grade_type && item.matching_type) {
+        let gradeMappings: Array<{ value: string | number; score: number; label?: string }> = []
+        try {
+          if (item.grade_mappings) {
+            const parsed = typeof item.grade_mappings === 'string'
+              ? JSON.parse(item.grade_mappings) : item.grade_mappings
+            if (Array.isArray(parsed)) {
+              gradeMappings = parsed.map((m: any) => ({
+                value: m.value ?? '',
+                score: m.score ?? 0,
+                ...(m.label ? { label: m.label } : {})
+              }))
+            }
+          }
+        } catch {
+          console.warn(`grade_mappings 파싱 실패 (${item.item_name})`)
+        }
+
+        // grade_edit_mode에 따라 fixedGrades 설정
+        const editMode = item.grade_edit_mode || 'flexible'
+        const isFixed = editMode === 'fixed'
+        const isScoreOnly = editMode === 'score_only'
+
+        const defaultConfig: ScoringConfig = {
+          itemId: item.item_id,
+          matchingType: (item.matching_type?.toUpperCase() || 'GRADE') as MatchingType,
+          gradeType: (item.grade_type || 'string') as GradeType,
+          valueSource: (item.scoring_value_source?.toUpperCase() || 'SUBMITTED') as ValueSource,
+          sourceField: item.scoring_source_field || undefined,
+          extractPattern: item.extract_pattern || undefined,
+          aggregationMode: gradeMappings.length > 0 ? AggregationMode.BEST_MATCH : AggregationMode.FIRST,
+          gradeMappings: gradeMappings.map(m => ({
+            ...m,
+            fixed: isFixed || isScoreOnly  // fixed/score_only 모드에서 등급 고정
+          })),
+          fixedGrades: isFixed || isScoreOnly,
+          allowAddGrades: !isFixed && !isScoreOnly,
+          proofRequired: item.proof_required as any,
+          configured: true
+        }
+
+        actions.updateScoringConfig(item.item_id, defaultConfig)
+        autoConfiguredCount++
+        continue
+      }
+
+      // 레거시 fallback: scoring_template_id
       if (item.scoring_template_id) {
         try {
           const template = await scoringTemplateService.getById(item.scoring_template_id)
@@ -98,7 +149,6 @@ export default function Step4Scoring({ state, actions }: Step4Props) {
           autoConfiguredCount++
         } catch (error) {
           console.warn(`템플릿 로드 실패 (${item.scoring_template_id}):`, error)
-          // 템플릿 로드 실패 시 건너뜀 (사용자가 수동 설정)
         }
       }
     }
@@ -342,6 +392,8 @@ export default function Step4Scoring({ state, actions }: Step4Props) {
           onOk={handleModalOk}
           onCancel={handleModalCancel}
           showTemplateSelection={true}  // 위저드 모드: 템플릿 선택 표시
+          gradeEditMode={currentItem.grade_edit_mode as 'fixed' | 'score_only' | 'flexible' | undefined}
+          isSuperAdmin={user?.roles?.includes('SUPER_ADMIN')}
         />
       )}
     </div>

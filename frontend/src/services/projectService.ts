@@ -254,6 +254,21 @@ export interface CompetencyItem {
   is_custom: boolean
   created_by: number | null
 
+  // Phase 4: 평가 설정 (역량 템플릿에서 직접 관리)
+  grade_type?: string | null
+  matching_type?: string | null
+  grade_edit_mode?: string | null  // fixed | score_only | flexible
+  evaluation_method?: string | null
+  data_source?: string | null
+  has_scoring?: boolean
+  grade_mappings?: string | null  // JSON string
+  proof_required?: string | null
+
+  // Phase 5: 점수 소스 설정
+  scoring_value_source?: string | null
+  scoring_source_field?: string | null
+  extract_pattern?: string | null
+
   // Fields
   fields: CompetencyItemField[]
 }

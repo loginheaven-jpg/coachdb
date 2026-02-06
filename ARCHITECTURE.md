@@ -1922,6 +1922,58 @@ item = CompetencyItem(
 | PROJECT_MANAGER | 조회만 | 조회만 | grade_edit_mode 범위 내 수정 |
 | COACH | 조회만 | 조회만 | 조회만 |
 
+### 역량 템플릿 ↔ 과제 생성 연계 (2026-02-07)
+
+#### 과제 생성 흐름 (위저드)
+
+```
+Step 3: 항목 선택 → Step 4: 등급 설정 (자동 로드)
+    │                      │
+    │                      ├── CompetencyItem.has_scoring == true?
+    │                      │   → grade_type, matching_type, grade_mappings에서 ScoringConfig 자동 구성
+    │                      │   → grade_edit_mode에 따라 편집 제한 적용
+    │                      │
+    │                      └── Fallback: scoring_template_id → 레거시 scoringTemplateService
+    │
+    └── handleComplete() → buildScoringCriteria()
+        → GRADE 타입: 단일 ScoringCriteria, expected_value에 JSON config
+          {"type":"string","grades":[{"value":"KSC","score":30},...]}"
+        → 백엔드 match_grade_value()가 json.loads(expected_value)로 파싱
+```
+
+#### buildScoringCriteria GRADE 포맷
+
+**프론트엔드 → 백엔드 전송 형식** (단일 ScoringCriteria):
+```json
+{
+  "matching_type": "GRADE",
+  "expected_value": "{\"type\":\"string\",\"grades\":[{\"value\":\"KSC\",\"score\":30},{\"value\":\"KPC\",\"score\":20}]}",
+  "score": 30,
+  "value_source": "USER_FIELD",
+  "source_field": "coach_certification_number",
+  "extract_pattern": "^(.{3})"
+}
+```
+
+#### grade_edit_mode 프론트엔드 적용
+
+- `GradeConfigModal`에 `gradeEditMode` + `isSuperAdmin` props 추가
+- **fixed**: 등급 유형/값/점수 모두 읽기 전용
+- **score_only**: 등급 유형/값 잠금, 점수만 수정 가능
+- **flexible**: 모든 편집 가능
+- **SUPER_ADMIN**: 항상 flexible (effectiveEditMode 계산)
+
+#### 백엔드 add_project_item 자동 활용
+
+- ScoringCriteria 생성 시 `value_source`, `source_field`, `extract_pattern`이
+  프론트엔드에서 비어 있으면 CompetencyItem의 Phase 5 필드에서 자동 복사
+
+#### 사용자 가입 검증
+
+- `coach_certification_number` 포맷: `^(KSC|KPC|KAC)\d{3,6}$`
+- 프론트엔드(RegisterPage, ProfileEditPage): Ant Design Form rules
+- 백엔드(UserRegister, UserUpdate): Pydantic field_validator
+
 ---
 
 ## 주요 비즈니스 로직

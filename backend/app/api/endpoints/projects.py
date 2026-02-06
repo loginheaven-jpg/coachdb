@@ -1975,19 +1975,28 @@ async def add_project_item(
 
         print(f"[ADD-ITEM] Step 5: Adding {len(item_data.scoring_criteria)} scoring criteria")
         # Add scoring criteria
+        # 역량 템플릿(CompetencyItem)에서 scoring 기본값 자동 적용
+        ci_value_source = competency_item.scoring_value_source or "submitted"
+        ci_source_field = competency_item.scoring_source_field
+        ci_extract_pattern = competency_item.extract_pattern
+
         for i, criteria_data in enumerate(item_data.scoring_criteria):
-            print(f"[ADD-ITEM] Adding criteria {i+1}: type={criteria_data.matching_type}, value={criteria_data.expected_value}, score={criteria_data.score}")
+            # 프론트엔드에서 전달하지 않았으면 CompetencyItem 기본값 사용
+            effective_value_source = criteria_data.value_source or ci_value_source
+            effective_source_field = criteria_data.source_field or ci_source_field
+            effective_extract_pattern = criteria_data.extract_pattern or ci_extract_pattern
+
+            print(f"[ADD-ITEM] Adding criteria {i+1}: type={criteria_data.matching_type}, value_source={effective_value_source}, score={criteria_data.score}")
 
             criteria = ScoringCriteria(
                 project_item_id=new_item.project_item_id,
                 matching_type=criteria_data.matching_type,
                 expected_value=criteria_data.expected_value,
                 score=criteria_data.score,
-                # GRADE 타입용 필드 추가
-                value_source=criteria_data.value_source,
-                source_field=criteria_data.source_field,
-                extract_pattern=criteria_data.extract_pattern
-                # aggregation_mode는 nullable이므로 생략 (DB 컬럼 생성 전까지)
+                # GRADE 타입용 필드: 역량 템플릿 기본값 자동 적용
+                value_source=effective_value_source,
+                source_field=effective_source_field,
+                extract_pattern=effective_extract_pattern
             )
             db.add(criteria)
         print(f"[ADD-ITEM] Step 5 OK: Scoring criteria added")

@@ -42,6 +42,8 @@ interface GradeConfigModalProps {
   onOk: (config: ScoringConfig) => void
   onCancel: () => void
   showTemplateSelection?: boolean  // 위저드에서만 true
+  gradeEditMode?: 'fixed' | 'score_only' | 'flexible'  // 역량 템플릿의 편집 제한
+  isSuperAdmin?: boolean  // SUPER_ADMIN은 항상 제한 없음
 }
 
 export default function GradeConfigModal({
@@ -52,8 +54,15 @@ export default function GradeConfigModal({
   initialConfig,
   onOk,
   onCancel,
-  showTemplateSelection = false
+  showTemplateSelection = false,
+  gradeEditMode = 'flexible',
+  isSuperAdmin = false
 }: GradeConfigModalProps) {
+  // grade_edit_mode 적용: SUPER_ADMIN은 항상 flexible
+  const effectiveEditMode = isSuperAdmin ? 'flexible' : (gradeEditMode || 'flexible')
+  // fixed: 전부 읽기 전용 / score_only: 점수만 수정 / flexible: 모두 수정
+  const isGradeStructureLocked = effectiveEditMode === 'fixed' || effectiveEditMode === 'score_only'
+  const isScoreLocked = effectiveEditMode === 'fixed'
   const [config, setConfig] = useState<ScoringConfig>({
     itemId,
     matchingType: MatchingType.EXACT,
@@ -292,6 +301,17 @@ export default function GradeConfigModal({
           />
         )}
 
+        {/* grade_edit_mode 안내 */}
+        {effectiveEditMode !== 'flexible' && (
+          <Alert
+            type="warning"
+            message={effectiveEditMode === 'fixed'
+              ? '이 항목은 역량 템플릿에서 등급 구조와 점수가 고정되어 있습니다 (읽기 전용)'
+              : '이 항목은 역량 템플릿에서 등급 구조가 고정되어 있습니다 (점수만 수정 가능)'}
+            showIcon
+          />
+        )}
+
         {/* 1. 등급 유형 */}
         <div>
           <label style={{ fontWeight: 'bold', display: 'block', marginBottom: 8 }}>
@@ -300,7 +320,7 @@ export default function GradeConfigModal({
           <Radio.Group
             value={config.gradeType}
             onChange={(e) => handleGradeTypeChange(e.target.value)}
-            disabled={config.fixedGrades}
+            disabled={config.fixedGrades || isGradeStructureLocked}
           >
             <Space direction="vertical">
               <Radio value={GradeType.STRING}>문자열 (예: KSC, KAC)</Radio>
@@ -321,7 +341,7 @@ export default function GradeConfigModal({
               style={{ width: '100%' }}
               value={config.matchingType}
               onChange={(value) => setConfig(prev => ({ ...prev, matchingType: value }))}
-              disabled={config.fixedGrades}
+              disabled={config.fixedGrades || isGradeStructureLocked}
             >
               {MATCHING_TYPES_BY_GRADE[config.gradeType].map(type => (
                 <Select.Option key={type} value={type}>
@@ -419,9 +439,9 @@ export default function GradeConfigModal({
           <div>
             <label style={{ fontWeight: 'bold', display: 'block', marginBottom: 8 }}>
               등급별 점수 ({config.gradeMappings?.length || 0}개)
-              {config.fixedGrades && (
+              {(config.fixedGrades || isGradeStructureLocked) && (
                 <span style={{ color: '#999', fontSize: 12, marginLeft: 8 }}>
-                  (점수만 수정 가능)
+                  {isScoreLocked ? '(읽기 전용)' : '(점수만 수정 가능)'}
                 </span>
               )}
             </label>
@@ -446,7 +466,7 @@ export default function GradeConfigModal({
                       placeholder="값"
                       value={Number(mapping.value)}
                       onChange={(value) => handleUpdateGrade(index, 'value', value || 0)}
-                      disabled={mapping.fixed}
+                      disabled={mapping.fixed || isGradeStructureLocked}
                     />
                   ) : (
                     <Input
@@ -454,7 +474,7 @@ export default function GradeConfigModal({
                       placeholder="등급/값 (예: KSC)"
                       value={String(mapping.value)}
                       onChange={(e) => handleUpdateGrade(index, 'value', e.target.value)}
-                      disabled={mapping.fixed}
+                      disabled={mapping.fixed || isGradeStructureLocked}
                     />
                   )}
 
@@ -470,6 +490,7 @@ export default function GradeConfigModal({
                     precision={0}
                     max={maxScore}
                     min={0}
+                    disabled={isScoreLocked}
                   />
 
                   {/* 라벨 */}
@@ -480,7 +501,7 @@ export default function GradeConfigModal({
                   )}
 
                   {/* 삭제 버튼 */}
-                  {!mapping.fixed && (
+                  {!mapping.fixed && !isGradeStructureLocked && (
                     <Button
                       danger
                       size="small"
@@ -492,7 +513,7 @@ export default function GradeConfigModal({
               ))}
 
               {/* 등급 추가 버튼 */}
-              {(!config.fixedGrades || config.allowAddGrades) && (
+              {(!config.fixedGrades || config.allowAddGrades) && !isGradeStructureLocked && (
                 <Button
                   type="dashed"
                   icon={<PlusOutlined />}

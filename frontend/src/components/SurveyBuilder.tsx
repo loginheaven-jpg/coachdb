@@ -167,7 +167,32 @@ function getMaxGradeScore(
 
 // 항목 템플릿에 따른 등급 템플릿 매핑
 function getGradeTemplate(item: CompetencyItem): GradeTemplateConfig | null {
-  // 항목 템플릿으로 매핑
+  // Phase 4/5: CompetencyItem의 grade_type + grade_mappings 우선 사용
+  if (item.has_scoring && item.grade_type && item.grade_mappings) {
+    try {
+      const mappings = typeof item.grade_mappings === 'string'
+        ? JSON.parse(item.grade_mappings) : item.grade_mappings
+      if (Array.isArray(mappings) && mappings.length > 0) {
+        // value_source 변환: 소문자 DB값 → 대문자 enum값
+        let valueSource = ValueSourceType.SUBMITTED
+        if (item.scoring_value_source === 'user_field') valueSource = ValueSourceType.USER_FIELD
+        else if (item.scoring_value_source === 'json_field') valueSource = ValueSourceType.JSON_FIELD
+
+        return {
+          type: (item.grade_type === 'numeric' ? 'numeric' : 'string') as 'string' | 'numeric',
+          value_source: valueSource,
+          source_field: item.scoring_source_field || undefined,
+          extract_pattern: item.extract_pattern || undefined,
+          grades: mappings,
+          description: item.description || ''
+        }
+      }
+    } catch {
+      // JSON 파싱 실패 시 fallback
+    }
+  }
+
+  // Legacy: 항목 템플릿으로 매핑
   if (item.template) {
     const templateKey = item.template.toLowerCase()
     if (GRADE_TEMPLATES[templateKey]) {

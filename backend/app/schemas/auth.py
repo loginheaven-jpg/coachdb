@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
 from typing import Optional, List
 from datetime import datetime
+import re
 from app.models.user import UserRole, UserStatus
 
 
@@ -30,6 +31,14 @@ class UserRegister(BaseModel):
             raise ValueError('Password must contain at least one digit')
         if not any(char.isalpha() for char in v):
             raise ValueError('Password must contain at least one letter')
+        return v
+
+    @field_validator('coach_certification_number')
+    @classmethod
+    def validate_coach_certification_number(cls, v):
+        if v is not None and v.strip():
+            if not re.match(r'^(KSC|KPC|KAC)\d{3,6}$', v.strip()):
+                raise ValueError('코치 자격번호는 KSC/KPC/KAC로 시작하고 숫자 3~6자리가 뒤따라야 합니다 (예: KPC03669)')
         return v
 
 
@@ -67,6 +76,14 @@ class UserUpdate(BaseModel):
     in_person_coaching_area: Optional[str] = Field(default=None, max_length=500)
     coach_certification_number: Optional[str] = Field(default=None, max_length=50)
     coaching_fields: Optional[List[str]] = Field(default=None)
+
+    @field_validator('coach_certification_number')
+    @classmethod
+    def validate_coach_certification_number(cls, v):
+        if v is not None and v.strip():
+            if not re.match(r'^(KSC|KPC|KAC)\d{3,6}$', v.strip()):
+                raise ValueError('코치 자격번호는 KSC/KPC/KAC로 시작하고 숫자 3~6자리가 뒤따라야 합니다 (예: KPC03669)')
+        return v
     introduction: Optional[str] = Field(default=None)  # 자기소개
 
 

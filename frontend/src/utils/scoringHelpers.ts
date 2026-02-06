@@ -18,16 +18,41 @@ import {
  */
 export function buildScoringCriteria(config: ScoringConfig): ScoringCriteria[] {
   if (config.matchingType === MatchingType.GRADE && config.gradeMappings) {
-    // GRADE 타입: 각 등급을 개별 criteria로 변환
-    return config.gradeMappings.map(mapping => ({
+    // GRADE 타입: 단일 criteria, expected_value에 JSON config
+    // 백엔드 match_grade_value()가 JSON.parse(expected_value)로 파싱함
+    const gradeConfig: Record<string, any> = {
+      type: config.gradeType || GradeType.STRING,
+      grades: config.gradeMappings.map(m => ({
+        value: m.value,
+        score: m.score,
+        ...(m.label ? { label: m.label } : {})
+      }))
+    }
+    // file_exists 타입은 grades를 object로 변환 (exists/none)
+    if (config.gradeType === GradeType.FILE_EXISTS && config.gradeMappings.length >= 2) {
+      const existsMapping = config.gradeMappings.find(m => String(m.value) === 'exists' || String(m.value) === '있음')
+      const noneMapping = config.gradeMappings.find(m => String(m.value) === 'none' || String(m.value) === '없음')
+      gradeConfig.grades = {
+        exists: existsMapping?.score || 0,
+        none: noneMapping?.score || 0
+      }
+    }
+    // multi_select 타입은 mode 추가
+    if (config.gradeType === GradeType.MULTI_SELECT) {
+      gradeConfig.mode = 'contains'  // 기본값
+    }
+
+    const maxScore = Math.max(...config.gradeMappings.map(m => m.score), 0)
+
+    return [{
       matching_type: MatchingType.GRADE,
-      expected_value: String(mapping.value),
-      score: mapping.score,
+      expected_value: JSON.stringify(gradeConfig),
+      score: maxScore,
       value_source: config.valueSource,
       source_field: config.sourceField,
       extract_pattern: config.extractPattern,
       aggregation_mode: config.aggregationMode
-    }))
+    }]
   } else {
     // EXACT, CONTAINS, RANGE: 단일 criteria
     return [{
@@ -245,17 +270,44 @@ export function parseScoringCriteria(
   const matchingType = firstCriteria.matching_type as MatchingType
 
   if (matchingType === MatchingType.GRADE) {
-    // GRADE 타입: 여러 criteria를 gradeMappings로 변환
+    // GRADE 타입: 단일 criteria의 expected_value에서 JSON config 파싱
+    let gradeMappings: Array<{ value: string | number; score: number; label?: string }> = []
+    let gradeType: GradeType | undefined
+
+    try {
+      const config = JSON.parse(firstCriteria.expected_value || '{}')
+      gradeType = config.type as GradeType
+
+      if (config.type === 'file_exists' && config.grades && !Array.isArray(config.grades)) {
+        // file_exists: {exists: N, none: N} → array 변환
+        gradeMappings = [
+          { value: 'exists', score: config.grades.exists || 0, label: '있음' },
+          { value: 'none', score: config.grades.none || 0, label: '없음' }
+        ]
+      } else if (Array.isArray(config.grades)) {
+        gradeMappings = config.grades.map((g: any) => ({
+          value: g.value ?? '',
+          score: g.score ?? 0,
+          ...(g.label ? { label: g.label } : {})
+        }))
+      }
+    } catch {
+      // 레거시 호환: JSON 파싱 실패 시 여러 criteria에서 gradeMappings 복원
+      gradeMappings = criteria.map(c => ({
+        value: c.expected_value || '',
+        score: c.score || 0
+      }))
+    }
+
     return {
       itemId,
       matchingType: MatchingType.GRADE,
+      gradeType,
       valueSource: firstCriteria.value_source as ValueSource || ValueSource.SUBMITTED,
       sourceField: firstCriteria.source_field,
+      extractPattern: firstCriteria.extract_pattern,
       aggregationMode: firstCriteria.aggregation_mode as AggregationMode,
-      gradeMappings: criteria.map(c => ({
-        value: c.expected_value || '',
-        score: c.score || 0
-      })),
+      gradeMappings,
       configured: true
     }
   } else {

@@ -156,9 +156,15 @@ export default function RegisterPage() {
             <Form.Item
               label="코치 자격증 번호 (최상위 자격)"
               name="coach_certification_number"
-              rules={[{ required: true, message: '코치 자격증 번호를 입력해주세요!' }]}
+              rules={[
+                { required: true, message: '코치 자격증 번호를 입력해주세요!' },
+                {
+                  pattern: /^(KSC|KPC|KAC)\d{3,6}$/,
+                  message: 'KSC/KPC/KAC로 시작하는 자격번호를 입력하세요 (예: KPC03669)'
+                }
+              ]}
             >
-              <Input placeholder="최상위 자격증 번호" />
+              <Input placeholder="예: KPC03669" />
             </Form.Item>
           </div>
 
