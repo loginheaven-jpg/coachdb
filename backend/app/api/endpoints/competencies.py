@@ -796,14 +796,83 @@ async def create_competency_item(
 
     await db.commit()
 
-    # Reload with fields
+    # Reload with fields and unified_template
     from sqlalchemy.orm import selectinload
     result = await db.execute(
         select(CompetencyItem)
         .where(CompetencyItem.item_id == new_item.item_id)
-        .options(selectinload(CompetencyItem.fields))
+        .options(
+            selectinload(CompetencyItem.fields),
+            selectinload(CompetencyItem.unified_template)
+        )
     )
-    return result.scalar_one()
+    created_item = result.scalar_one()
+
+    # Build response dict (same pattern as GET/PUT)
+    response = {
+        "item_id": created_item.item_id,
+        "item_name": created_item.item_name or "",
+        "item_code": created_item.item_code or "",
+        "category": created_item.category.value if created_item.category else "ADDON",
+        "input_type": created_item.input_type.value if created_item.input_type else "text",
+        "is_active": created_item.is_active if created_item.is_active is not None else True,
+        "template": created_item.template,
+        "template_config": created_item.template_config,
+        "is_repeatable": created_item.is_repeatable if created_item.is_repeatable is not None else False,
+        "max_entries": created_item.max_entries,
+        "description": created_item.description,
+        "is_custom": created_item.is_custom if created_item.is_custom is not None else False,
+        "created_by": created_item.created_by,
+        "input_template_id": created_item.input_template_id,
+        "scoring_template_id": created_item.scoring_template_id,
+        "scoring_config_override": created_item.scoring_config_override,
+        "unified_template_id": created_item.unified_template_id,
+        "evaluation_method_override": created_item.evaluation_method_override,
+        # 역량항목 독립 필드
+        "grade_mappings": created_item.grade_mappings,
+        "proof_required": created_item.proof_required,
+        "help_text": created_item.help_text,
+        "placeholder": created_item.placeholder,
+        "verification_note": created_item.verification_note,
+        "auto_confirm_across_projects": created_item.auto_confirm_across_projects,
+        "field_label_overrides": created_item.field_label_overrides,
+        # Phase 4: 평가 설정 (역량항목 완전 독립화)
+        "grade_type": created_item.grade_type,
+        "matching_type": created_item.matching_type,
+        "grade_edit_mode": created_item.grade_edit_mode or "flexible",
+        "evaluation_method": created_item.evaluation_method or "standard",
+        "data_source": created_item.data_source or "form_input",
+        "has_scoring": created_item.grade_type is not None and created_item.matching_type is not None,
+        "fields": [
+            {
+                "field_id": f.field_id,
+                "field_name": f.field_name or "",
+                "field_label": f.field_label or "",
+                "field_type": f.field_type or "text",
+                "field_options": f.field_options,
+                "is_required": f.is_required if f.is_required is not None else True,
+                "display_order": f.display_order if f.display_order is not None else 0,
+                "placeholder": f.placeholder
+            } for f in (created_item.fields or [])
+        ],
+        "unified_template": None
+    }
+
+    if created_item.unified_template:
+        ut = created_item.unified_template
+        response["unified_template"] = {
+            "template_id": ut.template_id,
+            "template_name": ut.template_name,
+            "description": ut.description,
+            "data_source": ut.data_source,
+            "evaluation_method": ut.evaluation_method,
+            "grade_type": ut.grade_type,
+            "matching_type": ut.matching_type,
+            "has_scoring": ut.has_scoring(),
+            "is_certification": ut.is_certification_template()
+        }
+
+    return response
 
 
 @router.put("/items/{item_id}", response_model=CompetencyItemResponse)

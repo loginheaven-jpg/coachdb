@@ -1713,8 +1713,9 @@ CompetencyItem(
                               │ "복사 후 독립" (생성 시 1회 복사)
                               ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│  Tier 2: CompetencyItem (SUPER_ADMIN) — 모든 설정 직접 관리          │
-│  저장 후 템플릿과 완전 독립. 모든 평가/입력 설정을 직접 제어.          │
+│  Tier 2: CompetencyItem (SUPER_ADMIN) — 마스터 정의 (제약 없음)      │
+│  저장 후 프리셋과 독립. 수퍼어드민은 모든 항목을 자유롭게 편집.       │
+│  grade_edit_mode는 과제관리자의 제약만 정의. 수퍼어드민 자신은 무제약. │
 │                                                                     │
 │  ┌── 평가 설정 (Phase 4) ────┐  ┌── 복사 후 독립 ──────────────────┐│
 │  │ - grade_type              │  │ - grade_mappings                 ││
@@ -1772,24 +1773,26 @@ item = CompetencyItem(
 |------|------|------|----------|
 | **템플릿 전용** | fields_schema, layout_type, is_repeatable, aggregation_mode, scoring_value_source, scoring_source_field, extract_pattern, validation_rules | UnifiedTemplate | SUPER_ADMIN만 |
 | **평가 설정 (독립화)** | grade_type, matching_type, grade_edit_mode, evaluation_method, data_source, has_scoring(computed) | CompetencyItem | SUPER_ADMIN |
-| **복사 후 독립** | grade_mappings, proof_required, help_text, placeholder | CompetencyItem | SUPER_ADMIN (grade_edit_mode 범위 내) |
-| **역량항목 전용** | verification_note, auto_confirm_across_projects, field_label_overrides | CompetencyItem | SUPER_ADMIN |
+| **복사 후 독립** | grade_mappings, proof_required, help_text, placeholder | CompetencyItem | SUPER_ADMIN (제약 없음) |
+| **역량항목 전용** | verification_note, auto_confirm_across_projects, field_label_overrides | CompetencyItem | SUPER_ADMIN (제약 없음) |
 | **프로젝트 설정** | max_score, is_required, scoring_criteria | ProjectCompetencyMapping | PROJECT_MANAGER (grade_edit_mode 범위 내) |
 
 ### grade_edit_mode 제어 로직
 
-역량항목의 `grade_edit_mode`가 모든 계층에서 등급 매핑 수정 권한을 결정합니다 (Phase 4에서 템플릿→역량항목으로 이동):
+**핵심 원칙: `grade_edit_mode`는 과제관리자(PROJECT_MANAGER)에 대한 제약 설정이다.**
 
-| grade_edit_mode | 등급 이름 수정 | 점수 수정 | 항목 추가/삭제 | 비고 |
-|-----------------|--------------|----------|--------------|------|
+- **SUPER_ADMIN**: 역량항목에서 모든 것을 자유롭게 편집 가능. `grade_edit_mode` 값에 관계없이 등급, 점수, 라벨 추가/삭제/수정 전부 가능.
+- **PROJECT_MANAGER**: 과제 설정(ProjectCompetencyMapping) 시 `grade_edit_mode`에 따라 제약을 받음.
+
+| grade_edit_mode | 과제관리자: 등급 이름 수정 | 과제관리자: 점수 수정 | 과제관리자: 항목 추가/삭제 | 비고 |
+|-----------------|--------------------------|---------------------|-------------------------|------|
 | `fixed` | ❌ | ❌ | ❌ | 완전 고정 (예: KCA 자격증) |
 | `score_only` | ❌ | ✅ | ❌ | 점수만 조정 가능 |
 | `flexible` | ✅ | ✅ | ✅ | 자유롭게 수정 가능 (기본값) |
 
-**고정된 템플릿 (grade_edit_mode="fixed")**:
-- `kca_certification`: KSC(30), KAC(20), KPC(10) 고정
-- `by_exists`: 유자격(20), 무자격(0) 고정
-- `counseling_by_exists`: 유자격(20), 무자격(0) 고정
+**고정 설정 예시 (grade_edit_mode="fixed")**:
+- `KCA 자격증`: KSC(30), KAC(20), KPC(10) 고정
+- `유무 평가`: 유자격(20), 무자격(0) 고정
 
 ### DB 스키마 변경 (competency_items)
 

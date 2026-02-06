@@ -2322,26 +2322,24 @@ export default function AdminCompetencyItemsPage() {
                   </Col>
                 </Row>
 
-                <Form.Item name="grade_edit_mode" label="등급 수정 모드">
+                <Form.Item
+                  name="grade_edit_mode"
+                  label={<span>등급 수정 모드 <Tooltip title="과제관리자가 과제 설정 시 등급매핑을 얼마나 수정할 수 있는지 결정합니다. 수퍼어드민은 항상 자유 편집 가능합니다."><QuestionCircleOutlined /></Tooltip></span>}
+                >
                   <Select options={GRADE_EDIT_MODE_OPTIONS} />
                 </Form.Item>
 
                 {/* 등급 매핑 편집 UI */}
                 <Form.Item noStyle shouldUpdate={(prev, curr) =>
                   prev.grade_type !== curr.grade_type ||
-                  prev.matching_type !== curr.matching_type ||
-                  prev.grade_edit_mode !== curr.grade_edit_mode
+                  prev.matching_type !== curr.matching_type
                 }>
                   {({ getFieldValue }) => {
                     const gradeType = getFieldValue('grade_type')
                     const matchingType = getFieldValue('matching_type')
-                    const gradeEditMode = getFieldValue('grade_edit_mode') || 'flexible'
 
                     if (!gradeType || !matchingType) return null
 
-                    const isFixed = gradeEditMode === 'fixed'
-                    const isScoreOnly = gradeEditMode === 'score_only'
-                    const isFlexible = gradeEditMode === 'flexible'
                     const isFileExists = gradeType === 'file_exists'
                     const isNumeric = gradeType === 'numeric'
 
@@ -2349,13 +2347,10 @@ export default function AdminCompetencyItemsPage() {
                       <div className="border rounded p-3 mb-3 bg-gray-50">
                         <div className="flex justify-between items-center mb-2">
                           <Text strong>등급 매핑 ({createGradeMappings.length}개)</Text>
-                          <Tag color={isFixed ? 'red' : isScoreOnly ? 'orange' : 'green'}>
-                            {GRADE_EDIT_MODE_OPTIONS.find(o => o.value === gradeEditMode)?.label || gradeEditMode}
-                          </Tag>
                         </div>
 
                         {/* 헤더 행 */}
-                        <div style={{ display: 'flex', gap: 8, marginBottom: 4, paddingRight: isFlexible && !isFileExists ? 32 : 0 }}>
+                        <div style={{ display: 'flex', gap: 8, marginBottom: 4, paddingRight: 32 }}>
                           <Text type="secondary" style={{ flex: 3, fontSize: 12 }}>등급/값</Text>
                           <Text type="secondary" style={{ flex: 2, fontSize: 12 }}>점수</Text>
                           <Text type="secondary" style={{ flex: 4, fontSize: 12 }}>설명</Text>
@@ -2365,15 +2360,21 @@ export default function AdminCompetencyItemsPage() {
                           {createGradeMappings.map((mapping, index) => (
                             <div key={index} style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'center' }}>
                               {isFileExists ? (
-                                <Tag color={String(mapping.value) === 'true' ? 'green' : 'default'} style={{ flex: 3, textAlign: 'center', margin: 0 }}>
-                                  {String(mapping.value) === 'true' ? '있음' : '없음'}
-                                </Tag>
+                                <Select
+                                  size="small"
+                                  value={String(mapping.value)}
+                                  onChange={v => updateCreateGradeMapping(index, 'value', v)}
+                                  style={{ flex: 3 }}
+                                  options={[
+                                    { label: '있음 (true)', value: 'true' },
+                                    { label: '없음 (false)', value: 'false' }
+                                  ]}
+                                />
                               ) : isNumeric ? (
                                 <InputNumber
                                   size="small"
                                   value={typeof mapping.value === 'number' ? mapping.value : Number(mapping.value) || 0}
                                   onChange={v => updateCreateGradeMapping(index, 'value', v ?? 0)}
-                                  disabled={!isFlexible}
                                   placeholder="값"
                                   style={{ flex: 3 }}
                                 />
@@ -2382,7 +2383,6 @@ export default function AdminCompetencyItemsPage() {
                                   size="small"
                                   value={String(mapping.value ?? '')}
                                   onChange={e => updateCreateGradeMapping(index, 'value', e.target.value)}
-                                  disabled={!isFlexible}
                                   placeholder="값"
                                   style={{ flex: 3 }}
                                 />
@@ -2391,7 +2391,6 @@ export default function AdminCompetencyItemsPage() {
                                 size="small"
                                 value={mapping.score}
                                 onChange={v => updateCreateGradeMapping(index, 'score', v ?? 0)}
-                                disabled={isFixed}
                                 style={{ flex: 2 }}
                                 addonAfter="점"
                               />
@@ -2399,36 +2398,31 @@ export default function AdminCompetencyItemsPage() {
                                 size="small"
                                 value={mapping.label || ''}
                                 onChange={e => updateCreateGradeMapping(index, 'label', e.target.value)}
-                                disabled={!isFlexible}
                                 placeholder="설명"
                                 style={{ flex: 4 }}
                               />
-                              {isFlexible && !isFileExists ? (
-                                <Button
-                                  type="text"
-                                  danger
-                                  size="small"
-                                  icon={<DeleteOutlined />}
-                                  onClick={() => removeCreateGradeMapping(index)}
-                                  style={{ flexShrink: 0 }}
-                                />
-                              ) : null}
+                              <Button
+                                type="text"
+                                danger
+                                size="small"
+                                icon={<DeleteOutlined />}
+                                onClick={() => removeCreateGradeMapping(index)}
+                                style={{ flexShrink: 0 }}
+                              />
                             </div>
                           ))}
                         </div>
 
-                        {isFlexible && !isFileExists && (
-                          <Button
-                            size="small"
-                            type="dashed"
-                            icon={<PlusOutlined />}
-                            onClick={addCreateGradeMapping}
-                            className="mt-2"
-                            style={{ width: '100%' }}
-                          >
-                            등급 추가
-                          </Button>
-                        )}
+                        <Button
+                          size="small"
+                          type="dashed"
+                          icon={<PlusOutlined />}
+                          onClick={addCreateGradeMapping}
+                          className="mt-2"
+                          style={{ width: '100%' }}
+                        >
+                          등급 추가
+                        </Button>
                       </div>
                     )
                   }}
@@ -2636,26 +2630,24 @@ export default function AdminCompetencyItemsPage() {
                   </Col>
                 </Row>
 
-                <Form.Item name="grade_edit_mode" label="등급 수정 모드">
+                <Form.Item
+                  name="grade_edit_mode"
+                  label={<span>등급 수정 모드 <Tooltip title="과제관리자가 과제 설정 시 등급매핑을 얼마나 수정할 수 있는지 결정합니다. 수퍼어드민은 항상 자유 편집 가능합니다."><QuestionCircleOutlined /></Tooltip></span>}
+                >
                   <Select options={GRADE_EDIT_MODE_OPTIONS} />
                 </Form.Item>
 
                 {/* 등급 매핑 편집 UI - grade_type과 matching_type이 모두 있을 때만 표시 */}
                 <Form.Item noStyle shouldUpdate={(prev, curr) =>
                   prev.grade_type !== curr.grade_type ||
-                  prev.matching_type !== curr.matching_type ||
-                  prev.grade_edit_mode !== curr.grade_edit_mode
+                  prev.matching_type !== curr.matching_type
                 }>
                   {({ getFieldValue }) => {
                     const gradeType = getFieldValue('grade_type')
                     const matchingType = getFieldValue('matching_type')
-                    const gradeEditMode = getFieldValue('grade_edit_mode') || 'flexible'
 
                     if (!gradeType || !matchingType) return null
 
-                    const isFixed = gradeEditMode === 'fixed'
-                    const isScoreOnly = gradeEditMode === 'score_only'
-                    const isFlexible = gradeEditMode === 'flexible'
                     const isFileExists = gradeType === 'file_exists'
                     const isNumeric = gradeType === 'numeric'
 
@@ -2663,13 +2655,10 @@ export default function AdminCompetencyItemsPage() {
                       <div className="border rounded p-3 mb-3 bg-gray-50">
                         <div className="flex justify-between items-center mb-2">
                           <Text strong>등급 매핑 ({itemGradeMappings.length}개)</Text>
-                          <Tag color={isFixed ? 'red' : isScoreOnly ? 'orange' : 'green'}>
-                            {GRADE_EDIT_MODE_OPTIONS.find(o => o.value === gradeEditMode)?.label || gradeEditMode}
-                          </Tag>
                         </div>
 
                         {/* 헤더 행 */}
-                        <div style={{ display: 'flex', gap: 8, marginBottom: 4, paddingRight: isFlexible && !isFileExists ? 32 : 0 }}>
+                        <div style={{ display: 'flex', gap: 8, marginBottom: 4, paddingRight: 32 }}>
                           <Text type="secondary" style={{ flex: 3, fontSize: 12 }}>등급/값</Text>
                           <Text type="secondary" style={{ flex: 2, fontSize: 12 }}>점수</Text>
                           <Text type="secondary" style={{ flex: 4, fontSize: 12 }}>설명</Text>
@@ -2678,17 +2667,22 @@ export default function AdminCompetencyItemsPage() {
                         <div style={{ maxHeight: 240, overflowY: 'auto' }}>
                           {itemGradeMappings.map((mapping, index) => (
                             <div key={index} style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'center' }}>
-                              {/* 값(value) */}
                               {isFileExists ? (
-                                <Tag color={String(mapping.value) === 'true' ? 'green' : 'default'} style={{ flex: 3, textAlign: 'center', margin: 0 }}>
-                                  {String(mapping.value) === 'true' ? '있음' : '없음'}
-                                </Tag>
+                                <Select
+                                  size="small"
+                                  value={String(mapping.value)}
+                                  onChange={v => updateItemGradeMapping(index, 'value', v)}
+                                  style={{ flex: 3 }}
+                                  options={[
+                                    { label: '있음 (true)', value: 'true' },
+                                    { label: '없음 (false)', value: 'false' }
+                                  ]}
+                                />
                               ) : isNumeric ? (
                                 <InputNumber
                                   size="small"
                                   value={typeof mapping.value === 'number' ? mapping.value : Number(mapping.value) || 0}
                                   onChange={v => updateItemGradeMapping(index, 'value', v ?? 0)}
-                                  disabled={!isFlexible}
                                   placeholder="값"
                                   style={{ flex: 3 }}
                                 />
@@ -2697,57 +2691,46 @@ export default function AdminCompetencyItemsPage() {
                                   size="small"
                                   value={String(mapping.value ?? '')}
                                   onChange={e => updateItemGradeMapping(index, 'value', e.target.value)}
-                                  disabled={!isFlexible}
                                   placeholder="값"
                                   style={{ flex: 3 }}
                                 />
                               )}
-                              {/* 점수(score) */}
                               <InputNumber
                                 size="small"
                                 value={mapping.score}
                                 onChange={v => updateItemGradeMapping(index, 'score', v ?? 0)}
-                                disabled={isFixed}
                                 style={{ flex: 2 }}
                                 addonAfter="점"
                               />
-                              {/* 라벨(label) */}
                               <Input
                                 size="small"
                                 value={mapping.label || ''}
                                 onChange={e => updateItemGradeMapping(index, 'label', e.target.value)}
-                                disabled={!isFlexible}
                                 placeholder="설명"
                                 style={{ flex: 4 }}
                               />
-                              {/* 삭제 버튼 */}
-                              {isFlexible && !isFileExists ? (
-                                <Button
-                                  type="text"
-                                  danger
-                                  size="small"
-                                  icon={<DeleteOutlined />}
-                                  onClick={() => removeItemGradeMapping(index)}
-                                  style={{ flexShrink: 0 }}
-                                />
-                              ) : null}
+                              <Button
+                                type="text"
+                                danger
+                                size="small"
+                                icon={<DeleteOutlined />}
+                                onClick={() => removeItemGradeMapping(index)}
+                                style={{ flexShrink: 0 }}
+                              />
                             </div>
                           ))}
                         </div>
 
-                        {/* flexible 모드에서만 추가 버튼 */}
-                        {isFlexible && !isFileExists && (
-                          <Button
-                            size="small"
-                            type="dashed"
-                            icon={<PlusOutlined />}
-                            onClick={addItemGradeMapping}
-                            className="mt-2"
-                            style={{ width: '100%' }}
-                          >
-                            등급 추가
-                          </Button>
-                        )}
+                        <Button
+                          size="small"
+                          type="dashed"
+                          icon={<PlusOutlined />}
+                          onClick={addItemGradeMapping}
+                          className="mt-2"
+                          style={{ width: '100%' }}
+                        >
+                          등급 추가
+                        </Button>
                       </div>
                     )
                   }}
