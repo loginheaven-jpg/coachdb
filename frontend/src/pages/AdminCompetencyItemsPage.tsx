@@ -145,7 +145,7 @@ const FIELD_TYPE_OPTIONS = [
   { label: '파일', value: 'file' }
 ]
 
-export default function AdminCompetencyItemsPage() {
+export default function AdminCompetencyItemsPage({ embedded = false }: { embedded?: boolean }) {
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('items')
   const [loading, setLoading] = useState(false)
@@ -1969,17 +1969,19 @@ export default function AdminCompetencyItemsPage() {
   }
 
   return (
-    <div className="p-8">
-      <div className="flex justify-between items-center mb-4">
-        <Button
-          icon={<ArrowLeftOutlined />}
-          onClick={() => navigate('/dashboard')}
-        >
-          대시보드로 돌아가기
-        </Button>
-        <Title level={3} style={{ margin: 0 }}>시스템관리 &gt; 역량 템플릿</Title>
-        <div style={{ width: 200 }} />
-      </div>
+    <div className={embedded ? 'p-2' : 'p-8'}>
+      {!embedded && (
+        <div className="flex justify-between items-center mb-4">
+          <Button
+            icon={<ArrowLeftOutlined />}
+            onClick={() => navigate('/dashboard')}
+          >
+            대시보드로 돌아가기
+          </Button>
+          <Title level={3} style={{ margin: 0 }}>시스템관리 &gt; 역량 템플릿</Title>
+          <div style={{ width: 200 }} />
+        </div>
+      )}
 
       <Card>
         <Tabs activeKey={activeTab} onChange={setActiveTab}>

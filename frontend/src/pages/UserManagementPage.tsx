@@ -15,7 +15,7 @@ import adminService, {
 
 const { Title, Text } = Typography
 
-export default function UserManagementPage() {
+export default function UserManagementPage({ embedded = false }: { embedded?: boolean }) {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [users, setUsers] = useState<UserListItem[]>([])
@@ -418,44 +418,47 @@ export default function UserManagementPage() {
   ]
 
   return (
-    <div className="p-8">
-      <div className="flex justify-between items-center mb-4">
-        <Title level={2} className="mb-0">사용자 및 시스템 관리</Title>
-        <Button
-          icon={<AppstoreOutlined />}
-          onClick={() => navigate('/admin/competency-items')}
-        >
-          역량 템플릿
-        </Button>
-      </div>
+    <div className={embedded ? 'p-2' : 'p-8'}>
+      {!embedded && (
+        <div className="flex justify-between items-center mb-4">
+          <Title level={2} className="mb-0">사용자 및 시스템 관리</Title>
+          <Button
+            icon={<AppstoreOutlined />}
+            onClick={() => navigate('/admin/competency-items')}
+          >
+            역량 템플릿
+          </Button>
+        </div>
+      )}
 
-        {/* System Config Section */}
-        <Card title={<><SettingOutlined /> 시스템 설정</>} className="mb-6">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Text>증빙 확정 필요 검토자 수:</Text>
-              <InputNumber
-                min={1}
-                max={10}
-                value={requiredVerifierCount}
-                onChange={(value) => setRequiredVerifierCount(value || 2)}
-                disabled={configLoading}
-              />
-              <Text type="secondary">명</Text>
+        {!embedded && (
+          <Card title={<><SettingOutlined /> 시스템 설정</>} className="mb-6">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Text>증빙 확정 필요 검토자 수:</Text>
+                <InputNumber
+                  min={1}
+                  max={10}
+                  value={requiredVerifierCount}
+                  onChange={(value) => setRequiredVerifierCount(value || 2)}
+                  disabled={configLoading}
+                />
+                <Text type="secondary">명</Text>
+              </div>
+              <Button
+                type="primary"
+                icon={<SaveOutlined />}
+                onClick={handleSaveConfig}
+                loading={configLoading}
+              >
+                저장
+              </Button>
             </div>
-            <Button
-              type="primary"
-              icon={<SaveOutlined />}
-              onClick={handleSaveConfig}
-              loading={configLoading}
-            >
-              저장
-            </Button>
-          </div>
-          <Text type="secondary" className="mt-2 block">
-            * 지정된 수 이상의 검토자가 컨펌하면 증빙이 확정됩니다.
-          </Text>
-        </Card>
+            <Text type="secondary" className="mt-2 block">
+              * 지정된 수 이상의 검토자가 컨펌하면 증빙이 확정됩니다.
+            </Text>
+          </Card>
+        )}
 
         {/* Role Requests Section */}
         {pendingCount > 0 && (
@@ -480,7 +483,7 @@ export default function UserManagementPage() {
           </Card>
         )}
 
-        <Divider />
+        {!embedded && <Divider />}
 
         {/* User Management Section */}
         <Card

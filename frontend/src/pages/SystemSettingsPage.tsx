@@ -5,7 +5,7 @@ import adminService, { SystemConfig, CONFIG_KEYS } from '../services/adminServic
 
 const { Title, Text } = Typography
 
-export default function SystemSettingsPage() {
+export default function SystemSettingsPage({ embedded = false }: { embedded?: boolean }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [verifierCount, setVerifierCount] = useState<number>(2)
@@ -65,8 +65,8 @@ export default function SystemSettingsPage() {
   }
 
   return (
-    <div className="p-6">
-      <Title level={3} className="mb-6">시스템 설정</Title>
+    <div className={embedded ? 'p-2' : 'p-6'}>
+      {!embedded && <Title level={3} className="mb-6">시스템 설정</Title>}
 
       <Card title="증빙검토 설정" className="mb-4">
         <Alert

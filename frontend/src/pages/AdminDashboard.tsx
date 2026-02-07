@@ -176,17 +176,8 @@ export default function AdminDashboard() {
                 과제 관리
               </Button>
               {isSuperAdmin() && (
-                <Button block onClick={() => navigate('/admin/users')}>
-                  사용자 및 시스템 관리
-                </Button>
-              )}
-              {isSuperAdmin() && (
-                <Button
-                  block
-                  icon={<SettingOutlined />}
-                  onClick={() => navigate('/admin/competency-items')}
-                >
-                  역량 템플릿
+                <Button block onClick={() => navigate('/admin')}>
+                  시스템관리
                 </Button>
               )}
               {isSuperAdmin() && (

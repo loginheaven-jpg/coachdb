@@ -24,6 +24,7 @@ import AdminScoringTemplatesPage from './pages/AdminScoringTemplatesPage'
 import UserManagementPage from './pages/UserManagementPage'
 import VerificationPage from './pages/VerificationPage'
 import SystemSettingsPage from './pages/SystemSettingsPage'
+import SystemAdminPage from './pages/SystemAdminPage'
 import ProtectedRoute from './components/shared/ProtectedRoute'
 import AppLayout from './components/layout/AppLayout'
 import { useAuthStore } from './stores/authStore'
@@ -333,14 +334,19 @@ function App() {
             </ProtectedRoute>
           }
         />
+        {/* 통합 시스템관리 (탭: 사용자관리, 시스템설정, 역량템플릿) */}
         <Route
-          path="/admin/competency-items"
+          path="/admin"
           element={
             <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
-              <AdminCompetencyItemsPage />
+              <SystemAdminPage />
             </ProtectedRoute>
           }
         />
+        {/* 레거시 라우트 → 통합 페이지로 리다이렉트 */}
+        <Route path="/admin/users" element={<Navigate to="/admin?tab=users" replace />} />
+        <Route path="/admin/settings" element={<Navigate to="/admin?tab=settings" replace />} />
+        <Route path="/admin/competency-items" element={<Navigate to="/admin?tab=templates" replace />} />
         <Route
           path="/admin/scoring-templates"
           element={
@@ -350,26 +356,10 @@ function App() {
           }
         />
         <Route
-          path="/admin/users"
-          element={
-            <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
-              <UserManagementPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
           path="/admin/verifications"
           element={
             <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'PROJECT_MANAGER', 'VERIFIER']}>
               <VerificationPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/settings"
-          element={
-            <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
-              <SystemSettingsPage />
             </ProtectedRoute>
           }
         />

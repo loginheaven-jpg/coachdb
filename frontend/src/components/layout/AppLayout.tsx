@@ -216,7 +216,7 @@ export default function AppLayout({
     topbarLinks.push({
       key: 'admin',
       label: '시스템관리',
-      path: '/admin/users',
+      path: '/admin',
       visible: true
     })
   }
@@ -239,7 +239,7 @@ export default function AppLayout({
     if (path.startsWith('/profile/edit')) return 'my-info'
     if (path.startsWith('/admin/verifications')) return 'verifications'
     if (path.startsWith('/evaluations')) return 'evaluations'
-    if (path.startsWith('/admin/users')) return 'admin'
+    if (path === '/admin' || path.startsWith('/admin/users') || path.startsWith('/admin/settings') || path.startsWith('/admin/competency-items')) return 'admin'
     return ''
   }
 
