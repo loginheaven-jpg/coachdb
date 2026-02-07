@@ -111,10 +111,8 @@ export default function ProjectListPage() {
       dataIndex: 'project_name',
       key: 'project_name',
       width: '30%',
-      render: (text: string, record: ProjectListItem) => (
-        <a onClick={() => navigate(`/projects/${record.project_id}`)}>
-          {text}
-        </a>
+      render: (text: string) => (
+        <span style={{ fontWeight: 500 }}>{text}</span>
       ),
     },
     {
