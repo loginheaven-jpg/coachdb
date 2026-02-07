@@ -235,8 +235,29 @@ function ProjectUnifiedPageInner() {
     return TAB_CONFIG.filter(tab => !tab.requiresRecruitment || isRecruitmentStarted)
   }, [isRecruitmentStarted])
 
-  // 탭 변경 핸들러
-  const handleTabChange = (key: string) => {
+  // 탭 변경 핸들러 - 과제정보 탭에서 나갈 때 자동저장
+  const handleTabChange = async (key: string) => {
+    if (activeTab === 'info' && key !== 'info') {
+      // 과제정보 탭에서 다른 탭으로 이동 시 자동저장 시도
+      const success = await new Promise<boolean>((resolve) => {
+        const timeout = setTimeout(() => {
+          window.removeEventListener('projectAutoSaveResult', resultHandler as EventListener)
+          resolve(false)
+        }, 15000)
+
+        const resultHandler = (e: Event) => {
+          clearTimeout(timeout)
+          window.removeEventListener('projectAutoSaveResult', resultHandler as EventListener)
+          resolve((e as CustomEvent).detail.success)
+        }
+
+        window.addEventListener('projectAutoSaveResult', resultHandler as EventListener)
+        window.dispatchEvent(new CustomEvent('projectAutoSave', { detail: { targetTab: key } }))
+      })
+
+      if (!success) return // 저장 실패 시 과제정보 탭 유지
+    }
+
     setActiveTab(key)
     setSearchParams({ tab: key }, { replace: true })
   }

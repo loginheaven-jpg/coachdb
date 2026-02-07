@@ -175,6 +175,63 @@ export default function ProjectInfoTab() {
     return () => window.removeEventListener('projectTempSave', handler)
   }, [handleTempSave])
 
+  // 탭 전환 시 자동저장 핸들러 (과제정보 → 다른 탭)
+  const handleAutoSave = useCallback(async (e: Event) => {
+    const targetTab = (e as CustomEvent).detail?.targetTab
+
+    if (isCreateMode) {
+      // 생성 모드: 유효성 검사 후 과제 생성 → 타겟 탭으로 이동
+      try {
+        const values = await form.validateFields()
+        setLocalSaving(true)
+        const createData = {
+          project_name: values.project_name,
+          project_type: values.project_type || ProjectType.OTHER,
+          description: values.description || null,
+          support_program_name: values.support_program_name || null,
+          recruitment_start_date: values.recruitment_period[0].format('YYYY-MM-DD'),
+          recruitment_end_date: values.recruitment_period[1].format('YYYY-MM-DD'),
+          project_start_date: values.project_period ? values.project_period[0].format('YYYY-MM-DD') : null,
+          project_end_date: values.project_period ? values.project_period[1].format('YYYY-MM-DD') : null,
+          project_manager_id: values.project_manager_id || null,
+          status: ProjectStatus.DRAFT
+        }
+        const newProject = await projectService.createProject(createData)
+        message.success('과제가 자동 저장되었습니다.')
+        window.dispatchEvent(new CustomEvent('projectAutoSaveResult', { detail: { success: true } }))
+        // 생성 후 수정 페이지의 타겟 탭으로 이동
+        window.location.href = `/projects/manage/${newProject.project_id}?tab=${targetTab || 'survey'}`
+      } catch (error: any) {
+        if (error.errorFields) {
+          message.warning('과제정보를 완전히 입력해주세요.')
+        } else {
+          message.error(error.response?.data?.detail || '저장에 실패했습니다.')
+        }
+        window.dispatchEvent(new CustomEvent('projectAutoSaveResult', { detail: { success: false } }))
+      } finally {
+        setLocalSaving(false)
+      }
+    } else {
+      // 수정 모드: 유효성 검사 후 저장
+      try {
+        const values = await form.validateFields()
+        const updateData = getUpdateData(values)
+        const success = await saveProject(updateData, true)
+        window.dispatchEvent(new CustomEvent('projectAutoSaveResult', { detail: { success } }))
+      } catch (error: any) {
+        if (error.errorFields) {
+          message.warning('과제정보를 완전히 입력해주세요.')
+        }
+        window.dispatchEvent(new CustomEvent('projectAutoSaveResult', { detail: { success: false } }))
+      }
+    }
+  }, [form, isCreateMode, saveProject])
+
+  useEffect(() => {
+    window.addEventListener('projectAutoSave', handleAutoSave)
+    return () => window.removeEventListener('projectAutoSave', handleAutoSave)
+  }, [handleAutoSave])
+
   // 현재 상태 표시 (백엔드는 대문자, 프론트엔드 맵은 소문자)
   const currentStatus = (project?.status || 'draft').toLowerCase()
   const statusInfo = STATUS_TAG_MAP[currentStatus] || { color: 'default', text: currentStatus }
