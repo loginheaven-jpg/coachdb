@@ -19,8 +19,11 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # 1. display_order 컬럼 추가
-    op.add_column('competency_items', sa.Column('display_order', sa.Integer(), nullable=False, server_default='999'))
+    # 1. display_order 컬럼 추가 (IF NOT EXISTS for idempotency)
+    op.execute("""
+        ALTER TABLE competency_items
+        ADD COLUMN IF NOT EXISTS display_order INTEGER NOT NULL DEFAULT 999
+    """)
 
     # 2. 기존 항목에 display_order 설정
     # === 자격증 그룹 (100번대) ===

@@ -45,6 +45,7 @@ if DATABASE_URL:
             ('description', 'TEXT'),
             ('is_custom', 'BOOLEAN DEFAULT FALSE'),
             ('created_by', 'INTEGER'),
+            ('display_order', 'INTEGER NOT NULL DEFAULT 999'),
         ]
         for col_name, col_type in competency_columns:
             try:
