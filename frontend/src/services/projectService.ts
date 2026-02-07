@@ -235,6 +235,7 @@ export interface CompetencyItem {
   category: string
   input_type: string  // Deprecated
   is_active: boolean
+  display_order: number
 
   // Template system (legacy)
   template: ItemTemplate | null

@@ -1837,7 +1837,7 @@ async def create_sample_project(
 
         # 5. Get all active competency items
         result = await db.execute(
-            select(CompetencyItem).where(CompetencyItem.is_active == True).order_by(CompetencyItem.item_id)
+            select(CompetencyItem).where(CompetencyItem.is_active == True).order_by(CompetencyItem.display_order)
         )
         all_items = result.scalars().all()
 

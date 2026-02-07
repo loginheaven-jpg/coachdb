@@ -101,6 +101,7 @@ export interface CompetencyItem {
   category: CompetencyCategory
   input_type: InputType
   is_active: boolean
+  display_order: number
 }
 
 export interface CoachCompetency {

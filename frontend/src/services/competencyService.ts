@@ -31,6 +31,7 @@ export interface CompetencyItem {
   category: string
   input_type: string
   is_active: boolean
+  display_order: number
   template: string | null
   template_config: string | null
   is_repeatable: boolean

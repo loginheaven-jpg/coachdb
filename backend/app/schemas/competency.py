@@ -71,6 +71,7 @@ class CompetencyItemResponse(BaseModel):
     category: str
     input_type: str  # Deprecated
     is_active: bool
+    display_order: int = 999
 
     # Template system (legacy)
     template: Optional[ItemTemplate] = None  # Deprecated: use unified_template_id

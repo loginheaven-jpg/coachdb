@@ -139,6 +139,7 @@ async def get_competency_items(
     result = await db.execute(
         select(CompetencyItem)
         .where(CompetencyItem.is_active == True)
+        .order_by(CompetencyItem.display_order)
         .options(
             selectinload(CompetencyItem.fields),
             selectinload(CompetencyItem.unified_template)
@@ -156,6 +157,7 @@ async def get_competency_items(
             "category": item.category.value if item.category else "ADDON",
             "input_type": item.input_type.value if item.input_type else "text",
             "is_active": item.is_active if item.is_active is not None else True,
+            "display_order": item.display_order if item.display_order is not None else 999,
             "template": item.template,
             "template_config": item.template_config,
             "is_repeatable": item.is_repeatable if item.is_repeatable is not None else False,
@@ -1238,7 +1240,7 @@ async def get_all_competency_items(
     query = select(CompetencyItem).options(
         selectinload(CompetencyItem.fields),
         selectinload(CompetencyItem.unified_template)
-    )
+    ).order_by(CompetencyItem.display_order)
 
     if not include_inactive:
         query = query.where(CompetencyItem.is_active == True)
@@ -1256,6 +1258,7 @@ async def get_all_competency_items(
             "category": item.category.value if item.category else "ADDON",
             "input_type": item.input_type.value if item.input_type else "text",
             "is_active": item.is_active if item.is_active is not None else True,
+            "display_order": item.display_order if item.display_order is not None else 999,
             "template": item.template,
             "template_config": item.template_config,
             "is_repeatable": item.is_repeatable if item.is_repeatable is not None else False,

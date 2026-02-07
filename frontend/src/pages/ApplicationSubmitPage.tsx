@@ -89,8 +89,8 @@ const USER_PROFILE_ITEM_CODES = [
   'BASIC_GENDER', 'BASIC_BIRTHDATE', 'DETAIL_COACHING_AREA', 'DETAIL_CERT_NUMBER'
 ]
 
-// 그룹 표시 순서 (프로필 세부정보와 일치)
-const GROUP_ORDER = ['자격증', '학력', '코칭연수', '코칭경력', '기타']
+// 그룹 표시 순서 (자격증 → 코칭경력 → 학력)
+const GROUP_ORDER = ['자격증', '코칭경력', '학력', '기타']
 
 // 카테고리를 그룹명으로 변환하는 헬퍼 함수
 const getCategoryGroup = (item: ProjectItem): string => {

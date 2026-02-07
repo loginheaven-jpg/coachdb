@@ -89,6 +89,7 @@ class CompetencyItem(Base):
     category = Column(Enum(CompetencyCategory), nullable=False)
     input_type = Column(Enum(InputType), nullable=False)  # Deprecated: use template
     is_active = Column(Boolean, nullable=False, default=True)
+    display_order = Column(Integer, nullable=False, default=999)  # 전역 정렬 순서
 
     # Template system (legacy - deprecated, use input_template_id instead)
     template = Column(Enum(ItemTemplate), nullable=True)  # Deprecated: use input_template_id
