@@ -1811,84 +1811,45 @@ export default function AdminCompetencyItemsPage({ embedded = false }: { embedde
 
   const columns = [
     {
-      title: '항목코드',
-      dataIndex: 'item_code',
-      key: 'item_code',
-      width: '12%',
-    },
-    {
       title: '항목명',
       dataIndex: 'item_name',
       key: 'item_name',
-      width: '18%',
+      width: '35%',
+      render: (name: string, record: CompetencyItem) => (
+        <span>{name} <Text type="secondary" style={{ fontSize: '12px' }}>({record.item_code})</Text></span>
+      ),
     },
     {
       title: '카테고리',
       dataIndex: 'category',
       key: 'category',
-      width: '8%',
+      width: '12%',
       render: (category: string) => getCategoryTag(category),
-    },
-    {
-      title: '연결 템플릿',
-      key: 'unified_template',
-      width: '20%',
-      render: (_: any, record: CompetencyItem) => {
-        // 통합 템플릿이 연결된 경우
-        if (record.unified_template) {
-          return (
-            <Space direction="vertical" size={0}>
-              <Tag color="blue" icon={<LinkOutlined />}>
-                {record.unified_template.template_name}
-              </Tag>
-              {record.unified_template.has_scoring ? (
-                <Text type="secondary" style={{ fontSize: '11px' }}>
-                  {unifiedTemplateService.getEvaluationMethodLabel(record.unified_template.evaluation_method)}
-                  {record.evaluation_method_override && ` → ${unifiedTemplateService.getEvaluationMethodLabel(record.evaluation_method_override)}`}
-                </Text>
-              ) : (
-                <Text type="secondary" style={{ fontSize: '11px' }}>입력만</Text>
-              )}
-            </Space>
-          )
-        }
-        // unified_template_id만 있는 경우 (아직 로딩 안됨)
-        if (record.unified_template_id) {
-          return <Tag color="blue">{record.unified_template_id}</Tag>
-        }
-        // Legacy: 이전 템플릿만 있는 경우
-        if (record.scoring_template_id || record.template) {
-          return (
-            <Tooltip title="Legacy 템플릿 (마이그레이션 필요)">
-              <Tag color="orange">
-                {record.scoring_template_id || record.template}
-              </Tag>
-            </Tooltip>
-          )
-        }
-        return <Text type="secondary">-</Text>
-      },
     },
     {
       title: '다중입력',
       dataIndex: 'is_repeatable',
       key: 'is_repeatable',
-      width: '8%',
+      width: '12%',
       render: (repeatable: boolean, record: CompetencyItem) => (
         repeatable ? <Tag color="blue">Yes ({record.max_entries || '∞'})</Tag> : <Tag>No</Tag>
       ),
     },
     {
-      title: '필드 수',
+      title: '필드수',
       key: 'fields_count',
-      width: '6%',
-      render: (_: any, record: CompetencyItem) => record.fields?.length || 0,
+      width: '10%',
+      render: (_: any, record: CompetencyItem) => (
+        <a onClick={() => openFieldModal(record)}>
+          {record.fields?.length || 0}개
+        </a>
+      ),
     },
     {
       title: '상태',
       dataIndex: 'is_active',
       key: 'is_active',
-      width: '6%',
+      width: '8%',
       render: (active: boolean) => (
         active ? <Tag color="green">활성</Tag> : <Tag color="red">비활성</Tag>
       ),
@@ -1896,7 +1857,7 @@ export default function AdminCompetencyItemsPage({ embedded = false }: { embedde
     {
       title: '작업',
       key: 'actions',
-      width: '21%',
+      width: '15%',
       render: (_: any, record: CompetencyItem) => (
         <Space>
           <Button
@@ -1905,13 +1866,6 @@ export default function AdminCompetencyItemsPage({ embedded = false }: { embedde
             onClick={() => openEditModal(record)}
           >
             수정
-          </Button>
-          <Button
-            type="link"
-            icon={<SettingOutlined />}
-            onClick={() => openFieldModal(record)}
-          >
-            필드
           </Button>
           {record.is_active && (
             <Popconfirm
