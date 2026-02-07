@@ -350,27 +350,44 @@ if DATABASE_URL:
             except Exception as e:
                 print(f"[WARN] category update {label}: {e}")
 
-        # === display_order 설정 (alembic 마이그레이션 실패 대비 fallback) ===
+        # === display_order 설정 ===
+        # 체계: 자격증=0xx, 코칭경력=1xx, 학력=2xx, 관리자=8xx, 기타=9xx
         display_order_updates = [
-            # 자격증 그룹 (100번대)
-            ("UPDATE competency_items SET display_order = 100 WHERE item_code = 'CERT_KCA'", "CERT_KCA=100"),
-            ("UPDATE competency_items SET display_order = 110 WHERE item_code = 'CERT_COUNSELING'", "CERT_COUNSELING=110"),
-            ("UPDATE competency_items SET display_order = 120 WHERE item_name LIKE '%상담%심리%종류%' AND display_order = 999", "상담심리종류=120"),
-            ("UPDATE competency_items SET display_order = 130 WHERE item_code = 'CERT_OTHER'", "CERT_OTHER=130"),
-            ("UPDATE competency_items SET display_order = 140 WHERE item_name LIKE '%기타자격%종류%' AND display_order = 999", "기타자격종류=140"),
-            # 코칭경력 그룹 (200번대)
-            ("UPDATE competency_items SET display_order = 200 WHERE item_code = 'EXP_COACHING_HOURS'", "EXP_COACHING_HOURS=200"),
-            ("UPDATE competency_items SET display_order = 210 WHERE item_code = 'EDUCATION_TRAINING'", "EDUCATION_TRAINING=210"),
-            ("UPDATE competency_items SET display_order = 220 WHERE item_code = 'COACHING_BUSINESS'", "COACHING_BUSINESS=220"),
-            ("UPDATE competency_items SET display_order = 230 WHERE item_code = 'COACHING_YOUTH'", "COACHING_YOUTH=230"),
-            # 학력 그룹 (300번대)
-            ("UPDATE competency_items SET display_order = 300 WHERE item_code = 'EDU_COACHING_FINAL'", "EDU_COACHING_FINAL=300"),
-            ("UPDATE competency_items SET display_order = 310 WHERE item_code = 'EDU_OTHER_FINAL'", "EDU_OTHER_FINAL=310"),
-            # 관리자전용 (800번대)
-            ("UPDATE competency_items SET display_order = 800 WHERE item_code = 'EVAL_PREVIOUS_PROJECT'", "EVAL_PREVIOUS_PROJECT=800"),
-            ("UPDATE competency_items SET display_order = 810 WHERE item_code = 'EVAL_COMMITTEE'", "EVAL_COMMITTEE=810"),
+            # 자격증 (0xx)
+            ("UPDATE competency_items SET display_order = 1 WHERE item_code = 'CERT_KCA'", "CERT_KCA=1"),
+            ("UPDATE competency_items SET display_order = 2 WHERE item_code = 'CERT_COUNSELING'", "CERT_COUNSELING=2"),
+            ("UPDATE competency_items SET display_order = 3 WHERE item_code = 'CERT_COUNSELING_COPY'", "CERT_COUNSELING_COPY=3"),
+            ("UPDATE competency_items SET display_order = 4 WHERE item_code = 'CERT_OTHER'", "CERT_OTHER=4"),
+            ("UPDATE competency_items SET display_order = 5 WHERE item_code = 'Kind_of_CERT_OTHER'", "Kind_of_CERT_OTHER=5"),
+            # 코칭경력 (1xx)
+            ("UPDATE competency_items SET display_order = 101 WHERE item_code = 'EXP_COACHING_HOURS'", "EXP_COACHING_HOURS=101"),
+            ("UPDATE competency_items SET display_order = 102 WHERE item_code = 'EDUCATION_TRAINING'", "EDUCATION_TRAINING=102"),
+            ("UPDATE competency_items SET display_order = 103 WHERE item_code = 'COACHING_BUSINESS'", "COACHING_BUSINESS=103"),
+            ("UPDATE competency_items SET display_order = 104 WHERE item_code = 'COACHING_YOUTH'", "COACHING_YOUTH=104"),
+            # 학력 (2xx)
+            ("UPDATE competency_items SET display_order = 201 WHERE item_code = 'EDU_COACHING_FINAL'", "EDU_COACHING_FINAL=201"),
+            ("UPDATE competency_items SET display_order = 202 WHERE item_code = 'EDU_OTHER_FINAL'", "EDU_OTHER_FINAL=202"),
+            # 관리자전용 (8xx)
+            ("UPDATE competency_items SET display_order = 801 WHERE item_code = 'EVAL_PREVIOUS_PROJECT'", "EVAL_PREVIOUS_PROJECT=801"),
+            ("UPDATE competency_items SET display_order = 802 WHERE item_code = 'EVAL_COMMITTEE'", "EVAL_COMMITTEE=802"),
         ]
         for sql, label in display_order_updates:
+            try:
+                cur.execute(sql)
+                if cur.rowcount > 0:
+                    print(f"[OK] display_order: {label} ({cur.rowcount} rows)")
+            except Exception as e:
+                print(f"[WARN] display_order {label}: {e}")
+
+        # === 카테고리별 fallback: 범위 밖 항목을 카테고리 끝에 배치 ===
+        category_fallbacks = [
+            ("UPDATE competency_items SET display_order = 90 WHERE category = 'CERTIFICATION' AND display_order NOT BETWEEN 0 AND 89", "CERTIFICATION fallback=90"),
+            ("UPDATE competency_items SET display_order = 190 WHERE category = 'EXPERIENCE' AND display_order NOT BETWEEN 100 AND 189", "EXPERIENCE fallback=190"),
+            ("UPDATE competency_items SET display_order = 290 WHERE category = 'EDUCATION' AND display_order NOT BETWEEN 200 AND 289", "EDUCATION fallback=290"),
+            ("UPDATE competency_items SET display_order = 890 WHERE category = 'DETAIL' AND display_order NOT BETWEEN 800 AND 889", "DETAIL fallback=890"),
+            ("UPDATE competency_items SET display_order = 990 WHERE category = 'OTHER' AND display_order NOT BETWEEN 900 AND 989", "OTHER fallback=990"),
+        ]
+        for sql, label in category_fallbacks:
             try:
                 cur.execute(sql)
                 if cur.rowcount > 0:
@@ -407,7 +424,7 @@ if DATABASE_URL:
                     grade_mappings, proof_required, field_label_overrides
                 ) VALUES (
                     '코칭관련 연수/교육', 'EDUCATION_TRAINING', 'EXPERIENCE', 'text', true,
-                    'text_file', true, 210,
+                    'text_file', true, 102,
                     'flexible', 'standard', 'form_input',
                     'submitted', false,
                     '[]', 'optional', '{}'

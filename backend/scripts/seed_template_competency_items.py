@@ -73,7 +73,7 @@ async def seed_template_items():
                     "template": ItemTemplate.SELECT,
                     "template_config": json.dumps({"options": ["우수", "양호", "미비"]}),
                     "is_repeatable": False,
-                    "display_order": 800,
+                    "display_order": 801,
                     "fields": [
                         {
                             "field_name": "score",
@@ -91,7 +91,7 @@ async def seed_template_items():
                     "category": CompetencyCategory.DETAIL,  # 관리자 전용 평가 항목
                     "template": ItemTemplate.SELECT,
                     "template_config": json.dumps({"options": ["우수", "양호", "미비"]}),
-                    "display_order": 810,
+                    "display_order": 802,
                     "is_repeatable": False,
                     "fields": [
                         {
@@ -113,7 +113,7 @@ async def seed_template_items():
                     "template": ItemTemplate.DEGREE,
                     "template_config": json.dumps({"degree_options": ["박사", "박사수료", "석사", "학사"]}),
                     "is_repeatable": False,
-                    "display_order": 300,
+                    "display_order": 201,
                     "fields": [
                         {
                             "field_name": "degree_level",
@@ -148,7 +148,7 @@ async def seed_template_items():
                     "category": CompetencyCategory.EDUCATION,
                     "template": ItemTemplate.DEGREE,
                     "template_config": json.dumps({"degree_options": ["박사", "박사수료", "석사", "학사"]}),
-                    "display_order": 310,
+                    "display_order": 202,
                     "is_repeatable": False,
                     "fields": [
                         {
@@ -186,7 +186,7 @@ async def seed_template_items():
                     "category": CompetencyCategory.CERTIFICATION,
                     "template": ItemTemplate.TEXT_FILE,
                     "is_repeatable": True,
-                    "display_order": 100,
+                    "display_order": 1,
                     "max_entries": None,
                     "fields": [
                         {
@@ -213,7 +213,7 @@ async def seed_template_items():
                     "template": ItemTemplate.TEXT_FILE,
                     "is_repeatable": True,
                     "max_entries": None,
-                    "display_order": 110,
+                    "display_order": 2,
                     "fields": [
                         {
                             "field_name": "cert_name",
@@ -238,7 +238,7 @@ async def seed_template_items():
                     "category": CompetencyCategory.EXPERIENCE,
                     "template": ItemTemplate.TEXT_FILE,
                     "is_repeatable": True,
-                    "display_order": 900,  # 비활성 대상
+                    "display_order": 190,  # 비활성 대상 (EXPERIENCE fallback)
                     "max_entries": None,
                     "fields": [
                         {
@@ -266,7 +266,7 @@ async def seed_template_items():
                     "category": CompetencyCategory.EXPERIENCE,
                     "template": ItemTemplate.NUMBER,
                     "is_repeatable": False,
-                    "display_order": 910,  # 비활성 대상
+                    "display_order": 190,  # 비활성 대상 (EXPERIENCE fallback)
                     "fields": [
                         {
                             "field_name": "years",
@@ -284,7 +284,7 @@ async def seed_template_items():
                     "category": CompetencyCategory.EXPERIENCE,
                     "template": ItemTemplate.NUMBER,
                     "is_repeatable": False,
-                    "display_order": 200,
+                    "display_order": 101,
                     "fields": [
                         {
                             "field_name": "hours",
@@ -303,7 +303,7 @@ async def seed_template_items():
                     "item_code": "COACHING_BUSINESS",
                     "category": CompetencyCategory.EXPERIENCE,
                     "template": ItemTemplate.COACHING_HISTORY,
-                    "display_order": 220,
+                    "display_order": 103,
                     "is_repeatable": False,
                     "fields": [
                         {
@@ -328,7 +328,7 @@ async def seed_template_items():
                     "item_code": "EDUCATION_TRAINING",
                     "category": CompetencyCategory.EXPERIENCE,
                     "template": ItemTemplate.TEXT_FILE,
-                    "display_order": 210,
+                    "display_order": 102,
                     "is_repeatable": True,
                     "max_entries": None,
                     "fields": [
@@ -350,7 +350,7 @@ async def seed_template_items():
                     ]
                 },
                 {
-                    "display_order": 920,  # 비활성 대상
+                    "display_order": 190,  # 비활성 대상 (EXPERIENCE fallback)
                     "item_name": "커리어코칭 이력",
                     "item_code": "COACHING_CAREER",
                     "category": CompetencyCategory.EXPERIENCE,
@@ -379,7 +379,7 @@ async def seed_template_items():
                     "item_code": "COACHING_YOUTH",
                     "category": CompetencyCategory.EXPERIENCE,
                     "template": ItemTemplate.COACHING_HISTORY,
-                    "display_order": 230,
+                    "display_order": 104,
                     "is_repeatable": False,
                     "fields": [
                         {
@@ -404,7 +404,7 @@ async def seed_template_items():
                     "item_code": "COACHING_YOUNG_ADULT",
                     "category": CompetencyCategory.EXPERIENCE,
                     "template": ItemTemplate.COACHING_HISTORY,
-                    "display_order": 930,  # 비활성 대상
+                    "display_order": 190,  # 비활성 대상 (EXPERIENCE fallback)
                     "is_repeatable": False,
                     "fields": [
                         {
@@ -429,7 +429,7 @@ async def seed_template_items():
                     "item_code": "COACHING_FAMILY",
                     "category": CompetencyCategory.EXPERIENCE,
                     "template": ItemTemplate.COACHING_HISTORY,
-                    "display_order": 940,  # 비활성 대상
+                    "display_order": 190,  # 비활성 대상 (EXPERIENCE fallback)
                     "is_repeatable": False,
                     "fields": [
                         {
@@ -454,7 +454,7 @@ async def seed_template_items():
                     "item_code": "COACHING_LIFE",
                     "category": CompetencyCategory.EXPERIENCE,
                     "template": ItemTemplate.COACHING_HISTORY,
-                    "display_order": 950,  # 비활성 대상
+                    "display_order": 190,  # 비활성 대상 (EXPERIENCE fallback)
                     "is_repeatable": False,
                     "fields": [
                         {
@@ -481,7 +481,7 @@ async def seed_template_items():
                     "item_code": "SPECIALTY",
                     "category": CompetencyCategory.OTHER,
                     "template": ItemTemplate.TEXT,
-                    "display_order": 960,  # 비활성 대상
+                    "display_order": 990,  # 비활성 대상 (OTHER fallback)
                     "is_repeatable": False,
                     "fields": [
                         {

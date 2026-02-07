@@ -26,34 +26,36 @@ def upgrade() -> None:
     """)
 
     # 2. 기존 항목에 display_order 설정
-    # === 자격증 그룹 (100번대) ===
-    op.execute("UPDATE competency_items SET display_order = 100 WHERE item_code = 'CERT_KCA'")
-    op.execute("UPDATE competency_items SET display_order = 110 WHERE item_code = 'CERT_COUNSELING'")
-    # 상담심리치료자격-종류 (UI에서 생성된 항목 - item_name 패턴 매칭)
-    op.execute("""
-        UPDATE competency_items SET display_order = 120
-        WHERE item_name LIKE '%상담%심리%종류%' AND display_order = 999
-    """)
-    op.execute("UPDATE competency_items SET display_order = 130 WHERE item_code = 'CERT_OTHER'")
-    # 기타자격-종류 (UI에서 생성된 항목 - item_name 패턴 매칭)
-    op.execute("""
-        UPDATE competency_items SET display_order = 140
-        WHERE item_name LIKE '%기타자격%종류%' AND display_order = 999
-    """)
+    # display_order 체계: 카테고리 그룹(백단위) + 항목순서
+    # 자격증=0xx, 코칭경력=1xx, 학력=2xx, 관리자=8xx, 기타=9xx
 
-    # === 코칭경력 그룹 (200번대) ===
-    op.execute("UPDATE competency_items SET display_order = 200 WHERE item_code = 'EXP_COACHING_HOURS'")
-    # EDUCATION_TRAINING (신규 항목)은 아래에서 210으로 생성
-    op.execute("UPDATE competency_items SET display_order = 220 WHERE item_code = 'COACHING_BUSINESS'")
-    op.execute("UPDATE competency_items SET display_order = 230 WHERE item_code = 'COACHING_YOUTH'")
+    # === 자격증 그룹 (0xx) ===
+    op.execute("UPDATE competency_items SET display_order = 1 WHERE item_code = 'CERT_KCA'")
+    op.execute("UPDATE competency_items SET display_order = 2 WHERE item_code = 'CERT_COUNSELING'")
+    op.execute("UPDATE competency_items SET display_order = 3 WHERE item_code = 'CERT_COUNSELING_COPY'")
+    op.execute("UPDATE competency_items SET display_order = 4 WHERE item_code = 'CERT_OTHER'")
+    op.execute("UPDATE competency_items SET display_order = 5 WHERE item_code = 'Kind_of_CERT_OTHER'")
 
-    # === 학력 그룹 (300번대) ===
-    op.execute("UPDATE competency_items SET display_order = 300 WHERE item_code = 'EDU_COACHING_FINAL'")
-    op.execute("UPDATE competency_items SET display_order = 310 WHERE item_code = 'EDU_OTHER_FINAL'")
+    # === 코칭경력 그룹 (1xx) ===
+    op.execute("UPDATE competency_items SET display_order = 101 WHERE item_code = 'EXP_COACHING_HOURS'")
+    # EDUCATION_TRAINING (신규 항목)은 아래에서 102로 생성
+    op.execute("UPDATE competency_items SET display_order = 103 WHERE item_code = 'COACHING_BUSINESS'")
+    op.execute("UPDATE competency_items SET display_order = 104 WHERE item_code = 'COACHING_YOUTH'")
 
-    # === 관리자전용 (800번대) ===
-    op.execute("UPDATE competency_items SET display_order = 800 WHERE item_code = 'EVAL_PREVIOUS_PROJECT'")
-    op.execute("UPDATE competency_items SET display_order = 810 WHERE item_code = 'EVAL_COMMITTEE'")
+    # === 학력 그룹 (2xx) ===
+    op.execute("UPDATE competency_items SET display_order = 201 WHERE item_code = 'EDU_COACHING_FINAL'")
+    op.execute("UPDATE competency_items SET display_order = 202 WHERE item_code = 'EDU_OTHER_FINAL'")
+
+    # === 관리자전용 (8xx) ===
+    op.execute("UPDATE competency_items SET display_order = 801 WHERE item_code = 'EVAL_PREVIOUS_PROJECT'")
+    op.execute("UPDATE competency_items SET display_order = 802 WHERE item_code = 'EVAL_COMMITTEE'")
+
+    # === 카테고리별 fallback (미지정 항목을 각 카테고리 끝에 배치) ===
+    op.execute("UPDATE competency_items SET display_order = 90 WHERE category = 'CERTIFICATION' AND display_order NOT BETWEEN 0 AND 89")
+    op.execute("UPDATE competency_items SET display_order = 190 WHERE category = 'EXPERIENCE' AND display_order NOT BETWEEN 100 AND 189")
+    op.execute("UPDATE competency_items SET display_order = 290 WHERE category = 'EDUCATION' AND display_order NOT BETWEEN 200 AND 289")
+    op.execute("UPDATE competency_items SET display_order = 890 WHERE category = 'DETAIL' AND display_order NOT BETWEEN 800 AND 889")
+    op.execute("UPDATE competency_items SET display_order = 990 WHERE category = 'OTHER' AND display_order NOT BETWEEN 900 AND 989")
 
     # 3. 비활성화 대상 항목 처리
     op.execute("""
@@ -79,7 +81,7 @@ def upgrade() -> None:
             grade_mappings, proof_required, field_label_overrides
         ) VALUES (
             '코칭관련 연수/교육', 'EDUCATION_TRAINING', 'EXPERIENCE', 'text', true,
-            'text_file', true, 210,
+            'text_file', true, 102,
             'flexible', 'standard', 'form_input',
             'submitted', false,
             '[]', 'optional', '{}'
