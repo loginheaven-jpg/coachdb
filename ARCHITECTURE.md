@@ -1968,6 +1968,17 @@ Step 3: 항목 선택 → Step 4: 등급 설정 (자동 로드)
 - ScoringCriteria 생성 시 `value_source`, `source_field`, `extract_pattern`이
   프론트엔드에서 비어 있으면 CompetencyItem의 Phase 5 필드에서 자동 복사
 
+#### SurveyBuilder (직접 생성) ↔ GradeConfigModal 통합 (2026-02-07)
+
+- SurveyBuilder의 인라인 등급설정 모달(570줄 x 2벌 = 1140줄) 제거
+- 위저드(Step4Scoring)와 동일한 `GradeConfigModal` 공유 컴포넌트 사용
+- **변환 함수** (`scoringHelpers.ts`):
+  - `criteriaCreateToScoringConfig()`: `ScoringCriteriaCreate[]` (소문자 enum) → `ScoringConfig` (대문자 enum)
+  - `scoringConfigToCriteriaCreate()`: `ScoringConfig` → `ScoringCriteriaCreate[]` + maxScore
+- **자동 로드**: 항목 Switch ON 시 `has_scoring + grade_type + grade_mappings` 있으면 자동 scoring_criteria 생성
+- **시각적 피드백**: `grade_edit_mode=fixed` → `<Tag color="red">템플릿 고정</Tag>`, `score_only` → `<Tag color="orange">점수만 수정</Tag>`
+- **증빙 감점**: GradeConfigModal에 proofPenalty UI 추가 (ScoringConfig.proofPenalty 필드)
+
 #### 사용자 가입 검증
 
 - `coach_certification_number` 포맷: `^(KSC|KPC|KAC)\d{3,6}$`

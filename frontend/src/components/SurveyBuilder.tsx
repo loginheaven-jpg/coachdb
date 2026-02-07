@@ -19,8 +19,7 @@ import {
   Input,
   Select,
   Radio,
-  Tooltip,
-  Checkbox
+  Tooltip
 } from 'antd'
 import {
   PlusOutlined,
@@ -31,7 +30,8 @@ import {
   ExclamationCircleOutlined,
   SettingOutlined,
   DeleteOutlined,
-  QuestionCircleOutlined
+  QuestionCircleOutlined,
+  LockOutlined
 } from '@ant-design/icons'
 import projectService, {
   CompetencyItem,
@@ -42,10 +42,19 @@ import projectService, {
   ScoringCriteriaCreate,
   MatchingType,
   ValueSourceType,
-  AggregationMode,
-  GradeConfig
+  AggregationMode
 } from '../services/projectService'
 import SurveyPreview from './SurveyPreview'
+import GradeConfigModal from './scoring/GradeConfigModal'
+import {
+  ScoringConfig,
+  MatchingType as MTUpper,
+  GradeType,
+  ValueSource,
+  AggregationMode as AggUpper
+} from '../types/scoring'
+import { criteriaCreateToScoringConfig, scoringConfigToCriteriaCreate } from '../utils/scoringHelpers'
+import { useAuthStore } from '../stores/authStore'
 import { Form } from 'antd'
 
 // Simple debounce implementation
@@ -146,25 +155,6 @@ const GRADE_TEMPLATES: Record<string, GradeTemplateConfig> = {
   }
 }
 
-// 등급 배열에서 최고 점수 계산
-function getMaxGradeScore(
-  grades: Array<{ score?: number }> | { exists?: number; none?: number } | null | undefined
-): number {
-  if (!grades) return 0
-
-  // file_exists 타입의 객체인 경우
-  if ('exists' in grades) {
-    return Math.max(grades.exists || 0, grades.none || 0)
-  }
-
-  // 배열인 경우
-  if (Array.isArray(grades) && grades.length === 0) return 0
-  // Filter out undefined/null items and safely access score
-  const validGrades = (grades as Array<{ score?: number }>).filter(g => g != null)
-  if (validGrades.length === 0) return 0
-  return Math.max(...validGrades.map(g => Number(g?.score) || 0))
-}
-
 // 항목 템플릿에 따른 등급 템플릿 매핑
 function getGradeTemplate(item: CompetencyItem): GradeTemplateConfig | null {
   // Phase 4/5: CompetencyItem의 grade_type + grade_mappings 우선 사용
@@ -256,7 +246,8 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
 
   // 등급 배점 설정 모달
   const [gradeConfigItemId, setGradeConfigItemId] = useState<number | null>(null)
-  const [gradeConfigForm] = Form.useForm()
+  const [gradeModalConfig, setGradeModalConfig] = useState<ScoringConfig | undefined>()
+  const { user } = useAuthStore()
 
   useEffect(() => {
     if (visible || embedded) {
@@ -493,6 +484,25 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
       // 자동 저장 트리거
       autoSaveDebounced(newSelections)
     }
+  }
+
+  // GradeConfigModal에서 OK 시 ScoringConfig → ScoringCriteriaCreate[] 변환 후 저장
+  const handleGradeConfigOk = (config: ScoringConfig) => {
+    if (!gradeConfigItemId) return
+    const { criteria, maxScore } = scoringConfigToCriteriaCreate(config)
+    const currentSelection = selections.get(gradeConfigItemId)
+    if (currentSelection) {
+      const otherCriteria = currentSelection.scoring_criteria.filter(
+        c => c.matching_type !== MatchingType.GRADE
+      )
+      updateSelection(gradeConfigItemId, {
+        scoring_criteria: [...otherCriteria, ...criteria],
+        score: maxScore > 0 ? maxScore : currentSelection.score
+      })
+    }
+    setGradeConfigItemId(null)
+    setGradeModalConfig(undefined)
+    message.success(`등급 배점이 설정되었습니다. (배점: ${maxScore}점)`)
   }
 
   const calculateTotalScore = (): number => {
@@ -852,7 +862,38 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                           <Space>
                             <Switch
                               checked={selection.included}
-                              onChange={(checked) => updateSelection(selection.item.item_id, { included: checked })}
+                              onChange={(checked) => {
+                                const updates: Partial<ItemSelection> = { included: checked }
+                                // 포함 시 템플릿 설정 자동 로드
+                                if (checked && (!selection.scoring_criteria || selection.scoring_criteria.length === 0)) {
+                                  const item = selection.item
+                                  if (item.has_scoring && item.grade_type && item.grade_mappings) {
+                                    const template = getGradeTemplate(item)
+                                    if (template) {
+                                      const vsMap: Record<string, ValueSource> = { 'submitted': ValueSource.SUBMITTED, 'user_field': ValueSource.USER_FIELD, 'json_field': ValueSource.JSON_FIELD, 'SUBMITTED': ValueSource.SUBMITTED, 'USER_FIELD': ValueSource.USER_FIELD, 'JSON_FIELD': ValueSource.JSON_FIELD }
+                                      const autoConfig: ScoringConfig = {
+                                        itemId: item.item_id,
+                                        matchingType: MTUpper.GRADE,
+                                        gradeType: template.type === 'numeric' ? GradeType.NUMERIC : GradeType.STRING,
+                                        valueSource: vsMap[template.value_source || 'SUBMITTED'] || ValueSource.SUBMITTED,
+                                        sourceField: template.source_field,
+                                        extractPattern: template.extract_pattern,
+                                        aggregationMode: item.is_repeatable ? AggUpper.BEST_MATCH : AggUpper.ANY_MATCH,
+                                        gradeMappings: template.grades.map((g: any) => ({
+                                          value: g.value ?? '',
+                                          score: g.score ?? 0,
+                                          ...(g.label ? { label: g.label } : {})
+                                        })),
+                                        configured: true
+                                      }
+                                      const { criteria, maxScore } = scoringConfigToCriteriaCreate(autoConfig)
+                                      updates.scoring_criteria = criteria
+                                      if (maxScore > 0) updates.score = maxScore
+                                    }
+                                  }
+                                }
+                                updateSelection(selection.item.item_id, updates)
+                              }}
                               checkedChildren="포함"
                               unCheckedChildren="불포함"
                             />
@@ -865,6 +906,12 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                             )}
                             {selection.item.is_custom && (
                               <Tag color="purple">커스텀</Tag>
+                            )}
+                            {selection.item.grade_edit_mode === 'fixed' && (
+                              <Tag color="red" icon={<LockOutlined />}>템플릿 고정</Tag>
+                            )}
+                            {selection.item.grade_edit_mode === 'score_only' && (
+                              <Tag color="orange">점수만 수정</Tag>
                             )}
                           </Space>
 
@@ -899,52 +946,39 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                                 icon={<SettingOutlined />}
                                 onClick={() => {
                                   setGradeConfigItemId(selection.item.item_id)
-                                  // 기존 GRADE 설정 불러오기
-                                  const existingCriteria = selection.scoring_criteria?.find(
+                                  // 기존 GRADE criteria → ScoringConfig 변환
+                                  const gradeCriteria = selection.scoring_criteria?.filter(
                                     c => c.matching_type === MatchingType.GRADE
-                                  )
-                                  if (existingCriteria) {
-                                    try {
-                                      const config = JSON.parse(existingCriteria.expected_value)
-                                      gradeConfigForm.setFieldsValue({
-                                        grade_type: config.type || 'string',
-                                        value_source: existingCriteria.value_source || ValueSourceType.SUBMITTED,
-                                        source_field: existingCriteria.source_field || '',
-                                        extract_pattern: existingCriteria.extract_pattern || '',
-                                        grades: config.grades || [],
-                                        match_mode: config.matchMode || 'exact',
-                                        any_score: config.matchMode === 'any' && config.grades?.[0]?.score ? config.grades[0].score : undefined,
-                                        multi_select_mode: config.mode || 'contains',
-                                        file_grades: config.type === 'file_exists' ? config.grades : undefined,
-                                        // 증빙 감점 로드 (저장된 값은 음수이므로 절대값으로 변환)
-                                        enable_proof_penalty: config.proofPenalty !== undefined && config.proofPenalty !== null,
-                                        proof_penalty_amount: config.proofPenalty ? Math.abs(config.proofPenalty) : undefined,
-                                        // 집계 방식 로드 (복수입력 항목은 BEST_MATCH 기본, 그 외 ANY_MATCH)
-                                        aggregation_mode: existingCriteria.aggregation_mode || (selection.item.is_repeatable ? AggregationMode.BEST_MATCH : AggregationMode.ANY_MATCH)
-                                      })
-                                    } catch {
-                                      gradeConfigForm.resetFields()
-                                    }
+                                  ) || []
+                                  if (gradeCriteria.length > 0) {
+                                    const parsed = criteriaCreateToScoringConfig(
+                                      selection.item.item_id,
+                                      gradeCriteria
+                                    )
+                                    setGradeModalConfig(parsed || undefined)
                                   } else {
-                                    // 기존 설정이 없으면 항목 유형에 따른 기본값 자동 설정
+                                    // 템플릿 기본값으로 초기화
                                     const template = getGradeTemplate(selection.item)
                                     if (template) {
-                                      gradeConfigForm.setFieldsValue({
-                                        grade_type: template.type,
-                                        value_source: template.value_source,
-                                        source_field: template.source_field || '',
-                                        extract_pattern: template.extract_pattern || '',
-                                        grades: template.grades,
-                                        // 복수입력 항목은 BEST_MATCH 기본, 그 외 ANY_MATCH
-                                        aggregation_mode: selection.item.is_repeatable ? AggregationMode.BEST_MATCH : AggregationMode.ANY_MATCH
+                                      const vsMap: Record<string, ValueSource> = { 'submitted': ValueSource.SUBMITTED, 'user_field': ValueSource.USER_FIELD, 'json_field': ValueSource.JSON_FIELD, 'SUBMITTED': ValueSource.SUBMITTED, 'USER_FIELD': ValueSource.USER_FIELD, 'JSON_FIELD': ValueSource.JSON_FIELD }
+                                      setGradeModalConfig({
+                                        itemId: selection.item.item_id,
+                                        matchingType: MTUpper.GRADE,
+                                        gradeType: template.type === 'numeric' ? GradeType.NUMERIC : GradeType.STRING,
+                                        valueSource: vsMap[template.value_source || 'SUBMITTED'] || ValueSource.SUBMITTED,
+                                        sourceField: template.source_field,
+                                        extractPattern: template.extract_pattern,
+                                        aggregationMode: selection.item.is_repeatable ? AggUpper.BEST_MATCH : AggUpper.ANY_MATCH,
+                                        gradeMappings: template.grades.map((g: any) => ({
+                                          value: g.value ?? '',
+                                          score: g.score ?? 0,
+                                          ...(g.label ? { label: g.label } : {})
+                                        })),
+                                        configured: false
                                       })
                                       message.info(`'${selection.item.item_name}' 항목의 추천 설정이 자동으로 적용되었습니다. 필요시 수정하세요.`)
                                     } else {
-                                      // 템플릿이 없을 때: 복수입력은 BEST_MATCH, 그 외 ANY_MATCH 기본
-                                      gradeConfigForm.resetFields()
-                                      gradeConfigForm.setFieldsValue({
-                                        aggregation_mode: selection.item.is_repeatable ? AggregationMode.BEST_MATCH : AggregationMode.ANY_MATCH
-                                      })
+                                      setGradeModalConfig(undefined)
                                     }
                                   }
                                 }}
@@ -1182,580 +1216,24 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
           </Form>
         </Modal>
 
-        {/* Grade Configuration Modal */}
-        <Modal
-          title="등급별 배점 설정"
-          open={gradeConfigItemId !== null}
-          maskClosable={false}
-          onCancel={() => {
-            setGradeConfigItemId(null)
-            gradeConfigForm.resetFields()
-          }}
-          onOk={() => {
-            const values = gradeConfigForm.getFieldsValue()
-            if (!gradeConfigItemId) return
-
-            // GRADE 설정 저장 - 타입별 처리
-            let gradeConfig: GradeConfig
-            let maxScore = 0
-
-            if (values.grade_type === 'string') {
-              if (values.match_mode === 'any') {
-                // "어떤 값이든" - 단일 등급
-                gradeConfig = {
-                  type: 'string',
-                  matchMode: 'any',
-                  grades: [{ value: '', score: values.any_score || 0 }],
-                  proofPenalty: values.enable_proof_penalty ? -(values.proof_penalty_amount || 0) : undefined
-                }
-                maxScore = values.any_score || 0
-              } else {
-                // 기존 로직 (exact/contains)
-                gradeConfig = {
-                  type: 'string',
-                  matchMode: values.match_mode || 'exact',
-                  grades: values.grades || [],
-                  proofPenalty: values.enable_proof_penalty ? -(values.proof_penalty_amount || 0) : undefined
-                }
-                maxScore = getMaxGradeScore(values.grades || [])
-              }
-            } else if (values.grade_type === 'numeric') {
-              gradeConfig = {
-                type: 'numeric',
-                grades: values.grades || [],
-                proofPenalty: values.enable_proof_penalty ? -(values.proof_penalty_amount || 0) : undefined
-              }
-              maxScore = getMaxGradeScore(values.grades || [])
-            } else if (values.grade_type === 'multi_select') {
-              gradeConfig = {
-                type: 'multi_select',
-                mode: values.multi_select_mode || 'contains',
-                grades: values.grades || [],
-                proofPenalty: values.enable_proof_penalty ? -(values.proof_penalty_amount || 0) : undefined
-              }
-              maxScore = getMaxGradeScore(values.grades || [])
-            } else if (values.grade_type === 'file_exists') {
-              gradeConfig = {
-                type: 'file_exists',
-                grades: {
-                  exists: values.file_grades?.exists || 0,
-                  none: 0
-                },
-                proofPenalty: values.enable_proof_penalty ? -(values.proof_penalty_amount || 0) : undefined
-              }
-              maxScore = values.file_grades?.exists || 0
-            } else {
-              gradeConfig = {
-                type: 'string',
-                grades: values.grades || [],
-                proofPenalty: values.enable_proof_penalty ? -(values.proof_penalty_amount || 0) : undefined
-              }
-              maxScore = getMaxGradeScore(values.grades || [])
-            }
-
-            // 복수입력 항목은 기본 BEST_MATCH, 그 외 ANY_MATCH
-            const currentItem = selections.get(gradeConfigItemId)?.item
-            const defaultAggMode = currentItem?.is_repeatable ? AggregationMode.BEST_MATCH : AggregationMode.ANY_MATCH
-
-            const newCriteria: ScoringCriteriaCreate = {
-              matching_type: MatchingType.GRADE,
-              expected_value: JSON.stringify(gradeConfig),
-              score: 0,
-              value_source: values.value_source || ValueSourceType.SUBMITTED,
-              source_field: values.source_field || null,
-              extract_pattern: values.extract_pattern || null,
-              aggregation_mode: values.aggregation_mode || defaultAggMode
-            }
-
-            // 기존 GRADE가 아닌 criteria는 유지하고 GRADE만 교체
-            const currentSelection = selections.get(gradeConfigItemId)
-            if (currentSelection) {
-              const otherCriteria = currentSelection.scoring_criteria.filter(
-                c => c.matching_type !== MatchingType.GRADE
-              )
-              updateSelection(gradeConfigItemId, {
-                scoring_criteria: [...otherCriteria, newCriteria],
-                score: maxScore > 0 ? maxScore : currentSelection.score
-              })
-            }
-
-            setGradeConfigItemId(null)
-            gradeConfigForm.resetFields()
-            message.success(`등급 배점이 설정되었습니다. (배점: ${maxScore}점)`)
-          }}
-          width={700}
-          okText="적용"
-          cancelText="취소"
-        >
-          <Form
-            form={gradeConfigForm}
-            layout="vertical"
-            initialValues={{
-              grade_type: 'string',
-              value_source: ValueSourceType.SUBMITTED,
-              grades: [],
-              aggregation_mode: AggregationMode.ANY_MATCH
-            }}
-            onValuesChange={(changedValues, allValues) => {
-              // 등급 유형에 따른 기본 집계방식 자동 설정
-              if ('grade_type' in changedValues || 'value_source' in changedValues) {
-                const gradeType = allValues.grade_type
-                const valueSource = allValues.value_source
-                if (gradeType === 'numeric') {
-                  // 숫자범위 → 합산
-                  gradeConfigForm.setFieldsValue({ aggregation_mode: AggregationMode.SUM })
-                } else if (gradeType === 'string' && valueSource === ValueSourceType.SUBMITTED) {
-                  // 문자열 + 지원자입력값 → 하나라도 매칭
-                  gradeConfigForm.setFieldsValue({ aggregation_mode: AggregationMode.ANY_MATCH })
-                }
-              }
-            }}
-          >
-            <Form.Item
-              name="grade_type"
-              label="등급 유형"
-              rules={[{ required: true }]}
-            >
-              <Radio.Group>
-                <Radio.Button value="string">문자열 (예: KSC, 박사)</Radio.Button>
-                <Radio.Button value="numeric">숫자 범위 (예: 1000시간 이상)</Radio.Button>
-                <Radio.Button value="multi_select">복수선택</Radio.Button>
-                <Radio.Button value="file_exists">파일 유무</Radio.Button>
-              </Radio.Group>
-            </Form.Item>
-
-            <Form.Item
-              name="value_source"
-              label={
-                <Space>
-                  값을 가져올 위치
-                  <Tooltip title="점수를 매길 때 어떤 값을 기준으로 할지 선택합니다">
-                    <QuestionCircleOutlined style={{ color: '#999' }} />
-                  </Tooltip>
-                </Space>
-              }
-              rules={[{ required: true }]}
-            >
-              <Select>
-                <Select.Option value={ValueSourceType.SUBMITTED}>
-                  지원자 입력값 (기본)
-                </Select.Option>
-                <Select.Option value={ValueSourceType.USER_FIELD}>
-                  회원정보 (인증번호 등)
-                </Select.Option>
-                <Select.Option value={ValueSourceType.JSON_FIELD}>
-                  선택항목 (학위, 분야 등)
-                </Select.Option>
-              </Select>
-            </Form.Item>
-
-            <Form.Item
-              noStyle
-              shouldUpdate={(prev, curr) => prev.value_source !== curr.value_source}
-            >
-              {({ getFieldValue }) => {
-                const source = getFieldValue('value_source')
-                if (source === ValueSourceType.USER_FIELD) {
-                  return (
-                    <>
-                      <Form.Item
-                        name="source_field"
-                        label="사용할 회원정보"
-                        extra="인증번호로 등급(KSC/KPC/KAC)을 판별합니다"
-                      >
-                        <Select placeholder="회원정보 선택">
-                          <Select.Option value="coach_certification_number">인증번호</Select.Option>
-                          <Select.Option value="organization">소속</Select.Option>
-                          <Select.Option value="coaching_fields">코칭분야</Select.Option>
-                        </Select>
-                      </Form.Item>
-                      <Form.Item
-                        name="extract_pattern"
-                        label={
-                          <Space>
-                            값 추출 패턴
-                            <Tooltip title="인증번호에서 앞 3글자(KSC, KPC, KAC)만 추출하는 패턴입니다. 일반적으로 수정할 필요 없습니다.">
-                              <QuestionCircleOutlined style={{ color: '#999' }} />
-                            </Tooltip>
-                          </Space>
-                        }
-                      >
-                        <Input placeholder="예: ^(.{3}) - 앞 3글자 추출" />
-                      </Form.Item>
-                    </>
-                  )
-                }
-                if (source === ValueSourceType.JSON_FIELD) {
-                  return (
-                    <Form.Item
-                      name="source_field"
-                      label="사용할 선택항목"
-                      extra="지원자가 선택한 값(학위, 분야 등)으로 점수를 매깁니다"
-                    >
-                      <Input placeholder="예: degree_level (학위), coaching_field (분야)" />
-                    </Form.Item>
-                  )
-                }
-                return null
-              }}
-            </Form.Item>
-
-            {/* 복수입력 항목 집계 방식 */}
-            {gradeConfigItemId && selections.get(gradeConfigItemId)?.item.is_repeatable && (
-              <Form.Item
-                name="aggregation_mode"
-                label={
-                  <Space>
-                    복수입력 집계 방식
-                    <Tooltip title="복수입력 항목의 여러 값을 어떻게 집계할지 선택합니다">
-                      <QuestionCircleOutlined style={{ color: '#999' }} />
-                    </Tooltip>
-                  </Space>
-                }
-              >
-                <Select
-                  defaultValue={AggregationMode.BEST_MATCH}
-                  optionLabelProp="label"
-                >
-                  <Select.Option
-                    value={AggregationMode.BEST_MATCH}
-                    label="최고 점수 선택"
-                  >
-                    <div>
-                      <div><strong>최고 점수 선택</strong></div>
-                      <div style={{ fontSize: '12px', color: '#999' }}>
-                        예: KSC(10점), KPC(5점) 입력 시 → 10점
-                      </div>
-                    </div>
-                  </Select.Option>
-                  <Select.Option
-                    value={AggregationMode.FIRST}
-                    label="첫 번째만"
-                  >
-                    <div>
-                      <div><strong>첫 번째만</strong></div>
-                      <div style={{ fontSize: '12px', color: '#999' }}>
-                        첫 번째 입력값만 점수 계산
-                      </div>
-                    </div>
-                  </Select.Option>
-                  <Select.Option
-                    value={AggregationMode.SUM}
-                    label="합산 (숫자용)"
-                  >
-                    <div>
-                      <div><strong>합산 (숫자용)</strong></div>
-                      <div style={{ fontSize: '12px', color: '#999' }}>
-                        예: 500시간(5점) + 300시간(3점) → 8점
-                      </div>
-                    </div>
-                  </Select.Option>
-                  <Select.Option
-                    value={AggregationMode.MAX}
-                    label="최대값"
-                  >
-                    <div>
-                      <div><strong>최대값</strong></div>
-                      <div style={{ fontSize: '12px', color: '#999' }}>
-                        입력값 중 가장 큰 숫자로 계산
-                      </div>
-                    </div>
-                  </Select.Option>
-                  <Select.Option
-                    value={AggregationMode.COUNT}
-                    label="입력 개수"
-                  >
-                    <div>
-                      <div><strong>입력 개수</strong></div>
-                      <div style={{ fontSize: '12px', color: '#999' }}>
-                        입력한 항목의 개수로 점수 계산
-                      </div>
-                    </div>
-                  </Select.Option>
-                  <Select.Option
-                    value={AggregationMode.ANY_MATCH}
-                    label="하나라도 매칭 (문자열용)"
-                  >
-                    <div>
-                      <div><strong>하나라도 매칭 (문자열용)</strong></div>
-                      <div style={{ fontSize: '12px', color: '#999' }}>
-                        여러 입력값 중 하나라도 조건 충족 시 점수 부여
-                      </div>
-                    </div>
-                  </Select.Option>
-                </Select>
-              </Form.Item>
-            )}
-
-            <Form.Item
-              noStyle
-              shouldUpdate={(prev, curr) => prev.grade_type !== curr.grade_type || prev.match_mode !== curr.match_mode}
-            >
-              {({ getFieldValue }) => {
-                const gradeType = getFieldValue('grade_type')
-                const matchMode = getFieldValue('match_mode')
-                if (gradeType === 'string') {
-                  return (
-                    <>
-                      <Form.Item name="match_mode" label="매칭 방식" initialValue="exact">
-                        <Radio.Group>
-                          <Radio.Button value="exact">정확히 일치</Radio.Button>
-                          <Radio.Button value="contains">포함</Radio.Button>
-                          <Radio.Button value="any">어떤 값이든</Radio.Button>
-                        </Radio.Group>
-                      </Form.Item>
-                      {matchMode === 'any' ? (
-                        // "어떤 값이든" - 기본 점수만 설정
-                        <Form.Item
-                          name="any_score"
-                          label="내용 입력 시 기본 점수"
-                          rules={[{ required: true, message: '점수를 입력하세요' }]}
-                        >
-                          <InputNumber min={0} max={100} addonAfter="점" style={{ width: 150 }} />
-                        </Form.Item>
-                      ) : (
-                        // 기존 Form.List (값 = 점수 형태)
-                        <Form.List name="grades">
-                          {(fields, { add, remove }) => (
-                            <>
-                              <Text strong>문자열 등급 (값 = 점수)</Text>
-                              {fields.map(({ key, name, ...restField }) => (
-                                <Space key={key} style={{ display: 'flex', marginBottom: 8, marginTop: 8 }} align="baseline">
-                                  <Form.Item {...restField} name={[name, 'value']} rules={[{ required: true }]}>
-                                    <Input placeholder="등급값 (예: KSC)" style={{ width: 150 }} />
-                                  </Form.Item>
-                                  <Text>=</Text>
-                                  <Form.Item {...restField} name={[name, 'score']} rules={[{ required: true }]}>
-                                    <InputNumber placeholder="점수" style={{ width: 80 }} />
-                                  </Form.Item>
-                                  <Text>점</Text>
-                                  <Button type="text" danger icon={<DeleteOutlined />} onClick={() => remove(name)} />
-                                </Space>
-                              ))}
-                              <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
-                                등급 추가
-                              </Button>
-                            </>
-                          )}
-                        </Form.List>
-                      )}
-                    </>
-                  )
-                } else if (gradeType === 'numeric') {
-                  return (
-                    <>
-                      <Form.List name="grades">
-                        {(fields, { add, remove }) => (
-                          <>
-                            <div style={{ marginBottom: 12 }}>
-                              <Text strong>숫자 범위별 점수</Text>
-                              <br />
-                              <Text type="secondary" style={{ fontSize: 12 }}>
-                                높은 숫자구간부터 점수를 배정하십시오.
-                              </Text>
-                            </div>
-                            {fields.map(({ key, name, ...restField }) => (
-                              <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
-                                <Form.Item {...restField} name={[name, 'min']} style={{ marginBottom: 0 }}>
-                                  <InputNumber
-                                    placeholder="최소"
-                                    style={{ width: 120 }}
-                                    addonAfter="이상"
-                                  />
-                                </Form.Item>
-                                <Text style={{ margin: '0 4px' }}>~</Text>
-                                <Form.Item {...restField} name={[name, 'max']} style={{ marginBottom: 0 }}>
-                                  <InputNumber
-                                    placeholder="최대"
-                                    style={{ width: 120 }}
-                                    addonAfter="이하"
-                                  />
-                                </Form.Item>
-                                <Text style={{ margin: '0 8px' }}>→</Text>
-                                <Form.Item {...restField} name={[name, 'score']} rules={[{ required: true }]} style={{ marginBottom: 0 }}>
-                                  <InputNumber placeholder="점수" style={{ width: 80 }} />
-                                </Form.Item>
-                                <Text>점</Text>
-                                <Button type="text" danger icon={<DeleteOutlined />} onClick={() => remove(name)} />
-                              </Space>
-                            ))}
-                            <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
-                              범위 추가
-                            </Button>
-                          </>
-                        )}
-                      </Form.List>
-                    </>
-                  )
-                } else if (gradeType === 'multi_select') {
-                  return (
-                    <>
-                      <Form.Item name="multi_select_mode" label="배점 기준" initialValue="contains">
-                        <Radio.Group>
-                          <Radio value="contains">특정값 포함 여부</Radio>
-                          <Radio value="count">선택 개수</Radio>
-                        </Radio.Group>
-                      </Form.Item>
-                      <Form.Item noStyle shouldUpdate={(prev, curr) => prev.multi_select_mode !== curr.multi_select_mode}>
-                        {({ getFieldValue: getInnerValue }) => {
-                          const mode = getInnerValue('multi_select_mode')
-                          if (mode === 'contains') {
-                            return (
-                              <Form.List name="grades">
-                                {(fields, { add, remove }) => (
-                                  <>
-                                    <Text strong>포함 여부별 점수</Text>
-                                    {fields.map(({ key, name, ...restField }) => (
-                                      <Space key={key} style={{ display: 'flex', marginBottom: 8, marginTop: 8 }} align="baseline">
-                                        <Form.Item {...restField} name={[name, 'value']} rules={[{ required: true }]}>
-                                          <Input placeholder="포함값 (예: 코칭)" style={{ width: 150 }} />
-                                        </Form.Item>
-                                        <Text>포함 시</Text>
-                                        <Form.Item {...restField} name={[name, 'score']} rules={[{ required: true }]}>
-                                          <InputNumber placeholder="점수" style={{ width: 80 }} />
-                                        </Form.Item>
-                                        <Text>점</Text>
-                                        <Button type="text" danger icon={<DeleteOutlined />} onClick={() => remove(name)} />
-                                      </Space>
-                                    ))}
-                                    <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
-                                      추가
-                                    </Button>
-                                  </>
-                                )}
-                              </Form.List>
-                            )
-                          } else {
-                            return (
-                              <Form.List name="grades">
-                                {(fields, { add, remove }) => (
-                                  <>
-                                    <Text strong>선택 개수별 점수</Text>
-                                    {fields.map(({ key, name, ...restField }) => (
-                                      <Space key={key} style={{ display: 'flex', marginBottom: 8, marginTop: 8 }} align="baseline">
-                                        <Form.Item {...restField} name={[name, 'min']} rules={[{ required: true }]}>
-                                          <InputNumber placeholder="개수" style={{ width: 80 }} />
-                                        </Form.Item>
-                                        <Text>개 이상 선택 시</Text>
-                                        <Form.Item {...restField} name={[name, 'score']} rules={[{ required: true }]}>
-                                          <InputNumber placeholder="점수" style={{ width: 80 }} />
-                                        </Form.Item>
-                                        <Text>점</Text>
-                                        <Button type="text" danger icon={<DeleteOutlined />} onClick={() => remove(name)} />
-                                      </Space>
-                                    ))}
-                                    <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
-                                      추가
-                                    </Button>
-                                  </>
-                                )}
-                              </Form.List>
-                            )
-                          }
-                        }}
-                      </Form.Item>
-                    </>
-                  )
-                } else if (gradeType === 'file_exists') {
-                  return (
-                    <Card size="small" title="파일 유무 배점">
-                      <Space direction="vertical" style={{ width: '100%' }}>
-                        <Form.Item name={['file_grades', 'exists']} label="파일 있음" initialValue={10}>
-                          <InputNumber min={0} max={100} addonAfter="점" style={{ width: 150 }} />
-                        </Form.Item>
-                        <Form.Item label="파일 없음">
-                          <InputNumber value={0} disabled addonAfter="점" style={{ width: 150 }} />
-                        </Form.Item>
-                      </Space>
-                    </Card>
-                  )
-                }
-                return null
-              }}
-            </Form.Item>
-
-            {/* 증빙 감점 설정 - 증빙선택일 때만 표시 (증빙필수일 때는 감점 불필요) */}
-            {gradeConfigItemId && selections.get(gradeConfigItemId)?.proof_required_level === ProofRequiredLevel.OPTIONAL && (
-              <div style={{ marginTop: 16, padding: 16, backgroundColor: '#fafafa', borderRadius: 8, border: '1px solid #e8e8e8' }}>
-                <Text strong style={{ display: 'block', marginBottom: 12 }}>📋 증빙 감점 설정</Text>
-                <Form.Item noStyle shouldUpdate>
-                  {({ getFieldValue }) => {
-                    // 최대 점수 계산
-                    const gradeType = getFieldValue('grade_type')
-                    const matchMode = getFieldValue('match_mode')
-                    let maxScore = 0
-                    if (gradeType === 'string' && matchMode === 'any') {
-                      maxScore = getFieldValue('any_score') || 0
-                    } else if (gradeType === 'file_exists') {
-                      maxScore = getFieldValue(['file_grades', 'exists']) || 0
-                    } else {
-                      const grades = getFieldValue('grades') || []
-                      maxScore = getMaxGradeScore(grades)
-                    }
-
-                    return (
-                      <Space direction="vertical" style={{ width: '100%' }}>
-                        <Space>
-                          <Form.Item name="enable_proof_penalty" valuePropName="checked" style={{ marginBottom: 0 }}>
-                            <Checkbox>증빙 감점 적용</Checkbox>
-                          </Form.Item>
-                          <Button
-                            type="link"
-                            size="small"
-                            onClick={() => {
-                              gradeConfigForm.setFieldsValue({
-                                enable_proof_penalty: true,
-                                proof_penalty_amount: maxScore
-                              })
-                            }}
-                            style={{ padding: 0, height: 'auto' }}
-                          >
-                            증빙필수 (미첨부 시 0점)
-                          </Button>
-                        </Space>
-
-                        <Form.Item noStyle shouldUpdate={(prev, curr) => prev.enable_proof_penalty !== curr.enable_proof_penalty}>
-                          {({ getFieldValue: getInnerValue }) =>
-                            getInnerValue('enable_proof_penalty') && (
-                              <Form.Item name="proof_penalty_amount" label="증빙 미첨부 시 감점" style={{ marginBottom: 8 }}>
-                                <InputNumber
-                                  min={0}
-                                  max={100}
-                                  addonBefore="-"
-                                  addonAfter="점"
-                                  style={{ width: 150 }}
-                                  placeholder="10"
-                                />
-                              </Form.Item>
-                            )
-                          }
-                        </Form.Item>
-
-                        {/* 결과 미리보기 */}
-                        <Form.Item noStyle shouldUpdate>
-                          {({ getFieldValue: getInnerValue }) => {
-                            const penaltyEnabled = getInnerValue('enable_proof_penalty')
-                            const penaltyAmount = penaltyEnabled ? (getInnerValue('proof_penalty_amount') || 0) : 0
-                            if (!penaltyEnabled) return null
-                            return (
-                              <div style={{ padding: 8, backgroundColor: '#fff', borderRadius: 4, border: '1px solid #e8e8e8' }}>
-                                <Text type="secondary" style={{ fontSize: 12 }}>결과 예시:</Text>
-                                <div style={{ marginTop: 4 }}>
-                                  <div>• 내용 + 증빙 = <Text strong>{maxScore}점</Text></div>
-                                  <div>• 내용만 = <Text strong>{Math.max(0, maxScore - penaltyAmount)}점</Text> ({maxScore}-{penaltyAmount})</div>
-                                </div>
-                              </div>
-                            )
-                          }}
-                        </Form.Item>
-                      </Space>
-                    )
-                  }}
-                </Form.Item>
-              </div>
-            )}
-          </Form>
-        </Modal>
+        {/* Grade Configuration Modal - 공유 GradeConfigModal 컴포넌트 사용 */}
+        {gradeConfigItemId && (() => {
+          const sel = selections.get(gradeConfigItemId)
+          const itm = sel?.item
+          return itm ? (
+            <GradeConfigModal
+              visible={true}
+              itemId={gradeConfigItemId}
+              itemName={itm.item_name}
+              maxScore={sel?.score || 0}
+              initialConfig={gradeModalConfig}
+              onOk={handleGradeConfigOk}
+              onCancel={() => { setGradeConfigItemId(null); setGradeModalConfig(undefined) }}
+              gradeEditMode={itm.grade_edit_mode as 'fixed' | 'score_only' | 'flexible' | undefined}
+              isSuperAdmin={user?.roles?.includes('SUPER_ADMIN')}
+            />
+          ) : null
+        })()}
       </>
     )
   }
@@ -1952,472 +1430,24 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
         </Form>
       </Modal>
 
-      {/* Grade Configuration Modal */}
-      <Modal
-        title="등급별 배점 설정"
-        open={gradeConfigItemId !== null}
-        maskClosable={false}
-        onCancel={() => {
-          setGradeConfigItemId(null)
-          gradeConfigForm.resetFields()
-        }}
-        onOk={() => {
-          const values = gradeConfigForm.getFieldsValue()
-          if (!gradeConfigItemId) return
-
-          // GRADE 설정 저장 - 타입별 처리
-          let gradeConfig: GradeConfig
-          let maxScore = 0
-
-          if (values.grade_type === 'string') {
-            if (values.match_mode === 'any') {
-              // "어떤 값이든" - 단일 등급
-              gradeConfig = {
-                type: 'string',
-                matchMode: 'any',
-                grades: [{ value: '', score: values.any_score || 0 }],
-                proofPenalty: values.enable_proof_penalty ? -(values.proof_penalty_amount || 0) : undefined
-              }
-              maxScore = values.any_score || 0
-            } else {
-              // 기존 로직 (exact/contains)
-              gradeConfig = {
-                type: 'string',
-                matchMode: values.match_mode || 'exact',
-                grades: values.grades || [],
-                proofPenalty: values.enable_proof_penalty ? -(values.proof_penalty_amount || 0) : undefined
-              }
-              maxScore = getMaxGradeScore(values.grades || [])
-            }
-          } else if (values.grade_type === 'numeric') {
-            gradeConfig = {
-              type: 'numeric',
-              grades: values.grades || [],
-              proofPenalty: values.enable_proof_penalty ? -(values.proof_penalty_amount || 0) : undefined
-            }
-            maxScore = getMaxGradeScore(values.grades || [])
-          } else if (values.grade_type === 'multi_select') {
-            gradeConfig = {
-              type: 'multi_select',
-              mode: values.multi_select_mode || 'contains',
-              grades: values.grades || [],
-              proofPenalty: values.enable_proof_penalty ? -(values.proof_penalty_amount || 0) : undefined
-            }
-            maxScore = getMaxGradeScore(values.grades || [])
-          } else if (values.grade_type === 'file_exists') {
-            gradeConfig = {
-              type: 'file_exists',
-              grades: {
-                exists: values.file_grades?.exists || 0,
-                none: 0
-              },
-              proofPenalty: values.enable_proof_penalty ? -(values.proof_penalty_amount || 0) : undefined
-            }
-            maxScore = values.file_grades?.exists || 0
-          } else {
-            gradeConfig = {
-              type: 'string',
-              grades: values.grades || [],
-              proofPenalty: values.enable_proof_penalty ? -(values.proof_penalty_amount || 0) : undefined
-            }
-            maxScore = getMaxGradeScore(values.grades || [])
-          }
-
-          // 복수입력 항목은 기본 BEST_MATCH, 그 외 ANY_MATCH
-          const currentItem = selections.get(gradeConfigItemId)?.item
-          const defaultAggMode = currentItem?.is_repeatable ? AggregationMode.BEST_MATCH : AggregationMode.ANY_MATCH
-
-          const newCriteria: ScoringCriteriaCreate = {
-            matching_type: MatchingType.GRADE,
-            expected_value: JSON.stringify(gradeConfig),
-            score: 0,
-            value_source: values.value_source || ValueSourceType.SUBMITTED,
-            source_field: values.source_field || null,
-            extract_pattern: values.extract_pattern || null,
-            aggregation_mode: values.aggregation_mode || defaultAggMode
-          }
-
-          // 기존 GRADE가 아닌 criteria는 유지하고 GRADE만 교체
-          const currentSelection = selections.get(gradeConfigItemId)
-          if (currentSelection) {
-            const otherCriteria = currentSelection.scoring_criteria.filter(
-              c => c.matching_type !== MatchingType.GRADE
-            )
-            updateSelection(gradeConfigItemId, {
-              scoring_criteria: [...otherCriteria, newCriteria],
-              score: maxScore > 0 ? maxScore : currentSelection.score
-            })
-          }
-
-          setGradeConfigItemId(null)
-          gradeConfigForm.resetFields()
-          message.success(`등급 배점이 설정되었습니다. (배점: ${maxScore}점)`)
-        }}
-        width={700}
-        okText="적용"
-        cancelText="취소"
-      >
-        <Form
-          form={gradeConfigForm}
-          layout="vertical"
-          initialValues={{
-            grade_type: 'string',
-            value_source: ValueSourceType.SUBMITTED,
-            grades: [],
-            aggregation_mode: AggregationMode.ANY_MATCH
-          }}
-          onValuesChange={(changedValues, allValues) => {
-            // 등급 유형에 따른 기본 집계방식 자동 설정
-            if ('grade_type' in changedValues || 'value_source' in changedValues) {
-              const gradeType = allValues.grade_type
-              const valueSource = allValues.value_source
-              if (gradeType === 'numeric') {
-                // 숫자범위 → 합산
-                gradeConfigForm.setFieldsValue({ aggregation_mode: AggregationMode.SUM })
-              } else if (gradeType === 'string' && valueSource === ValueSourceType.SUBMITTED) {
-                // 문자열 + 지원자입력값 → 하나라도 매칭
-                gradeConfigForm.setFieldsValue({ aggregation_mode: AggregationMode.ANY_MATCH })
-              }
-            }
-          }}
-        >
-          <Form.Item
-            name="grade_type"
-            label="등급 유형"
-            rules={[{ required: true }]}
-          >
-            <Radio.Group>
-              <Radio.Button value="string">문자열 (예: KSC, 박사)</Radio.Button>
-              <Radio.Button value="numeric">숫자 범위 (예: 1000시간 이상)</Radio.Button>
-              <Radio.Button value="multi_select">복수선택</Radio.Button>
-              <Radio.Button value="file_exists">파일 유무</Radio.Button>
-            </Radio.Group>
-          </Form.Item>
-
-          <Form.Item
-            name="value_source"
-            label="값 소스"
-            rules={[{ required: true }]}
-          >
-            <Select>
-              <Select.Option value={ValueSourceType.SUBMITTED}>제출값 (기본)</Select.Option>
-              <Select.Option value={ValueSourceType.USER_FIELD}>User 테이블 필드</Select.Option>
-              <Select.Option value={ValueSourceType.JSON_FIELD}>JSON 내부 필드</Select.Option>
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            noStyle
-            shouldUpdate={(prev, curr) => prev.value_source !== curr.value_source}
-          >
-            {({ getFieldValue }) => {
-              const source = getFieldValue('value_source')
-              if (source === ValueSourceType.USER_FIELD) {
-                return (
-                  <>
-                    <Form.Item name="source_field" label="User 필드명">
-                      <Select placeholder="필드 선택">
-                        <Select.Option value="coach_certification_number">인증번호</Select.Option>
-                        <Select.Option value="organization">소속</Select.Option>
-                        <Select.Option value="coaching_fields">코칭분야</Select.Option>
-                      </Select>
-                    </Form.Item>
-                    <Form.Item name="extract_pattern" label="추출 패턴 (정규식, 선택)">
-                      <Input placeholder="예: ^(.{3}) - 앞 3글자 추출" />
-                    </Form.Item>
-                  </>
-                )
-              }
-              if (source === ValueSourceType.JSON_FIELD) {
-                return (
-                  <Form.Item name="source_field" label="JSON 필드명">
-                    <Input placeholder="예: degree_level, coaching_hours" />
-                  </Form.Item>
-                )
-              }
-              return null
-            }}
-          </Form.Item>
-
-          {/* 복수입력 항목 집계 방식 */}
-          {gradeConfigItemId && selections.get(gradeConfigItemId)?.item.is_repeatable && (
-            <Form.Item
-              name="aggregation_mode"
-              label={
-                <Space>
-                  복수입력 점수계산법
-                  <Tooltip title="복수입력 항목의 여러 값을 어떻게 집계할지 선택합니다">
-                    <QuestionCircleOutlined style={{ color: '#999' }} />
-                  </Tooltip>
-                </Space>
-              }
-            >
-              <Select defaultValue={AggregationMode.BEST_MATCH}>
-                <Select.Option value={AggregationMode.BEST_MATCH}>최고 점수 매칭</Select.Option>
-                <Select.Option value={AggregationMode.FIRST}>첫 번째만</Select.Option>
-                <Select.Option value={AggregationMode.SUM}>합산 (숫자 범위용)</Select.Option>
-                <Select.Option value={AggregationMode.MAX}>최대값</Select.Option>
-                <Select.Option value={AggregationMode.COUNT}>입력 개수</Select.Option>
-                <Select.Option value={AggregationMode.ANY_MATCH}>하나라도 매칭 (문자열용)</Select.Option>
-              </Select>
-            </Form.Item>
-          )}
-
-          <Form.Item
-            noStyle
-            shouldUpdate={(prev, curr) => prev.grade_type !== curr.grade_type || prev.match_mode !== curr.match_mode}
-          >
-            {({ getFieldValue }) => {
-              const gradeType = getFieldValue('grade_type')
-              const matchMode = getFieldValue('match_mode')
-              if (gradeType === 'string') {
-                return (
-                  <>
-                    <Form.Item name="match_mode" label="매칭 방식" initialValue="exact">
-                      <Radio.Group>
-                        <Radio.Button value="exact">정확히 일치</Radio.Button>
-                        <Radio.Button value="contains">포함</Radio.Button>
-                        <Radio.Button value="any">어떤 값이든</Radio.Button>
-                      </Radio.Group>
-                    </Form.Item>
-                    {matchMode === 'any' ? (
-                      // "어떤 값이든" - 기본 점수만 설정
-                      <Form.Item
-                        name="any_score"
-                        label="내용 입력 시 기본 점수"
-                        rules={[{ required: true, message: '점수를 입력하세요' }]}
-                      >
-                        <InputNumber min={0} max={100} addonAfter="점" style={{ width: 150 }} />
-                      </Form.Item>
-                    ) : (
-                      // 기존 Form.List (값 = 점수 형태)
-                      <Form.List name="grades">
-                        {(fields, { add, remove }) => (
-                          <>
-                            <Text strong>문자열 등급 (값 = 점수)</Text>
-                            {fields.map(({ key, name, ...restField }) => (
-                              <Space key={key} style={{ display: 'flex', marginBottom: 8, marginTop: 8 }} align="baseline">
-                                <Form.Item {...restField} name={[name, 'value']} rules={[{ required: true }]}>
-                                  <Input placeholder="등급값 (예: KSC)" style={{ width: 150 }} />
-                                </Form.Item>
-                                <Text>=</Text>
-                                <Form.Item {...restField} name={[name, 'score']} rules={[{ required: true }]}>
-                                  <InputNumber placeholder="점수" style={{ width: 80 }} />
-                                </Form.Item>
-                                <Text>점</Text>
-                                <Button type="text" danger icon={<DeleteOutlined />} onClick={() => remove(name)} />
-                              </Space>
-                            ))}
-                            <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
-                              등급 추가
-                            </Button>
-                          </>
-                        )}
-                      </Form.List>
-                    )}
-                  </>
-                )
-              } else if (gradeType === 'numeric') {
-                return (
-                  <>
-                    <Form.List name="grades">
-                      {(fields, { add, remove }) => (
-                        <>
-                          <Text strong>숫자 범위 등급</Text>
-                          {fields.map(({ key, name, ...restField }) => (
-                            <Space key={key} style={{ display: 'flex', marginBottom: 8, marginTop: 8 }} align="baseline">
-                              <Form.Item {...restField} name={[name, 'min']}>
-                                <InputNumber placeholder="이상" style={{ width: 80 }} />
-                              </Form.Item>
-                              <Text>~</Text>
-                              <Form.Item {...restField} name={[name, 'max']}>
-                                <InputNumber placeholder="이하" style={{ width: 80 }} />
-                              </Form.Item>
-                              <Text>=</Text>
-                              <Form.Item {...restField} name={[name, 'score']} rules={[{ required: true }]}>
-                                <InputNumber placeholder="점수" style={{ width: 80 }} />
-                              </Form.Item>
-                              <Text>점</Text>
-                              <Button type="text" danger icon={<DeleteOutlined />} onClick={() => remove(name)} />
-                            </Space>
-                          ))}
-                          <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
-                            범위 추가
-                          </Button>
-                        </>
-                      )}
-                    </Form.List>
-                  </>
-                )
-              } else if (gradeType === 'multi_select') {
-                return (
-                  <>
-                    <Form.Item name="multi_select_mode" label="배점 기준" initialValue="contains">
-                      <Radio.Group>
-                        <Radio value="contains">특정값 포함 여부</Radio>
-                        <Radio value="count">선택 개수</Radio>
-                      </Radio.Group>
-                    </Form.Item>
-                    <Form.Item noStyle shouldUpdate={(prev, curr) => prev.multi_select_mode !== curr.multi_select_mode}>
-                      {({ getFieldValue: getInnerValue }) => {
-                        const mode = getInnerValue('multi_select_mode')
-                        if (mode === 'contains') {
-                          return (
-                            <Form.List name="grades">
-                              {(fields, { add, remove }) => (
-                                <>
-                                  <Text strong>포함 여부별 점수</Text>
-                                  {fields.map(({ key, name, ...restField }) => (
-                                    <Space key={key} style={{ display: 'flex', marginBottom: 8, marginTop: 8 }} align="baseline">
-                                      <Form.Item {...restField} name={[name, 'value']} rules={[{ required: true }]}>
-                                        <Input placeholder="포함값 (예: 코칭)" style={{ width: 150 }} />
-                                      </Form.Item>
-                                      <Text>포함 시</Text>
-                                      <Form.Item {...restField} name={[name, 'score']} rules={[{ required: true }]}>
-                                        <InputNumber placeholder="점수" style={{ width: 80 }} />
-                                      </Form.Item>
-                                      <Text>점</Text>
-                                      <Button type="text" danger icon={<DeleteOutlined />} onClick={() => remove(name)} />
-                                    </Space>
-                                  ))}
-                                  <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
-                                    추가
-                                  </Button>
-                                </>
-                              )}
-                            </Form.List>
-                          )
-                        } else {
-                          return (
-                            <Form.List name="grades">
-                              {(fields, { add, remove }) => (
-                                <>
-                                  <Text strong>선택 개수별 점수</Text>
-                                  {fields.map(({ key, name, ...restField }) => (
-                                    <Space key={key} style={{ display: 'flex', marginBottom: 8, marginTop: 8 }} align="baseline">
-                                      <Form.Item {...restField} name={[name, 'min']} rules={[{ required: true }]}>
-                                        <InputNumber placeholder="개수" style={{ width: 80 }} />
-                                      </Form.Item>
-                                      <Text>개 이상 선택 시</Text>
-                                      <Form.Item {...restField} name={[name, 'score']} rules={[{ required: true }]}>
-                                        <InputNumber placeholder="점수" style={{ width: 80 }} />
-                                      </Form.Item>
-                                      <Text>점</Text>
-                                      <Button type="text" danger icon={<DeleteOutlined />} onClick={() => remove(name)} />
-                                    </Space>
-                                  ))}
-                                  <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
-                                    추가
-                                  </Button>
-                                </>
-                              )}
-                            </Form.List>
-                          )
-                        }
-                      }}
-                    </Form.Item>
-                  </>
-                )
-              } else if (gradeType === 'file_exists') {
-                return (
-                  <Card size="small" title="파일 유무 배점">
-                    <Space direction="vertical" style={{ width: '100%' }}>
-                      <Form.Item name={['file_grades', 'exists']} label="파일 있음" initialValue={10}>
-                        <InputNumber min={0} max={100} addonAfter="점" style={{ width: 150 }} />
-                      </Form.Item>
-                      <Form.Item label="파일 없음">
-                        <InputNumber value={0} disabled addonAfter="점" style={{ width: 150 }} />
-                      </Form.Item>
-                    </Space>
-                  </Card>
-                )
-              }
-              return null
-            }}
-          </Form.Item>
-
-          {/* 증빙 감점 설정 - 증빙선택일 때만 표시 (증빙필수일 때는 감점 불필요) */}
-          {gradeConfigItemId && selections.get(gradeConfigItemId)?.proof_required_level === ProofRequiredLevel.OPTIONAL && (
-            <div style={{ marginTop: 16, padding: 16, backgroundColor: '#fafafa', borderRadius: 8, border: '1px solid #e8e8e8' }}>
-              <Text strong style={{ display: 'block', marginBottom: 12 }}>📋 증빙 감점 설정</Text>
-              <Form.Item noStyle shouldUpdate>
-                {({ getFieldValue }) => {
-                  // 최대 점수 계산
-                  const gradeType = getFieldValue('grade_type')
-                  const matchMode = getFieldValue('match_mode')
-                  let maxScore = 0
-                  if (gradeType === 'string' && matchMode === 'any') {
-                    maxScore = getFieldValue('any_score') || 0
-                  } else if (gradeType === 'file_exists') {
-                    maxScore = getFieldValue(['file_grades', 'exists']) || 0
-                  } else {
-                    const grades = getFieldValue('grades') || []
-                    maxScore = getMaxGradeScore(grades)
-                  }
-
-                  return (
-                    <Space direction="vertical" style={{ width: '100%' }}>
-                      <Space>
-                        <Form.Item name="enable_proof_penalty" valuePropName="checked" style={{ marginBottom: 0 }}>
-                          <Checkbox>증빙 감점 적용</Checkbox>
-                        </Form.Item>
-                        <Button
-                          type="link"
-                          size="small"
-                          onClick={() => {
-                            gradeConfigForm.setFieldsValue({
-                              enable_proof_penalty: true,
-                              proof_penalty_amount: maxScore
-                            })
-                          }}
-                          style={{ padding: 0, height: 'auto' }}
-                        >
-                          증빙필수 (미첨부 시 0점)
-                        </Button>
-                      </Space>
-
-                      <Form.Item noStyle shouldUpdate={(prev, curr) => prev.enable_proof_penalty !== curr.enable_proof_penalty}>
-                        {({ getFieldValue: getInnerValue }) =>
-                          getInnerValue('enable_proof_penalty') && (
-                            <Form.Item name="proof_penalty_amount" label="증빙 미첨부 시 감점" style={{ marginBottom: 8 }}>
-                              <InputNumber
-                                min={0}
-                                max={100}
-                                addonBefore="-"
-                                addonAfter="점"
-                                style={{ width: 150 }}
-                                placeholder="10"
-                              />
-                            </Form.Item>
-                          )
-                        }
-                      </Form.Item>
-
-                      {/* 결과 미리보기 */}
-                      <Form.Item noStyle shouldUpdate>
-                        {({ getFieldValue: getInnerValue }) => {
-                          const penaltyEnabled = getInnerValue('enable_proof_penalty')
-                          const penaltyAmount = penaltyEnabled ? (getInnerValue('proof_penalty_amount') || 0) : 0
-                          if (!penaltyEnabled) return null
-                          return (
-                            <div style={{ padding: 8, backgroundColor: '#fff', borderRadius: 4, border: '1px solid #e8e8e8' }}>
-                              <Text type="secondary" style={{ fontSize: 12 }}>결과 예시:</Text>
-                              <div style={{ marginTop: 4 }}>
-                                <div>• 내용 + 증빙 = <Text strong>{maxScore}점</Text></div>
-                                <div>• 내용만 = <Text strong>{Math.max(0, maxScore - penaltyAmount)}점</Text> ({maxScore}-{penaltyAmount})</div>
-                              </div>
-                            </div>
-                          )
-                        }}
-                      </Form.Item>
-                    </Space>
-                  )
-                }}
-              </Form.Item>
-            </div>
-          )}
-        </Form>
-      </Modal>
+      {/* Grade Configuration Modal - 공유 GradeConfigModal 컴포넌트 사용 (모달 모드) */}
+      {gradeConfigItemId && (() => {
+        const sel = selections.get(gradeConfigItemId)
+        const itm = sel?.item
+        return itm ? (
+          <GradeConfigModal
+            visible={true}
+            itemId={gradeConfigItemId}
+            itemName={itm.item_name}
+            maxScore={sel?.score || 0}
+            initialConfig={gradeModalConfig}
+            onOk={handleGradeConfigOk}
+            onCancel={() => { setGradeConfigItemId(null); setGradeModalConfig(undefined) }}
+            gradeEditMode={itm.grade_edit_mode as 'fixed' | 'score_only' | 'flexible' | undefined}
+            isSuperAdmin={user?.roles?.includes('SUPER_ADMIN')}
+          />
+        ) : null
+      })()}
     </Modal>
   )
 }

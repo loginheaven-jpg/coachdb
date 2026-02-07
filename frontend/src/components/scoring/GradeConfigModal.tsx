@@ -3,7 +3,7 @@
  * 위저드 Step4와 SurveyBuilder에서 사용
  */
 
-import { Modal, Select, Radio, Input, InputNumber, Button, Space, Alert, Divider, Collapse, message } from 'antd'
+import { Modal, Select, Radio, Input, InputNumber, Button, Space, Alert, Divider, Collapse, Checkbox, message } from 'antd'
 import { PlusOutlined, DeleteOutlined, SettingOutlined } from '@ant-design/icons'
 import { useState, useEffect } from 'react'
 import {
@@ -573,6 +573,72 @@ export default function GradeConfigModal({
                 <Radio.Button value={ProofRequiredLevel.NOT_REQUIRED}>불필요</Radio.Button>
               </Radio.Group>
             </div>
+
+            {/* 증빙 감점 설정 - 증빙선택(OPTIONAL)일 때만 */}
+            {(config.proofRequired === ProofRequiredLevel.OPTIONAL) && (
+              <div style={{ padding: '12px 16px', background: '#fafafa', borderRadius: 8 }}>
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <Space>
+                    <Checkbox
+                      checked={config.proofPenalty !== undefined && config.proofPenalty !== null && config.proofPenalty !== 0}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          const currentMax = Math.max(...(config.gradeMappings || []).map(m => m.score), maxScore || 0)
+                          setConfig(prev => ({ ...prev, proofPenalty: -(currentMax) }))
+                        } else {
+                          setConfig(prev => ({ ...prev, proofPenalty: undefined }))
+                        }
+                      }}
+                    >
+                      증빙 감점 적용
+                    </Checkbox>
+                    <Button
+                      type="link"
+                      size="small"
+                      onClick={() => {
+                        const currentMax = Math.max(...(config.gradeMappings || []).map(m => m.score), maxScore || 0)
+                        setConfig(prev => ({ ...prev, proofPenalty: -(currentMax) }))
+                      }}
+                      style={{ padding: 0, height: 'auto' }}
+                    >
+                      증빙필수 (미첨부 시 0점)
+                    </Button>
+                  </Space>
+
+                  {config.proofPenalty !== undefined && config.proofPenalty !== null && config.proofPenalty !== 0 && (
+                    <>
+                      <div>
+                        <label style={{ fontSize: 12, color: '#666' }}>증빙 미첨부 시 감점</label>
+                        <InputNumber
+                          min={0}
+                          max={100}
+                          value={Math.abs(config.proofPenalty)}
+                          onChange={(val) => setConfig(prev => ({ ...prev, proofPenalty: val ? -Math.abs(val) : undefined }))}
+                          addonBefore="-"
+                          addonAfter="점"
+                          style={{ width: 150, marginLeft: 8 }}
+                        />
+                      </div>
+                      <div style={{ padding: 8, backgroundColor: '#fff', borderRadius: 4, border: '1px solid #e8e8e8' }}>
+                        <span style={{ fontSize: 12, color: '#999' }}>결과 예시:</span>
+                        <div style={{ marginTop: 4 }}>
+                          {(() => {
+                            const topScore = Math.max(...(config.gradeMappings || []).map(m => m.score), maxScore || 0)
+                            const penalty = Math.abs(config.proofPenalty || 0)
+                            return (
+                              <>
+                                <div>- 내용 + 증빙 = <strong>{topScore}점</strong></div>
+                                <div>- 내용만 = <strong>{Math.max(0, topScore - penalty)}점</strong> ({topScore}-{penalty})</div>
+                              </>
+                            )
+                          })()}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </Space>
+              </div>
+            )}
 
             {/* 복수 입력 가능 여부 */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: '#fafafa', borderRadius: 8 }}>

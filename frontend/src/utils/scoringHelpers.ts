@@ -12,6 +12,14 @@ import {
   ProofRequiredLevel
 } from '../types/scoring'
 
+import {
+  ScoringCriteriaCreate,
+  MatchingType as MTLower,
+  ValueSourceType,
+  AggregationMode as AggLower,
+  GradeConfig
+} from '../services/projectService'
+
 /**
  * ScoringConfig를 ScoringCriteria[] 배열로 변환
  * (API 전송용)
@@ -321,4 +329,148 @@ export function parseScoringCriteria(
       configured: true
     }
   }
+}
+
+// =====================================================
+// SurveyBuilder ↔ GradeConfigModal 변환 함수
+// SurveyBuilder: ScoringCriteriaCreate[] (소문자 enum)
+// GradeConfigModal: ScoringConfig (대문자 enum)
+// =====================================================
+
+// 소문자 → 대문자 매핑
+const valueSourceToUpper: Record<string, ValueSource> = {
+  'submitted': ValueSource.SUBMITTED,
+  'user_field': ValueSource.USER_FIELD,
+  'json_field': ValueSource.JSON_FIELD
+}
+const aggModeToUpper: Record<string, AggregationMode> = {
+  'first': AggregationMode.FIRST,
+  'sum': AggregationMode.SUM,
+  'max': AggregationMode.MAX,
+  'count': AggregationMode.COUNT,
+  'any_match': AggregationMode.ANY_MATCH,
+  'best_match': AggregationMode.BEST_MATCH
+}
+// 대문자 → 소문자 매핑
+const valueSourceToLower: Record<string, ValueSourceType> = {
+  'SUBMITTED': ValueSourceType.SUBMITTED,
+  'USER_FIELD': ValueSourceType.USER_FIELD,
+  'JSON_FIELD': ValueSourceType.JSON_FIELD
+}
+const aggModeToLower: Record<string, AggLower> = {
+  'FIRST': AggLower.FIRST,
+  'SUM': AggLower.SUM,
+  'MAX': AggLower.MAX,
+  'COUNT': AggLower.COUNT,
+  'ANY_MATCH': AggLower.ANY_MATCH,
+  'BEST_MATCH': AggLower.BEST_MATCH
+}
+
+/**
+ * ScoringCriteriaCreate[] (SurveyBuilder 소문자) → ScoringConfig (GradeConfigModal 대문자)
+ * SurveyBuilder의 기존 criteria를 GradeConfigModal의 initialConfig로 변환
+ */
+export function criteriaCreateToScoringConfig(
+  itemId: number,
+  criteria: ScoringCriteriaCreate[]
+): ScoringConfig | null {
+  if (!criteria || criteria.length === 0) return null
+
+  const first = criteria[0]
+  if (first.matching_type !== MTLower.GRADE) return null
+
+  let gradeMappings: Array<{ value: string | number; score: number; label?: string }> = []
+  let gradeType: GradeType | undefined
+  let proofPenalty: number | undefined
+
+  try {
+    const config = JSON.parse(first.expected_value || '{}')
+    gradeType = config.type as GradeType
+    proofPenalty = config.proofPenalty
+
+    if (config.type === 'file_exists' && config.grades && !Array.isArray(config.grades)) {
+      gradeMappings = [
+        { value: 'exists', score: config.grades.exists || 0, label: '있음' },
+        { value: 'none', score: config.grades.none || 0, label: '없음' }
+      ]
+    } else if (Array.isArray(config.grades)) {
+      gradeMappings = config.grades.map((g: any) => ({
+        value: g.value ?? '',
+        score: g.score ?? 0,
+        ...(g.label ? { label: g.label } : {})
+      }))
+    }
+  } catch {
+    // 파싱 실패 시 null
+    return null
+  }
+
+  return {
+    itemId,
+    matchingType: MatchingType.GRADE,
+    gradeType,
+    valueSource: valueSourceToUpper[first.value_source || 'submitted'] || ValueSource.SUBMITTED,
+    sourceField: first.source_field || undefined,
+    extractPattern: first.extract_pattern || undefined,
+    aggregationMode: aggModeToUpper[first.aggregation_mode || 'any_match'] || AggregationMode.ANY_MATCH,
+    gradeMappings,
+    proofPenalty,
+    configured: true
+  }
+}
+
+/**
+ * ScoringConfig (GradeConfigModal 대문자) → { criteria: ScoringCriteriaCreate[], maxScore: number }
+ * GradeConfigModal 결과를 SurveyBuilder 포맷으로 역변환
+ */
+export function scoringConfigToCriteriaCreate(config: ScoringConfig): {
+  criteria: ScoringCriteriaCreate[]
+  maxScore: number
+} {
+  if (config.matchingType !== MatchingType.GRADE || !config.gradeMappings) {
+    return { criteria: [], maxScore: 0 }
+  }
+
+  const gradeConfig: Record<string, any> = {
+    type: config.gradeType || GradeType.STRING,
+    grades: config.gradeMappings.map(m => ({
+      value: m.value,
+      score: m.score,
+      ...(m.label ? { label: m.label } : {})
+    }))
+  }
+
+  // file_exists 특수 처리
+  if (config.gradeType === GradeType.FILE_EXISTS && config.gradeMappings.length >= 2) {
+    const existsMapping = config.gradeMappings.find(m => String(m.value) === 'exists' || String(m.value) === '있음')
+    const noneMapping = config.gradeMappings.find(m => String(m.value) === 'none' || String(m.value) === '없음')
+    gradeConfig.grades = {
+      exists: existsMapping?.score || 0,
+      none: noneMapping?.score || 0
+    }
+  }
+
+  // multi_select mode 추가
+  if (config.gradeType === GradeType.MULTI_SELECT) {
+    gradeConfig.mode = 'contains'
+  }
+
+  // proofPenalty 보존
+  if (config.proofPenalty !== undefined && config.proofPenalty !== null) {
+    gradeConfig.proofPenalty = config.proofPenalty
+  }
+
+  const maxScore = Math.max(...config.gradeMappings.map(m => m.score), 0)
+
+  const criteria: ScoringCriteriaCreate[] = [{
+    matching_type: MTLower.GRADE,
+    expected_value: JSON.stringify(gradeConfig),
+    score: maxScore,
+    value_source: valueSourceToLower[config.valueSource || 'SUBMITTED'] || ValueSourceType.SUBMITTED,
+    source_field: config.sourceField || null,
+    extract_pattern: config.extractPattern || null,
+    aggregation_mode: aggModeToLower[config.aggregationMode || 'ANY_MATCH'] || AggLower.ANY_MATCH
+  }]
+
+  return { criteria, maxScore }
 }

@@ -72,6 +72,9 @@ export interface ScoringConfig {
   proofRequired?: ProofRequiredLevel  // 증빙 필수 수준
   verificationNote?: string  // 검증 안내 메시지
 
+  // 증빙 감점
+  proofPenalty?: number  // 증빙 미첨부 시 감점 (음수값, 예: -10)
+
   // 항목 설정
   isRequired?: boolean  // 필수 입력 여부
   allowMultiple?: boolean  // 복수 항목 입력 가능 여부
