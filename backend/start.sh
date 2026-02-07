@@ -411,6 +411,18 @@ if DATABASE_URL:
         except Exception as e:
             print(f"[WARN] item deactivation: {e}")
 
+        # === 학력 항목: is_repeatable 수정 (최종학력은 단일 입력) ===
+        try:
+            cur.execute("""
+                UPDATE competency_items SET is_repeatable = false
+                WHERE item_code IN ('EDU_COACHING_FINAL', 'EDU_OTHER_FINAL')
+                  AND is_repeatable = true
+            """)
+            if cur.rowcount > 0:
+                print(f"[OK] Fixed is_repeatable for {cur.rowcount} education items")
+        except Exception as e:
+            print(f"[WARN] education is_repeatable fix: {e}")
+
         # === 신규 항목: EDUCATION_TRAINING ===
         try:
             cur.execute("""
