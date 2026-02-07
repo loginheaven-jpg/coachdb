@@ -437,17 +437,17 @@ if DATABASE_URL:
             print(f"[WARN] EDUCATION_TRAINING creation: {e}")
 
         # === 자격증 유무/종류 중복 항목 비활성화 ===
-        # CERT_COUNSELING, CERT_OTHER 하나씩만 사용. 평가방식(유무/종류)은 과제별 설정.
-        # 커스텀 유무/종류 항목 및 이전 _EXISTS 항목 모두 비활성화.
+        # 자격증은 CERT_KCA, CERT_COUNSELING, CERT_OTHER 3개만 활성 유지.
+        # 평가방식(유무/종류)은 과제 설문빌더에서 선택.
+        # 이름에 "유무" 또는 "종류"가 포함된 모든 자격증 항목 비활성화.
         try:
             cur.execute("""
                 UPDATE competency_items SET is_active = false
-                WHERE item_code IN ('CERT_COUNSELING_EXISTS', 'CERT_OTHER_EXISTS')
-                   OR (category = 'CERTIFICATION' AND item_code LIKE 'CUSTOM_%'
-                       AND (item_name LIKE '%유무%' OR item_name LIKE '%종류%'))
+                WHERE item_code NOT IN ('CERT_KCA', 'CERT_COUNSELING', 'CERT_OTHER')
+                  AND (item_name LIKE '%유무%' OR item_name LIKE '%종류%')
             """)
             if cur.rowcount > 0:
-                print(f"[OK] Deactivated {cur.rowcount} duplicate cert items (유무/종류/EXISTS)")
+                print(f"[OK] Deactivated {cur.rowcount} duplicate cert items (유무/종류)")
         except Exception as e:
             print(f"[WARN] cert item deactivation: {e}")
 
