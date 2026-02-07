@@ -76,7 +76,7 @@ def upgrade() -> None:
             grade_mappings, proof_required, field_label_overrides
         ) VALUES (
             '코칭관련 연수/교육', 'EDUCATION_TRAINING', 'EXPERIENCE', 'text', true,
-            'TEXT_FILE', true, 210,
+            'text_file', true, 210,
             'flexible', 'standard', 'form_input',
             'submitted', false,
             '[]', 'optional', '{}'
