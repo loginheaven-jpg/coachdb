@@ -68,9 +68,6 @@ export interface CompetencyItem {
   verification_note: string | null  // 검증 안내 문구
   auto_confirm_across_projects: boolean | null  // 타 과제 자동 컨펌
   field_label_overrides: string | null  // 필드 라벨 오버라이드 JSON
-  // 프로필 표시 설정 (유무/종류 분리)
-  visible_in_profile: boolean  // 프로필(나의정보)에 표시 여부
-  data_source_item_code: string | null  // 평가전용 항목의 데이터 소스 item_code
 }
 
 // Admin create/update types

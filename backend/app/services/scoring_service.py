@@ -12,7 +12,7 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
 from app.models.application import Application, ApplicationData
-from app.models.competency import CompetencyItem, ProjectItem, ScoringCriteria, MatchingType, ValueSourceType, AggregationMode
+from app.models.competency import ProjectItem, ScoringCriteria, MatchingType, ValueSourceType, AggregationMode
 from app.models.project import Project
 from app.models.reviewer_evaluation import ReviewerEvaluation
 from app.models.custom_question import CustomQuestion, CustomQuestionAnswer
@@ -466,7 +466,6 @@ async def calculate_application_auto_score(
         select(Application)
         .options(
             selectinload(Application.project).selectinload(Project.project_items).selectinload(ProjectItem.scoring_criteria),
-            selectinload(Application.project).selectinload(Project.project_items).selectinload(ProjectItem.competency_item),
             selectinload(Application.application_data),
             selectinload(Application.user)  # Load user for USER_FIELD scoring
         )
@@ -503,52 +502,6 @@ async def calculate_application_auto_score(
         # Update item_score in application_data
         app_data.item_score = item_score
         total_score += item_score
-
-    # Handle evaluation-only items with data_source_item_code (유무/종류 분리)
-    # These items don't have their own ApplicationData; they use data from the source item
-    app_data_by_item_id = {ad.item_id: ad for ad in application.application_data}
-    scored_item_ids = {ad.item_id for ad in application.application_data if ad.item_id in project_items_map}
-
-    for pi in application.project.project_items:
-        if pi.item_id in scored_item_ids:
-            continue  # Already scored above
-        if not pi.scoring_criteria or not pi.competency_item:
-            continue
-        source_code = pi.competency_item.data_source_item_code
-        if not source_code:
-            continue  # Not a data-source-linked item
-
-        # Find the source item's ApplicationData by looking up item_code
-        source_app_data = None
-        for ad in application.application_data:
-            # Need to resolve item_code → check competency_item on each app_data
-            # Since app_data.item_id maps to competency_items, find matching source
-            source_pi = project_items_map.get(ad.item_id)
-            if source_pi and source_pi.competency_item and source_pi.competency_item.item_code == source_code:
-                source_app_data = ad
-                break
-
-        # Fallback: look up source item directly from DB if not in project_items
-        if not source_app_data:
-            for ad in application.application_data:
-                # Check if the ad's item matches by querying all loaded competency_items
-                for other_pi in application.project.project_items:
-                    if other_pi.competency_item and other_pi.competency_item.item_code == source_code:
-                        if ad.item_id == other_pi.item_id:
-                            source_app_data = ad
-                            break
-                if source_app_data:
-                    break
-
-        if source_app_data:
-            item_score = calculate_item_score(
-                source_app_data.submitted_value or '',
-                pi.scoring_criteria,
-                pi.max_score,
-                applicant_user,
-                source_app_data.submitted_file_id
-            )
-            total_score += item_score
 
     # Also calculate custom question scores if they are evaluation items
     custom_q_result = await db.execute(

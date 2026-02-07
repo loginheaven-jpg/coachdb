@@ -54,6 +54,13 @@ import {
   AggregationMode as AggUpper
 } from '../types/scoring'
 import { criteriaCreateToScoringConfig, scoringConfigToCriteriaCreate } from '../utils/scoringHelpers'
+import {
+  GradeTemplate,
+  TEMPLATE_COUNSELING_BY_NAME,
+  TEMPLATE_COUNSELING_BY_EXISTS,
+  TEMPLATE_OTHER_BY_NAME,
+  TEMPLATE_OTHER_BY_EXISTS
+} from '../utils/gradeTemplates'
 import { useAuthStore } from '../stores/authStore'
 import { Form } from 'antd'
 
@@ -199,6 +206,40 @@ function getGradeTemplate(item: CompetencyItem): GradeTemplateConfig | null {
   return null
 }
 
+// CERT_COUNSELING, CERT_OTHER 항목의 평가방식별 등급 템플릿 매핑
+const EVAL_METHOD_TEMPLATES: Record<string, Record<string, GradeTemplate>> = {
+  'CERT_COUNSELING': {
+    'by_name': TEMPLATE_COUNSELING_BY_NAME,
+    'by_existence': TEMPLATE_COUNSELING_BY_EXISTS
+  },
+  'CERT_OTHER': {
+    'by_name': TEMPLATE_OTHER_BY_NAME,
+    'by_existence': TEMPLATE_OTHER_BY_EXISTS
+  }
+}
+
+// GradeTemplate → ScoringCriteriaCreate[] 변환
+function gradeTemplateToCriteria(template: GradeTemplate, itemId: number, isRepeatable: boolean): {
+  criteria: ScoringCriteriaCreate[]
+  maxScore: number
+} {
+  const config: ScoringConfig = {
+    itemId,
+    matchingType: MTUpper.GRADE,
+    gradeType: template.gradeType,
+    valueSource: template.valueSource,
+    sourceField: template.sourceField,
+    aggregationMode: template.aggregationMode || (isRepeatable ? AggUpper.BEST_MATCH : AggUpper.ANY_MATCH),
+    gradeMappings: template.defaultMappings.map(m => ({
+      value: m.value ?? '',
+      score: m.score ?? 0,
+      ...(m.label ? { label: m.label } : {})
+    })),
+    configured: true
+  }
+  return scoringConfigToCriteriaCreate(config)
+}
+
 interface SurveyBuilderProps {
   projectId: number
   visible?: boolean
@@ -215,6 +256,7 @@ interface ItemSelection {
   score: number | null
   proof_required_level: ProofRequiredLevel
   scoring_criteria: ScoringCriteriaCreate[]  // 배점 기준 (GRADE 타입 지원)
+  evaluation_method?: 'by_name' | 'by_existence'  // 자격증 평가방식 (CERT_COUNSELING, CERT_OTHER 전용)
 }
 
 interface GroupedItems {
@@ -264,7 +306,7 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
         'BASIC_NAME', 'BASIC_PHONE', 'BASIC_EMAIL', 'BASIC_ADDRESS',
         'BASIC_GENDER', 'BASIC_BIRTHDATE', 'DETAIL_COACHING_AREA', 'DETAIL_CERT_NUMBER'
       ]
-      const allItemsFromApi = await projectService.getCompetencyItems(true)
+      const allItemsFromApi = await projectService.getCompetencyItems()
       const items = allItemsFromApi.filter(item => !USER_PROFILE_ITEM_CODES.includes(item.item_code))
       setAllItems(items)
 
@@ -290,13 +332,25 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
           extract_pattern: c.extract_pattern || null,
           aggregation_mode: c.aggregation_mode || AggregationMode.ANY_MATCH
         })) || []
+        // CERT_COUNSELING/CERT_OTHER: 기존 ScoringCriteria에서 평가방식 역추론
+        let evalMethod: 'by_name' | 'by_existence' | undefined = undefined
+        if (EVAL_METHOD_TEMPLATES[item.item_code] && existingCriteria.length > 0) {
+          const gradeCriteria = existingCriteria.find(c => c.matching_type === MatchingType.GRADE)
+          if (gradeCriteria?.expected_value) {
+            try {
+              const parsed = JSON.parse(gradeCriteria.expected_value)
+              evalMethod = parsed.type === 'file_exists' ? 'by_existence' : 'by_name'
+            } catch { /* ignore */ }
+          }
+        }
         newSelections.set(item.item_id, {
           item,
           included: existing ? true : defaultIncluded,
           is_required: existing?.is_required ?? true,  // 기본값: 필수
           score: existing?.max_score ?? null,
           proof_required_level: existing?.proof_required_level || ProofRequiredLevel.OPTIONAL,
-          scoring_criteria: existingCriteria
+          scoring_criteria: existingCriteria,
+          evaluation_method: evalMethod
         })
       })
       setSelections(newSelections)
@@ -867,7 +921,16 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                                 // 포함 시 템플릿 설정 자동 로드
                                 if (checked && (!selection.scoring_criteria || selection.scoring_criteria.length === 0)) {
                                   const item = selection.item
-                                  if (item.has_scoring && item.grade_type && item.grade_mappings) {
+                                  // CERT_COUNSELING/CERT_OTHER: 평가방식별 등급 템플릿 적용
+                                  const evalTemplates = EVAL_METHOD_TEMPLATES[item.item_code]
+                                  if (evalTemplates) {
+                                    const defaultMethod = 'by_name'
+                                    updates.evaluation_method = defaultMethod
+                                    const gradeTemplate = evalTemplates[defaultMethod]
+                                    const { criteria, maxScore } = gradeTemplateToCriteria(gradeTemplate, item.item_id, item.is_repeatable)
+                                    updates.scoring_criteria = criteria
+                                    if (maxScore > 0) updates.score = maxScore
+                                  } else if (item.has_scoring && item.grade_type && item.grade_mappings) {
                                     const template = getGradeTemplate(item)
                                     if (template) {
                                       const vsMap: Record<string, ValueSource> = { 'submitted': ValueSource.SUBMITTED, 'user_field': ValueSource.USER_FIELD, 'json_field': ValueSource.JSON_FIELD, 'SUBMITTED': ValueSource.SUBMITTED, 'USER_FIELD': ValueSource.USER_FIELD, 'JSON_FIELD': ValueSource.JSON_FIELD }
@@ -1027,6 +1090,32 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
                                 <Radio.Button value="not_required">불필요</Radio.Button>
                               </Radio.Group>
                             </Space>
+
+                            {/* 평가방식 선택 - CERT_COUNSELING, CERT_OTHER 전용 */}
+                            {EVAL_METHOD_TEMPLATES[selection.item.item_code] && (
+                              <Space>
+                                <Text type="secondary">평가:</Text>
+                                <Radio.Group
+                                  value={selection.evaluation_method || 'by_name'}
+                                  onChange={(e) => {
+                                    const method = e.target.value as 'by_name' | 'by_existence'
+                                    const gradeTemplate = EVAL_METHOD_TEMPLATES[selection.item.item_code][method]
+                                    const { criteria, maxScore } = gradeTemplateToCriteria(
+                                      gradeTemplate, selection.item.item_id, selection.item.is_repeatable
+                                    )
+                                    updateSelection(selection.item.item_id, {
+                                      evaluation_method: method,
+                                      scoring_criteria: criteria,
+                                      score: maxScore > 0 ? maxScore : selection.score
+                                    })
+                                  }}
+                                  size="small"
+                                >
+                                  <Radio.Button value="by_name">종류</Radio.Button>
+                                  <Radio.Button value="by_existence">유무</Radio.Button>
+                                </Radio.Group>
+                              </Space>
+                            )}
                           </Space>
                         )}
                       </Space>
