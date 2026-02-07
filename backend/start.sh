@@ -356,9 +356,9 @@ if DATABASE_URL:
             # 자격증 (0xx)
             ("UPDATE competency_items SET display_order = 1 WHERE item_code = 'CERT_KCA'", "CERT_KCA=1"),
             ("UPDATE competency_items SET display_order = 2 WHERE item_code = 'CERT_COUNSELING'", "CERT_COUNSELING=2"),
-            ("UPDATE competency_items SET display_order = 3 WHERE item_code = 'CERT_COUNSELING_COPY'", "CERT_COUNSELING_COPY=3"),
+            ("UPDATE competency_items SET display_order = 3 WHERE category = 'CERTIFICATION' AND item_code LIKE 'CUSTOM_%' AND item_name LIKE '%상담%심리%종류%'", "상담심리종류=3"),
             ("UPDATE competency_items SET display_order = 4 WHERE item_code = 'CERT_OTHER'", "CERT_OTHER=4"),
-            ("UPDATE competency_items SET display_order = 5 WHERE item_code = 'Kind_of_CERT_OTHER'", "Kind_of_CERT_OTHER=5"),
+            ("UPDATE competency_items SET display_order = 5 WHERE category = 'CERTIFICATION' AND item_code LIKE 'CUSTOM_%' AND item_name LIKE '%기타%자격%종류%'", "기타자격종류=5"),
             # 코칭경력 (1xx)
             ("UPDATE competency_items SET display_order = 101 WHERE item_code = 'EXP_COACHING_HOURS'", "EXP_COACHING_HOURS=101"),
             ("UPDATE competency_items SET display_order = 102 WHERE item_code = 'EDUCATION_TRAINING'", "EDUCATION_TRAINING=102"),

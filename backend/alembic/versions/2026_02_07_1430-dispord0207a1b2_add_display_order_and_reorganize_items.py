@@ -32,9 +32,9 @@ def upgrade() -> None:
     # === 자격증 그룹 (0xx) ===
     op.execute("UPDATE competency_items SET display_order = 1 WHERE item_code = 'CERT_KCA'")
     op.execute("UPDATE competency_items SET display_order = 2 WHERE item_code = 'CERT_COUNSELING'")
-    op.execute("UPDATE competency_items SET display_order = 3 WHERE item_code = 'CERT_COUNSELING_COPY'")
+    op.execute("UPDATE competency_items SET display_order = 3 WHERE category = 'CERTIFICATION' AND item_code LIKE 'CUSTOM_%' AND item_name LIKE '%상담%심리%종류%'")
     op.execute("UPDATE competency_items SET display_order = 4 WHERE item_code = 'CERT_OTHER'")
-    op.execute("UPDATE competency_items SET display_order = 5 WHERE item_code = 'Kind_of_CERT_OTHER'")
+    op.execute("UPDATE competency_items SET display_order = 5 WHERE category = 'CERTIFICATION' AND item_code LIKE 'CUSTOM_%' AND item_name LIKE '%기타%자격%종류%'")
 
     # === 코칭경력 그룹 (1xx) ===
     op.execute("UPDATE competency_items SET display_order = 101 WHERE item_code = 'EXP_COACHING_HOURS'")
