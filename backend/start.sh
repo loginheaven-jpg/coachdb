@@ -352,15 +352,11 @@ if DATABASE_URL:
 
         # === display_order 설정 ===
         # 체계: 자격증=0xx, 코칭경력=1xx, 학력=2xx, 관리자=8xx, 기타=9xx
-        # === display_order 설정 ===
-        # 체계: 자격증=0xx, 코칭경력=1xx, 학력=2xx, 관리자=8xx, 기타=9xx
         display_order_updates = [
-            # 자격증 (0xx)
+            # 자격증 (0xx) - CERT_KCA, CERT_COUNSELING, CERT_OTHER 3개만 사용
             ("UPDATE competency_items SET display_order = 1 WHERE item_code = 'CERT_KCA'", "CERT_KCA=1"),
             ("UPDATE competency_items SET display_order = 2 WHERE item_code = 'CERT_COUNSELING'", "CERT_COUNSELING=2"),
-            ("UPDATE competency_items SET display_order = 3 WHERE category = 'CERTIFICATION' AND item_code LIKE 'CUSTOM_%' AND item_name LIKE '%상담%심리%종류%'", "상담심리종류=3"),
             ("UPDATE competency_items SET display_order = 4 WHERE item_code = 'CERT_OTHER'", "CERT_OTHER=4"),
-            ("UPDATE competency_items SET display_order = 5 WHERE category = 'CERTIFICATION' AND item_code LIKE 'CUSTOM_%' AND item_name LIKE '%기타%자격%종류%'", "기타자격종류=5"),
             # 코칭경력 (1xx)
             ("UPDATE competency_items SET display_order = 101 WHERE item_code = 'EXP_COACHING_HOURS'", "EXP_COACHING_HOURS=101"),
             ("UPDATE competency_items SET display_order = 102 WHERE item_code = 'EDUCATION_TRAINING'", "EDUCATION_TRAINING=102"),
@@ -440,16 +436,20 @@ if DATABASE_URL:
         except Exception as e:
             print(f"[WARN] EDUCATION_TRAINING creation: {e}")
 
-        # === 이전 잘못 생성된 _EXISTS 항목 비활성화 (롤백) ===
+        # === 자격증 유무/종류 중복 항목 비활성화 ===
+        # CERT_COUNSELING, CERT_OTHER 하나씩만 사용. 평가방식(유무/종류)은 과제별 설정.
+        # 커스텀 유무/종류 항목 및 이전 _EXISTS 항목 모두 비활성화.
         try:
             cur.execute("""
                 UPDATE competency_items SET is_active = false
                 WHERE item_code IN ('CERT_COUNSELING_EXISTS', 'CERT_OTHER_EXISTS')
+                   OR (category = 'CERTIFICATION' AND item_code LIKE 'CUSTOM_%'
+                       AND (item_name LIKE '%유무%' OR item_name LIKE '%종류%'))
             """)
             if cur.rowcount > 0:
-                print(f"[OK] Deactivated {cur.rowcount} _EXISTS items (rolled back)")
+                print(f"[OK] Deactivated {cur.rowcount} duplicate cert items (유무/종류/EXISTS)")
         except Exception as e:
-            print(f"[WARN] _EXISTS item deactivation: {e}")
+            print(f"[WARN] cert item deactivation: {e}")
 
         # === EDUCATION_TRAINING 필드 생성 ===
         try:
