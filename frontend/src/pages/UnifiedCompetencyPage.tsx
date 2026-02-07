@@ -1127,7 +1127,6 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
               {renderCertificationSection()}
               {renderExperienceSection()}
               {renderCategorySection('EDUCATION', '학력', '코칭/상담 관련 학위 및 기타 학위를 등록하세요.')}
-              {renderTrainingSection()}
               {(groupedItems['OTHER'] || []).length > 0 && renderOtherSection()}
             </Collapse>
           )}
