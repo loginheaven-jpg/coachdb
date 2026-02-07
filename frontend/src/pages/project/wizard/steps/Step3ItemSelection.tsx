@@ -55,7 +55,7 @@ export default function Step3ItemSelection({ state, actions }: Step3Props) {
   }
 
   // 사용자 지정 카테고리 순서
-  const categoryOrder = ['CERTIFICATION', 'EDUCATION', 'EXPERIENCE', 'OTHER', 'BASIC']
+  const categoryOrder = ['CERTIFICATION', 'EXPERIENCE', 'EDUCATION', 'OTHER', 'BASIC']
 
   return (
     <div className="wizard-question">

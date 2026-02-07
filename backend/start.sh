@@ -350,6 +350,101 @@ if DATABASE_URL:
             except Exception as e:
                 print(f"[WARN] category update {label}: {e}")
 
+        # === display_order 설정 (alembic 마이그레이션 실패 대비 fallback) ===
+        display_order_updates = [
+            # 자격증 그룹 (100번대)
+            ("UPDATE competency_items SET display_order = 100 WHERE item_code = 'CERT_KCA'", "CERT_KCA=100"),
+            ("UPDATE competency_items SET display_order = 110 WHERE item_code = 'CERT_COUNSELING'", "CERT_COUNSELING=110"),
+            ("UPDATE competency_items SET display_order = 120 WHERE item_name LIKE '%상담%심리%종류%' AND display_order = 999", "상담심리종류=120"),
+            ("UPDATE competency_items SET display_order = 130 WHERE item_code = 'CERT_OTHER'", "CERT_OTHER=130"),
+            ("UPDATE competency_items SET display_order = 140 WHERE item_name LIKE '%기타자격%종류%' AND display_order = 999", "기타자격종류=140"),
+            # 코칭경력 그룹 (200번대)
+            ("UPDATE competency_items SET display_order = 200 WHERE item_code = 'EXP_COACHING_HOURS'", "EXP_COACHING_HOURS=200"),
+            ("UPDATE competency_items SET display_order = 210 WHERE item_code = 'EDUCATION_TRAINING'", "EDUCATION_TRAINING=210"),
+            ("UPDATE competency_items SET display_order = 220 WHERE item_code = 'COACHING_BUSINESS'", "COACHING_BUSINESS=220"),
+            ("UPDATE competency_items SET display_order = 230 WHERE item_code = 'COACHING_YOUTH'", "COACHING_YOUTH=230"),
+            # 학력 그룹 (300번대)
+            ("UPDATE competency_items SET display_order = 300 WHERE item_code = 'EDU_COACHING_FINAL'", "EDU_COACHING_FINAL=300"),
+            ("UPDATE competency_items SET display_order = 310 WHERE item_code = 'EDU_OTHER_FINAL'", "EDU_OTHER_FINAL=310"),
+            # 관리자전용 (800번대)
+            ("UPDATE competency_items SET display_order = 800 WHERE item_code = 'EVAL_PREVIOUS_PROJECT'", "EVAL_PREVIOUS_PROJECT=800"),
+            ("UPDATE competency_items SET display_order = 810 WHERE item_code = 'EVAL_COMMITTEE'", "EVAL_COMMITTEE=810"),
+        ]
+        for sql, label in display_order_updates:
+            try:
+                cur.execute(sql)
+                if cur.rowcount > 0:
+                    print(f"[OK] display_order: {label} ({cur.rowcount} rows)")
+            except Exception as e:
+                print(f"[WARN] display_order {label}: {e}")
+
+        # === 비활성화 대상 항목 처리 ===
+        try:
+            cur.execute("""
+                UPDATE competency_items SET is_active = false
+                WHERE item_code IN (
+                    'EXP_MENTORING',
+                    'EXP_COACHING_YEARS',
+                    'COACHING_CAREER',
+                    'COACHING_YOUNG_ADULT',
+                    'COACHING_FAMILY',
+                    'COACHING_LIFE',
+                    'SPECIALTY'
+                )
+            """)
+            print(f"[OK] Deactivated {cur.rowcount} legacy items")
+        except Exception as e:
+            print(f"[WARN] item deactivation: {e}")
+
+        # === 신규 항목: EDUCATION_TRAINING ===
+        try:
+            cur.execute("""
+                INSERT INTO competency_items (
+                    item_name, item_code, category, input_type, is_active,
+                    template, is_repeatable, display_order,
+                    grade_edit_mode, evaluation_method, data_source,
+                    scoring_value_source, is_custom,
+                    grade_mappings, proof_required, field_label_overrides
+                ) VALUES (
+                    '코칭관련 연수/교육', 'EDUCATION_TRAINING', 'EXPERIENCE', 'text', true,
+                    'text_file', true, 210,
+                    'flexible', 'standard', 'form_input',
+                    'submitted', false,
+                    '[]', 'optional', '{}'
+                )
+                ON CONFLICT (item_code) DO NOTHING
+            """)
+            if cur.rowcount > 0:
+                print("[OK] Created EDUCATION_TRAINING item")
+            else:
+                print("[OK] EDUCATION_TRAINING already exists")
+        except Exception as e:
+            print(f"[WARN] EDUCATION_TRAINING creation: {e}")
+
+        # === EDUCATION_TRAINING 필드 생성 ===
+        try:
+            cur.execute("""
+                INSERT INTO competency_item_fields (item_id, field_name, field_label, field_type, is_required, display_order, placeholder)
+                SELECT item_id, 'training_name', '연수/교육명', 'text', true, 1, '연수/교육명을 입력하세요'
+                FROM competency_items WHERE item_code = 'EDUCATION_TRAINING'
+                AND NOT EXISTS (
+                    SELECT 1 FROM competency_item_fields f
+                    WHERE f.item_id = competency_items.item_id AND f.field_name = 'training_name'
+                )
+            """)
+            cur.execute("""
+                INSERT INTO competency_item_fields (item_id, field_name, field_label, field_type, is_required, display_order)
+                SELECT item_id, 'proof', '증빙 업로드', 'file', false, 2
+                FROM competency_items WHERE item_code = 'EDUCATION_TRAINING'
+                AND NOT EXISTS (
+                    SELECT 1 FROM competency_item_fields f
+                    WHERE f.item_id = competency_items.item_id AND f.field_name = 'proof'
+                )
+            """)
+            print("[OK] EDUCATION_TRAINING fields ensured")
+        except Exception as e:
+            print(f"[WARN] EDUCATION_TRAINING fields: {e}")
+
         cur.close()
         conn.close()
         print("[OK] Database columns and categories fixed")
