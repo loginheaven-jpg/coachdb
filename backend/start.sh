@@ -270,6 +270,9 @@ if DATABASE_URL:
             ('scoring_value_source', "VARCHAR(50) DEFAULT 'submitted'"),
             ('scoring_source_field', 'VARCHAR(100)'),
             ('extract_pattern', 'VARCHAR(200)'),
+            # 유무/종류 분리: 프로필 표시 설정
+            ('visible_in_profile', 'BOOLEAN NOT NULL DEFAULT true'),
+            ('data_source_item_code', 'VARCHAR(100)'),
         ]
         for col_name, col_type in competency_item_columns:
             try:
@@ -352,13 +355,14 @@ if DATABASE_URL:
 
         # === display_order 설정 ===
         # 체계: 자격증=0xx, 코칭경력=1xx, 학력=2xx, 관리자=8xx, 기타=9xx
+        # 유무/종류 분리: CERT_COUNSELING_EXISTS(2), CERT_COUNSELING(3), CERT_OTHER_EXISTS(4), CERT_OTHER(5)
         display_order_updates = [
-            # 자격증 (0xx)
+            # 자격증 (0xx) - 유무/종류 분리 반영
             ("UPDATE competency_items SET display_order = 1 WHERE item_code = 'CERT_KCA'", "CERT_KCA=1"),
-            ("UPDATE competency_items SET display_order = 2 WHERE item_code = 'CERT_COUNSELING'", "CERT_COUNSELING=2"),
-            ("UPDATE competency_items SET display_order = 3 WHERE category = 'CERTIFICATION' AND item_code LIKE 'CUSTOM_%' AND item_name LIKE '%상담%심리%종류%'", "상담심리종류=3"),
-            ("UPDATE competency_items SET display_order = 4 WHERE item_code = 'CERT_OTHER'", "CERT_OTHER=4"),
-            ("UPDATE competency_items SET display_order = 5 WHERE category = 'CERTIFICATION' AND item_code LIKE 'CUSTOM_%' AND item_name LIKE '%기타%자격%종류%'", "기타자격종류=5"),
+            ("UPDATE competency_items SET display_order = 2 WHERE item_code = 'CERT_COUNSELING_EXISTS'", "CERT_COUNSELING_EXISTS=2"),
+            ("UPDATE competency_items SET display_order = 3 WHERE item_code = 'CERT_COUNSELING'", "CERT_COUNSELING=3"),
+            ("UPDATE competency_items SET display_order = 4 WHERE item_code = 'CERT_OTHER_EXISTS'", "CERT_OTHER_EXISTS=4"),
+            ("UPDATE competency_items SET display_order = 5 WHERE item_code = 'CERT_OTHER'", "CERT_OTHER=5"),
             # 코칭경력 (1xx)
             ("UPDATE competency_items SET display_order = 101 WHERE item_code = 'EXP_COACHING_HOURS'", "EXP_COACHING_HOURS=101"),
             ("UPDATE competency_items SET display_order = 102 WHERE item_code = 'EDUCATION_TRAINING'", "EDUCATION_TRAINING=102"),
@@ -437,6 +441,79 @@ if DATABASE_URL:
                 print("[OK] EDUCATION_TRAINING already exists")
         except Exception as e:
             print(f"[WARN] EDUCATION_TRAINING creation: {e}")
+
+        # === 신규 항목: CERT_COUNSELING_EXISTS (상담심리치료자격-유무) ===
+        try:
+            cur.execute("""
+                INSERT INTO competency_items (
+                    item_name, item_code, category, input_type, is_active,
+                    template, is_repeatable, display_order,
+                    grade_edit_mode, evaluation_method, data_source,
+                    scoring_value_source, is_custom,
+                    grade_mappings, proof_required, field_label_overrides,
+                    visible_in_profile, data_source_item_code,
+                    grade_type, matching_type
+                ) VALUES (
+                    '상담심리치료자격-유무', 'CERT_COUNSELING_EXISTS', 'CERTIFICATION', 'text', true,
+                    'text_file', false, 2,
+                    'fixed', 'by_existence', 'form_input',
+                    'submitted', false,
+                    '[{"value":"true","score":20,"label":"있음"},{"value":"false","score":0,"label":"없음"}]',
+                    'optional', '{}',
+                    false, 'CERT_COUNSELING',
+                    'file_exists', 'grade'
+                )
+                ON CONFLICT (item_code) DO NOTHING
+            """)
+            if cur.rowcount > 0:
+                print("[OK] Created CERT_COUNSELING_EXISTS item")
+            else:
+                print("[OK] CERT_COUNSELING_EXISTS already exists")
+        except Exception as e:
+            print(f"[WARN] CERT_COUNSELING_EXISTS creation: {e}")
+
+        # === 신규 항목: CERT_OTHER_EXISTS (기타자격-유무) ===
+        try:
+            cur.execute("""
+                INSERT INTO competency_items (
+                    item_name, item_code, category, input_type, is_active,
+                    template, is_repeatable, display_order,
+                    grade_edit_mode, evaluation_method, data_source,
+                    scoring_value_source, is_custom,
+                    grade_mappings, proof_required, field_label_overrides,
+                    visible_in_profile, data_source_item_code,
+                    grade_type, matching_type
+                ) VALUES (
+                    '기타자격-유무', 'CERT_OTHER_EXISTS', 'CERTIFICATION', 'text', true,
+                    'text_file', false, 4,
+                    'fixed', 'by_existence', 'form_input',
+                    'submitted', false,
+                    '[{"value":"true","score":20,"label":"있음"},{"value":"false","score":0,"label":"없음"}]',
+                    'optional', '{}',
+                    false, 'CERT_OTHER',
+                    'file_exists', 'grade'
+                )
+                ON CONFLICT (item_code) DO NOTHING
+            """)
+            if cur.rowcount > 0:
+                print("[OK] Created CERT_OTHER_EXISTS item")
+            else:
+                print("[OK] CERT_OTHER_EXISTS already exists")
+        except Exception as e:
+            print(f"[WARN] CERT_OTHER_EXISTS creation: {e}")
+
+        # === 기존 커스텀 상담심리종류/기타자격종류 항목 비활성화 (정식 항목으로 대체) ===
+        try:
+            cur.execute("""
+                UPDATE competency_items SET is_active = false
+                WHERE item_code LIKE 'CUSTOM_%'
+                AND category = 'CERTIFICATION'
+                AND (item_name LIKE '%상담%심리%종류%' OR item_name LIKE '%기타%자격%종류%')
+            """)
+            if cur.rowcount > 0:
+                print(f"[OK] Deactivated {cur.rowcount} custom cert type items (replaced by formal items)")
+        except Exception as e:
+            print(f"[WARN] custom cert item deactivation: {e}")
 
         # === EDUCATION_TRAINING 필드 생성 ===
         try:

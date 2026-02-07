@@ -132,6 +132,10 @@ class CompetencyItem(Base):
     auto_confirm_across_projects = Column(Boolean, nullable=True, default=False)  # 타 과제 자동 컨펌
     field_label_overrides = Column(Text, nullable=True, default="{}")  # 필드 라벨 오버라이드 JSON
 
+    # Profile visibility (유무/종류 분리: 프로필에는 대표항목만 표시)
+    visible_in_profile = Column(Boolean, nullable=False, default=True)  # 프로필(나의정보)에 표시 여부
+    data_source_item_code = Column(String(100), nullable=True)  # 평가전용 항목의 데이터 소스 item_code
+
     # Custom question support
     is_custom = Column(Boolean, nullable=False, default=False)  # True for custom questions
     created_by = Column(Integer, ForeignKey("users.user_id"), nullable=True)  # Creator for custom questions

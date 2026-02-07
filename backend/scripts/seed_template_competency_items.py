@@ -207,13 +207,73 @@ async def seed_template_items():
                     ]
                 },
                 {
+                    "item_name": "상담심리치료자격-유무",
+                    "item_code": "CERT_COUNSELING_EXISTS",
+                    "category": CompetencyCategory.CERTIFICATION,
+                    "template": ItemTemplate.TEXT_FILE,
+                    "is_repeatable": False,
+                    "max_entries": None,
+                    "display_order": 2,
+                    "visible_in_profile": False,
+                    "data_source_item_code": "CERT_COUNSELING",
+                    "grade_edit_mode": "fixed",
+                    "evaluation_method": "by_existence",
+                    "grade_type": "file_exists",
+                    "matching_type": "grade",
+                    "grade_mappings": '[{"value":"true","score":20,"label":"있음"},{"value":"false","score":0,"label":"없음"}]',
+                    "fields": []
+                },
+                {
                     "item_name": "상담,심리치료관련 자격",
                     "item_code": "CERT_COUNSELING",
                     "category": CompetencyCategory.CERTIFICATION,
                     "template": ItemTemplate.TEXT_FILE,
                     "is_repeatable": True,
                     "max_entries": None,
-                    "display_order": 2,
+                    "display_order": 3,
+                    "fields": [
+                        {
+                            "field_name": "cert_name",
+                            "field_label": "자격증 명칭",
+                            "field_type": "text",
+                            "is_required": True,
+                            "display_order": 1,
+                            "placeholder": "자격증 명칭을 입력하세요"
+                        },
+                        {
+                            "field_name": "cert_file",
+                            "field_label": "자격증 업로드",
+                            "field_type": "file",
+                            "is_required": True,
+                            "display_order": 2
+                        }
+                    ]
+                },
+                {
+                    "item_name": "기타자격-유무",
+                    "item_code": "CERT_OTHER_EXISTS",
+                    "category": CompetencyCategory.CERTIFICATION,
+                    "template": ItemTemplate.TEXT_FILE,
+                    "is_repeatable": False,
+                    "max_entries": None,
+                    "display_order": 4,
+                    "visible_in_profile": False,
+                    "data_source_item_code": "CERT_OTHER",
+                    "grade_edit_mode": "fixed",
+                    "evaluation_method": "by_existence",
+                    "grade_type": "file_exists",
+                    "matching_type": "grade",
+                    "grade_mappings": '[{"value":"true","score":20,"label":"있음"},{"value":"false","score":0,"label":"없음"}]',
+                    "fields": []
+                },
+                {
+                    "item_name": "기타 자격증",
+                    "item_code": "CERT_OTHER",
+                    "category": CompetencyCategory.CERTIFICATION,
+                    "template": ItemTemplate.TEXT_FILE,
+                    "is_repeatable": True,
+                    "max_entries": None,
+                    "display_order": 5,
                     "fields": [
                         {
                             "field_name": "cert_name",
@@ -524,7 +584,14 @@ async def seed_template_items():
                     template_config=item_data.get("template_config"),
                     is_repeatable=item_data.get("is_repeatable", False),
                     max_entries=item_data.get("max_entries"),
-                    display_order=item_data.get("display_order", 999)
+                    display_order=item_data.get("display_order", 999),
+                    visible_in_profile=item_data.get("visible_in_profile", True),
+                    data_source_item_code=item_data.get("data_source_item_code"),
+                    grade_edit_mode=item_data.get("grade_edit_mode", "flexible"),
+                    evaluation_method=item_data.get("evaluation_method", "standard"),
+                    grade_type=item_data.get("grade_type"),
+                    matching_type=item_data.get("matching_type"),
+                    grade_mappings=item_data.get("grade_mappings", "[]"),
                 )
                 session.add(item)
                 await session.flush()  # Get item_id

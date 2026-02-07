@@ -796,9 +796,12 @@ const projectService = {
 
   /**
    * Get all competency items (master data)
+   * @param includeHidden - true면 유무 항목 등 프로필 비표시 항목도 포함 (설문빌더용)
    */
-  async getCompetencyItems(): Promise<CompetencyItem[]> {
-    const response = await api.get('/competencies/items')
+  async getCompetencyItems(includeHidden = false): Promise<CompetencyItem[]> {
+    const response = await api.get('/competencies/items', {
+      params: includeHidden ? { include_hidden: true } : undefined
+    })
     return response.data
   },
 

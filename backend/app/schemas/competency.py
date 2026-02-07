@@ -120,6 +120,10 @@ class CompetencyItemResponse(BaseModel):
     auto_confirm_across_projects: Optional[bool] = None  # 타 과제 자동 컨펌
     field_label_overrides: Optional[str] = None  # 필드 라벨 오버라이드 JSON
 
+    # 프로필 표시 설정 (유무/종류 분리)
+    visible_in_profile: bool = True  # 프로필(나의정보)에 표시 여부
+    data_source_item_code: Optional[str] = None  # 평가전용 항목의 데이터 소스 item_code
+
     # Fields
     fields: List[CompetencyItemFieldResponse] = []
 

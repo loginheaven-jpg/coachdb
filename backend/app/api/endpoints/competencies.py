@@ -129,14 +129,19 @@ async def migrate_from_applications(
 
 @router.get("/items", response_model=List[CompetencyItemResponse])
 async def get_competency_items(
+    include_hidden: bool = False,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get all active competency items (master data)"""
+    """Get all active competency items (master data)
+
+    include_hidden=False (default): 프로필용 - visible_in_profile=true만 반환
+    include_hidden=True: 설문빌더용 - 모든 활성 항목 반환 (유무 항목 포함)
+    """
     from sqlalchemy.orm import selectinload
     from app.schemas.competency import UnifiedTemplateBasicInfo
 
-    result = await db.execute(
+    query = (
         select(CompetencyItem)
         .where(CompetencyItem.is_active == True)
         .order_by(CompetencyItem.display_order)
@@ -145,6 +150,10 @@ async def get_competency_items(
             selectinload(CompetencyItem.unified_template)
         )
     )
+    if not include_hidden:
+        query = query.where(CompetencyItem.visible_in_profile == True)
+
+    result = await db.execute(query)
     items = result.scalars().all()
 
     # Build response with unified_template info
@@ -189,6 +198,9 @@ async def get_competency_items(
             "scoring_source_field": item.scoring_source_field,
             "extract_pattern": item.extract_pattern,
             "has_scoring": item.grade_type is not None and item.matching_type is not None,
+            # 프로필 표시 설정 (유무/종류 분리)
+            "visible_in_profile": item.visible_in_profile if item.visible_in_profile is not None else True,
+            "data_source_item_code": item.data_source_item_code,
             "fields": [
                 {
                     "field_id": f.field_id,
@@ -1290,6 +1302,9 @@ async def get_all_competency_items(
             "scoring_source_field": item.scoring_source_field,
             "extract_pattern": item.extract_pattern,
             "has_scoring": item.grade_type is not None and item.matching_type is not None,
+            # 프로필 표시 설정 (유무/종류 분리)
+            "visible_in_profile": item.visible_in_profile if item.visible_in_profile is not None else True,
+            "data_source_item_code": item.data_source_item_code,
             "fields": [
                 {
                     "field_id": f.field_id,

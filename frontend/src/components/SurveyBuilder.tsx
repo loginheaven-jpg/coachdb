@@ -264,7 +264,7 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
         'BASIC_NAME', 'BASIC_PHONE', 'BASIC_EMAIL', 'BASIC_ADDRESS',
         'BASIC_GENDER', 'BASIC_BIRTHDATE', 'DETAIL_COACHING_AREA', 'DETAIL_CERT_NUMBER'
       ]
-      const allItemsFromApi = await projectService.getCompetencyItems()
+      const allItemsFromApi = await projectService.getCompetencyItems(true)
       const items = allItemsFromApi.filter(item => !USER_PROFILE_ITEM_CODES.includes(item.item_code))
       setAllItems(items)
 

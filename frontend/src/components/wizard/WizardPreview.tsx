@@ -110,7 +110,7 @@ function Step3Preview({ state }: { state: WizardState }) {
   useEffect(() => {
     // 캐시가 비어있으면 API 호출
     if (itemCache.length === 0) {
-      projectService.getCompetencyItems().then(data => {
+      projectService.getCompetencyItems(true).then(data => {
         itemCache = data
         setItems(data)
       }).catch(err => {
@@ -174,7 +174,7 @@ function Step4Preview({ state }: { state: WizardState }) {
 
   useEffect(() => {
     if (itemCache.length === 0) {
-      projectService.getCompetencyItems().then(data => {
+      projectService.getCompetencyItems(true).then(data => {
         itemCache = data
         setItems(data)
       }).catch(err => {
