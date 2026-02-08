@@ -235,6 +235,7 @@ function gradeTemplateToCriteria(template: GradeTemplate, itemId: number, isRepe
       score: m.score ?? 0,
       ...(m.label ? { label: m.label } : {})
     })),
+    matchMode: template.matchingType === MTUpper.CONTAINS ? 'contains' : 'exact',
     configured: true
   }
   return scoringConfigToCriteriaCreate(config)

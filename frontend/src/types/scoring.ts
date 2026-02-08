@@ -64,6 +64,7 @@ export interface ScoringConfig {
   extractPattern?: string  // JSON 추출 패턴
   aggregationMode?: AggregationMode
   gradeMappings?: GradeMapping[]  // 등급별 점수 매핑
+  matchMode?: 'exact' | 'contains'  // GRADE 매칭 시 개별 등급값 비교 방식 (기본: exact)
   configured: boolean  // 설정 완료 여부
 
   // 템플릿 관련

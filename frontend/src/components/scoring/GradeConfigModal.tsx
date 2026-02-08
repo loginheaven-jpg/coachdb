@@ -3,7 +3,7 @@
  * 위저드 Step4와 SurveyBuilder에서 사용
  */
 
-import { Modal, Select, Radio, Input, InputNumber, Button, Space, Alert, Divider, Collapse, Checkbox, message } from 'antd'
+import { Modal, Select, Radio, Input, InputNumber, Button, Space, Alert, Divider, Collapse, Checkbox, AutoComplete, message } from 'antd'
 import { PlusOutlined, DeleteOutlined, SettingOutlined } from '@ant-design/icons'
 import { useState, useEffect } from 'react'
 import {
@@ -32,6 +32,18 @@ import {
 import { validateScoringConfig } from '../../utils/scoringHelpers'
 
 const { Panel } = Collapse
+
+// 사용자 기본정보 필드 목록 (User 모델 기준)
+const USER_FIELD_OPTIONS = [
+  { value: 'coach_certification_number', label: '코치인증번호 (coach_certification_number)' },
+  { value: 'coaching_fields', label: '코칭 분야 (coaching_fields)' },
+  { value: 'organization', label: '소속 기관 (organization)' },
+  { value: 'gender', label: '성별 (gender)' },
+  { value: 'birth_year', label: '출생년도 (birth_year)' },
+  { value: 'address', label: '주소 (address)' },
+  { value: 'in_person_coaching_area', label: '대면코칭가능지역 (in_person_coaching_area)' },
+  { value: 'name', label: '이름 (name)' },
+]
 
 interface GradeConfigModalProps {
   visible: boolean
@@ -102,9 +114,13 @@ export default function GradeConfigModal({
 
   // 템플릿 적용
   const applyTemplate = (template: GradeTemplate) => {
+    // CONTAINS 템플릿은 GRADE + matchMode:'contains'로 변환
+    // (scoringConfigToCriteriaCreate는 GRADE matchingType만 지원)
+    const isContains = template.matchingType === MatchingType.CONTAINS
     setConfig(prev => ({
       ...prev,
-      matchingType: template.matchingType,
+      matchingType: isContains ? MatchingType.GRADE : template.matchingType,
+      matchMode: isContains ? 'contains' as const : 'exact' as const,
       gradeType: template.gradeType,
       valueSource: template.valueSource,
       sourceField: template.sourceField,  // 템플릿의 sourceField 복사
@@ -372,6 +388,16 @@ export default function GradeConfigModal({
           </div>
         )}
 
+        {/* 3-1. 등급값 부분일치 옵션 (STRING + GRADE 전용) */}
+        {config.gradeType === GradeType.STRING && config.matchingType === MatchingType.GRADE && (
+          <Checkbox
+            checked={config.matchMode === 'contains'}
+            onChange={(e) => setConfig(prev => ({ ...prev, matchMode: e.target.checked ? 'contains' : 'exact' }))}
+          >
+            등급값 부분일치 허용 (예: 등급 "임상심리사" → 입력값 "임상심리사 1급"에 매칭)
+          </Checkbox>
+        )}
+
         {/* 4. 고급 설정 (접을 수 있음) */}
         <Collapse
           ghost
@@ -411,21 +437,37 @@ export default function GradeConfigModal({
               </div>
 
               {/* 필드명 */}
-              {(config.valueSource === ValueSource.USER_FIELD || config.valueSource === ValueSource.JSON_FIELD) && (
+              {config.valueSource === ValueSource.USER_FIELD && (
+                <div>
+                  <label style={{ fontWeight: 'bold', display: 'block', marginBottom: 8 }}>
+                    필드명 <span style={{ color: '#ff4d4f' }}>*</span>
+                  </label>
+                  <AutoComplete
+                    style={{ width: '100%' }}
+                    options={USER_FIELD_OPTIONS}
+                    placeholder="필드를 선택하거나 직접 입력"
+                    value={config.sourceField}
+                    onChange={(value) => setConfig(prev => ({ ...prev, sourceField: value }))}
+                    filterOption={(inputValue, option) =>
+                      (option?.value?.toString() || '').toLowerCase().includes(inputValue.toLowerCase()) ||
+                      (option?.label?.toString() || '').toLowerCase().includes(inputValue.toLowerCase())
+                    }
+                  />
+                </div>
+              )}
+              {config.valueSource === ValueSource.JSON_FIELD && (
                 <div>
                   <label style={{ fontWeight: 'bold', display: 'block', marginBottom: 8 }}>
                     필드명 <span style={{ color: '#ff4d4f' }}>*</span>
                   </label>
                   <Input
-                    placeholder="예: kca_certification_level"
+                    placeholder="예: certifications[0].name"
                     value={config.sourceField}
                     onChange={(e) => setConfig(prev => ({ ...prev, sourceField: e.target.value }))}
                   />
-                  {config.valueSource === ValueSource.JSON_FIELD && (
-                    <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
-                      JSON 경로 예: certifications[0].name
-                    </div>
-                  )}
+                  <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
+                    JSON 경로 예: certifications[0].name
+                  </div>
                 </div>
               )}
             </Space>

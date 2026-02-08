@@ -382,11 +382,13 @@ export function criteriaCreateToScoringConfig(
   let gradeMappings: Array<{ value: string | number; score: number; label?: string }> = []
   let gradeType: GradeType | undefined
   let proofPenalty: number | undefined
+  let matchMode: 'exact' | 'contains' | undefined
 
   try {
     const config = JSON.parse(first.expected_value || '{}')
     gradeType = config.type as GradeType
     proofPenalty = config.proofPenalty
+    matchMode = config.matchMode as 'exact' | 'contains' | undefined
 
     if (config.type === 'file_exists' && config.grades && !Array.isArray(config.grades)) {
       gradeMappings = [
@@ -415,6 +417,7 @@ export function criteriaCreateToScoringConfig(
     aggregationMode: aggModeToUpper[first.aggregation_mode || 'any_match'] || AggregationMode.ANY_MATCH,
     gradeMappings,
     proofPenalty,
+    matchMode,
     configured: true
   }
 }
@@ -453,6 +456,11 @@ export function scoringConfigToCriteriaCreate(config: ScoringConfig): {
   // multi_select mode 추가
   if (config.gradeType === GradeType.MULTI_SELECT) {
     gradeConfig.mode = 'contains'
+  }
+
+  // matchMode 추가 (CONTAINS 매칭 지원 - 백엔드 scoring_service에서 사용)
+  if (config.matchMode && config.matchMode !== 'exact') {
+    gradeConfig.matchMode = config.matchMode
   }
 
   // proofPenalty 보존
