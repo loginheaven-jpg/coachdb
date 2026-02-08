@@ -329,9 +329,10 @@ export default function UnifiedCompetencyPage({ embedded = false }: UnifiedCompe
       const filteredItems = itemsData.filter(item => !HIDDEN_ITEM_CODES.includes(item.item_code))
       setCompetencyItems(filteredItems)
 
-      // 역량 항목을 카테고리별로 그룹화
+      // 역량 항목을 카테고리별로 그룹화 (display_order 순 정렬)
+      const sorted = [...filteredItems].sort((a, b) => (a.display_order ?? 999) - (b.display_order ?? 999))
       const grouped: GroupedItems = {}
-      filteredItems.forEach(item => {
+      sorted.forEach(item => {
         const category = item.category || 'DETAIL'
         if (!grouped[category]) {
           grouped[category] = []

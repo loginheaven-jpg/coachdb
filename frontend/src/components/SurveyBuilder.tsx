@@ -448,17 +448,13 @@ export default function SurveyBuilder({ projectId, visible = true, onClose, onSa
       }
     })
 
-    // 코칭경력 그룹 내 정렬: '누적 코칭 시간'(EXP_COACHING_HOURS)이 먼저 나오도록
-    grouped['코칭경력'].sort((a, b) => {
-      const codeA = a.item.item_code || ''
-      const codeB = b.item.item_code || ''
-      // EXP_COACHING_HOURS를 최우선으로
-      if (codeA === 'EXP_COACHING_HOURS') return -1
-      if (codeB === 'EXP_COACHING_HOURS') return 1
-      // 커스텀 항목은 뒤로
-      if (a.item.is_custom && !b.item.is_custom) return 1
-      if (!a.item.is_custom && b.item.is_custom) return -1
-      return 0
+    // 모든 그룹을 display_order 기준으로 정렬 (커스텀 항목은 뒤로)
+    Object.values(grouped).forEach(items => {
+      items.sort((a, b) => {
+        if (a.item.is_custom && !b.item.is_custom) return 1
+        if (!a.item.is_custom && b.item.is_custom) return -1
+        return (a.item.display_order ?? 999) - (b.item.display_order ?? 999)
+      })
     })
 
     return grouped
